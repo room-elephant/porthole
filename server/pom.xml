@@ -23,7 +23,7 @@
         <npm.version>11.6.2</npm.version>
         <jspecify.version>1.0.0</jspecify.version>
         <jacoco.version>0.8.14</jacoco.version>
-        <spotless.version>3.3.0</spotless.version>
+        <spotless.version>3.4.0</spotless.version>
         <testcontainers.version>2.0.3</testcontainers.version>
         <testcontainers-junit.version>1.21.4</testcontainers-junit.version>
         <wiremock.version>3.13.2</wiremock.version>
