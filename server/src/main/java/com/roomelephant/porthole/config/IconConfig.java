@@ -3,21 +3,22 @@ package com.roomelephant.porthole.config;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.roomelephant.porthole.config.properties.DashboardProperties;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
 
 @Configuration
 @Slf4j
 public class IconConfig {
+
+    public static final String FILE_NAME = "icons.yml";
 
     @Bean
     public Map<String, String> iconMappings(DashboardProperties dashboardProperties) {
@@ -25,7 +26,7 @@ public class IconConfig {
         YAMLMapper yamlMapper = new YAMLMapper();
 
         try {
-            ClassPathResource resource = new ClassPathResource("icons.yml");
+            ClassPathResource resource = new ClassPathResource(FILE_NAME);
             if (resource.exists()) {
                 try (InputStream inputStream = resource.getInputStream()) {
                     Map<String, String> defaults = yamlMapper.readValue(inputStream, new TypeReference<>() {});
@@ -45,7 +46,9 @@ public class IconConfig {
                 if (external != null) {
                     mappings.putAll(external);
                 }
-                log.debug("Loaded external icon config from {}", dashboardProperties.icons().path());
+                log.debug(
+                        "Loaded external icon config from {}",
+                        dashboardProperties.icons().path());
             } catch (IOException e) {
                 log.error("Failed to load external icon config: {}", e.getMessage());
             }
@@ -55,4 +58,3 @@ public class IconConfig {
         return Collections.unmodifiableMap(mappings);
     }
 }
-

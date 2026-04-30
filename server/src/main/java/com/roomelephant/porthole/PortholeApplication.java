@@ -8,8 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 @ConfigurationPropertiesScan("com.roomelephant.porthole.config.properties")
 public class PortholeApplication {
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         SpringApplication.run(PortholeApplication.class, args);
     }
-    
 }

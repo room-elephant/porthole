@@ -1,9 +1,16 @@
 package com.roomelephant.porthole.controller;
 
-import com.roomelephant.porthole.model.ContainerDTO;
-import com.roomelephant.porthole.model.VersionDTO;
-import com.roomelephant.porthole.service.ContainerService;
-import com.roomelephant.porthole.service.VersionService;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import com.roomelephant.porthole.domain.model.ContainerDTO;
+import com.roomelephant.porthole.domain.model.VersionDTO;
+import com.roomelephant.porthole.domain.service.ContainerService;
+import com.roomelephant.porthole.domain.service.VersionService;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -11,14 +18,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ContainerController.class)
 @DisplayName("ContainerController")
@@ -40,11 +39,11 @@ class ContainerControllerTest {
         @Test
         @DisplayName("should return containers with default parameters")
         void shouldReturnContainersWithDefaultParameters() throws Exception {
-            List<ContainerDTO> containers = List.of(
-                    createContainerDTO("container1"),
-                    createContainerDTO("container2")
-            );
-            when(containerService.getContainers(false, false)).thenReturn(containers);
+            ContainerDTO dto1 = createContainerDTO("container1");
+            ContainerDTO dto2 = createContainerDTO("container2");
+            List<ContainerDTO> containerDTOs = List.of(dto1, dto2);
+
+            when(containerService.getContainers(false, false)).thenReturn(containerDTOs);
 
             mockMvc.perform(get("/api/containers"))
                     .andExpect(status().isOk())
@@ -58,11 +57,14 @@ class ContainerControllerTest {
         @Test
         @DisplayName("should pass includeWithoutPorts parameter")
         void shouldPassIncludeWithoutPortsParameter() throws Exception {
-            when(containerService.getContainers(true, false)).thenReturn(Collections.emptyList());
+            ContainerDTO dtoWithPort = createContainerDTO("c1");
+            ContainerDTO dtoNoPort = createContainerDTO("c2", Collections.emptySet());
 
-            mockMvc.perform(get("/api/containers")
-                            .param("includeWithoutPorts", "true"))
-                    .andExpect(status().isOk());
+            when(containerService.getContainers(true, false)).thenReturn(List.of(dtoWithPort, dtoNoPort));
+
+            mockMvc.perform(get("/api/containers").param("includeWithoutPorts", "true"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(2));
 
             verify(containerService).getContainers(true, false);
         }
@@ -72,8 +74,7 @@ class ContainerControllerTest {
         void shouldPassIncludeStoppedParameter() throws Exception {
             when(containerService.getContainers(false, true)).thenReturn(Collections.emptyList());
 
-            mockMvc.perform(get("/api/containers")
-                            .param("includeStopped", "true"))
+            mockMvc.perform(get("/api/containers").param("includeStopped", "true"))
                     .andExpect(status().isOk());
 
             verify(containerService).getContainers(false, true);
@@ -135,16 +136,19 @@ class ContainerControllerTest {
     }
 
     private ContainerDTO createContainerDTO(String name) {
+        return createContainerDTO(name, Set.of(80));
+    }
+
+    private ContainerDTO createContainerDTO(String name, Set<Integer> ports) {
         return new ContainerDTO(
                 name + "-id",
                 name,
                 name,
                 "nginx:latest",
-                Set.of(80),
+                ports,
                 "https://example.com/nginx.png",
                 "test-project",
                 "running",
-                "Up 1 hour"
-        );
+                "Up 1 hour");
     }
 }

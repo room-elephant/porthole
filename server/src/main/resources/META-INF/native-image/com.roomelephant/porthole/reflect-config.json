@@ -1409,13 +1409,21 @@
     "fields": [
       {
         "name": "host"
+      },
+      {
+        "name": "connectionTimeout"
+      },
+      {
+        "name": "responseTimeout"
       }
     ],
     "methods": [
       {
         "name": "<init>",
         "parameterTypes": [
-          "java.lang.String"
+          "java.lang.String",
+          "java.time.Duration",
+          "java.time.Duration"
         ]
       }
     ],
@@ -1428,6 +1436,9 @@
       },
       {
         "name": "timeout"
+      },
+      {
+        "name": "urls"
       }
     ],
     "methods": [
@@ -1435,7 +1446,8 @@
         "name": "<init>",
         "parameterTypes": [
           "com.roomelephant.porthole.config.properties.RegistryProperties$Timeout",
-          "com.roomelephant.porthole.config.properties.RegistryProperties$Cache"
+          "com.roomelephant.porthole.config.properties.RegistryProperties$Cache",
+          "com.roomelephant.porthole.config.properties.RegistryProperties$Urls"
         ]
       }
     ],
@@ -1480,6 +1492,30 @@
       }
     ],
     "name": "com.roomelephant.porthole.config.properties.RegistryProperties$Timeout"
+  },
+  {
+    "fields": [
+      {
+        "name": "registry"
+      },
+      {
+        "name": "auth"
+      },
+      {
+        "name": "repositories"
+      }
+    ],
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "com.roomelephant.porthole.config.properties.RegistryProperties$Urls"
   },
   {
     "methods": [

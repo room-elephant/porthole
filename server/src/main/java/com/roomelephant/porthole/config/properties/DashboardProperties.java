@@ -9,10 +9,8 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "dashboard")
 @Validated
 public record DashboardProperties(
-        @Valid
-        @NotNull(message = "Icons configuration is required")
-        Icons icons
-) {
+        @Valid @NotNull(message = "Icons configuration is required")
+        Icons icons) {
     public record Icons(
             @NotBlank(message = "Icons path must be configured")
             String path,
@@ -21,7 +19,5 @@ public record DashboardProperties(
             String url,
 
             @NotBlank(message = "Icons extension must be configured")
-            String extension
-    ) {}
+            String extension) {}
 }
-

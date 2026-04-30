@@ -15,6 +15,7 @@ jobs:
     uses: ./.github/workflows/reusable-server.yml
     permissions:
       contents: read
+      checks: write
     with:
       upload_coverage: true
 

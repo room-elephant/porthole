@@ -44,6 +44,11 @@ The UI provides toggles to:
 - **Show stopped containers**: Include non-running containers (equivalent to `docker ps -a`)
 - **Show containers without ports**: Include containers without exposed ports
 
+> [!NOTE]
+> **Limitation**: When showing stopped containers, exposed ports are not currently visible because they are not mapped to public ports on the host while stopped.
+>
+> **Future Work**: We plan to improve this by inspecting the container's configuration to detect intended exposed ports even when the container is not running.
+
 ## Version Detection
 
 Porthole attempts to detect the current version of each container using multiple strategies (in priority order):

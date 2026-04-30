@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      checks: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,19 +25,54 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: maven
+      
+      - name: Cache Host Docker Images
+        id: cache-host-docker
+        uses: actions/cache@v4
+        with:
+          path: host-docker-images
+          key: host-docker-images-${{ runner.os }}-docker-29.1.4-dind-ryuk-0.13.0
+
+      - name: Load Cached Docker Images
+        if: steps.cache-host-docker.outputs.cache-hit == 'true'
+        run: |
+          docker load -i host-docker-images/docker-dind.tar
+          docker load -i host-docker-images/ryuk.tar
+
+      - name: Pull and Save Docker Images
+        if: steps.cache-host-docker.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p host-docker-images
+          docker pull docker:29.1.4-dind
+          docker save -o host-docker-images/docker-dind.tar docker:29.1.4-dind
+          
+          docker pull testcontainers/ryuk:0.13.0
+          docker save -o host-docker-images/ryuk.tar testcontainers/ryuk:0.13.0
+
+      - name: Cache Docker-in-Docker images
+        uses: actions/cache@v4
+        with:
+          path: docker-cache
+          key: docker-images-v2-${{ runner.os }}-${{ hashFiles('server/pom.xml') }}
+          restore-keys: |
+            docker-images-v2-${{ runner.os }}-
+
+      - name: Check code formatting
+        working-directory: server
+        run: mvn -B -ntp spotless:check
 
       - name: Build without tests
         working-directory: server
-        run: mvn compile -DskipTests -B
+        run: mvn -B -ntp compile -DskipTests -Dspotless.check.skip=true
 
-      - name: Run tests with coverage
+      - name: Run unit tests with coverage
         working-directory: server
-        run: mvn test -B
+        run: mvn -B -ntp test -Dspotless.check.skip=true
 
-      - name: Generate coverage summary
+      - name: Generate unit test coverage summary
         if: ${{ inputs.upload_coverage }}
         run: |
-          echo "## Coverage Report for server" >> $GITHUB_STEP_SUMMARY
+          echo "## Unit Test Coverage Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Status | Category | Percentage | Covered / Total |" >> $GITHUB_STEP_SUMMARY
           echo "|:------:|----------|------------|-----------------|" >> $GITHUB_STEP_SUMMARY
@@ -54,3 +90,32 @@ jobs:
               printf "| %s | Instructions | %.2f%% (🎯 80%%) | %d / %d |\n", icon(ip,80), ip, inst_c, inst_c+inst_m
             }
           ' server/target/site/jacoco/jacoco.csv >> $GITHUB_STEP_SUMMARY
+
+      - name: Run integration tests
+        working-directory: server
+        env:
+          CI: true
+          DOCKER_CACHE_PATH: ${{ github.workspace }}/docker-cache
+        run: mvn -B -ntp verify -Pintegration-tests -Dspotless.check.skip=true
+
+      - name: Fix cache permissions
+        if: always()
+        run: |
+          if [ -d "docker-cache" ]; then
+            # Remove special files (block/char devices, sockets, pipes) and overlayfs work dirs
+            # Use sudo because some dirs might still be root-owned/locked
+            sudo find docker-cache \( -type b -o -type c -o -type s -o -type p \) -delete
+            sudo find docker-cache -name "work" -type d -exec rm -rf {} +
+            
+            # Fix permissions
+            sudo chown -R $USER:$USER docker-cache
+            sudo chmod -R a+rX docker-cache
+          fi
+
+      - name: Publish integration test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: server/target/failsafe-reports/TEST-*.xml
+          check_name: Integration Test Results
+          comment_mode: off

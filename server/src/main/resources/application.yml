@@ -9,7 +9,6 @@ server:
 spring:
   application:
     name: porthole
-    title: Porthole
     version: "@project.version@"
   threads:
     virtual:
@@ -19,8 +18,11 @@ spring:
   banner.location: classpath:/banner.txt
 
 # Docker configuration
-docker:
-  host: unix:///var/run/docker.sock
+porthole:
+  docker:
+    host: unix:///var/run/docker.sock
+    connection-timeout: 5s
+    response-timeout: 60s
 
 # Icon configuration
 dashboard:
@@ -37,6 +39,10 @@ registry:
   cache:
     ttl: 1h
     version-max-size: 100
+  urls:
+    registry: "https://registry-1.docker.io/v2/"
+    auth: "https://auth.docker.io/token?service=registry.docker.io&scope=repository:"
+    repositories: "https://hub.docker.com/v2/repositories/"
 
 # Actuator configuration
 management:
@@ -46,6 +52,5 @@ management:
         include: health
   endpoint:
     health:
-      show-details: never
+      show-details: always
       show-components: always
-
