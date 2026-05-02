@@ -95,8 +95,8 @@ public class PortholeContainer {
                 .createContainerCmd(IMAGE_TAG)
                 .withName("porthole-it")
                 .withHostConfig(HostConfig.newHostConfig()
-                        .withPortBindings(new PortBinding(
-                                Ports.Binding.bindPort(PORTHOLE_PORT), ExposedPort.tcp(PORTHOLE_PORT)))
+                        .withPortBindings(
+                                new PortBinding(Ports.Binding.bindPort(PORTHOLE_PORT), ExposedPort.tcp(PORTHOLE_PORT)))
                         .withBinds(new Bind("/var/run/docker.sock", new Volume("/var/run/docker.sock")))
                         .withExtraHosts("wiremock:" + wireMockIp))
                 .withExposedPorts(ExposedPort.tcp(PORTHOLE_PORT))

@@ -33,7 +33,8 @@ public abstract class IntegrationTestBase {
     static {
         dockerInfra = new DockerInfrastructure();
         wireMockContainer = dockerInfra.startWireMock();
-        String wireMockIp = wireMockContainer.getContainerInfo()
+        String wireMockIp = wireMockContainer
+                .getContainerInfo()
                 .getNetworkSettings()
                 .getNetworks()
                 .values()
@@ -91,8 +92,7 @@ public abstract class IntegrationTestBase {
             throw new AssertionError("The following requests were made but not matched by any stub: " + details);
         }
 
-        List<StubMapping> allStubs =
-                wireMockClient().listAllStubMappings().getMappings();
+        List<StubMapping> allStubs = wireMockClient().listAllStubMappings().getMappings();
         List<StubMapping> unusedStubs = allStubs.stream()
                 .filter(stub -> allServeEvents.stream()
                         .noneMatch(event -> event.getStubMapping() != null

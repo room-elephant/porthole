@@ -106,20 +106,23 @@ class VersionEndpointIT extends IntegrationTestBase {
     }
 
     void stubAuth() {
-        wireMockClient().stubFor(get(urlMatching("/auth.*"))
-                .willReturn(aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("{\"token\":\"mock-token\"}")));
+        wireMockClient()
+                .stubFor(get(urlMatching("/auth.*"))
+                        .willReturn(aResponse()
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("{\"token\":\"mock-token\"}")));
     }
 
     void stubRegistryTags404(String image) {
-        wireMockClient().stubFor(get(urlEqualTo("/v2/repositories/library/" + image + "/tags?page_size=100"))
-                .willReturn(aResponse().withStatus(404)));
+        wireMockClient()
+                .stubFor(get(urlEqualTo("/v2/repositories/library/" + image + "/tags?page_size=100"))
+                        .willReturn(aResponse().withStatus(404)));
     }
 
     void stubManifest404(String image, String version) {
-        wireMockClient().stubFor(head(urlMatching("/v2/library/" + image + "/manifests/" + version))
-                .willReturn(aResponse().withStatus(404)));
+        wireMockClient()
+                .stubFor(head(urlMatching("/v2/library/" + image + "/manifests/" + version))
+                        .willReturn(aResponse().withStatus(404)));
     }
 
     protected @NotNull VersionDTO fetchVersion(String containerId) {
@@ -148,10 +151,11 @@ class VersionEndpointIT extends IntegrationTestBase {
         }
         tagsJson.append("]}");
 
-        wireMockClient().stubFor(get(urlEqualTo("/v2/repositories/library/" + image + "/tags?page_size=100"))
-                .willReturn(aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(tagsJson.toString())));
+        wireMockClient()
+                .stubFor(get(urlEqualTo("/v2/repositories/library/" + image + "/tags?page_size=100"))
+                        .willReturn(aResponse()
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(tagsJson.toString())));
     }
 
     /**
@@ -162,10 +166,11 @@ class VersionEndpointIT extends IntegrationTestBase {
      * @param digest  Digest value (e.g., "sha256:newdigest")
      */
     void stubManifestDigest(String image, String version, String digest) {
-        wireMockClient().stubFor(head(urlEqualTo("/v2/library/" + image + "/manifests/" + version))
-                .willReturn(aResponse()
-                        .withHeader("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
-                        .withHeader("Docker-Content-Digest", digest)
-                        .withBody("{}")));
+        wireMockClient()
+                .stubFor(head(urlEqualTo("/v2/library/" + image + "/manifests/" + version))
+                        .willReturn(aResponse()
+                                .withHeader("Content-Type", "application/vnd.docker.distribution.manifest.v2+json")
+                                .withHeader("Docker-Content-Digest", digest)
+                                .withBody("{}")));
     }
 }

@@ -47,7 +47,8 @@ class DockerConnectionFailureIT {
     static {
         dockerInfra = new DockerInfrastructure();
         wireMockContainer = dockerInfra.startWireMock();
-        wireMockIp = wireMockContainer.getContainerInfo()
+        wireMockIp = wireMockContainer
+                .getContainerInfo()
                 .getNetworkSettings()
                 .getNetworks()
                 .values()
@@ -89,7 +90,10 @@ class DockerConnectionFailureIT {
             } catch (Exception ignored) {
             }
             try {
-                dindClient.removeContainerCmd(runningContainerId).withForce(true).exec();
+                dindClient
+                        .removeContainerCmd(runningContainerId)
+                        .withForce(true)
+                        .exec();
             } catch (Exception ignored) {
             }
             runningContainerId = null;
@@ -190,7 +194,8 @@ class DockerConnectionFailureIT {
                 .createContainerCmd(IMAGE_TAG)
                 .withName(name)
                 .withHostConfig(HostConfig.newHostConfig()
-                        .withPortBindings(new PortBinding(Ports.Binding.empty(), ExposedPort.tcp(PORTHOLE_PORT)))
+                        .withPortBindings(
+                                new PortBinding(Ports.Binding.bindPort(PORTHOLE_PORT), ExposedPort.tcp(PORTHOLE_PORT)))
                         .withExtraHosts("wiremock:" + wireMockIp))
                 .withExposedPorts(ExposedPort.tcp(PORTHOLE_PORT))
                 .withEnv(
@@ -205,7 +210,7 @@ class DockerConnectionFailureIT {
 
         dindClient.startContainerCmd(id).exec();
         runningContainerId = id;
-        portholeBaseUrl = buildBaseUrl(id);
+        portholeBaseUrl = buildBaseUrl();
         waitUntilResponding(portholeBaseUrl);
     }
 
@@ -218,8 +223,7 @@ class DockerConnectionFailureIT {
         String setupId = dindClient
                 .createContainerCmd("busybox:1.37.0-uclibc")
                 .withCmd("sh", "-c", "touch /data/locked.sock && chmod 000 /data/locked.sock")
-                .withHostConfig(HostConfig.newHostConfig()
-                        .withBinds(new Bind(volumeName, new Volume("/data"))))
+                .withHostConfig(HostConfig.newHostConfig().withBinds(new Bind(volumeName, new Volume("/data"))))
                 .exec()
                 .getId();
         dindClient.startContainerCmd(setupId).exec();
@@ -231,7 +235,8 @@ class DockerConnectionFailureIT {
                 .createContainerCmd(IMAGE_TAG)
                 .withName(name)
                 .withHostConfig(HostConfig.newHostConfig()
-                        .withPortBindings(new PortBinding(Ports.Binding.empty(), ExposedPort.tcp(PORTHOLE_PORT)))
+                        .withPortBindings(
+                                new PortBinding(Ports.Binding.bindPort(PORTHOLE_PORT), ExposedPort.tcp(PORTHOLE_PORT)))
                         .withBinds(new Bind(volumeName, new Volume("/tmp")))
                         .withExtraHosts("wiremock:" + wireMockIp))
                 .withExposedPorts(ExposedPort.tcp(PORTHOLE_PORT))
@@ -247,26 +252,17 @@ class DockerConnectionFailureIT {
 
         dindClient.startContainerCmd(id).exec();
         runningContainerId = id;
-        portholeBaseUrl = buildBaseUrl(id);
+        portholeBaseUrl = buildBaseUrl();
         waitUntilResponding(portholeBaseUrl);
     }
 
-    private String buildBaseUrl(String containerId) {
-        var bindings = dindClient
-                .inspectContainerCmd(containerId)
-                .exec()
-                .getNetworkSettings()
-                .getPorts()
-                .getBindings()
-                .get(ExposedPort.tcp(PORTHOLE_PORT));
-        int hostPort = Integer.parseInt(bindings[0].getHostPortSpec());
-        return "http://" + dockerInfra.getDinDHost() + ":" + hostPort;
+    private String buildBaseUrl() {
+        return "http://" + dockerInfra.getDinDHost() + ":" + dockerInfra.getDinDMappedPort9753();
     }
 
     private static void waitUntilResponding(String baseUrl) throws Exception {
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(2))
-                .build();
+        HttpClient client =
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
         long deadline = System.currentTimeMillis() + 60_000;
         while (System.currentTimeMillis() < deadline) {
             try {

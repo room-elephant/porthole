@@ -14,6 +14,7 @@ import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.UUID;
 import lombok.SneakyThrows;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -38,8 +39,10 @@ public class DockerInfrastructure implements AutoCloseable {
 
     public DockerInfrastructure() {
         String ci = System.getenv("CI");
-        String dockerCachePath =
-                "true".equalsIgnoreCase(ci) ? System.getenv("DOCKER_CACHE_PATH") : "porthole-dind-data";
+        String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
+        String dockerCachePath = "true".equalsIgnoreCase(ci)
+                ? System.getenv("DOCKER_CACHE_PATH") + "/instance-" + uniqueSuffix
+                : "porthole-dind-" + uniqueSuffix;
 
         docker = new GenericContainer<>("docker:29.1.4-dind")
                 .withPrivilegedMode(true)
@@ -48,8 +51,8 @@ public class DockerInfrastructure implements AutoCloseable {
                 .withExposedPorts(DIND_PORT, 9753)
                 .withCreateContainerCmdModifier(cmd -> cmd.withHostConfig(cmd.getHostConfig()
                         .withPortBindings(
-                                new PortBinding(Ports.Binding.bindPort(DIND_PORT), ExposedPort.tcp(DIND_PORT)),
-                                new PortBinding(Ports.Binding.bindPort(9753), ExposedPort.tcp(9753)))
+                                new PortBinding(Ports.Binding.empty(), ExposedPort.tcp(DIND_PORT)),
+                                new PortBinding(Ports.Binding.empty(), ExposedPort.tcp(9753)))
                         .withBinds(new Bind(dockerCachePath, new Volume("/var/lib/docker")))))
                 .withEnv("DOCKER_TLS_CERTDIR", "")
                 .withSharedMemorySize(512L * 1024 * 1024) // 512MB
