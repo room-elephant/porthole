@@ -44,6 +44,7 @@ public class PortholeContainer {
 
     private String createAndStartContainer() {
         DockerClient dindClient = infra.getDinDClient();
+        infra.removeContainerQuietly("porthole-it");
 
         String id = dindClient
                 .createContainerCmd(DockerInfrastructure.PORTHOLE_IT_IMAGE_TAG)
