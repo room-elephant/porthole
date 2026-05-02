@@ -426,6 +426,9 @@
 
         <profile>
             <id>it-image</id>
+            <properties>
+                <enforcer.skip>true</enforcer.skip>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
