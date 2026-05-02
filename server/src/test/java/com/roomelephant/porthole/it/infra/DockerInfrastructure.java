@@ -16,7 +16,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import lombok.SneakyThrows;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.AbstractWaitStrategy;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 public class DockerInfrastructure implements AutoCloseable {
@@ -24,11 +26,13 @@ public class DockerInfrastructure implements AutoCloseable {
     @Override
     public void close() {
         docker.stop();
+        network.close();
     }
 
     public static final int DIND_PORT = 2375;
     public static final String[] CONTAINER_CMD = {"sh", "-c", "echo started; while true; do sleep 3600; done"};
 
+    private final Network network = Network.newNetwork();
     private final GenericContainer<?> docker;
     private final DockerClient sharedDockerClient;
 
@@ -39,21 +43,36 @@ public class DockerInfrastructure implements AutoCloseable {
 
         docker = new GenericContainer<>("docker:29.1.4-dind")
                 .withPrivilegedMode(true)
-                .withExposedPorts(DIND_PORT)
+                .withNetwork(network)
+                .withNetworkAliases("dind")
+                .withExposedPorts(DIND_PORT, 9753)
                 .withCreateContainerCmdModifier(cmd -> cmd.withHostConfig(cmd.getHostConfig()
                         .withPortBindings(
-                                new PortBinding(Ports.Binding.bindPort(DIND_PORT), ExposedPort.tcp(DIND_PORT)))
+                                new PortBinding(Ports.Binding.bindPort(DIND_PORT), ExposedPort.tcp(DIND_PORT)),
+                                new PortBinding(Ports.Binding.bindPort(9753), ExposedPort.tcp(9753)))
                         .withBinds(new Bind(dockerCachePath, new Volume("/var/lib/docker")))))
                 .withEnv("DOCKER_TLS_CERTDIR", "")
                 .withSharedMemorySize(512L * 1024 * 1024) // 512MB
                 .waitingFor(forLogMessage(".*API listen on \\[::\\]:2375.*", 1));
 
         docker.start();
-        sharedDockerClient = createClient(getDinDHost());
+        sharedDockerClient = createClient(getDinDTcpUrl());
     }
 
     public DockerClient getDetailsDockerClient() {
         return sharedDockerClient;
+    }
+
+    public DockerClient getDinDClient() {
+        return sharedDockerClient;
+    }
+
+    public String getDinDHost() {
+        return docker.getHost();
+    }
+
+    public int getDinDMappedPort9753() {
+        return docker.getMappedPort(9753);
     }
 
     public void removeContainerQuietly(String containerName) {
@@ -125,6 +144,23 @@ public class DockerInfrastructure implements AutoCloseable {
         docker.getDockerClient().pauseContainerCmd(docker.getContainerId()).exec();
     }
 
+    public GenericContainer<?> startWireMock() {
+        GenericContainer<?> wireMock = new GenericContainer<>("wiremock/wiremock:3.13.0")
+                .withNetwork(network)
+                .withNetworkAliases("wiremock")
+                .withExposedPorts(8080)
+                .waitingFor(Wait.forHttp("/__admin/health").forPort(8080));
+        wireMock.start();
+        return wireMock;
+    }
+
+    // TODO: PortholeContainer created in Task 3
+    public PortholeContainer startPorthole(String wireMockIp) {
+        PortholeContainer porthole = new PortholeContainer(this, wireMockIp);
+        porthole.start();
+        return porthole;
+    }
+
     private DockerClient createClient(String dockerHost) {
         DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(dockerHost)
@@ -141,7 +177,7 @@ public class DockerInfrastructure implements AutoCloseable {
                 .build();
     }
 
-    private String getDinDHost() {
+    private String getDinDTcpUrl() {
         return "tcp://" + docker.getHost() + ":" + docker.getMappedPort(DIND_PORT);
     }
 }
