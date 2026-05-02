@@ -231,11 +231,11 @@ class DockerConnectionFailureIT {
                 .withHostConfig(HostConfig.newHostConfig()
                         .withPortBindings(
                                 new PortBinding(Ports.Binding.bindPort(PORTHOLE_PORT), ExposedPort.tcp(PORTHOLE_PORT)))
-                        .withBinds(new Bind(volumeName, new Volume("/tmp")))
+                        .withBinds(new Bind(volumeName, new Volume("/docker-sockets")))
                         .withExtraHosts("wiremock:" + wireMockIp))
                 .withExposedPorts(ExposedPort.tcp(PORTHOLE_PORT))
                 .withEnv(
-                        "PORTHOLE_DOCKER_HOST=unix:///tmp/locked.sock",
+                        "PORTHOLE_DOCKER_HOST=unix:///docker-sockets/locked.sock",
                         "REGISTRY_URLS_REGISTRY=http://wiremock:8080/v2/",
                         "REGISTRY_URLS_AUTH=http://wiremock:8080/auth?service=registry.docker.io&scope=repository:",
                         "REGISTRY_URLS_REPOSITORIES=http://wiremock:8080/v2/repositories/",
