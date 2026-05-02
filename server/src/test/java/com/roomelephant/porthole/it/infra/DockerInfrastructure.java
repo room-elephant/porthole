@@ -20,12 +20,14 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.AbstractWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
+@Slf4j
 public class DockerInfrastructure implements AutoCloseable {
 
     @Override
@@ -178,8 +180,12 @@ public class DockerInfrastructure implements AutoCloseable {
         }
         Path nativeBinary = Path.of(System.getProperty("user.dir")).getParent().resolve("server/target/porthole");
         if (isLinuxElf(nativeBinary)) {
+            log.info("Detected Linux ELF binary at {} — building porthole image from binary", nativeBinary);
             buildPortholeImageFromBinary();
         } else {
+            log.info(
+                    "No Linux ELF binary found at {} — building porthole image from source inside DinD (this may take 5-10 minutes on first run)",
+                    nativeBinary);
             buildPortholeImageFromSource();
         }
         portholeImageBuilt = true;
@@ -212,6 +218,7 @@ public class DockerInfrastructure implements AutoCloseable {
                 .withTags(Set.of(PORTHOLE_IT_IMAGE_TAG))
                 .start()
                 .awaitImageId();
+        log.info("Porthole image built successfully from binary");
     }
 
     @SneakyThrows
@@ -244,6 +251,7 @@ public class DockerInfrastructure implements AutoCloseable {
                 .withTags(Set.of(PORTHOLE_IT_IMAGE_TAG))
                 .start()
                 .awaitImageId();
+        log.info("Porthole image built successfully from source");
     }
 
     @SneakyThrows
