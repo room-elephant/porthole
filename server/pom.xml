@@ -281,7 +281,7 @@
                                             <files>
                                                 <file>${project.build.directory}/porthole</file>
                                             </files>
-                                            <message>Native binary not found at target/porthole. Run 'mvn -Pit-image package native:compile' first.</message>
+                                            <message>Native binary not found at target/porthole. Run 'mvn -Pnative,copy-client package native:compile -DskipTests' first.</message>
                                         </requireFilesExist>
                                     </rules>
                                 </configuration>
@@ -424,29 +424,6 @@
             </build>
         </profile>
 
-        <profile>
-            <id>it-image</id>
-            <properties>
-                <enforcer.skip>true</enforcer.skip>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.graalvm.buildtools</groupId>
-                        <artifactId>native-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>build-native-binary</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>compile</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
     </profiles>
 
 </project>

@@ -68,7 +68,7 @@ jobs:
       - name: Build native binary
         if: steps.cache-native-binary.outputs.cache-hit != 'true'
         working-directory: server
-        run: mvn -B -ntp -Pit-image,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
+        run: mvn -B -ntp -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
 
       - name: Check code formatting
         working-directory: server
