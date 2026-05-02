@@ -1,9 +1,6 @@
 package com.roomelephant.porthole.it.infra;
 
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-
-import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
 import java.util.List;
@@ -11,21 +8,10 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("it")
-@Import(DockerConfiguration.class)
 public abstract class IntegrationTestBase {
-    static final int WIREMOCK_PORT = 8089;
 
     protected static final String TEST_LOCAL_IMAGE_TAG = "my-local-image:1.0";
     protected static final String TEST_APP_CONTAINER_NAME = "porthole-test-app";
@@ -39,26 +25,40 @@ public abstract class IntegrationTestBase {
     protected static GenericContainer<?> localContainer;
     protected static GenericContainer<?> noPortsContainer;
 
-    @RegisterExtension
-    protected static WireMockExtension wireMock = WireMockExtension.newInstance()
-            .options(wireMockConfig().port(WIREMOCK_PORT).notifier(new ConsoleNotifier(true)))
-            .build();
+    protected static final DockerInfrastructure dockerInfra;
+    protected static final GenericContainer<?> wireMockContainer;
+    protected static final PortholeContainer porthole;
+    private static final WireMock wireMockClient;
 
-    private static DockerInfrastructure dockerInfra;
-    private final RestTemplate restTemplate = createRestTemplate();
+    static {
+        dockerInfra = new DockerInfrastructure();
+        wireMockContainer = dockerInfra.startWireMock();
+        String wireMockIp = wireMockContainer.getContainerInfo()
+                .getNetworkSettings()
+                .getNetworks()
+                .values()
+                .iterator()
+                .next()
+                .getIpAddress();
+        porthole = dockerInfra.startPorthole(wireMockIp);
+        wireMockClient = new WireMock("localhost", wireMockContainer.getMappedPort(8080));
 
-    @LocalServerPort
-    private int port;
-
-    @Autowired
-    protected void setDockerInfra(DockerInfrastructure dockerInfra) {
-        IntegrationTestBase.dockerInfra = dockerInfra;
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            wireMockContainer.stop();
+            dockerInfra.close();
+        }));
     }
 
-    private static RestTemplate createRestTemplate() {
-        RestTemplate template = new RestTemplate();
+    private final org.springframework.web.client.RestTemplate restTemplate = createRestTemplate();
+
+    private static org.springframework.web.client.RestTemplate createRestTemplate() {
+        var template = new org.springframework.web.client.RestTemplate();
         template.setErrorHandler(response -> response.getStatusCode().is5xxServerError());
         return template;
+    }
+
+    protected static WireMock wireMockClient() {
+        return wireMockClient;
     }
 
     @BeforeEach
@@ -77,21 +77,22 @@ public abstract class IntegrationTestBase {
 
     @AfterEach
     protected void tearDown() {
-        List<ServeEvent> allServeEvents = wireMock.getAllServeEvents();
+        List<ServeEvent> allServeEvents = wireMockClient().getServeEvents();
 
         List<ServeEvent> unmatchedEvents =
-                allServeEvents.stream().filter(event -> !event.getWasMatched()).toList();
+                allServeEvents.stream().filter(e -> !e.getWasMatched()).toList();
 
         if (!unmatchedEvents.isEmpty()) {
             String details = unmatchedEvents.stream()
                     .map(e -> e.getRequest().getMethod() + " " + e.getRequest().getUrl())
                     .toList()
                     .toString();
+            wireMockClient().resetToDefaultMappings();
             throw new AssertionError("The following requests were made but not matched by any stub: " + details);
         }
 
-        List<StubMapping> allStubs = wireMock.getStubMappings();
-
+        List<StubMapping> allStubs =
+                wireMockClient().listAllStubMappings().getMappings();
         List<StubMapping> unusedStubs = allStubs.stream()
                 .filter(stub -> allServeEvents.stream()
                         .noneMatch(event -> event.getStubMapping() != null
@@ -99,8 +100,11 @@ public abstract class IntegrationTestBase {
                 .toList();
 
         if (!unusedStubs.isEmpty()) {
+            wireMockClient().resetToDefaultMappings();
             throw new AssertionError("The following stubs were defined but never matched: " + unusedStubs);
         }
+
+        wireMockClient().resetToDefaultMappings();
     }
 
     protected void pauseDocker() {
@@ -116,11 +120,7 @@ public abstract class IntegrationTestBase {
     }
 
     protected <T> @NotNull ResponseEntity<T> fetch(String url, Class<T> responseType) {
-        return restTemplate.getForEntity(createURLWithPort(url), responseType);
-    }
-
-    private @NotNull String createURLWithPort(@NotNull String uri) {
-        return "http://localhost:" + port + uri;
+        return restTemplate.getForEntity(porthole.baseUrl() + url, responseType);
     }
 
     private boolean areContainersRunning() {
