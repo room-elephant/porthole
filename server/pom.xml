@@ -267,29 +267,6 @@
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-enforcer-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>enforce-native-binary-exists</id>
-                                <phase>validate</phase>
-                                <goals>
-                                    <goal>enforce</goal>
-                                </goals>
-                                <configuration>
-                                    <rules>
-                                        <requireFilesExist>
-                                            <files>
-                                                <file>${project.build.directory}/porthole</file>
-                                            </files>
-                                            <message>Native binary not found at target/porthole. Run 'mvn -Pnative,copy-client package native:compile -DskipTests' first.</message>
-                                        </requireFilesExist>
-                                    </rules>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <skipTests>true</skipTests>

@@ -10,19 +10,14 @@ import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.api.model.Volume;
 import com.roomelephant.porthole.it.infra.DockerInfrastructure;
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -36,7 +31,6 @@ import org.testcontainers.containers.GenericContainer;
 @Order(1)
 class DockerConnectionFailureIT {
 
-    private static final String IMAGE_TAG = "porthole-it:latest";
     private static final int PORTHOLE_PORT = 9753;
 
     private static final DockerInfrastructure dockerInfra;
@@ -63,7 +57,7 @@ class DockerConnectionFailureIT {
             throw new RuntimeException("Failed to pull busybox image", e);
         }
 
-        buildPortholeImage();
+        dockerInfra.ensurePortholeImageBuilt();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             wireMockContainer.stop();
@@ -191,7 +185,7 @@ class DockerConnectionFailureIT {
     private void startMissingSocketPorthole() throws Exception {
         String name = "porthole-missing-" + System.nanoTime();
         String id = dindClient
-                .createContainerCmd(IMAGE_TAG)
+                .createContainerCmd(DockerInfrastructure.PORTHOLE_IT_IMAGE_TAG)
                 .withName(name)
                 .withHostConfig(HostConfig.newHostConfig()
                         .withPortBindings(
@@ -232,7 +226,7 @@ class DockerConnectionFailureIT {
 
         String name = "porthole-locked-" + System.nanoTime();
         String id = dindClient
-                .createContainerCmd(IMAGE_TAG)
+                .createContainerCmd(DockerInfrastructure.PORTHOLE_IT_IMAGE_TAG)
                 .withName(name)
                 .withHostConfig(HostConfig.newHostConfig()
                         .withPortBindings(
@@ -278,60 +272,6 @@ class DockerConnectionFailureIT {
             Thread.sleep(500);
         }
         throw new IllegalStateException("Porthole did not respond within 60s at " + baseUrl);
-    }
-
-    // -------------------------------------------------------------------------
-    // Image build (once per JVM, reused across all tests)
-    // -------------------------------------------------------------------------
-
-    private static void buildPortholeImage() {
-        try {
-            Path projectRoot = Path.of(System.getProperty("user.dir")).getParent();
-
-            Path dockerfile = projectRoot.resolve("docker/Dockerfile");
-            if (!Files.exists(dockerfile)) {
-                throw new IllegalStateException("Dockerfile not found at: " + dockerfile);
-            }
-
-            Path buildContext = Files.createTempDirectory("porthole-it-build-context");
-
-            Files.copy(
-                    projectRoot.resolve("server/target/porthole"),
-                    buildContext.resolve("porthole"),
-                    StandardCopyOption.REPLACE_EXISTING);
-
-            Path buildContextDocker = buildContext.resolve("docker");
-            Files.createDirectories(buildContextDocker);
-
-            Files.copy(
-                    projectRoot.resolve("docker/entrypoint.sh"),
-                    buildContextDocker.resolve("entrypoint.sh"),
-                    StandardCopyOption.REPLACE_EXISTING);
-
-            copyDirectory(projectRoot.resolve("docker/templates"), buildContextDocker.resolve("templates"));
-
-            Files.copy(dockerfile, buildContext.resolve("Dockerfile"), StandardCopyOption.REPLACE_EXISTING);
-
-            dindClient
-                    .buildImageCmd(buildContext.toFile())
-                    .withTags(Set.of(IMAGE_TAG))
-                    .start()
-                    .awaitImageId();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to build porthole image in DinD", e);
-        }
-    }
-
-    private static void copyDirectory(Path source, Path target) throws IOException {
-        try (var stream = Files.walk(source)) {
-            stream.forEach(src -> {
-                try {
-                    Files.copy(src, target.resolve(source.relativize(src)), StandardCopyOption.REPLACE_EXISTING);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        }
     }
 
     // -------------------------------------------------------------------------

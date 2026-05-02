@@ -11,10 +11,14 @@ import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
-import java.util.UUID;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.SneakyThrows;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -31,18 +35,22 @@ public class DockerInfrastructure implements AutoCloseable {
     }
 
     public static final int DIND_PORT = 2375;
+    public static final String PORTHOLE_IT_IMAGE_TAG = "porthole-it:latest";
     public static final String[] CONTAINER_CMD = {"sh", "-c", "echo started; while true; do sleep 3600; done"};
+
+    private static final AtomicInteger INSTANCE_COUNTER = new AtomicInteger(0);
 
     private final Network network = Network.newNetwork();
     private final GenericContainer<?> docker;
     private final DockerClient sharedDockerClient;
+    private boolean portholeImageBuilt = false;
 
     public DockerInfrastructure() {
         String ci = System.getenv("CI");
-        String uniqueSuffix = UUID.randomUUID().toString().substring(0, 8);
+        int instanceId = INSTANCE_COUNTER.getAndIncrement();
         String dockerCachePath = "true".equalsIgnoreCase(ci)
-                ? System.getenv("DOCKER_CACHE_PATH") + "/instance-" + uniqueSuffix
-                : "porthole-dind-" + uniqueSuffix;
+                ? System.getenv("DOCKER_CACHE_PATH") + "/instance-" + instanceId
+                : "porthole-dind-" + instanceId;
 
         docker = new GenericContainer<>("docker:29.1.4-dind")
                 .withPrivilegedMode(true)
@@ -106,7 +114,7 @@ public class DockerInfrastructure implements AutoCloseable {
 
         sharedDockerClient
                 .buildImageCmd(tempDir.toFile())
-                .withTags(java.util.Set.of(tag))
+                .withTags(Set.of(tag))
                 .start()
                 .awaitImageId();
 
@@ -162,6 +170,108 @@ public class DockerInfrastructure implements AutoCloseable {
         PortholeContainer porthole = new PortholeContainer(this, wireMockIp);
         porthole.start();
         return porthole;
+    }
+
+    public synchronized void ensurePortholeImageBuilt() {
+        if (portholeImageBuilt) {
+            return;
+        }
+        Path nativeBinary = Path.of(System.getProperty("user.dir")).getParent().resolve("server/target/porthole");
+        if (isLinuxElf(nativeBinary)) {
+            buildPortholeImageFromBinary();
+        } else {
+            buildPortholeImageFromSource();
+        }
+        portholeImageBuilt = true;
+    }
+
+    @SneakyThrows
+    private void buildPortholeImageFromBinary() {
+        Path projectRoot = Path.of(System.getProperty("user.dir")).getParent();
+        Path buildContext = Files.createTempDirectory("porthole-it-build-context");
+
+        Files.copy(
+                projectRoot.resolve("server/target/porthole"),
+                buildContext.resolve("porthole"),
+                StandardCopyOption.REPLACE_EXISTING);
+
+        Path dockerDir = buildContext.resolve("docker");
+        Files.createDirectories(dockerDir);
+        Files.copy(
+                projectRoot.resolve("docker/entrypoint.sh"),
+                dockerDir.resolve("entrypoint.sh"),
+                StandardCopyOption.REPLACE_EXISTING);
+        copyDirectory(projectRoot.resolve("docker/templates"), dockerDir.resolve("templates"));
+        Files.copy(
+                projectRoot.resolve("docker/Dockerfile"),
+                buildContext.resolve("Dockerfile"),
+                StandardCopyOption.REPLACE_EXISTING);
+
+        sharedDockerClient
+                .buildImageCmd(buildContext.toFile())
+                .withTags(Set.of(PORTHOLE_IT_IMAGE_TAG))
+                .start()
+                .awaitImageId();
+    }
+
+    @SneakyThrows
+    private void buildPortholeImageFromSource() {
+        Path projectRoot = Path.of(System.getProperty("user.dir")).getParent();
+        Path buildContext = Files.createTempDirectory("porthole-it-build-context");
+
+        Path serverDir = buildContext.resolve("server");
+        Files.createDirectories(serverDir);
+        Files.copy(
+                projectRoot.resolve("server/pom.xml"),
+                serverDir.resolve("pom.xml"),
+                StandardCopyOption.REPLACE_EXISTING);
+        copyDirectory(projectRoot.resolve("server/src"), serverDir.resolve("src"));
+
+        Path dockerDir = buildContext.resolve("docker");
+        Files.createDirectories(dockerDir);
+        Files.copy(
+                projectRoot.resolve("docker/entrypoint.sh"),
+                dockerDir.resolve("entrypoint.sh"),
+                StandardCopyOption.REPLACE_EXISTING);
+        copyDirectory(projectRoot.resolve("docker/templates"), dockerDir.resolve("templates"));
+        Files.copy(
+                projectRoot.resolve("docker/Dockerfile.it"),
+                buildContext.resolve("Dockerfile"),
+                StandardCopyOption.REPLACE_EXISTING);
+
+        sharedDockerClient
+                .buildImageCmd(buildContext.toFile())
+                .withTags(Set.of(PORTHOLE_IT_IMAGE_TAG))
+                .start()
+                .awaitImageId();
+    }
+
+    @SneakyThrows
+    private static void copyDirectory(Path source, Path target) {
+        Files.createDirectories(target);
+        try (var stream = Files.walk(source)) {
+            stream.forEach(src -> {
+                try {
+                    Files.copy(src, target.resolve(source.relativize(src)), StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+    }
+
+    private static boolean isLinuxElf(Path path) {
+        if (!Files.exists(path)) return false;
+        try (InputStream is = Files.newInputStream(path)) {
+            byte[] magic = is.readNBytes(4);
+            return magic.length == 4
+                    && magic[0] == 0x7F
+                    && magic[1] == (byte) 'E'
+                    && magic[2] == (byte) 'L'
+                    && magic[3] == (byte) 'F';
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private DockerClient createClient(String dockerHost) {
