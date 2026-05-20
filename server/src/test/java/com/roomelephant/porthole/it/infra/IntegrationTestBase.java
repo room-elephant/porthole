@@ -1,6 +1,9 @@
 package com.roomelephant.porthole.it.infra;
 
+import com.github.dockerjava.api.model.ExposedPort;
+import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
 import java.util.List;
@@ -9,7 +12,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.springframework.http.ResponseEntity;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.utility.DockerImageName;
 
 public abstract class IntegrationTestBase {
 
@@ -21,24 +26,28 @@ public abstract class IntegrationTestBase {
     protected static final String BUSYBOX_IMAGE = "busybox:1.37.0-uclibc";
     protected static final String BUSYBOX_LATEST_IMAGE = "busybox:latest";
 
+    private static final String[] CONTAINER_CMD = {"sh", "-c", "while true; do sleep 3600; done"};
+
     protected static GenericContainer<?> testAppContainer;
     protected static GenericContainer<?> localContainer;
     protected static GenericContainer<?> noPortsContainer;
 
-    protected static final DockerInfrastructure dockerInfra;
-    protected static final GenericContainer<?> wireMockContainer;
+    protected static final WireMockServer wireMockServer;
     protected static final PortholeContainer porthole;
     private static final WireMock wireMockClient;
 
     static {
-        dockerInfra = new DockerInfrastructure();
-        wireMockContainer = dockerInfra.startWireMock();
-        porthole = dockerInfra.startPorthole(wireMockContainer.getMappedPort(8080));
-        wireMockClient = new WireMock("localhost", wireMockContainer.getMappedPort(8080));
+        wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        wireMockServer.start();
+
+        porthole = new PortholeContainer(wireMockServer.port());
+        porthole.start();
+
+        wireMockClient = new WireMock("localhost", wireMockServer.port());
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            wireMockContainer.stop();
-            dockerInfra.close();
+            porthole.stop();
+            wireMockServer.stop();
         }));
     }
 
@@ -64,7 +73,6 @@ public abstract class IntegrationTestBase {
         if (areContainersRunning()) {
             return;
         }
-
         createContainers();
     }
 
@@ -81,7 +89,8 @@ public abstract class IntegrationTestBase {
                     .toList()
                     .toString();
             wireMockClient().resetToDefaultMappings();
-            throw new AssertionError("The following requests were made but not matched by any stub: " + details);
+            throw new AssertionError(
+                    "The following requests were made but not matched by any stub: " + details);
         }
 
         List<StubMapping> allStubs = wireMockClient().listAllStubMappings().getMappings();
@@ -97,14 +106,6 @@ public abstract class IntegrationTestBase {
         }
 
         wireMockClient().resetToDefaultMappings();
-    }
-
-    protected void pauseDocker() {
-        dockerInfra.pauseDocker();
-    }
-
-    protected void unpauseDocker() {
-        dockerInfra.unpauseDocker();
     }
 
     protected @NotNull ResponseEntity<String> fetch(String url) {
@@ -125,40 +126,64 @@ public abstract class IntegrationTestBase {
     }
 
     private void cleanupDocker() {
-        testAppContainer = null;
-        dockerInfra.removeContainerQuietly(TEST_APP_CONTAINER_NAME);
-
-        noPortsContainer = null;
-        dockerInfra.removeContainerQuietly(TEST_NO_PORTS_CONTAINER_NAME);
-
-        localContainer = null;
-        dockerInfra.removeContainerQuietly(TEST_LOCAL_CONTAINER_NAME);
-
-        dockerInfra.removeContainerQuietly(TEST_STOPPED_CONTAINER_NAME);
+        if (testAppContainer != null) {
+            testAppContainer.stop();
+            testAppContainer = null;
+        }
+        if (localContainer != null) {
+            localContainer.stop();
+            localContainer = null;
+        }
+        if (noPortsContainer != null) {
+            noPortsContainer.stop();
+            noPortsContainer = null;
+        }
+        try {
+            DockerClientFactory.instance()
+                    .client()
+                    .removeContainerCmd(TEST_STOPPED_CONTAINER_NAME)
+                    .withForce(true)
+                    .exec();
+        } catch (Exception ignored) {
+        }
     }
 
     private void createContainers() {
-        dockerInfra.pullImage(BUSYBOX_IMAGE);
-        dockerInfra.pullImage(BUSYBOX_LATEST_IMAGE);
+        var dc = DockerClientFactory.instance().client();
 
-        // App Container (Running with ports)
-        dockerInfra.removeContainerQuietly(TEST_APP_CONTAINER_NAME);
-        testAppContainer = dockerInfra.buildImage(BUSYBOX_IMAGE, 8080, TEST_APP_CONTAINER_NAME);
+        // Tag a local image (simulates an image not from a public registry)
+        dc.tagImageCmd(BUSYBOX_IMAGE, "my-local-image", "1.0").exec();
+
+        // App Container (running, has public port)
+        testAppContainer = new GenericContainer<>(BUSYBOX_IMAGE)
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(TEST_APP_CONTAINER_NAME))
+                .withCommand(CONTAINER_CMD)
+                .withExposedPorts(8080);
         testAppContainer.start();
 
-        // Stopped Container
-        dockerInfra.removeContainerQuietly(TEST_STOPPED_CONTAINER_NAME);
-        dockerInfra.buildStoppedImage(BUSYBOX_IMAGE, 8081, TEST_STOPPED_CONTAINER_NAME);
+        // Stopped Container (created but never started — uses raw docker-java because
+        // GenericContainer.stop() also removes the container)
+        try {
+            dc.removeContainerCmd(TEST_STOPPED_CONTAINER_NAME).withForce(true).exec();
+        } catch (Exception ignored) {
+        }
+        dc.createContainerCmd(BUSYBOX_IMAGE)
+                .withName(TEST_STOPPED_CONTAINER_NAME)
+                .withExposedPorts(ExposedPort.tcp(8081))
+                .exec();
 
-        // Local Image Container
-        dockerInfra.removeContainerQuietly(TEST_LOCAL_CONTAINER_NAME);
-        localContainer =
-                dockerInfra.buildLocalImage(BUSYBOX_IMAGE, 8082, TEST_LOCAL_CONTAINER_NAME, TEST_LOCAL_IMAGE_TAG);
+        // Local Image Container (running, has public port, uses the locally tagged image)
+        localContainer = new GenericContainer<>(DockerImageName.parse(TEST_LOCAL_IMAGE_TAG))
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(TEST_LOCAL_CONTAINER_NAME))
+                .withCommand(CONTAINER_CMD)
+                .withExposedPorts(8082)
+                .withImagePullPolicy(imageName -> false);
         localContainer.start();
 
-        // No Ports Container
-        dockerInfra.removeContainerQuietly(TEST_NO_PORTS_CONTAINER_NAME);
-        noPortsContainer = dockerInfra.buildImage(BUSYBOX_LATEST_IMAGE, null, TEST_NO_PORTS_CONTAINER_NAME);
+        // No-Ports Container (running, no exposed ports)
+        noPortsContainer = new GenericContainer<>(BUSYBOX_LATEST_IMAGE)
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(TEST_NO_PORTS_CONTAINER_NAME))
+                .withCommand(CONTAINER_CMD);
         noPortsContainer.start();
     }
 }
