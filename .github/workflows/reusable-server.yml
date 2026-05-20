@@ -26,37 +26,6 @@ jobs:
           java-version: '25'
           distribution: 'graalvm-community'
           cache: 'maven'
-      
-      - name: Cache Host Docker Images
-        id: cache-host-docker
-        uses: actions/cache@v4
-        with:
-          path: host-docker-images
-          key: host-docker-images-${{ runner.os }}-docker-29.1.4-dind-ryuk-0.13.0
-
-      - name: Load Cached Docker Images
-        if: steps.cache-host-docker.outputs.cache-hit == 'true'
-        run: |
-          docker load -i host-docker-images/docker-dind.tar
-          docker load -i host-docker-images/ryuk.tar
-
-      - name: Pull and Save Docker Images
-        if: steps.cache-host-docker.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p host-docker-images
-          docker pull docker:29.1.4-dind
-          docker save -o host-docker-images/docker-dind.tar docker:29.1.4-dind
-          
-          docker pull testcontainers/ryuk:0.13.0
-          docker save -o host-docker-images/ryuk.tar testcontainers/ryuk:0.13.0
-
-      - name: Cache Docker-in-Docker images
-        uses: actions/cache@v4
-        with:
-          path: docker-cache
-          key: docker-images-v2-${{ runner.os }}-${{ hashFiles('server/pom.xml') }}
-          restore-keys: |
-            docker-images-v2-${{ runner.os }}-
 
       - name: Cache native binary
         id: cache-native-binary
@@ -69,6 +38,12 @@ jobs:
         if: steps.cache-native-binary.outputs.cache-hit != 'true'
         working-directory: server
         run: mvn -B -ntp -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
+
+      - name: Build integration test Docker image
+        run: |
+          cp server/target/porthole porthole
+          docker build -t porthole-it:latest -f docker/Dockerfile .
+          rm porthole
 
       - name: Check code formatting
         working-directory: server
@@ -107,23 +82,8 @@ jobs:
       - name: Run integration tests
         working-directory: server
         env:
-          CI: true
-          DOCKER_CACHE_PATH: ${{ github.workspace }}/docker-cache
+          PORTHOLE_IT_IMAGE_TAG: porthole-it:latest
         run: mvn -B -ntp verify -Pintegration-tests -Dspotless.check.skip=true
-
-      - name: Fix cache permissions
-        if: always()
-        run: |
-          if [ -d "docker-cache" ]; then
-            # Remove special files (block/char devices, sockets, pipes) and overlayfs work dirs
-            # Use sudo because some dirs might still be root-owned/locked
-            sudo find docker-cache \( -type b -o -type c -o -type s -o -type p \) -delete
-            sudo find docker-cache -name "work" -type d -exec rm -rf {} +
-            
-            # Fix permissions
-            sudo chown -R $USER:$USER docker-cache
-            sudo chmod -R a+rX docker-cache
-          fi
 
       - name: Publish integration test results
         if: always()
