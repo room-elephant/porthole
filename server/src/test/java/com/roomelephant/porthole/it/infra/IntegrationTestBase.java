@@ -14,6 +14,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.springframework.http.ResponseEntity;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 public abstract class IntegrationTestBase {
@@ -78,7 +79,7 @@ public abstract class IntegrationTestBase {
 
     @AfterEach
     protected void tearDown() {
-        List<ServeEvent> allServeEvents = wireMockClient().getServeEvents();
+        List<ServeEvent> allServeEvents = wireMockServer.getAllServeEvents();
 
         List<ServeEvent> unmatchedEvents =
                 allServeEvents.stream().filter(e -> !e.getWasMatched()).toList();
@@ -88,11 +89,11 @@ public abstract class IntegrationTestBase {
                     .map(e -> e.getRequest().getMethod() + " " + e.getRequest().getUrl())
                     .toList()
                     .toString();
-            wireMockClient().resetToDefaultMappings();
+            wireMockServer.resetAll();
             throw new AssertionError("The following requests were made but not matched by any stub: " + details);
         }
 
-        List<StubMapping> allStubs = wireMockClient().listAllStubMappings().getMappings();
+        List<StubMapping> allStubs = wireMockServer.listAllStubMappings().getMappings();
         List<StubMapping> unusedStubs = allStubs.stream()
                 .filter(stub -> allServeEvents.stream()
                         .noneMatch(event -> event.getStubMapping() != null
@@ -100,11 +101,11 @@ public abstract class IntegrationTestBase {
                 .toList();
 
         if (!unusedStubs.isEmpty()) {
-            wireMockClient().resetToDefaultMappings();
+            wireMockServer.resetAll();
             throw new AssertionError("The following stubs were defined but never matched: " + unusedStubs);
         }
 
-        wireMockClient().resetToDefaultMappings();
+        wireMockServer.resetAll();
     }
 
     protected @NotNull ResponseEntity<String> fetch(String url) {
@@ -166,7 +167,8 @@ public abstract class IntegrationTestBase {
         testAppContainer = new GenericContainer<>(BUSYBOX_IMAGE)
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(TEST_APP_CONTAINER_NAME))
                 .withCommand(CONTAINER_CMD)
-                .withExposedPorts(8080);
+                .withExposedPorts(8080)
+                .waitingFor(Wait.forSuccessfulCommand("true"));
         testAppContainer.start();
 
         // Stopped Container (created but never started — uses raw docker-java because
@@ -185,7 +187,8 @@ public abstract class IntegrationTestBase {
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(TEST_LOCAL_CONTAINER_NAME))
                 .withCommand(CONTAINER_CMD)
                 .withExposedPorts(8082)
-                .withImagePullPolicy(imageName -> false);
+                .withImagePullPolicy(imageName -> false)
+                .waitingFor(Wait.forSuccessfulCommand("true"));
         localContainer.start();
 
         // No-Ports Container (running, no exposed ports)
