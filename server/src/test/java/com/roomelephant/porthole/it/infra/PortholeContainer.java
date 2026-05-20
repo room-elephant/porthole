@@ -33,9 +33,8 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
                 .withExposedPorts(PORTHOLE_PORT)
                 .withEnv("PORTHOLE_DOCKER_HOST", "unix://" + socketPath);
         applyRegistryEnv(container, wireMockPort);
-        container.waitingFor(Wait.forHttp("/actuator/health")
-                .forPort(PORTHOLE_PORT)
-                .forStatusCodeMatching(status -> status >= 100));
+        container.waitingFor(
+                Wait.forHttp("/actuator/health").forPort(PORTHOLE_PORT).forStatusCodeMatching(status -> status >= 100));
         return container;
     }
 
@@ -43,8 +42,7 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
         String base = "http://host.docker.internal:" + wireMockPort;
         container
                 .withEnv("REGISTRY_URLS_REGISTRY", base + "/v2/")
-                .withEnv("REGISTRY_URLS_AUTH",
-                        base + "/auth?service=registry.docker.io&scope=repository:")
+                .withEnv("REGISTRY_URLS_AUTH", base + "/auth?service=registry.docker.io&scope=repository:")
                 .withEnv("REGISTRY_URLS_REPOSITORIES", base + "/v2/repositories/")
                 .withEnv("REGISTRY_CACHE_TTL", "1ms")
                 .withEnv("REGISTRY_CACHE_VERSION_MAX_SIZE", "1");

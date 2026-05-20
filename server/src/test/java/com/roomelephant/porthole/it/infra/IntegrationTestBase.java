@@ -89,8 +89,7 @@ public abstract class IntegrationTestBase {
                     .toList()
                     .toString();
             wireMockClient().resetToDefaultMappings();
-            throw new AssertionError(
-                    "The following requests were made but not matched by any stub: " + details);
+            throw new AssertionError("The following requests were made but not matched by any stub: " + details);
         }
 
         List<StubMapping> allStubs = wireMockClient().listAllStubMappings().getMappings();

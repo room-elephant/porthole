@@ -64,8 +64,7 @@ class DockerConnectionFailureIT {
 
         @BeforeEach
         void startBrokenPorthole() {
-            porthole = PortholeContainer.withCustomSocket(
-                    "/tmp/missing-docker.sock", wireMockServer.port());
+            porthole = PortholeContainer.withCustomSocket("/tmp/missing-docker.sock", wireMockServer.port());
             porthole.start();
             portholeBaseUrl = baseUrlFor(porthole);
         }
@@ -92,8 +91,8 @@ class DockerConnectionFailureIT {
 
         @Test
         void shouldReturn502WhenSocketMissingOnVersion() {
-            ResponseEntity<String> response = restTemplate.getForEntity(
-                    portholeBaseUrl + "/api/containers/random-id/version", String.class);
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }
@@ -109,12 +108,9 @@ class DockerConnectionFailureIT {
             lockedSocketPath = Files.createTempFile("locked-docker", ".sock");
             Files.setPosixFilePermissions(lockedSocketPath, Set.of());
 
-            porthole = PortholeContainer.withCustomSocket(
-                            "/docker-sockets/locked.sock", wireMockServer.port())
+            porthole = PortholeContainer.withCustomSocket("/docker-sockets/locked.sock", wireMockServer.port())
                     .withFileSystemBind(
-                            lockedSocketPath.toString(),
-                            "/docker-sockets/locked.sock",
-                            BindMode.READ_WRITE);
+                            lockedSocketPath.toString(), "/docker-sockets/locked.sock", BindMode.READ_WRITE);
             porthole.start();
             portholeBaseUrl = baseUrlFor(porthole);
         }
@@ -148,8 +144,8 @@ class DockerConnectionFailureIT {
 
         @Test
         void shouldReturn502WhenPermissionDeniedOnVersion() {
-            ResponseEntity<String> response = restTemplate.getForEntity(
-                    portholeBaseUrl + "/api/containers/random-id/version", String.class);
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }

@@ -35,5 +35,4 @@ class DockerHealthIT extends IntegrationTestBase {
         assertThat(response.getBody()).contains("\"status\":\"UP\"}");
         assertThat(response.getBody()).contains("\"docker\":{\"status\":\"UP\"}");
     }
-
 }
