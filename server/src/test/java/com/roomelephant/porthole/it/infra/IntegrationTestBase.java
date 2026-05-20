@@ -32,7 +32,7 @@ public abstract class IntegrationTestBase {
     protected static GenericContainer<?> localContainer;
     protected static GenericContainer<?> noPortsContainer;
 
-    protected static final WireMockServer wireMockServer;
+    private static final WireMockServer wireMockServer;
     protected static final PortholeContainer porthole;
     private static final WireMock wireMockClient;
 
@@ -150,6 +150,15 @@ public abstract class IntegrationTestBase {
 
     private void createContainers() {
         var dc = DockerClientFactory.instance().client();
+
+        // Ensure source images are available locally before using them
+        try {
+            dc.pullImageCmd(BUSYBOX_IMAGE).start().awaitCompletion();
+            dc.pullImageCmd(BUSYBOX_LATEST_IMAGE).start().awaitCompletion();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while pulling images", e);
+        }
 
         // Tag a local image (simulates an image not from a public registry)
         dc.tagImageCmd(BUSYBOX_IMAGE, "my-local-image", "1.0").exec();

@@ -17,9 +17,7 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
         withFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
         withEnv("PORTHOLE_DOCKER_HOST", "unix:///var/run/docker.sock");
         applyRegistryEnv(this, wireMockPort);
-        waitingFor(Wait.forHttp("/actuator/health")
-                .forPort(PORTHOLE_PORT)
-                .forStatusCodeMatching(status -> status >= 100));
+        waitingFor(Wait.forHttp("/actuator/health").forPort(PORTHOLE_PORT));
     }
 
     public String baseUrl() {
