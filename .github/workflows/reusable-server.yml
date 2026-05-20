@@ -20,30 +20,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up GraalVM 25
-        uses: graalvm/setup-graalvm@60c26726de13f8b90771df4bc1641a52a3159994 # v1
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
         with:
           java-version: '25'
-          distribution: 'graalvm-community'
+          distribution: 'temurin'
           cache: 'maven'
 
-      - name: Cache native binary
-        id: cache-native-binary
-        uses: actions/cache@v4
-        with:
-          path: server/target/porthole
-          key: native-binary-${{ runner.os }}-${{ hashFiles('server/src/**', 'server/pom.xml') }}
-
-      - name: Build native binary
-        if: steps.cache-native-binary.outputs.cache-hit != 'true'
+      - name: Build JAR
         working-directory: server
-        run: mvn -B -ntp -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
+        run: mvn -B -ntp package -Pcopy-client -DskipTests -Dspotless.check.skip=true
 
       - name: Build integration test Docker image
-        run: |
-          cp server/target/porthole porthole
-          docker build -t porthole-it:latest -f docker/Dockerfile .
-          rm porthole
+        run: docker build -t porthole-it:latest -f docker/Dockerfile.it .
 
       - name: Check code formatting
         working-directory: server

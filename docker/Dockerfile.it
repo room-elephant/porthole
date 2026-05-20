@@ -1,41 +1,17 @@
-FROM ghcr.io/graalvm/native-image-community:25 AS builder
+FROM eclipse-temurin:25-jre-jammy
 
-ARG MAVEN_VERSION=3.9.9
-RUN curl -fsSL https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
-    | tar -xzC /opt \
-    && ln -s /opt/apache-maven-${MAVEN_VERSION}/bin/mvn /usr/local/bin/mvn
-
-WORKDIR /workspace
-
-COPY server/pom.xml ./server/pom.xml
-RUN cd server && mvn -B -ntp dependency:go-offline -Pnative -DskipTests -Dspotless.check.skip=true \
-    -DdownloadSources=false -DdownloadJavadoc=false
-
-COPY server/src ./server/src
-RUN cd server && mvn -B -ntp -Pnative package native:compile -DskipTests -Dspotless.check.skip=true
-
-FROM debian:bookworm-slim
-
-LABEL org.opencontainers.image.title=Porthole
-LABEL org.opencontainers.image.description="Centralized dashboard for running Docker containers with automatic port discovery."
-LABEL org.opencontainers.image.source=https://github.com/Room-Elephant/porthole
-LABEL org.opencontainers.image.licenses=MIT
-
-RUN apt-get update && apt-get install -y wget gosu && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -g 65532 nonroot && \
     useradd -u 65532 -g nonroot -s /bin/false nonroot
 
 WORKDIR /app
 
-COPY --from=builder --chown=nonroot:nonroot /workspace/server/target/porthole porthole
+COPY --chown=nonroot:nonroot server/target/porthole-0.0.1-SNAPSHOT.jar porthole.jar
 COPY --chown=nonroot:nonroot docker/templates/ /app/config/
 COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod 755 /app/entrypoint.sh
 
 EXPOSE 9753
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:9753/actuator/health || exit 1
-
-ENTRYPOINT ["/app/entrypoint.sh", "./porthole", "--spring.config.additional-location=file:/app/config/"]
+ENTRYPOINT ["/app/entrypoint.sh", "java", "-jar", "/app/porthole.jar", "--spring.config.additional-location=file:/app/config/"]
