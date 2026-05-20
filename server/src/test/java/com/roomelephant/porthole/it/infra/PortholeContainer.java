@@ -41,6 +41,7 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
     private static void applyRegistryEnv(GenericContainer<?> container, int wireMockPort) {
         String base = "http://host.docker.internal:" + wireMockPort;
         container
+                .withExtraHost("host.docker.internal", "host-gateway")
                 .withEnv("REGISTRY_URLS_REGISTRY", base + "/v2/")
                 .withEnv("REGISTRY_URLS_AUTH", base + "/auth?service=registry.docker.io&scope=repository:")
                 .withEnv("REGISTRY_URLS_REPOSITORIES", base + "/v2/repositories/")
