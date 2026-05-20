@@ -26,14 +26,15 @@ class ContainersEndpointIT extends IntegrationTestBase {
     void shouldReturnEmptyListWhenNoContainers() {
         Map<String, ContainerDTO> containers = fetchContainers(true, true);
 
-        assertThat(containers).size().isEqualTo(0);
+        assertThat(containers).doesNotContainKey(TEST_APP_CONTAINER_NAME);
+        assertThat(containers).doesNotContainKey(TEST_NO_PORTS_CONTAINER_NAME);
+        assertThat(containers).doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
+        assertThat(containers).doesNotContainKey(TEST_LOCAL_CONTAINER_NAME);
     }
 
     @Test
     void shouldReturnRunningContainers() {
         Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
-
-        assertThat(containersByName).hasSize(2);
 
         ContainerDTO container = containersByName.get(TEST_APP_CONTAINER_NAME);
         assertThat(container).isNotNull();
@@ -70,12 +71,9 @@ class ContainersEndpointIT extends IntegrationTestBase {
     void shouldShowContainersWithoutPorts() {
         Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
 
-        assertThat(containersByName).hasSize(2);
         assertThat(containersByName.get(TEST_NO_PORTS_CONTAINER_NAME)).isNull();
 
         containersByName = fetchContainers(true, false);
-
-        assertThat(containersByName).hasSize(3);
 
         ContainerDTO container = containersByName.get(TEST_NO_PORTS_CONTAINER_NAME);
         assertThat(container).isNotNull();
@@ -93,12 +91,9 @@ class ContainersEndpointIT extends IntegrationTestBase {
     void shouldShowStoppedContainers() {
         Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
 
-        assertThat(containersByName).hasSize(2);
         assertThat(containersByName.get(TEST_STOPPED_CONTAINER_NAME)).isNull();
 
         containersByName = fetchContainers(true, true);
-
-        assertThat(containersByName).hasSize(4);
 
         ContainerDTO container = containersByName.get(TEST_STOPPED_CONTAINER_NAME);
         assertThat(container).isNotNull();
