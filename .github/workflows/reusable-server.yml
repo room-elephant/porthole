@@ -27,13 +27,6 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build JAR
-        working-directory: server
-        run: mvn -B -ntp package -Pcopy-client -DskipTests -Dspotless.check.skip=true
-
-      - name: Build integration test Docker image
-        run: docker build -t porthole-it:latest -f docker/Dockerfile.it .
-
       - name: Check code formatting
         working-directory: server
         run: mvn -B -ntp spotless:check
@@ -67,6 +60,13 @@ jobs:
               printf "| %s | Instructions | %.2f%% (🎯 80%%) | %d / %d |\n", icon(ip,80), ip, inst_c, inst_c+inst_m
             }
           ' server/target/site/jacoco/jacoco.csv >> $GITHUB_STEP_SUMMARY
+
+      - name: Build JAR
+        working-directory: server
+        run: mvn -B -ntp package -DskipTests -Dspotless.check.skip=true
+
+      - name: Build integration test Docker image
+        run: docker build -t porthole-it:latest -f docker/Dockerfile.it .
 
       - name: Run integration tests
         working-directory: server
