@@ -2,22 +2,13 @@ package com.roomelephant.porthole.it.resilience;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.model.Bind;
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Ports;
-import com.github.dockerjava.api.model.Volume;
-import com.roomelephant.porthole.it.infra.DockerInfrastructure;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.roomelephant.porthole.it.infra.PortholeContainer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -26,49 +17,24 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 
 @Order(1)
 class DockerConnectionFailureIT {
 
-    private static final int PORTHOLE_PORT = 9753;
-
-    private static final DockerInfrastructure dockerInfra;
-    private static final GenericContainer<?> wireMockContainer;
-    private static final String wireMockIp;
-    private static final DockerClient dindClient;
+    private static final WireMockServer wireMockServer;
 
     static {
-        dockerInfra = new DockerInfrastructure();
-        wireMockContainer = dockerInfra.startWireMock();
-        wireMockIp = wireMockContainer
-                .getContainerInfo()
-                .getNetworkSettings()
-                .getNetworks()
-                .values()
-                .iterator()
-                .next()
-                .getIpAddress();
-        dindClient = dockerInfra.getDinDClient();
+        wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        wireMockServer.start();
 
-        try {
-            dindClient.pullImageCmd("busybox:1.37.0-uclibc").start().awaitCompletion();
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Failed to pull busybox image", e);
-        }
-
-        dockerInfra.ensurePortholeImageBuilt();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            wireMockContainer.stop();
-            dockerInfra.close();
-        }));
+        Runtime.getRuntime().addShutdownHook(new Thread(wireMockServer::stop));
     }
 
-    private String runningContainerId;
+    private GenericContainer<?> porthole;
     private String portholeBaseUrl;
     private RestTemplate restTemplate;
-    private final List<String> lockedVolumeNames = new ArrayList<>();
 
     @BeforeEach
     void setup() {
@@ -78,36 +44,26 @@ class DockerConnectionFailureIT {
 
     @AfterEach
     void tearDown() {
-        if (runningContainerId != null) {
-            try {
-                dindClient.stopContainerCmd(runningContainerId).withTimeout(5).exec();
-            } catch (Exception ignored) {
-            }
-            try {
-                dindClient
-                        .removeContainerCmd(runningContainerId)
-                        .withForce(true)
-                        .exec();
-            } catch (Exception ignored) {
-            }
-            runningContainerId = null;
-            portholeBaseUrl = null;
+        if (porthole != null && porthole.isRunning()) {
+            porthole.stop();
+            porthole = null;
         }
-        for (String vol : lockedVolumeNames) {
-            try {
-                dindClient.removeVolumeCmd(vol).exec();
-            } catch (Exception ignored) {
-            }
-        }
-        lockedVolumeNames.clear();
+        portholeBaseUrl = null;
+    }
+
+    private String baseUrlFor(GenericContainer<?> container) {
+        return "http://localhost:" + container.getMappedPort(PortholeContainer.PORTHOLE_PORT);
     }
 
     @Nested
     class WhenSocketMissing {
 
         @BeforeEach
-        void startBrokenPorthole() throws Exception {
-            startMissingSocketPorthole();
+        void startBrokenPorthole() {
+            porthole = PortholeContainer.withCustomSocket(
+                    "/tmp/missing-docker.sock", wireMockServer.port());
+            porthole.start();
+            portholeBaseUrl = baseUrlFor(porthole);
         }
 
         @Test
@@ -132,9 +88,8 @@ class DockerConnectionFailureIT {
 
         @Test
         void shouldReturn502WhenSocketMissingOnVersion() {
-            String containerId = "random-id";
             ResponseEntity<String> response = restTemplate.getForEntity(
-                    portholeBaseUrl + "/api/containers/" + containerId + "/version", String.class);
+                    portholeBaseUrl + "/api/containers/random-id/version", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }
@@ -143,9 +98,28 @@ class DockerConnectionFailureIT {
     @Nested
     class WhenPermissionDenied {
 
+        private Path lockedSocketPath;
+
         @BeforeEach
         void startBrokenPorthole() throws Exception {
-            startPermissionDeniedPorthole();
+            lockedSocketPath = Files.createTempFile("locked-docker", ".sock");
+            Files.setPosixFilePermissions(lockedSocketPath, Set.of());
+
+            porthole = PortholeContainer.withCustomSocket(
+                            "/docker-sockets/locked.sock", wireMockServer.port())
+                    .withFileSystemBind(
+                            lockedSocketPath.toString(),
+                            "/docker-sockets/locked.sock",
+                            BindMode.READ_WRITE);
+            porthole.start();
+            portholeBaseUrl = baseUrlFor(porthole);
+        }
+
+        @AfterEach
+        void deleteLocked() throws Exception {
+            if (lockedSocketPath != null) {
+                Files.deleteIfExists(lockedSocketPath);
+            }
         }
 
         @Test
@@ -170,113 +144,12 @@ class DockerConnectionFailureIT {
 
         @Test
         void shouldReturn502WhenPermissionDeniedOnVersion() {
-            String containerId = "random-id";
             ResponseEntity<String> response = restTemplate.getForEntity(
-                    portholeBaseUrl + "/api/containers/" + containerId + "/version", String.class);
+                    portholeBaseUrl + "/api/containers/random-id/version", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Porthole container helpers
-    // -------------------------------------------------------------------------
-
-    private void startMissingSocketPorthole() throws Exception {
-        String name = "porthole-missing-" + System.nanoTime();
-        String id = dindClient
-                .createContainerCmd(DockerInfrastructure.PORTHOLE_IT_IMAGE_TAG)
-                .withName(name)
-                .withHostConfig(HostConfig.newHostConfig()
-                        .withPortBindings(
-                                new PortBinding(Ports.Binding.bindPort(PORTHOLE_PORT), ExposedPort.tcp(PORTHOLE_PORT)))
-                        .withExtraHosts("wiremock:" + wireMockIp))
-                .withExposedPorts(ExposedPort.tcp(PORTHOLE_PORT))
-                .withEnv(
-                        "PORTHOLE_DOCKER_HOST=unix:///tmp/missing-docker.sock",
-                        "REGISTRY_URLS_REGISTRY=http://wiremock:8080/v2/",
-                        "REGISTRY_URLS_AUTH=http://wiremock:8080/auth?service=registry.docker.io&scope=repository:",
-                        "REGISTRY_URLS_REPOSITORIES=http://wiremock:8080/v2/repositories/",
-                        "REGISTRY_CACHE_TTL=1ms",
-                        "REGISTRY_CACHE_VERSION_MAX_SIZE=1")
-                .exec()
-                .getId();
-
-        dindClient.startContainerCmd(id).exec();
-        runningContainerId = id;
-        portholeBaseUrl = buildBaseUrl();
-        waitUntilResponding(portholeBaseUrl);
-    }
-
-    private void startPermissionDeniedPorthole() throws Exception {
-        String volumeName = "porthole-locked-" + System.nanoTime();
-        dindClient.createVolumeCmd().withName(volumeName).exec();
-        lockedVolumeNames.add(volumeName);
-
-        // Run busybox inside DinD to create a 0000-permission file on the volume
-        String setupId = dindClient
-                .createContainerCmd("busybox:1.37.0-uclibc")
-                .withCmd("sh", "-c", "touch /data/locked.sock && chmod 000 /data/locked.sock")
-                .withHostConfig(HostConfig.newHostConfig().withBinds(new Bind(volumeName, new Volume("/data"))))
-                .exec()
-                .getId();
-        dindClient.startContainerCmd(setupId).exec();
-        dindClient.waitContainerCmd(setupId).start().awaitStatusCode();
-        dindClient.removeContainerCmd(setupId).withForce(true).exec();
-
-        String name = "porthole-locked-" + System.nanoTime();
-        String id = dindClient
-                .createContainerCmd(DockerInfrastructure.PORTHOLE_IT_IMAGE_TAG)
-                .withName(name)
-                .withHostConfig(HostConfig.newHostConfig()
-                        .withPortBindings(
-                                new PortBinding(Ports.Binding.bindPort(PORTHOLE_PORT), ExposedPort.tcp(PORTHOLE_PORT)))
-                        .withBinds(new Bind(volumeName, new Volume("/docker-sockets")))
-                        .withExtraHosts("wiremock:" + wireMockIp))
-                .withExposedPorts(ExposedPort.tcp(PORTHOLE_PORT))
-                .withEnv(
-                        "PORTHOLE_DOCKER_HOST=unix:///docker-sockets/locked.sock",
-                        "REGISTRY_URLS_REGISTRY=http://wiremock:8080/v2/",
-                        "REGISTRY_URLS_AUTH=http://wiremock:8080/auth?service=registry.docker.io&scope=repository:",
-                        "REGISTRY_URLS_REPOSITORIES=http://wiremock:8080/v2/repositories/",
-                        "REGISTRY_CACHE_TTL=1ms",
-                        "REGISTRY_CACHE_VERSION_MAX_SIZE=1")
-                .exec()
-                .getId();
-
-        dindClient.startContainerCmd(id).exec();
-        runningContainerId = id;
-        portholeBaseUrl = buildBaseUrl();
-        waitUntilResponding(portholeBaseUrl);
-    }
-
-    private String buildBaseUrl() {
-        return "http://" + dockerInfra.getDinDHost() + ":" + dockerInfra.getDinDMappedPort9753();
-    }
-
-    private static void waitUntilResponding(String baseUrl) throws Exception {
-        HttpClient client =
-                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
-        long deadline = System.currentTimeMillis() + 60_000;
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(baseUrl + "/actuator/health"))
-                        .timeout(Duration.ofSeconds(2))
-                        .GET()
-                        .build();
-                client.send(request, HttpResponse.BodyHandlers.discarding());
-                return; // any response means the server is up
-            } catch (Exception ignored) {
-            }
-            Thread.sleep(500);
-        }
-        throw new IllegalStateException("Porthole did not respond within 60s at " + baseUrl);
-    }
-
-    // -------------------------------------------------------------------------
-    // DTOs
-    // -------------------------------------------------------------------------
 
     record HealthResponse(String status, Map<String, Object> details) {}
 }
