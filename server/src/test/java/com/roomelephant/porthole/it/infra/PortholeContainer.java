@@ -1,96 +1,54 @@
 package com.roomelephant.porthole.it.infra;
 
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.model.Bind;
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Ports;
-import com.github.dockerjava.api.model.Volume;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import lombok.SneakyThrows;
+import java.util.Objects;
+import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 
-public class PortholeContainer {
+public class PortholeContainer extends GenericContainer<PortholeContainer> {
 
-    private static final int PORTHOLE_PORT = 9753;
+    public static final int PORTHOLE_PORT = 9753;
+    static final String IMAGE_TAG =
+            Objects.requireNonNullElse(System.getenv("PORTHOLE_IT_IMAGE_TAG"), "porthole-it:latest");
 
-    private final DockerInfrastructure infra;
-    private final String wireMockIp;
-    private String containerId;
-
-    public PortholeContainer(DockerInfrastructure infra, String wireMockIp) {
-        this.infra = infra;
-        this.wireMockIp = wireMockIp;
-    }
-
-    @SneakyThrows
-    public void start() {
-        infra.ensurePortholeImageBuilt();
-        containerId = createAndStartContainer();
-        waitUntilHealthy();
+    public PortholeContainer(int wireMockPort) {
+        super(IMAGE_TAG);
+        withExposedPorts(PORTHOLE_PORT);
+        withFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
+        withEnv("PORTHOLE_DOCKER_HOST", "unix:///var/run/docker.sock");
+        applyRegistryEnv(this, wireMockPort);
+        waitingFor(Wait.forHttp("/actuator/health")
+                .forPort(PORTHOLE_PORT)
+                .forStatusCodeMatching(status -> status >= 100));
     }
 
     public String baseUrl() {
-        return "http://" + infra.getDinDHost() + ":" + infra.getDinDMappedPort9753();
+        return "http://localhost:" + getMappedPort(PORTHOLE_PORT);
     }
 
-    public String getContainerId() {
-        return containerId;
+    /**
+     * Factory for resilience-test Porthole instances that connect to a custom socket path.
+     * Does NOT mount /var/run/docker.sock — caller must add their own socket bind.
+     */
+    public static GenericContainer<?> withCustomSocket(String socketPath, int wireMockPort) {
+        GenericContainer<?> container = new GenericContainer<>(IMAGE_TAG)
+                .withExposedPorts(PORTHOLE_PORT)
+                .withEnv("PORTHOLE_DOCKER_HOST", "unix://" + socketPath);
+        applyRegistryEnv(container, wireMockPort);
+        container.waitingFor(Wait.forHttp("/actuator/health")
+                .forPort(PORTHOLE_PORT)
+                .forStatusCodeMatching(status -> status >= 100));
+        return container;
     }
 
-    private String createAndStartContainer() {
-        DockerClient dindClient = infra.getDinDClient();
-        infra.removeContainerQuietly("porthole-it");
-
-        String id = dindClient
-                .createContainerCmd(DockerInfrastructure.PORTHOLE_IT_IMAGE_TAG)
-                .withName("porthole-it")
-                .withHostConfig(HostConfig.newHostConfig()
-                        .withPortBindings(
-                                new PortBinding(Ports.Binding.bindPort(PORTHOLE_PORT), ExposedPort.tcp(PORTHOLE_PORT)))
-                        .withBinds(new Bind("/var/run/docker.sock", new Volume("/var/run/docker.sock")))
-                        .withExtraHosts("wiremock:" + wireMockIp))
-                .withExposedPorts(ExposedPort.tcp(PORTHOLE_PORT))
-                .withEnv(
-                        "PORTHOLE_DOCKER_HOST=unix:///var/run/docker.sock",
-                        "REGISTRY_URLS_REGISTRY=http://wiremock:8080/v2/",
-                        "REGISTRY_URLS_AUTH=http://wiremock:8080/auth?service=registry.docker.io&scope=repository:",
-                        "REGISTRY_URLS_REPOSITORIES=http://wiremock:8080/v2/repositories/",
-                        "REGISTRY_CACHE_TTL=1ms",
-                        "REGISTRY_CACHE_VERSION_MAX_SIZE=1")
-                .exec()
-                .getId();
-
-        dindClient.startContainerCmd(id).exec();
-        return id;
-    }
-
-    @SneakyThrows
-    private void waitUntilHealthy() {
-        HttpClient httpClient =
-                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
-        String healthUrl = baseUrl() + "/actuator/health";
-        long deadline = System.currentTimeMillis() + 120_000;
-
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(healthUrl))
-                        .timeout(Duration.ofSeconds(2))
-                        .GET()
-                        .build();
-                HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
-                if (response.statusCode() < 500) {
-                    return;
-                }
-            } catch (Exception ignored) {
-            }
-            Thread.sleep(500);
-        }
-        throw new IllegalStateException("Porthole did not become healthy within 120s at " + healthUrl);
+    private static void applyRegistryEnv(GenericContainer<?> container, int wireMockPort) {
+        String base = "http://host.docker.internal:" + wireMockPort;
+        container
+                .withEnv("REGISTRY_URLS_REGISTRY", base + "/v2/")
+                .withEnv("REGISTRY_URLS_AUTH",
+                        base + "/auth?service=registry.docker.io&scope=repository:")
+                .withEnv("REGISTRY_URLS_REPOSITORIES", base + "/v2/repositories/")
+                .withEnv("REGISTRY_CACHE_TTL", "1ms")
+                .withEnv("REGISTRY_CACHE_VERSION_MAX_SIZE", "1");
     }
 }

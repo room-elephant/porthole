@@ -13,6 +13,7 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -167,9 +168,8 @@ public class DockerInfrastructure implements AutoCloseable {
         return wireMock;
     }
 
-    // TODO: PortholeContainer created in Task 3
-    public PortholeContainer startPorthole(String wireMockIp) {
-        PortholeContainer porthole = new PortholeContainer(this, wireMockIp);
+    public PortholeContainer startPorthole(int wireMockPort) {
+        PortholeContainer porthole = new PortholeContainer(wireMockPort);
         porthole.start();
         return porthole;
     }

@@ -33,15 +33,7 @@ public abstract class IntegrationTestBase {
     static {
         dockerInfra = new DockerInfrastructure();
         wireMockContainer = dockerInfra.startWireMock();
-        String wireMockIp = wireMockContainer
-                .getContainerInfo()
-                .getNetworkSettings()
-                .getNetworks()
-                .values()
-                .iterator()
-                .next()
-                .getIpAddress();
-        porthole = dockerInfra.startPorthole(wireMockIp);
+        porthole = dockerInfra.startPorthole(wireMockContainer.getMappedPort(8080));
         wireMockClient = new WireMock("localhost", wireMockContainer.getMappedPort(8080));
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
