@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -28,8 +29,11 @@ class DockerConnectionFailureIT {
     static {
         wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
         wireMockServer.start();
+    }
 
-        Runtime.getRuntime().addShutdownHook(new Thread(wireMockServer::stop));
+    @AfterAll
+    static void stopWireMock() {
+        wireMockServer.stop();
     }
 
     private GenericContainer<?> porthole;
@@ -67,7 +71,7 @@ class DockerConnectionFailureIT {
         }
 
         @Test
-        void ShouldReturnDownWhenSocketMissingOnHealth() {
+        void shouldReturnDownWhenSocketMissingOnHealth() {
             ResponseEntity<HealthResponse> response =
                     restTemplate.getForEntity(portholeBaseUrl + "/actuator/health/docker", HealthResponse.class);
 
