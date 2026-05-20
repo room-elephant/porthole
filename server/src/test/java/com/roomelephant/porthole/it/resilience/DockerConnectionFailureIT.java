@@ -101,24 +101,27 @@ class DockerConnectionFailureIT {
     @Nested
     class WhenPermissionDenied {
 
-        private Path lockedSocketPath;
+        private Path lockedSocketDir;
 
         @BeforeEach
         void startBrokenPorthole() throws Exception {
-            lockedSocketPath = Files.createTempFile("locked-docker", ".sock");
-            Files.setPosixFilePermissions(lockedSocketPath, Set.of());
+            lockedSocketDir = Files.createTempDirectory(Path.of("/tmp"), "locked-docker");
+            Path lockedFile = lockedSocketDir.resolve("locked.sock");
+            Files.createFile(lockedFile);
+            Files.setPosixFilePermissions(lockedFile, Set.of());
 
             porthole = PortholeContainer.withCustomSocket("/docker-sockets/locked.sock", wireMockServer.port())
-                    .withFileSystemBind(
-                            lockedSocketPath.toString(), "/docker-sockets/locked.sock", BindMode.READ_WRITE);
+                    .withFileSystemBind(lockedSocketDir.toString(), "/docker-sockets", BindMode.READ_WRITE);
             porthole.start();
             portholeBaseUrl = baseUrlFor(porthole);
         }
 
         @AfterEach
         void deleteLocked() throws Exception {
-            if (lockedSocketPath != null) {
-                Files.deleteIfExists(lockedSocketPath);
+            if (lockedSocketDir != null) {
+                Files.deleteIfExists(lockedSocketDir.resolve("locked.sock"));
+                Files.deleteIfExists(lockedSocketDir);
+                lockedSocketDir = null;
             }
         }
 

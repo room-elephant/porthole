@@ -2,7 +2,6 @@ package com.roomelephant.porthole.it.infra;
 
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
@@ -35,7 +34,6 @@ public abstract class IntegrationTestBase {
 
     private static final WireMockServer wireMockServer;
     protected static final PortholeContainer porthole;
-    private static final WireMock wireMockClient;
 
     static {
         wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
@@ -43,8 +41,6 @@ public abstract class IntegrationTestBase {
 
         porthole = new PortholeContainer(wireMockServer.port());
         porthole.start();
-
-        wireMockClient = new WireMock("localhost", wireMockServer.port());
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             porthole.stop();
@@ -60,8 +56,8 @@ public abstract class IntegrationTestBase {
         return template;
     }
 
-    protected static WireMock wireMockClient() {
-        return wireMockClient;
+    protected static WireMockServer wireMockClient() {
+        return wireMockServer;
     }
 
     @BeforeEach
