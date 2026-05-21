@@ -31,6 +31,10 @@ jobs:
         working-directory: server
         run: mvn -B -ntp spotless:check
 
+      - name: Build without tests
+        working-directory: server
+        run: mvn -B -ntp package -DskipTests -Dspotless.check.skip=true
+
       - name: Run unit tests with coverage
         working-directory: server
         run: mvn -B -ntp test -Dspotless.check.skip=true
@@ -56,10 +60,6 @@ jobs:
               printf "| %s | Instructions | %.2f%% (🎯 80%%) | %d / %d |\n", icon(ip,80), ip, inst_c, inst_c+inst_m
             }
           ' server/target/site/jacoco/jacoco.csv >> $GITHUB_STEP_SUMMARY
-
-      - name: Build JAR
-        working-directory: server
-        run: mvn -B -ntp package -DskipTests -Dspotless.check.skip=true
 
       - name: Build integration test Docker image
         run: docker build -t porthole-it:latest -f docker/Dockerfile.it .
