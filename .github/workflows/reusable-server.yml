@@ -31,15 +31,15 @@ jobs:
         working-directory: server
         run: mvn -B -ntp spotless:check
 
-      - name: Build without tests
+      - name: Build
         working-directory: server
-        run: mvn -B -ntp package -DskipTests -Dspotless.check.skip=true
+        run: mvn -B -ntp compile -Dspotless.check.skip=true
 
-      - name: Run unit tests with coverage
+      - name: Run unit tests
         working-directory: server
         run: mvn -B -ntp test -Dspotless.check.skip=true
 
-      - name: Generate unit test coverage summary
+      - name: Generate unit test coverage report
         if: ${{ inputs.upload_coverage }}
         run: |
           echo "## Unit Test Coverage Report" >> $GITHUB_STEP_SUMMARY
@@ -61,6 +61,10 @@ jobs:
             }
           ' server/target/site/jacoco/jacoco.csv >> $GITHUB_STEP_SUMMARY
 
+      - name: Package
+        working-directory: server
+        run: mvn -B -ntp package -DskipTests -Dspotless.check.skip=true
+
       - name: Build integration test Docker image
         run: docker build -t porthole-it:latest -f docker/Dockerfile.it .
 
@@ -70,7 +74,7 @@ jobs:
           PORTHOLE_IT_IMAGE_TAG: porthole-it:latest
         run: mvn -B -ntp verify -Pintegration-tests -Dspotless.check.skip=true
 
-      - name: Publish integration test results
+      - name: Generate integration test results
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
