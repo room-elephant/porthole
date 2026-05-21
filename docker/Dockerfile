@@ -14,8 +14,7 @@ WORKDIR /app
 
 COPY --chown=nonroot:nonroot porthole porthole
 COPY --chown=nonroot:nonroot docker/templates/ /app/config/
-COPY docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod 755 /app/entrypoint.sh
+COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
 
 EXPOSE 9753
 
