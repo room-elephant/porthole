@@ -31,10 +31,6 @@ jobs:
         working-directory: server
         run: mvn -B -ntp spotless:check
 
-      - name: Build without tests
-        working-directory: server
-        run: mvn -B -ntp compile -DskipTests -Dspotless.check.skip=true
-
       - name: Run unit tests with coverage
         working-directory: server
         run: mvn -B -ntp test -Dspotless.check.skip=true
