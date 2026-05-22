@@ -9,26 +9,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpStatus.OK;
 
 import com.roomelephant.porthole.domain.model.VersionDTO;
-import com.roomelephant.porthole.it.infra.IntegrationTestBase;
+import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-@Order(4)
-class VersionEndpointIT extends IntegrationTestBase {
+class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldReturnUpdateAvailableWhenNewerVersionExists() {
         stubAuth();
-        stubRegistryTags("busybox", "1.37.0-uclibc", "1.38.1");
-        stubManifestDigest("busybox", "1.37.0-uclibc", "sha256:currentdiggest");
+        stubRegistryTags("pause", "1.0", "3.10");
+        stubManifestDigest("pause", "1.0", "sha256:currentdiggest");
 
         VersionDTO response = fetchVersion(testAppContainer.getContainerId());
 
-        assertThat(response.currentVersion()).isEqualTo("1.37.0-uclibc");
-        assertThat(response.latestVersion()).isEqualTo("1.38.1");
+        assertThat(response.currentVersion()).isEqualTo("1.0");
+        assertThat(response.latestVersion()).isEqualTo("3.10");
         assertThat(response.updateAvailable()).isTrue();
     }
 
@@ -58,10 +56,10 @@ class VersionEndpointIT extends IntegrationTestBase {
     void shouldReturnNoUpdateWhenLatestTagMatchesDigest() {
         stubAuth();
         String containerId = noPortsContainer.getContainerId();
-        String currentDigest = getLocalDigest(BUSYBOX_LATEST_IMAGE);
+        String currentDigest = getLocalDigest(PAUSE_LATEST_IMAGE);
 
-        stubRegistryTags("busybox", "latest", "1.37.0-uclibc");
-        stubManifestDigest("busybox", "latest", currentDigest);
+        stubRegistryTags("pause", "latest");
+        stubManifestDigest("pause", "latest", currentDigest);
 
         VersionDTO response = fetchVersion(containerId);
 
@@ -75,8 +73,8 @@ class VersionEndpointIT extends IntegrationTestBase {
         stubAuth();
         String containerId = noPortsContainer.getContainerId();
 
-        stubRegistryTags("busybox", "latest", "1.37.0-uclibc");
-        stubManifestDigest("busybox", "latest", "sha256:newerdigest");
+        stubRegistryTags("pause", "latest");
+        stubManifestDigest("pause", "latest", "sha256:newerdigest");
 
         VersionDTO response = fetchVersion(containerId);
 
@@ -90,8 +88,8 @@ class VersionEndpointIT extends IntegrationTestBase {
         stubAuth();
         String containerId = noPortsContainer.getContainerId();
 
-        stubRegistryTags("busybox", "latest", "1.37.0-uclibc");
-        stubManifestDigest("busybox", "latest", "sha256:somedifferentdigest");
+        stubRegistryTags("pause", "latest", "3.9");
+        stubManifestDigest("pause", "latest", "sha256:somedifferentdigest");
 
         VersionDTO response = fetchVersion(containerId);
 
@@ -99,10 +97,11 @@ class VersionEndpointIT extends IntegrationTestBase {
     }
 
     private String getLocalDigest(String imageName) {
-        return noPortsContainer.getDockerClient().inspectImageCmd(imageName).exec().getRepoDigests().stream()
+        var inspect = noPortsContainer.getDockerClient().inspectImageCmd(imageName).exec();
+        return inspect.getRepoDigests().stream()
                 .findFirst()
                 .map(d -> d.contains("@") ? d.substring(d.indexOf("@") + 1) : d)
-                .orElse(imageName);
+                .orElseGet(inspect::getId);
     }
 
     void stubAuth() {
