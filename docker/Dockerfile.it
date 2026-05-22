@@ -1,8 +1,11 @@
-FROM eclipse-temurin:25-jre-jammy
+FROM ghcr.io/graalvm/jdk-community:25
 
-RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/* && \
+RUN microdnf install -y shadow-utils curl && \
+    curl -fsSL https://github.com/tianon/gosu/releases/download/1.17/gosu-amd64 -o /usr/local/bin/gosu && \
+    chmod +x /usr/local/bin/gosu && \
     groupadd -g 65532 nonroot && \
-    useradd -u 65532 -g nonroot -s /bin/false nonroot
+    useradd -u 65532 -g nonroot -s /bin/false nonroot && \
+    microdnf clean all
 
 WORKDIR /app
 
