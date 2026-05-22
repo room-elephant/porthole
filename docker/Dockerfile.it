@@ -1,0 +1,15 @@
+FROM eclipse-temurin:25-jre-jammy
+
+RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/* && \
+    groupadd -g 65532 nonroot && \
+    useradd -u 65532 -g nonroot -s /bin/false nonroot
+
+WORKDIR /app
+
+COPY --chown=nonroot:nonroot --chmod=444 server/target/porthole-0.0.1-SNAPSHOT.jar porthole.jar
+COPY --chown=nonroot:nonroot --chmod=444 docker/templates/ /app/config/
+COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
+
+EXPOSE 9753
+
+ENTRYPOINT ["/app/entrypoint.sh", "java", "-jar", "/app/porthole.jar", "--spring.config.additional-location=file:/app/config/"]
