@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
+import java.net.StandardProtocolFamily;
+import java.net.UnixDomainSocketAddress;
+import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -145,6 +148,70 @@ class DockerConnectionFailureIT {
 
         @Test
         void shouldReturn502WhenPermissionDeniedOnVersion() {
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        }
+    }
+
+    @Nested
+    class WhenConnectionRefused {
+
+        private Path socketDir;
+        // Kept open intentionally: a bound-but-not-listening client socket gives ECONNREFUSED on connect.
+        // Closing it would unlink the socket file, losing the scenario entirely.
+        private SocketChannel orphanChannel;
+
+        @BeforeEach
+        void startBrokenPorthole() throws Exception {
+            socketDir = Files.createTempDirectory(Path.of("/tmp"), "orphan-docker");
+            Path socketPath = socketDir.resolve("orphan.sock");
+
+            orphanChannel = SocketChannel.open(StandardProtocolFamily.UNIX);
+            orphanChannel.bind(UnixDomainSocketAddress.of(socketPath));
+
+            porthole = PortholeContainer.withCustomSocket("/docker-sockets/orphan.sock", wireMockServer.port())
+                    .withFileSystemBind(socketDir.toString(), "/docker-sockets", BindMode.READ_WRITE);
+            porthole.start();
+            portholeBaseUrl = baseUrlFor(porthole);
+        }
+
+        @AfterEach
+        void deleteOrphanSocket() throws Exception {
+            if (orphanChannel != null) {
+                orphanChannel.close();
+                orphanChannel = null;
+            }
+            if (socketDir != null) {
+                Files.deleteIfExists(socketDir.resolve("orphan.sock"));
+                Files.deleteIfExists(socketDir);
+                socketDir = null;
+            }
+        }
+
+        @Test
+        void shouldReturnDownWhenConnectionRefusedOnHealth() {
+            ResponseEntity<HealthResponse> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/actuator/health/docker", HealthResponse.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            HealthResponse health = response.getBody();
+            assertThat(health).isNotNull();
+            assertThat(health.status()).isEqualTo("DOWN");
+            assertThat(health.details()).containsKey("Error connecting to docker");
+        }
+
+        @Test
+        void shouldReturn502WhenConnectionRefusedOnContainers() {
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        }
+
+        @Test
+        void shouldReturn502WhenConnectionRefusedOnVersion() {
             ResponseEntity<String> response =
                     restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
 
