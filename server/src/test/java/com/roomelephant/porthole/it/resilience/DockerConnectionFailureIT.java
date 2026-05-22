@@ -13,7 +13,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +20,6 @@ import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 
-@Order(1)
 class DockerConnectionFailureIT {
 
     private static final WireMockServer wireMockServer;
