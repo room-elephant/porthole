@@ -6,8 +6,8 @@ RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/* && 
 
 WORKDIR /app
 
-COPY --chown=nonroot:nonroot server/target/porthole-0.0.1-SNAPSHOT.jar porthole.jar
-COPY --chown=nonroot:nonroot docker/templates/ /app/config/
+COPY --chown=nonroot:nonroot --chmod=444 server/target/porthole-0.0.1-SNAPSHOT.jar porthole.jar
+COPY --chown=nonroot:nonroot --chmod=444 docker/templates/ /app/config/
 COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
 
 EXPOSE 9753
