@@ -1,6 +1,5 @@
 package com.roomelephant.porthole.it.infra;
 
-import java.util.Objects;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -8,8 +7,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 public class PortholeContainer extends GenericContainer<PortholeContainer> {
 
     public static final int PORTHOLE_PORT = 9753;
-    static final String IMAGE_TAG =
-            Objects.requireNonNullElse(System.getenv("PORTHOLE_IT_IMAGE_TAG"), "porthole-it:latest");
+    static final String IMAGE_TAG = "porthole-it:latest";
 
     public PortholeContainer(int wireMockPort) {
         super(IMAGE_TAG);

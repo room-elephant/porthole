@@ -70,8 +70,6 @@ jobs:
 
       - name: Run integration tests
         working-directory: server
-        env:
-          PORTHOLE_IT_IMAGE_TAG: porthole-it:latest
         run: mvn -B -ntp verify -Pintegration-tests -Dspotless.check.skip=true
 
       - name: Generate integration test results
