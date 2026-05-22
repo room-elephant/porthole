@@ -2,142 +2,221 @@ package com.roomelephant.porthole.it.resilience;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.File;
-import java.io.IOException;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.roomelephant.porthole.it.infra.PortholeContainer;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
-import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
-import java.nio.file.attribute.PosixFilePermission;
-import java.util.HashSet;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestTemplate;
+import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.GenericContainer;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("it")
-@Order(1)
 class DockerConnectionFailureIT {
 
-    private static File socketFile;
+    private static final WireMockServer wireMockServer;
 
-    @LocalServerPort
-    protected int port;
+    static {
+        wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        wireMockServer.start();
+    }
 
+    @AfterAll
+    static void stopWireMock() {
+        wireMockServer.stop();
+    }
+
+    private GenericContainer<?> porthole;
+    private String portholeBaseUrl;
     private RestTemplate restTemplate;
 
     @BeforeEach
     void setup() {
-        this.restTemplate = new RestTemplate();
-        this.restTemplate.setErrorHandler(response -> false);
+        restTemplate = new RestTemplate();
+        restTemplate.setErrorHandler(response -> false);
     }
 
     @AfterEach
-    void cleanup() {
-        if (socketFile != null && socketFile.exists()) {
-            socketFile.delete();
+    void tearDown() {
+        if (porthole != null && porthole.isRunning()) {
+            porthole.stop();
+            porthole = null;
+        }
+        portholeBaseUrl = null;
+    }
+
+    private String baseUrlFor(GenericContainer<?> container) {
+        return "http://localhost:" + container.getMappedPort(PortholeContainer.PORTHOLE_PORT);
+    }
+
+    @Nested
+    class WhenSocketMissing {
+
+        @BeforeEach
+        void startBrokenPorthole() {
+            porthole = PortholeContainer.withCustomSocket("/tmp/missing-docker.sock", wireMockServer.port());
+            porthole.start();
+            portholeBaseUrl = baseUrlFor(porthole);
+        }
+
+        @Test
+        void shouldReturnDownWhenSocketMissingOnHealth() {
+            ResponseEntity<HealthResponse> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/actuator/health/docker", HealthResponse.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            HealthResponse health = response.getBody();
+            assertThat(health).isNotNull();
+            assertThat(health.status()).isEqualTo("DOWN");
+            assertThat(health.details()).containsEntry("Error connecting to docker", "No such file or directory");
+        }
+
+        @Test
+        void shouldReturn502WhenSocketMissingOnContainers() {
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        }
+
+        @Test
+        void shouldReturn502WhenSocketMissingOnVersion() {
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }
     }
 
-    @DynamicPropertySource
-    static void configureProperties(@NotNull DynamicPropertyRegistry registry) {
-        try {
-            socketFile = File.createTempFile("docker-failure-test", ".sock");
+    @Nested
+    class WhenPermissionDenied {
 
-            registry.add("porthole.docker.host", () -> "unix://" + socketFile.getAbsolutePath());
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to setup socket file path", e);
+        private Path lockedSocketDir;
+
+        @BeforeEach
+        void startBrokenPorthole() throws Exception {
+            lockedSocketDir = Files.createTempDirectory(Path.of("/tmp"), "locked-docker");
+            Path lockedFile = lockedSocketDir.resolve("locked.sock");
+            Files.createFile(lockedFile);
+            Files.setPosixFilePermissions(lockedFile, Set.of());
+
+            porthole = PortholeContainer.withCustomSocket("/docker-sockets/locked.sock", wireMockServer.port())
+                    .withFileSystemBind(lockedSocketDir.toString(), "/docker-sockets", BindMode.READ_WRITE);
+            porthole.start();
+            portholeBaseUrl = baseUrlFor(porthole);
+        }
+
+        @AfterEach
+        void deleteLocked() throws Exception {
+            if (lockedSocketDir != null) {
+                Files.deleteIfExists(lockedSocketDir.resolve("locked.sock"));
+                Files.deleteIfExists(lockedSocketDir);
+                lockedSocketDir = null;
+            }
+        }
+
+        @Test
+        void shouldReturnDownWhenPermissionDeniedOnHealth() {
+            ResponseEntity<HealthResponse> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/actuator/health/docker", HealthResponse.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            HealthResponse health = response.getBody();
+            assertThat(health).isNotNull();
+            assertThat(health.status()).isEqualTo("DOWN");
+            assertThat(health.details()).containsEntry("Error connecting to docker", "Permission denied");
+        }
+
+        @Test
+        void shouldReturn502WhenPermissionDeniedOnContainers() {
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        }
+
+        @Test
+        void shouldReturn502WhenPermissionDeniedOnVersion() {
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }
     }
 
-    @Test
-    void ShouldReturnDownWhenSocketMissingOnHealth() {
-        ResponseEntity<HealthResponse> response =
-                restTemplate.getForEntity(createURLWithPort("/actuator/health/docker"), HealthResponse.class);
+    @Nested
+    class WhenConnectionRefused {
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-        HealthResponse health = response.getBody();
-        assertThat(health).isNotNull();
-        assertThat(health.status()).isEqualTo("DOWN");
-        assertThat(health.details()).containsEntry("Error connecting to docker", "No such file or directory");
-    }
+        private Path socketDir;
+        // Kept open intentionally: a bound-but-not-listening client socket gives ECONNREFUSED on connect.
+        // Closing it would unlink the socket file, losing the scenario entirely.
+        private SocketChannel orphanChannel;
 
-    @Test
-    void shouldReturn502WhenSocketMissingOnContainers() {
-        ResponseEntity<String> response = restTemplate.getForEntity(createURLWithPort("/api/containers"), String.class);
+        @BeforeEach
+        void startBrokenPorthole() throws Exception {
+            socketDir = Files.createTempDirectory(Path.of("/tmp"), "orphan-docker");
+            Path socketPath = socketDir.resolve("orphan.sock");
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-    }
+            orphanChannel = SocketChannel.open(StandardProtocolFamily.UNIX);
+            orphanChannel.bind(UnixDomainSocketAddress.of(socketPath));
 
-    @Test
-    void shouldReturn502WhenSocketMissingOnVersion() {
-        String containerId = "random-id";
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                createURLWithPort("/api/containers/" + containerId + "/version"), String.class);
+            porthole = PortholeContainer.withCustomSocket("/docker-sockets/orphan.sock", wireMockServer.port())
+                    .withFileSystemBind(socketDir.toString(), "/docker-sockets", BindMode.READ_WRITE);
+            porthole.start();
+            portholeBaseUrl = baseUrlFor(porthole);
+        }
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-    }
+        @AfterEach
+        void deleteOrphanSocket() throws Exception {
+            if (orphanChannel != null) {
+                orphanChannel.close();
+                orphanChannel = null;
+            }
+            if (socketDir != null) {
+                Files.deleteIfExists(socketDir.resolve("orphan.sock"));
+                Files.deleteIfExists(socketDir);
+                socketDir = null;
+            }
+        }
 
-    @Test
-    void shouldReturnDownWhenPermissionDeniedOnHealth() throws IOException {
-        ensureSocketPermissionDenied();
+        @Test
+        void shouldReturnDownWhenConnectionRefusedOnHealth() {
+            ResponseEntity<HealthResponse> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/actuator/health/docker", HealthResponse.class);
 
-        ResponseEntity<HealthResponse> response =
-                restTemplate.getForEntity(createURLWithPort("/actuator/health/docker"), HealthResponse.class);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            HealthResponse health = response.getBody();
+            assertThat(health).isNotNull();
+            assertThat(health.status()).isEqualTo("DOWN");
+            assertThat(health.details()).containsKey("Error connecting to docker");
+        }
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-        HealthResponse health = response.getBody();
-        assertThat(health).isNotNull();
-        assertThat(health.status()).isEqualTo("DOWN");
-        assertThat(health.details()).containsEntry("Error connecting to docker", "Permission denied");
-    }
+        @Test
+        void shouldReturn502WhenConnectionRefusedOnContainers() {
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
 
-    @Test
-    void shouldReturn502WhenPermissionDeniedOnContainers() throws IOException {
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        }
 
-        ensureSocketPermissionDenied();
+        @Test
+        void shouldReturn502WhenConnectionRefusedOnVersion() {
+            ResponseEntity<String> response =
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
 
-        ResponseEntity<String> response = restTemplate.getForEntity(createURLWithPort("/api/containers"), String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-    }
-
-    @Test
-    void shouldReturn502WhenPermissionDeniedOnVersion() throws IOException {
-
-        ensureSocketPermissionDenied();
-
-        String containerId = "random-id";
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                createURLWithPort("/api/containers/" + containerId + "/version"), String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-    }
-
-    private @NotNull String createURLWithPort(String uri) {
-        return "http://localhost:" + port + uri;
-    }
-
-    private void ensureSocketPermissionDenied() throws IOException {
-        UnixDomainSocketAddress address = UnixDomainSocketAddress.of(socketFile.toPath());
-        ServerSocketChannel serverChannel = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
-        serverChannel.bind(address);
-        serverChannel.close();
-
-        Set<PosixFilePermission> perms = new HashSet<>();
-        Files.setPosixFilePermissions(socketFile.toPath(), perms);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        }
     }
 
     record HealthResponse(String status, Map<String, Object> details) {}

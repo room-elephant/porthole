@@ -4,47 +4,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpStatus.OK;
 
 import com.roomelephant.porthole.domain.model.ContainerDTO;
-import com.roomelephant.porthole.it.infra.IntegrationTestBase;
-import com.roomelephant.porthole.it.infra.RunWithoutContainers;
+import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.http.ResponseEntity;
 
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@Order(3)
-class ContainersEndpointIT extends IntegrationTestBase {
-    @Test
-    @Order(1)
-    @RunWithoutContainers
-    void shouldReturnEmptyListWhenNoContainers() {
-        Map<String, ContainerDTO> containers = fetchContainers(true, true);
-
-        assertThat(containers).size().isEqualTo(0);
-    }
-
+class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldReturnRunningContainers() {
         Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
 
-        assertThat(containersByName).hasSize(2);
+        assertThat(containersByName)
+                .doesNotContainKey(TEST_NO_PORTS_CONTAINER_NAME)
+                .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
 
         ContainerDTO container = containersByName.get(TEST_APP_CONTAINER_NAME);
         assertThat(container).isNotNull();
+        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_APP_CONTAINER_NAME);
-        assertThat(container.image()).isEqualTo(BUSYBOX_IMAGE);
+        assertThat(container.image()).isEqualTo(PAUSE_IMAGE);
         assertThat(container.exposedPorts()).size().isEqualTo(1);
         assertThat(container.exposedPorts())
                 .first()
                 .isEqualTo(testAppContainer.getMappedPort(
                         testAppContainer.getExposedPorts().getFirst()));
-        assertThat(container.iconUrl()).contains("/busybox.");
+        assertThat(container.iconUrl()).contains("/pause.");
         assertThat(container.state()).isIn("running", "created");
         assertThat(container.status()).contains("Up");
         assertThat(container.project()).isNull();
@@ -52,6 +40,7 @@ class ContainersEndpointIT extends IntegrationTestBase {
 
         container = containersByName.get(TEST_LOCAL_CONTAINER_NAME);
         assertThat(container).isNotNull();
+        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_LOCAL_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo("my-local-image:1.0");
         assertThat(container.exposedPorts()).size().isEqualTo(1);
@@ -68,21 +57,20 @@ class ContainersEndpointIT extends IntegrationTestBase {
 
     @Test
     void shouldShowContainersWithoutPorts() {
-        Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
+        Map<String, ContainerDTO> containersByName = fetchContainers(true, false);
 
-        assertThat(containersByName).hasSize(2);
-        assertThat(containersByName.get(TEST_NO_PORTS_CONTAINER_NAME)).isNull();
-
-        containersByName = fetchContainers(true, false);
-
-        assertThat(containersByName).hasSize(3);
+        assertThat(containersByName)
+                .containsKey(TEST_APP_CONTAINER_NAME)
+                .containsKey(TEST_LOCAL_CONTAINER_NAME)
+                .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
 
         ContainerDTO container = containersByName.get(TEST_NO_PORTS_CONTAINER_NAME);
         assertThat(container).isNotNull();
+        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_NO_PORTS_CONTAINER_NAME);
-        assertThat(container.image()).isEqualTo(BUSYBOX_LATEST_IMAGE);
+        assertThat(container.image()).isEqualTo(PAUSE_LATEST_IMAGE);
         assertThat(container.exposedPorts()).isEmpty();
-        assertThat(container.iconUrl()).contains("/busybox.");
+        assertThat(container.iconUrl()).contains("/pause.");
         assertThat(container.state()).isEqualTo("running");
         assertThat(container.status()).contains("Up");
         assertThat(container.project()).isNull();
@@ -91,25 +79,36 @@ class ContainersEndpointIT extends IntegrationTestBase {
 
     @Test
     void shouldShowStoppedContainers() {
-        Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
+        // stopped container has no ports, so includeWithoutPorts must also be true for it to appear
+        Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
 
-        assertThat(containersByName).hasSize(2);
-        assertThat(containersByName.get(TEST_STOPPED_CONTAINER_NAME)).isNull();
-
-        containersByName = fetchContainers(true, true);
-
-        assertThat(containersByName).hasSize(4);
+        assertThat(containersByName)
+                .containsKey(TEST_APP_CONTAINER_NAME)
+                .containsKey(TEST_LOCAL_CONTAINER_NAME)
+                .containsKey(TEST_NO_PORTS_CONTAINER_NAME);
 
         ContainerDTO container = containersByName.get(TEST_STOPPED_CONTAINER_NAME);
         assertThat(container).isNotNull();
+        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_STOPPED_CONTAINER_NAME);
-        assertThat(container.image()).isEqualTo(BUSYBOX_IMAGE);
+        assertThat(container.image()).isEqualTo(PAUSE_IMAGE);
         assertThat(container.exposedPorts()).isEmpty();
-        assertThat(container.iconUrl()).contains("/busybox.");
+        assertThat(container.iconUrl()).contains("/pause.");
         assertThat(container.state()).isIn("running", "created");
         assertThat(container.status()).isEqualTo("Created");
         assertThat(container.project()).isNull();
         assertThat(container.hasPublicPorts()).isFalse();
+    }
+
+    @Test
+    void shouldShowAllContainersWhenBothFlagsEnabled() {
+        Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
+
+        assertThat(containersByName)
+                .containsKey(TEST_APP_CONTAINER_NAME)
+                .containsKey(TEST_LOCAL_CONTAINER_NAME)
+                .containsKey(TEST_NO_PORTS_CONTAINER_NAME)
+                .containsKey(TEST_STOPPED_CONTAINER_NAME);
     }
 
     private @NotNull Map<String, ContainerDTO> fetchContainers(boolean includeWithoutPorts, boolean includeStopped) {
