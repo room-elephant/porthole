@@ -15,6 +15,7 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
         withFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
         withEnv("PORTHOLE_DOCKER_HOST", "unix:///var/run/docker.sock");
         applyRegistryEnv(this, wireMockPort);
+        applyNativeAgentIfEnabled(this);
         waitingFor(Wait.forHttp("/actuator/health").forPort(PORTHOLE_PORT));
     }
 
@@ -45,5 +46,13 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
                 .withEnv("REGISTRY_URLS_REPOSITORIES", base + "/v2/repositories/")
                 .withEnv("REGISTRY_CACHE_TTL", "1ms")
                 .withEnv("REGISTRY_CACHE_VERSION_MAX_SIZE", "1");
+    }
+
+    private static void applyNativeAgentIfEnabled(GenericContainer<?> container) {
+        String outputDir = System.getProperty("native.agent.output.dir");
+        if (outputDir != null) {
+            container.withEnv("JAVA_TOOL_OPTIONS", "-agentlib:native-image-agent=config-output-dir=/tmp/native-hints");
+            container.withFileSystemBind(outputDir, "/tmp/native-hints", BindMode.READ_WRITE);
+        }
     }
 }
