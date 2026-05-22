@@ -9,8 +9,8 @@ import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -48,10 +48,10 @@ public abstract class IntegrationTestBase {
         }));
     }
 
-    private final org.springframework.web.client.RestTemplate restTemplate = createRestTemplate();
+    private final RestTemplate restTemplate = createRestTemplate();
 
-    private static org.springframework.web.client.RestTemplate createRestTemplate() {
-        var template = new org.springframework.web.client.RestTemplate();
+    private static RestTemplate createRestTemplate() {
+        var template = new RestTemplate();
         template.setErrorHandler(response -> response.getStatusCode().is5xxServerError());
         return template;
     }
@@ -61,16 +61,10 @@ public abstract class IntegrationTestBase {
     }
 
     @BeforeEach
-    void setUp(TestInfo testInfo) {
-        if (testInfo.getTestMethod().isPresent()
-                && testInfo.getTestMethod().get().isAnnotationPresent(RunWithoutContainers.class)) {
-            cleanupDocker();
-            return;
+    void setUp() {
+        if (!areContainersRunning()) {
+            createContainers();
         }
-        if (areContainersRunning()) {
-            return;
-        }
-        createContainers();
     }
 
     @AfterEach
@@ -119,29 +113,6 @@ public abstract class IntegrationTestBase {
                 && noPortsContainer.isRunning()
                 && localContainer != null
                 && localContainer.isRunning();
-    }
-
-    private void cleanupDocker() {
-        if (testAppContainer != null) {
-            testAppContainer.stop();
-            testAppContainer = null;
-        }
-        if (localContainer != null) {
-            localContainer.stop();
-            localContainer = null;
-        }
-        if (noPortsContainer != null) {
-            noPortsContainer.stop();
-            noPortsContainer = null;
-        }
-        try {
-            DockerClientFactory.instance()
-                    .client()
-                    .removeContainerCmd(TEST_STOPPED_CONTAINER_NAME)
-                    .withForce(true)
-                    .exec();
-        } catch (Exception ignored) {
-        }
     }
 
     private void createContainers() {

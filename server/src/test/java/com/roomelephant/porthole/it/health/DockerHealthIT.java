@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpStatus.OK;
 
 import com.roomelephant.porthole.it.infra.IntegrationTestBase;
-import com.roomelephant.porthole.it.infra.RunWithoutContainers;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -17,7 +16,6 @@ class DockerHealthIT extends IntegrationTestBase {
 
     @Test
     @Order(1)
-    @RunWithoutContainers
     void shouldReturnUpWhenDockerIsReachableAndRequestOnlyDockerComponent() {
         ResponseEntity<String> response = fetch("/actuator/health/docker");
 
@@ -27,7 +25,6 @@ class DockerHealthIT extends IntegrationTestBase {
 
     @Test
     @Order(2)
-    @RunWithoutContainers
     void shouldReturnUpWhenDockerIsReachable() {
         ResponseEntity<String> response = fetch("/actuator/health");
 

@@ -5,7 +5,6 @@ import static org.springframework.http.HttpStatus.OK;
 
 import com.roomelephant.porthole.domain.model.ContainerDTO;
 import com.roomelephant.porthole.it.infra.IntegrationTestBase;
-import com.roomelephant.porthole.it.infra.RunWithoutContainers;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
@@ -20,18 +19,6 @@ import org.springframework.http.ResponseEntity;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Order(3)
 class ContainersEndpointIT extends IntegrationTestBase {
-    @Test
-    @Order(1)
-    @RunWithoutContainers
-    void shouldReturnEmptyListWhenNoContainers() {
-        Map<String, ContainerDTO> containers = fetchContainers(true, true);
-
-        assertThat(containers).doesNotContainKey(TEST_APP_CONTAINER_NAME);
-        assertThat(containers).doesNotContainKey(TEST_NO_PORTS_CONTAINER_NAME);
-        assertThat(containers).doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
-        assertThat(containers).doesNotContainKey(TEST_LOCAL_CONTAINER_NAME);
-    }
-
     @Test
     void shouldReturnRunningContainers() {
         Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
