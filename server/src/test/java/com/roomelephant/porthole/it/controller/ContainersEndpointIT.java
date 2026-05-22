@@ -18,8 +18,13 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
     void shouldReturnRunningContainers() {
         Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
 
+        assertThat(containersByName)
+                .doesNotContainKey(TEST_NO_PORTS_CONTAINER_NAME)
+                .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
+
         ContainerDTO container = containersByName.get(TEST_APP_CONTAINER_NAME);
         assertThat(container).isNotNull();
+        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_APP_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_IMAGE);
         assertThat(container.exposedPorts()).size().isEqualTo(1);
@@ -35,6 +40,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
         container = containersByName.get(TEST_LOCAL_CONTAINER_NAME);
         assertThat(container).isNotNull();
+        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_LOCAL_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo("my-local-image:1.0");
         assertThat(container.exposedPorts()).size().isEqualTo(1);
@@ -51,14 +57,16 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldShowContainersWithoutPorts() {
-        Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
+        Map<String, ContainerDTO> containersByName = fetchContainers(true, false);
 
-        assertThat(containersByName.get(TEST_NO_PORTS_CONTAINER_NAME)).isNull();
-
-        containersByName = fetchContainers(true, false);
+        assertThat(containersByName)
+                .containsKey(TEST_APP_CONTAINER_NAME)
+                .containsKey(TEST_LOCAL_CONTAINER_NAME)
+                .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
 
         ContainerDTO container = containersByName.get(TEST_NO_PORTS_CONTAINER_NAME);
         assertThat(container).isNotNull();
+        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_NO_PORTS_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_LATEST_IMAGE);
         assertThat(container.exposedPorts()).isEmpty();
@@ -71,14 +79,17 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldShowStoppedContainers() {
-        Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
+        // stopped container has no ports, so includeWithoutPorts must also be true for it to appear
+        Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
 
-        assertThat(containersByName.get(TEST_STOPPED_CONTAINER_NAME)).isNull();
-
-        containersByName = fetchContainers(true, true);
+        assertThat(containersByName)
+                .containsKey(TEST_APP_CONTAINER_NAME)
+                .containsKey(TEST_LOCAL_CONTAINER_NAME)
+                .containsKey(TEST_NO_PORTS_CONTAINER_NAME);
 
         ContainerDTO container = containersByName.get(TEST_STOPPED_CONTAINER_NAME);
         assertThat(container).isNotNull();
+        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_STOPPED_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_IMAGE);
         assertThat(container.exposedPorts()).isEmpty();
@@ -87,6 +98,17 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         assertThat(container.status()).isEqualTo("Created");
         assertThat(container.project()).isNull();
         assertThat(container.hasPublicPorts()).isFalse();
+    }
+
+    @Test
+    void shouldShowAllContainersWhenBothFlagsEnabled() {
+        Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
+
+        assertThat(containersByName)
+                .containsKey(TEST_APP_CONTAINER_NAME)
+                .containsKey(TEST_LOCAL_CONTAINER_NAME)
+                .containsKey(TEST_NO_PORTS_CONTAINER_NAME)
+                .containsKey(TEST_STOPPED_CONTAINER_NAME);
     }
 
     private @NotNull Map<String, ContainerDTO> fetchContainers(boolean includeWithoutPorts, boolean includeStopped) {
