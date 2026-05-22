@@ -97,7 +97,8 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
     }
 
     private String getLocalDigest(String imageName) {
-        var inspect = noPortsContainer.getDockerClient().inspectImageCmd(imageName).exec();
+        var inspect =
+                noPortsContainer.getDockerClient().inspectImageCmd(imageName).exec();
         return inspect.getRepoDigests().stream()
                 .findFirst()
                 .map(d -> d.contains("@") ? d.substring(d.indexOf("@") + 1) : d)
