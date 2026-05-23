@@ -1,4 +1,4 @@
-.PHONY: it-image native-it-image build test
+.PHONY: it-image build test
 
 # Docker builds require the repo root as context (files are copied from server/target, docker/, etc.)
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))..)
@@ -6,8 +6,6 @@ ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))..)
 it-image:
 	docker build -t porthole-it:latest -f $(ROOT)/docker/Dockerfile.it $(ROOT)
 
-native-it-image:
-	docker build -t porthole-it:latest -f $(ROOT)/docker/Dockerfile.it-native $(ROOT)
 
 build:
 	touch $(ROOT)/porthole
