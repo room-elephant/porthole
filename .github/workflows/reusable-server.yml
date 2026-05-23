@@ -74,10 +74,37 @@ jobs:
 
       - name: Check for stale native image hints
         run: |
-          if ! git diff --exit-code server/src/main/resources/META-INF/native-image/; then
-            echo "::error::Native image hints are stale. Run 'mvn verify -Pgenerate-native-hints' locally and commit the updated files."
-            exit 1
-          fi
+          python3 - <<'EOF'
+          import json, sys, subprocess
+
+          hints_file = "server/src/main/resources/META-INF/native-image/com.roomelephant/porthole/reachability-metadata.json"
+
+          committed_json = subprocess.run(
+              ["git", "show", f"HEAD:{hints_file}"], capture_output=True, text=True, check=True
+          ).stdout
+          with open(hints_file) as f:
+              generated_json = f.read()
+
+          def extract_types(data):
+              return {
+                  (e["type"] if isinstance(e["type"], str) else e["type"]["name"])
+                  for e in data.get("reflection", [])
+                  if isinstance(e, dict) and "type" in e
+              }
+
+          committed_types = extract_types(json.loads(committed_json))
+          generated_types = extract_types(json.loads(generated_json))
+
+          new_types = generated_types - committed_types
+          if new_types:
+              print("::error::Native image hints are stale — new reflection entries detected that are not in the committed file:")
+              for t in sorted(new_types):
+                  print(f"  + {t}")
+              print("Run 'mvn verify -Pgenerate-native-hints' locally and commit the updated files.")
+              sys.exit(1)
+
+          print(f"Hints up to date. Generated: {len(generated_types)} types, committed: {len(committed_types)} types.")
+          EOF
 
       - name: Generate integration test results
         if: always()
