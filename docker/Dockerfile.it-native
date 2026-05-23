@@ -1,0 +1,16 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -g 65532 nonroot && \
+    useradd -u 65532 -g nonroot -s /bin/false nonroot
+
+WORKDIR /app
+
+COPY --chown=nonroot:nonroot porthole porthole
+COPY --chown=nonroot:nonroot docker/templates/ /app/config/
+COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
+
+EXPOSE 9753
+
+ENTRYPOINT ["/app/entrypoint.sh", "/app/porthole", "--spring.config.additional-location=file:/app/config/"]
