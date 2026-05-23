@@ -129,6 +129,10 @@ jobs:
         working-directory: server
         run: make it
 
+      - name: Print porthole container logs on failure
+        if: failure()
+        run: docker ps -a && docker logs $(docker ps -aq --filter ancestor=porthole-it:latest | head -1) 2>&1 || true
+
       - name: Generate integration test results
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
