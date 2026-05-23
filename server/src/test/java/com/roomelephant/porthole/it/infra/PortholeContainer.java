@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.it.infra;
 
+import java.io.File;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -51,7 +52,19 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
     private static void applyNativeAgentIfEnabled(GenericContainer<?> container) {
         String outputDir = System.getProperty("native.agent.output.dir");
         if (outputDir != null) {
-            container.withEnv("JAVA_TOOL_OPTIONS", "-agentlib:native-image-agent=config-output-dir=/tmp/native-hints");
+            File dir = new File(outputDir);
+            dir.mkdirs();
+            // Allow the nonroot user (UID 65532) inside the container to write hint files.
+            dir.setWritable(true, false);
+            dir.setReadable(true, false);
+            dir.setExecutable(true, false);
+            // Remove stale lock file that the agent may have left from a previous aborted run.
+            new File(dir, ".lock").delete();
+            // config-write-period-secs ensures hints are written while the container is alive,
+            // so they are available even if the JVM is killed (by Ryuk) before graceful shutdown.
+            container.withEnv(
+                    "JAVA_TOOL_OPTIONS",
+                    "-agentlib:native-image-agent=config-output-dir=/tmp/native-hints,config-write-period-secs=10");
             container.withFileSystemBind(outputDir, "/tmp/native-hints", BindMode.READ_WRITE);
         }
     }

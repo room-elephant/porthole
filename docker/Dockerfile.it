@@ -2,8 +2,8 @@ FROM ghcr.io/graalvm/jdk-community:25
 
 RUN microdnf install -y shadow-utils curl && \
     curl -fsSL https://github.com/tianon/gosu/releases/download/1.17/gosu-amd64 -o /usr/local/bin/gosu && \
-    curl -fsSL https://github.com/tianon/gosu/releases/download/1.17/gosu-amd64.sha256 \
-        | awk '{print $1 "  /usr/local/bin/gosu"}' | sha256sum -c - && \
+    curl -fsSL https://github.com/tianon/gosu/releases/download/1.17/SHA256SUMS \
+        | grep ' gosu-amd64$' | awk '{print $1 "  /usr/local/bin/gosu"}' | sha256sum -c - && \
     chmod +x /usr/local/bin/gosu && \
     groupadd -g 65532 nonroot && \
     useradd -u 65532 -g nonroot -s /bin/false nonroot && \
