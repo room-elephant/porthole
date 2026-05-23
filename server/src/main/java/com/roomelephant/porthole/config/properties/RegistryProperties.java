@@ -4,11 +4,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.time.Duration;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 @ConfigurationProperties(prefix = "registry")
 @Validated
+@RegisterReflectionForBinding(RegistryProperties.class)
 public record RegistryProperties(
         @Valid @NotNull(message = "Timeout configuration is required")
         Timeout timeout,
