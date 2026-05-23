@@ -37,6 +37,8 @@ jobs:
     needs: [server-check, client-check, docker-check]
     permissions:
       contents: read
+    env:
+      MVN: mvn -B -ntp
     strategy:
       fail-fast: false
       matrix:
@@ -68,11 +70,11 @@ jobs:
 
       - name: Set project version
         working-directory: server
-        run: mvn versions:set -DnewVersion=${{ steps.version.outputs.clean_version }} -DgenerateBackupPoms=false
+        run: $MVN versions:set -DnewVersion=${{ steps.version.outputs.clean_version }} -DgenerateBackupPoms=false
 
       - name: Build native binary
         working-directory: server
-        run: mvn -Pnative,copy-client package native:compile -DskipTests -B
+        run: make native
 
       - name: Upload binary
         run: cp server/target/porthole porthole-linux-${{ matrix.arch }}
