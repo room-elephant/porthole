@@ -16,6 +16,8 @@ jobs:
     permissions:
       contents: read
       checks: write
+    env:
+      MVN: mvn -B -ntp
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,15 +31,15 @@ jobs:
 
       - name: Check code formatting
         working-directory: server
-        run: mvn -B -ntp spotless:check
+        run: make format-check
 
       - name: Build
         working-directory: server
-        run: mvn -B -ntp compile -Dspotless.check.skip=true
+        run: make build
 
       - name: Run unit tests
         working-directory: server
-        run: mvn -B -ntp test -Dspotless.check.skip=true
+        run: make test
 
       - name: Generate unit test coverage report
         if: ${{ inputs.upload_coverage }}
@@ -63,14 +65,14 @@ jobs:
 
       - name: Package
         working-directory: server
-        run: mvn -B -ntp package -DskipTests -Dspotless.check.skip=true
+        run: make package
 
       - name: Build integration test Docker image
-        run: docker build -t porthole-it:latest -f docker/Dockerfile.it .
+        run: make -C docker it-image
 
       - name: Run integration tests
         working-directory: server
-        run: mvn -B -ntp verify -Pintegration-tests -Dspotless.check.skip=true
+        run: make it
 
       - name: Generate integration test results
         if: always()

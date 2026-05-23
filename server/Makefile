@@ -1,6 +1,6 @@
 .PHONY: format format-check build test package it native-hints native
 
-MVN = mvn
+MVN ?= mvn
 
 format:
 	$(MVN) spotless:apply
