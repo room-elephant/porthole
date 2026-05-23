@@ -30,23 +30,20 @@ jobs:
     permissions:
       contents: read
 
-  build-and-push:
-    name: Build & Push (${{ matrix.arch }})
+  build-binary:
+    name: Build Binary (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     needs: [server-check, client-check, docker-check]
     permissions:
       contents: read
-      packages: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: amd64
             runner: ubuntu-24.04
-            platform: linux/amd64
           - arch: arm64
             runner: ubuntu-24.04-arm
-            platform: linux/arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -72,21 +69,105 @@ jobs:
         working-directory: server
         run: mvn versions:set -DnewVersion=${{ steps.version.outputs.clean_version }} -DgenerateBackupPoms=false
 
-      - name: Build native image
+      - name: Build native binary
         working-directory: server
         run: mvn -Pnative,copy-client package native:compile -DskipTests -B
 
-      - name: Preparing binaries
-        run: |
-          cp server/target/porthole porthole
-          cp server/target/porthole porthole-linux-${{ matrix.arch }}
-
       - name: Upload binary
+        run: cp server/target/porthole porthole-linux-${{ matrix.arch }}
+
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.arch }}
           path: porthole-linux-${{ matrix.arch }}
           retention-days: 1
+
+  native-it:
+    name: Native Integration Tests (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: [build-binary]
+    permissions:
+      contents: read
+      checks: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      MVN: mvn -B -ntp
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-${{ matrix.arch }}
+
+      - name: Build IT image from production Dockerfile
+        run: |
+          mv porthole-linux-${{ matrix.arch }} porthole
+          chmod +x porthole
+          docker build -t porthole-it:latest -f docker/Dockerfile .
+
+      - name: Run integration tests against native image
+        working-directory: server
+        run: make it
+
+      - name: Generate integration test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: server/target/failsafe-reports/TEST-*.xml
+          check_name: Native Integration Test Results (${{ matrix.arch }})
+          comment_mode: off
+
+  push-image:
+    name: Push Image (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: [native-it]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-${{ matrix.arch }}
+
+      - name: Prepare binary
+        run: |
+          mv porthole-linux-${{ matrix.arch }} porthole
+          chmod +x porthole
+
+      - name: Calculate Version
+        id: version
+        run: echo "clean_version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
       - name: Set image name
         id: image
@@ -114,8 +195,7 @@ jobs:
             org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
-      - name: Build and push by digest
-        id: build
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -126,70 +206,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  native-it:
-    name: Native Integration Tests (${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
-    needs: [build-and-push]
-    permissions:
-      contents: read
-      checks: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-    env:
-      MVN: mvn -B -ntp
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Calculate Version
-        id: version
-        run: echo "clean_version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-
-      - name: Set image name
-        id: image
-        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull and retag shipped image as IT image
-        run: |
-          docker pull ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:${{ steps.version.outputs.clean_version }}-${{ matrix.arch }}
-          docker tag  ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:${{ steps.version.outputs.clean_version }}-${{ matrix.arch }} porthole-it:latest
-
-      - name: Run integration tests against native image
-        working-directory: server
-        run: make it
-
-      - name: Generate integration test results
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: server/target/failsafe-reports/TEST-*.xml
-          check_name: Native Integration Test Results (${{ matrix.arch }})
-          comment_mode: off
-
   manifest:
     name: Create Multi-Arch Manifest
     runs-on: ubuntu-latest
-    needs: [build-and-push, native-it]
+    needs: [push-image]
     permissions:
       contents: write
       packages: write
@@ -252,4 +272,3 @@ jobs:
           files: |
             porthole-linux-amd64
             porthole-linux-arm64
-
