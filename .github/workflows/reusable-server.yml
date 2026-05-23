@@ -68,9 +68,16 @@ jobs:
       - name: Build integration test Docker image
         run: docker build -t porthole-it:latest -f docker/Dockerfile.it .
 
-      - name: Run integration tests
+      - name: Run integration tests and generate native image hints
         working-directory: server
-        run: mvn -B -ntp verify -Pintegration-tests -Dspotless.check.skip=true
+        run: mvn -B -ntp verify -Pgenerate-native-hints -Dspotless.check.skip=true
+
+      - name: Check for stale native image hints
+        run: |
+          if ! git diff --exit-code server/src/main/resources/META-INF/native-image/; then
+            echo "::error::Native image hints are stale. Run 'mvn verify -Pgenerate-native-hints' locally and commit the updated files."
+            exit 1
+          fi
 
       - name: Generate integration test results
         if: always()
