@@ -60,8 +60,7 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
             dir.setExecutable(true, false);
             // Remove stale lock file that the agent may have left from a previous aborted run.
             new File(dir, ".lock").delete();
-            // config-write-period-secs ensures hints are written while the container is alive,
-            // so they are available even if the JVM is killed (by Ryuk) before graceful shutdown.
+            // Written periodically so hints survive if the JVM is killed by Ryuk before graceful shutdown.
             container.withEnv(
                     "JAVA_TOOL_OPTIONS",
                     "-agentlib:native-image-agent=config-output-dir=/tmp/native-hints,config-write-period-secs=10");
