@@ -5,7 +5,7 @@ Spring Boot 4 / Java 25 backend. Compiles to a GraalVM native executable with th
 ## Quick start
 
 ```bash
-mvn spring-boot:run   # JVM mode, no client required
+make dev   # JVM mode with local profile, no client required
 ```
 
 ## Build

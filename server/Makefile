@@ -1,9 +1,12 @@
-.PHONY: format-check build test package it native-hints native
+.PHONY: format-check build test package it native-hints native dev
 
 MVN ?= mvn
 
 format-check:
 	$(MVN) spotless:check
+
+dev:
+	$(MVN) spring-boot:run -Dspotless.check.skip=true -Dspring-boot.run.profiles=local
 
 build:
 	$(MVN) compile -Dspotless.check.skip=true
