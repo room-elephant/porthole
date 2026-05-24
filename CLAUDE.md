@@ -8,6 +8,11 @@ Porthole is a Docker dashboard that auto-discovers running containers and their 
 
 ## Commands
 
+Run a single server test class:
+```bash
+make -C server test-one TEST=ContainerServiceTest
+```
+
 Server integration tests — if server code changed, rebuild the JVM image first:
 ```bash
 make -C docker jvm-image   # only when server source changed, not for test-only changes
@@ -41,6 +46,4 @@ Regenerate with `make server-native-hints` after adding features that use reflec
 
 ### CI/CD
 
-Three CI workflows trigger on path filters (`server/**`, `client/**`, `docker/**`). The release workflow builds native binaries for `amd64` and `arm64`, runs ITs against the native image, then pushes to `ghcr.io/room-elephant/porthole`.
-
-A feature can pass all JVM tests and still fail native — GraalVM AOT issues are only caught by running ITs against the native binary.
+See [CI/CD Pipelines](docs/ARCHITECTURE.md#cicd-pipelines) in ARCHITECTURE.md. Key point: a feature can pass all JVM tests and still fail native — GraalVM AOT issues are only caught by running ITs against the native binary.

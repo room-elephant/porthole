@@ -18,9 +18,17 @@ make native    # GraalVM native executable (no client, server only)
 ## Test
 
 ```bash
-make test               # unit tests
-make it                 # integration tests against JVM JAR (no Docker image build)
-make server-it -C ../   # build IT Docker image + run integration tests (run from repo root)
+make test                        # unit tests
+make test-one TEST=MyTestClass   # single test class
+make it                          # integration tests against JVM JAR (no Docker image build)
+make -C ../ server-it            # build IT Docker image + run integration tests (run from repo root)
+```
+
+## Format
+
+```bash
+make format        # apply Spotless formatting (run before committing)
+make format-check  # check only (what CI runs)
 ```
 
 ## IntelliJ IDEA
