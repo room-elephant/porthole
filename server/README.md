@@ -14,7 +14,7 @@ mvn spring-boot:run   # JVM mode, no client required
 make package   # JAR (no client)
 make native    # GraalVM native executable (requires GraalVM JDK 25+)
 make test      # unit tests
-make -C ../    # full integration tests (runs from repo root)
+make server-it -C ../   # full integration tests (runs from repo root)
 ```
 
 ## Docs
