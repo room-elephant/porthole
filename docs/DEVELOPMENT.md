@@ -37,7 +37,7 @@ Build a GraalVM native executable for faster startup and lower memory usage:
 make bundle-native
 ```
 
-The native executable will be in `server/target/porthole`. First compilation takes 3-5 minutes; subsequent builds are faster with caching.
+The native executable will be in `server/target/porthole`.
 
 **Requirements**: GraalVM JDK 25+ must be installed and configured as your JAVA_HOME.
 
