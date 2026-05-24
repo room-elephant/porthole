@@ -7,9 +7,5 @@ import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@RegisterReflectionForBinding({
-    Container.class,
-    InspectContainerResponse.class,
-    InspectImageResponse.class
-})
+@RegisterReflectionForBinding({Container.class, InspectContainerResponse.class, InspectImageResponse.class})
 class DockerNativeConfig {}
