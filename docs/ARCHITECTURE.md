@@ -30,6 +30,38 @@ We use a "Client-First" build strategy integrated into Maven, producing a GraalV
 
 This allows the final Docker image to run a single native binary without needing a JVM, resulting in faster startup (~50-100ms) and lower memory usage.
 
+## Native Image Hints
+
+GraalVM native compilation requires explicit configuration for reflection, proxies, JNI, and resource access that cannot be statically inferred. These hints live in:
+
+```
+server/src/main/resources/META-INF/native-image/com.roomelephant/porthole/reachability-metadata.json
+```
+
+### Automated generation
+
+Hints are generated automatically by a dedicated Maven profile (`generate-native-hints`) that runs the integration test suite with the GraalVM native-image agent attached to the app container. The agent observes all runtime reflection and writes the output directly to the source-tree path via a volume mount. No manual post-processing is required.
+
+```
+mvn verify -Pgenerate-native-hints
+    │
+    ├── failsafe passes system property: native.agent.output.dir=<source-tree path>
+    │
+    ├── PortholeContainer (if property set):
+    │     ├── env: JAVA_TOOL_OPTIONS=-agentlib:native-image-agent=config-output-dir=/tmp/native-hints
+    │     └── volume: <source-tree path> → /tmp/native-hints (READ_WRITE)
+    │
+    ├── ITs run normally (all *IT.java classes)
+    │
+    └── on container stop → agent flushes hint files → appear on host immediately
+```
+
+The `Dockerfile.it` uses a GraalVM JDK 25 community image so the agent is available in the IT container. Regular IT runs (`-Pintegration-tests`) are unaffected — the agent is a no-op unless `JAVA_TOOL_OPTIONS` is set, which only happens under the generation profile.
+
+### Spring AOT hints
+
+`DockerNativeConfig` (`server/src/main/java/.../config/nativehints/DockerNativeConfig.java`) registers additional Spring AOT hints for `docker-java` model classes and `@ConfigurationProperties` beans that are bound reflectively by Jackson or Hibernate Validator. This covers types that the agent cannot observe because they are never instantiated during the IT run.
+
 ## Container Status
 
 Each container displays a status indicator (semaphore) in the top-right corner:
@@ -48,6 +80,39 @@ The UI provides toggles to:
 > **Limitation**: When showing stopped containers, exposed ports are not currently visible because they are not mapped to public ports on the host while stopped.
 >
 > **Future Work**: We plan to improve this by inspecting the container's configuration to detect intended exposed ports even when the container is not running.
+
+## Docker Runtime Design
+
+### Base Image Strategy
+Given a standard GraalVM native-image build (glibc-based, dynamically linked), **`debian:bookworm-slim`** is the correct runtime choice instead of Alpine.
+- **Reason**: The native binary built by GraalVM is dynamically linked against `glibc` (present in the build stage).
+- **Compatibility**: Alpine uses `musl`, which makes it incompatible with standard glibc-linked binaries without complex static linking configurations.
+- **Trade-off**: Bookworm-slim offers a stable, multi-arch foundation and is relatively small (~75MB), providing a good balance between size and compatibility.
+
+### Permissions & Security
+
+To run the application as a non-root user while minimising container-level privileges and enabling optional access to the host Docker daemon:
+
+1. **Build Time**:
+   - Creates a `nonroot` user with UID/GID 65532.
+   - **No privileged group memberships are baked into the image.**
+
+2. **Run Time (Entrypoint)**:
+   - The container starts as `root` to perform one-time setup.
+   - **Docker Socket Detection**: If `/var/run/docker.sock` is mounted, the entrypoint inspects its owning GID.
+   - **Root Ownership (GID 0)**:
+     - If the socket is owned by `root` (GID 0), often the case for Docker Desktop or rootless setups, the container **stays as root**.
+     - This ensures seamless access without complex group mapping in these environments.
+   - **Dynamic Group Reconciliation** (if GID != 0):
+     - If the socket's GID does not exist in the container, a group (`dockersock-<GID>`) is created.
+     - The `nonroot` user is added to this group if not already a member.
+     - **Privilege Drop**: The entrypoint switches to the `nonroot` user via `gosu` before launching the application.
+   - **Access Verification**: A read/write check is performed to warn about potential permission issues.
+
+The application process itself runs without root privileges and is granted only the minimum group access required to communicate with the host's Docker daemon when the socket is mounted.
+
+> [!NOTE]
+> Access to `/var/run/docker.sock` effectively grants control over the host Docker daemon. This setup limits container privileges but does not provide isolation from the host.
 
 ## Version Detection
 
