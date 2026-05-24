@@ -18,7 +18,8 @@ package:
 	$(MVN) package -DskipTests -Dspotless.check.skip=true
 
 bundle:
-	$(MVN) package -DskipTests -Pbuild-client -Dspotless.check.skip=true
+	$(MAKE) -C ../client build
+	$(MVN) package -DskipTests -Pcopy-client -Dspotless.check.skip=true
 
 it:
 	$(MVN) verify -Pintegration-tests -Dspotless.check.skip=true
