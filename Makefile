@@ -1,7 +1,16 @@
-.PHONY: server-it server-native-hints
+.PHONY: server-it server-native-hints bundle bundle-native
 
-# Cross-component targets that require the IT Docker image before running server ITs.
-# All other targets live in their respective folder Makefiles.
+MVN ?= mvn
+
+# Cross-component targets — all other targets live in their respective folder Makefiles.
+
+bundle:
+	$(MAKE) -C client build
+	$(MVN) -f server/pom.xml package -DskipTests -Pcopy-client -Dspotless.check.skip=true
+
+bundle-native:
+	$(MAKE) -C client build
+	$(MVN) -f server/pom.xml -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
 
 server-it:
 	$(MAKE) -C docker it-image

@@ -19,7 +19,7 @@ For building a single component in isolation, see [`client/README.md`](../client
 Build the complete application with client bundled into the backend JAR:
 
 ```bash
-make -C server bundle
+make bundle
 ```
 
 The client will be automatically built and copied into the JAR's static resources.
@@ -29,11 +29,7 @@ The client will be automatically built and copied into the JAR's static resource
 Build a GraalVM native executable for faster startup and lower memory usage:
 
 ```bash
-# Build client first
-cd client && npm run build && cd ..
-
-# Build native image with client bundled
-make -C server native
+make bundle-native
 ```
 
 The native executable will be in `server/target/porthole`. First compilation takes 3-5 minutes; subsequent builds are faster with caching.
@@ -54,7 +50,7 @@ docker compose -f dev/compose.yml up --build
 
 The development Dockerfile uses a multi-stage build that automatically builds both client and server. Dependencies are cached for faster rebuild times.
 
-For CI/production, the `docker/Dockerfile` expects a pre-built native executable (built with `mvn -Pnative,copy-client native:compile`).
+For CI/production, the `docker/Dockerfile` expects a pre-built native executable (built with `make bundle-native`).
 
 ## Running Locally
 
