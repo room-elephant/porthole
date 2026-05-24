@@ -62,6 +62,20 @@ The `Dockerfile.jvm` uses a GraalVM JDK 25 community image so the agent is avail
 
 `DockerNativeConfig` (`server/src/main/java/.../config/nativehints/DockerNativeConfig.java`) registers additional Spring AOT hints for `docker-java` model classes and `@ConfigurationProperties` beans that are bound reflectively by Jackson or Hibernate Validator. This covers types that the agent cannot observe because they are never instantiated during the IT run.
 
+### JVM vs Native Integration Tests
+
+The integration test suite runs twice in the pipeline, each time against a different runtime:
+
+| | CI (`reusable-server.yml`) | Release (`native-it` job) |
+|---|---|---|
+| **Runtime** | JVM JAR (`Dockerfile.jvm`) | Native binary (`docker/Dockerfile`) |
+| **Trigger** | Every push / PR to `main` | Every release tag |
+| **Purpose** | Catch logic and API bugs fast | Catch AOT/native-image failures |
+
+A feature can pass all JVM tests and still fail in native. GraalVM AOT compilation requires explicit configuration for reflection, proxies, and JNI — any class or method not registered will be missing at runtime. These failures are invisible on the JVM because the JVM resolves everything dynamically.
+
+Running the same IT suite against the native binary surfaces missing reflection config, incomplete AOT hints, or `ClassNotFoundException`s before the image is pushed. Both runs are necessary; neither substitutes for the other.
+
 ## Container Status
 
 Each container displays a status indicator (semaphore) in the top-right corner:

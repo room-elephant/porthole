@@ -63,19 +63,6 @@ For test commands, see the per-component READMEs:
 - [`client/README.md`](../client/README.md) — React unit tests
 - [`docker/README.md`](../docker/README.md) — entrypoint tests
 
-### JVM vs Native Integration Tests
-
-The integration test suite runs twice in the pipeline, each time against a different runtime:
-
-| | CI (`reusable-server.yml`) | Release (`native-it` job) |
-|---|---|---|
-| **Runtime** | JVM JAR (`Dockerfile.jvm`) | Native binary (`docker/Dockerfile`) |
-| **Trigger** | Every push / PR to `main` | Every release tag |
-| **Purpose** | Catch logic and API bugs fast | Catch AOT/native-image failures |
-
-A feature can pass all JVM tests and still fail in native. GraalVM AOT compilation requires explicit configuration for reflection, proxies, and JNI — any class or method not registered will be missing at runtime. These failures are invisible on the JVM because the JVM resolves everything dynamically.
-
-Running the same IT suite against the native binary surfaces missing reflection config, incomplete AOT hints, or `ClassNotFoundException`s before the image is pushed. Both runs are necessary; neither substitutes for the other.
 
 ## Development Workflow
 
