@@ -15,35 +15,27 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
-  const [isDockerDown, setIsDockerDown] = useState(false);
-
-  const { 
-    data: containers = [], 
-    isLoading, 
+  const {
+    data: containers = [],
+    isLoading,
     error: containersError,
-    refetch: refetchContainers 
+    refetch: refetchContainers
   } = useContainers({ showAll, showStopped });
-  
+
   const shouldCheckHealth = isBadGateway(containersError) || (containers.length === 0 && !isLoading && !containersError) || showSettings;
-  
-  const { data: dockerHealth, isLoading: isDockerHealthLoading, isError: dockerHealthError } = useDockerHealth({ 
+
+  const { data: dockerHealth, isLoading: isDockerHealthLoading, isError: dockerHealthError } = useDockerHealth({
     enabled: shouldCheckHealth,
-    pollInterval: isDockerDown ? 5000 : null
+    pollInterval: shouldCheckHealth ? 5000 : null
   });
 
-  useEffect(() => {
-    if (dockerHealth?.status === 'DOWN' || dockerHealthError || isBadGateway(containersError)) {
-      setIsDockerDown(true);
-    } else if (dockerHealth?.status === 'UP') {
-      setIsDockerDown(false);
-    }
-  }, [dockerHealth?.status, dockerHealthError, containersError]);
+  const isDockerDown = dockerHealth?.status === 'DOWN' || !!dockerHealthError || isBadGateway(containersError);
 
   useEffect(() => {
-    if (dockerHealth?.status === 'UP' && isDockerDown === false) {
+    if (dockerHealth?.status === 'UP') {
       refetchContainers();
     }
-  }, [dockerHealth?.status, isDockerDown, refetchContainers]);
+  }, [dockerHealth?.status, refetchContainers]);
 
   const dockerStatus = isDockerHealthLoading ? 'CHECKING' : (dockerHealth?.status || 'UNKNOWN');
 
