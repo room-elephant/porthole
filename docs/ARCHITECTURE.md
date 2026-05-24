@@ -148,9 +148,6 @@ The application process itself runs without root privileges and is granted only 
 .
 ├── client/             # React frontend (Vite + React 19)
 ├── server/             # Spring Boot backend (Java 25)
-├── docker/             # Production Docker configuration
-│   ├── Dockerfile       # CI/release image (wraps pre-built native binary)
-│   ├── Dockerfile.jvm    # Integration test image (JVM JAR + native-image agent)
-│   └── entrypoint.sh   # Socket group reconciliation and privilege drop
+├── docker/             # Docker configuration (see docker/README.md)
 └── docs/               # Documentation
 ```
