@@ -11,7 +11,6 @@ make dev   # dev server at http://localhost:5173 (proxies API to localhost:9753)
 ## Tests
 
 ```bash
-npm test     # watch mode
 make test    # single run with coverage report
 ```
 

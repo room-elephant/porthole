@@ -3,14 +3,14 @@
 install:
 	npm ci
 
-lint: install
+lint:
 	npm run lint
 
-dev: install
+dev:
 	npm run dev
 
-test: install
+test:
 	npm run test:coverage
 
-build: install
+build:
 	npm run build
