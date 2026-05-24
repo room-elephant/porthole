@@ -23,10 +23,16 @@ make it                 # integration tests against JVM JAR (no Docker image bui
 make server-it -C ../   # build IT Docker image + run integration tests (run from repo root)
 ```
 
+## Run
+
+```bash
+./target/porthole                          # native executable
+java -jar target/porthole-0.0.1-SNAPSHOT.jar  # JAR
+```
+
 ## Docs
 
-- [Building the server](../docs/DEVELOPMENT.md#server-only)
-- [Running locally](../docs/DEVELOPMENT.md#running-locally)
+- [Building the server](../docs/DEVELOPMENT.md#building-from-source)
 - [Server tests & native ITs](../docs/DEVELOPMENT.md#server-tests)
 - [Regenerating native image hints](../docs/DEVELOPMENT.md#regenerating-native-image-hints)
 - [Backend tech stack & API endpoints](../docs/ARCHITECTURE.md#tech-stack)

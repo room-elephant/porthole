@@ -53,26 +53,6 @@ docker run -p 9753:9753 -v /var/run/docker.sock:/var/run/docker.sock porthole:jv
 
 For a production-equivalent image, use `make bundle-native` then `docker/Dockerfile`.
 
-## Running Locally
-
-### From Native Executable
-
-```bash
-./server/target/porthole
-```
-
-### From JAR
-
-```bash
-java -jar server/target/porthole-0.0.1-SNAPSHOT.jar
-```
-
-### With Docker
-
-```bash
-docker run -p 9753:9753 -v /var/run/docker.sock:/var/run/docker.sock porthole:latest
-```
-
 Access the application at [http://localhost:9753](http://localhost:9753)
 
 ## Testing
