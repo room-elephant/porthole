@@ -28,3 +28,5 @@ logs/
 
 # === Git Worktrees ===
 .worktrees/
+
+.idea

@@ -67,8 +67,8 @@ jobs:
         working-directory: server
         run: make package
 
-      - name: Build integration test Docker image
-        run: make -C docker it-image
+      - name: Build JVM Docker image
+        run: make -C docker jvm-image
 
       - name: Run integration tests
         working-directory: server

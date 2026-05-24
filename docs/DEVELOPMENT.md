@@ -6,240 +6,74 @@ For deeper technical details on how Porthole works, see the [Architecture](ARCHI
 
 ## Prerequisites
 
-- Java 25+ (GraalVM required for native builds)
-- Maven
+- Java 25 and Maven
 - Node.js 24+ and npm
 - Docker
 
-## Project Structure
-
-```
-.
-├── client/             # React frontend (Vite + React 19)
-├── server/             # Spring Boot backend (Java 25)
-├── docker/             # Docker configuration
-│   ├── templates/      # Template configuration files
-│   ├── Dockerfile       # CI/production Dockerfile (uses pre-built native executable)
-│   └── entrypoint.sh   # Entrypoint script
-├── dev/                # Development Docker files
-│   ├── Dockerfile       # Multi-stage build for local development
-│   └── compose.yml     # Development compose file
-└── docs/               # Documentation
-```
-
-Porthole is built as a **GraalVM native image**. The React client is bundled into the Spring Boot backend, which is then compiled to a native executable for fast startup and low memory usage.
-
 ## Building from Source
 
-### Server Only
+For building a single component in isolation:
 
-Build just the Spring Boot backend without the client:
+- [`client/README.md`](../client/README.md) — React frontend
+- [`server/README.md`](../server/README.md) — Spring Boot backend
 
-```bash
-make -C server package
-```
-
-The JAR will be in `server/target/porthole-0.0.1-SNAPSHOT.jar` but won't include client assets.
-
-### Client Only
-
-Build just the React client:
-
-```bash
-cd client
-npm install
-npm run build
-```
-
-The built client will be in `client/dist/`.
+The sections below cover cross-component builds.
 
 ### Full Application (JAR)
 
 Build the complete application with client bundled into the backend JAR:
 
 ```bash
-cd server
-mvn clean package -DskipTests -Pbuild-client
+make bundle
 ```
 
 The client will be automatically built and copied into the JAR's static resources.
 
-If you've already built the client separately, you can skip the node/npm steps and just copy the dist folder:
+### Full Application (Native)
+
+Build a GraalVM native executable:
 
 ```bash
-cd server
-mvn clean package -DskipTests -Pcopy-client
+make bundle-native
 ```
 
-### Native Image
-
-Build a GraalVM native executable for faster startup and lower memory usage:
-
-```bash
-# Build client first
-cd client && npm run build && cd ..
-
-# Build native image with client bundled
-make -C server native
-```
-
-The native executable will be in `server/target/porthole`. First compilation takes 3-5 minutes; subsequent builds are faster with caching.
+The native executable will be in `server/target/porthole`.
 
 **Requirements**: GraalVM JDK 25+ must be installed and configured as your JAVA_HOME.
 
 ### Docker Image
 
-For local development, use the multi-stage Dockerfile in `dev/`:
+For local Docker testing, build the JVM image — fast to build, no native compilation required:
 
 ```bash
-# From the project root
-docker build -f dev/Dockerfile -t porthole:latest .
-
-# Or use docker compose
-docker compose -f dev/compose.yml up --build
+make bundle                                              # build JAR with client
+docker build -f docker/Dockerfile.jvm -t porthole:jvm . # build JVM image
+docker run -p 9753:9753 -v /var/run/docker.sock:/var/run/docker.sock porthole:jvm
 ```
 
-The development Dockerfile uses a multi-stage build that automatically builds both client and server. Dependencies are cached for faster rebuild times.
-
-For CI/production, the `docker/Dockerfile` expects a pre-built native executable (built with `mvn -Pnative,copy-client native:compile`).
-
-## Running Locally
-
-### From Native Executable
-
-```bash
-./server/target/porthole --spring.profiles.active=local
-```
-
-### From JAR
-
-```bash
-java -jar server/target/porthole-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
-```
-
-### With Docker
-
-```bash
-docker run -p 9753:9753 -v /var/run/docker.sock:/var/run/docker.sock porthole:latest
-```
+For a production-equivalent image, use `make bundle-native` then `docker/Dockerfile`.
 
 Access the application at [http://localhost:9753](http://localhost:9753)
 
 ## Testing
 
-### Server Tests
+For test commands, see the per-component READMEs:
 
-Run the Spring Boot backend tests:
+- [`server/README.md`](../server/README.md) — unit tests, integration tests
+- [`client/README.md`](../client/README.md) — React unit tests
+- [`docker/README.md`](../docker/README.md) — entrypoint tests
 
-```bash
-make -C server test    # Unit tests
-make -C it             # Integration tests with coverage report at server/target/site/jacoco/index.html
-```
-
-#### JVM vs Native Integration Tests
-
-The integration test suite runs twice in the pipeline, each time against a different runtime:
-
-| | CI (`reusable-server.yml`) | Release (`native-it` job) |
-|---|---|---|
-| **Runtime** | JVM JAR (`Dockerfile.it`) | Native binary (`docker/Dockerfile`) |
-| **Trigger** | Every push / PR to `main` | Every release tag |
-| **Purpose** | Catch logic and API bugs fast | Catch AOT/native-image failures |
-
-A feature can pass all JVM tests and still fail in native. GraalVM AOT compilation requires explicit configuration for reflection, proxies, and JNI — any class or method not registered will be missing at runtime. These failures are invisible on the JVM because the JVM resolves everything dynamically.
-
-Running the same IT suite against the native binary surfaces missing reflection config, incomplete AOT hints, or `ClassNotFoundException`s before the image is pushed. Both runs are necessary; neither substitutes for the other.
-
-### Client Tests
-
-Run the React client unit tests:
-
-```bash
-cd client
-npm test              # Watch mode
-npm run test:run      # Single run
-npm run test:coverage # With coverage report
-```
-
-### Docker Entrypoint Tests
-
-The project includes a dedicated script to test the Docker entrypoint logic (e.g., dynamic socket group handling). This script builds a test image and runs scenarios to verify correct permission handling.
-
-```bash
-make -C docker test
-```
-
-> [!NOTE]
-> Running this script locally may prompt for your `sudo` password to create and set permissions for a mock Docker socket.
-
-## Development Workflow
-
-For active development, you can run the client and server separately:
-
-1. **Start the backend** (from `server/`):
-   ```bash
-   mvn spring-boot:run
-   ```
-
-Or use IntelliJ IDEA Pre-configured run configurations available in `server/.run/`:
-
-- **Porthole java local** - Runs the application with the `local` profile
-- **Porthole container** - Remote debugging for containerized application (port 5005)
-
-2. **Start the client dev server** (from `client/`):
-   ```bash
-   npm run dev
-   ```
-
-The client dev server proxies API requests to the backend.
-
-## GitHub Actions Workflows
-
-### CI Workflow
-
-Runs on push/PR to `main`. Detects which parts of the codebase changed and only runs relevant jobs:
-
-- **Server job**: Builds and tests the Spring Boot backend (skipped if no `server/` changes)
-- **Client job**: Builds and tests the React frontend (skipped if no `client/` changes)
-- **Docker job**: Verifies the Docker image build (skipped if no `docker/` changes)
-
-The server job runs integration tests against the **JVM-based JAR** (`Dockerfile.it`). This gives fast feedback on business logic and API correctness during development.
-
-See `.github/workflows/ci.yml` for the full workflow definition.
-
-### Release Workflow
-
-Runs when a version tag (e.g., `v1.0.0`) is pushed:
-
-- **Client job**: Installs, tests, and builds the React frontend, saving build artifacts.
-- **Server Test job**: Runs backend tests with GraalVM.
-- **Build Binary job**: Runs a matrix build for `amd64` and `arm64` that builds the GraalVM native executable and uploads it as an artifact.
-- **Native Integration Tests job**: Downloads the native binary, builds a production Docker image from it (`docker/Dockerfile`), and runs the full integration test suite against the **native binary**. The registry push is gated behind this job — a failing IT blocks the release.
-- **Push Image job**: Builds and pushes architecture-specific Docker images (runs only after native ITs pass).
-- **Manifest job**:
-  - Creates a multi-arch Docker manifest combining the images.
-  - Pushes the final version tag (and `latest` for stable releases).
-  - Creates the GitHub Release with auto-generated notes.
-
-
-The Docker image is published to GitHub Container Registry at `ghcr.io/room-elephant/porthole`.
-
-See `.github/workflows/release.yml` for the full workflow definition.
 
 ## Regenerating Native Image Hints
 
-Native-image hint files are auto-generated by running the integration test suite with the GraalVM native-image agent. Run this after adding new features that use reflection, proxies, or JNI:
+Run this after adding new features that use reflection, proxies, or JNI. Requires GraalVM JDK 25+ as `JAVA_HOME`.
 
 ```bash
-mvn verify -Pgenerate-native-hints -f server/pom.xml
+make server-native-hints
 ```
 
-The agent runs inside the IT container and writes `reachability-metadata.json` directly to `server/src/main/resources/META-INF/native-image/com.roomelephant/porthole/`. Commit the updated file and rebuild the native image.
+Commit the updated `reachability-metadata.json` and rebuild the native image. If a class isn't reached by the ITs, register it explicitly in `DockerNativeConfig` using `RuntimeHints` or `@RegisterReflectionForBinding` rather than editing the generated file by hand.
 
-**Requirements**: GraalVM JDK 25+ must be installed and set as `JAVA_HOME` (same requirement as native builds).
-
-### Troubleshooting missing hints
-
-If the native binary throws `ClassNotFoundException` or `InvalidDefinitionException` for a class not reached by the ITs, register it explicitly in `DockerNativeConfig` using `RuntimeHints` or `@RegisterReflectionForBinding` rather than editing the generated file by hand.
+See [Native Image Hints](ARCHITECTURE.md#native-image-hints) for how generation works.
 
 

@@ -9,7 +9,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 public class PortholeContainer extends GenericContainer<PortholeContainer> {
 
     public static final int PORTHOLE_PORT = 9753;
-    static final String IMAGE_TAG = "porthole-it:latest";
+    static final String IMAGE_TAG = "porthole-jvm:latest";
 
     public PortholeContainer(int wireMockPort) {
         super(IMAGE_TAG);

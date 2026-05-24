@@ -1,13 +1,16 @@
-.PHONY: install lint test build
+.PHONY: install lint dev test build
 
 install:
 	npm ci
 
-lint: install
+lint:
 	npm run lint
 
-test: install
+dev:
+	npm run dev
+
+test:
 	npm run test:coverage
 
-build: install
+build:
 	npm run build

@@ -73,7 +73,6 @@ jobs:
         run: $MVN versions:set -DnewVersion=${{ steps.version.outputs.clean_version }} -DgenerateBackupPoms=false
 
       - name: Build native binary
-        working-directory: server
         run: make native
 
       - name: Upload binary

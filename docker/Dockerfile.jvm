@@ -16,5 +16,6 @@ COPY --chown=nonroot:nonroot --chmod=444 docker/templates/ /app/config/
 COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
 
 EXPOSE 9753
+EXPOSE 5005
 
 ENTRYPOINT ["/app/entrypoint.sh", "java", "-jar", "/app/porthole.jar", "--spring.config.additional-location=file:/app/config/"]
