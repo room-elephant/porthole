@@ -28,6 +28,7 @@ make server-it -C ../   # build IT Docker image + run integration tests (run fro
 Run configurations are available in `.run/`:
 
 - **Porthole java local** — runs the backend locally
+- **Porthole container** — attaches remote debugger to a container exposing port 5005
 
 ## Docs
 
