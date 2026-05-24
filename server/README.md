@@ -19,7 +19,8 @@ make native    # GraalVM native executable (no client, server only)
 
 ```bash
 make test               # unit tests
-make server-it -C ../   # integration tests (run from repo root)
+make it                 # integration tests against JVM JAR (no Docker image build)
+make server-it -C ../   # build IT Docker image + run integration tests (run from repo root)
 ```
 
 ## Docs
