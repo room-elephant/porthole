@@ -11,15 +11,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @ImportRuntimeHints(DockerNativeConfig.DockerNativeHints.class)
 class DockerNativeConfig {
 
-    private DockerNativeConfig() {}
-
     static class DockerNativeHints implements RuntimeHintsRegistrar {
-
-        private DockerNativeHints() {}
 
         @Override
         public void registerHints(@NonNull RuntimeHints hints, @Nullable ClassLoader classLoader) {
