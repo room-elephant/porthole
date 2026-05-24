@@ -1,4 +1,4 @@
-.PHONY: server-it server-native-hints bundle bundle-native
+.PHONY: server-it server-native-hints bundle bundle-native native
 
 MVN ?= mvn
 
@@ -7,6 +7,9 @@ MVN ?= mvn
 bundle:
 	$(MAKE) -C client build
 	$(MVN) -f server/pom.xml package -DskipTests -Pcopy-client -Dspotless.check.skip=true
+
+native:
+	$(MVN) -f server/pom.xml -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
 
 bundle-native:
 	$(MAKE) -C client build

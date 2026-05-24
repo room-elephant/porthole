@@ -21,4 +21,4 @@ native-hints:
 	$(MVN) verify -Pgenerate-native-hints -Dspotless.check.skip=true
 
 native:
-	$(MVN) -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
+	$(MVN) -Pnative package native:compile -DskipTests -Dspotless.check.skip=true
