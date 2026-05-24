@@ -29,6 +29,7 @@ Run configurations are available in `.run/`:
 
 - **Porthole java local** — runs the backend locally
 - **Porthole container** — attaches remote debugger to a container exposing port 5005
+- **Integration Tests** — runs all tests in `com.roomelephant.porthole.it` package
 
 ## Docs
 
