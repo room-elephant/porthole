@@ -7,14 +7,13 @@ Porthole is designed as a monolithic, single-artifact application for simplicity
 ## Tech Stack
 
 ### Backend
-- **Framework**: Spring Boot 4.0.0
-- **Language**: Java 25
-- **Concurrency**: Virtual threads enabled
-- **Docker Client**: [docker-java](https://github.com/docker-java/docker-java) with `ZeroDepDockerHttpClient` (Unix Socket support).
+- **Framework**: Spring Boot
+- **Language**: Java (virtual threads enabled)
+- **Docker Client**: [docker-java](https://github.com/docker-java/docker-java) with `ZeroDepDockerHttpClient` (Unix Socket support)
 - **Build Tool**: Maven
 
 ### Client
-- **Framework**: React 19
+- **Framework**: React
 - **Bundler**: Vite
 - **Styling**: Vanilla CSS (Modern, Variables-based)
 - **State**: React Query + LocalStorage (for user preferences)
