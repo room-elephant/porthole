@@ -57,7 +57,11 @@ Access the application at [http://localhost:9753](http://localhost:9753)
 
 ## Testing
 
-For test commands, see the per-component READMEs: [`server/README.md`](../server/README.md), [`client/README.md`](../client/README.md), [`docker/README.md`](../docker/README.md).
+For test commands, see the per-component READMEs:
+
+- [`server/README.md`](../server/README.md) — unit tests, integration tests
+- [`client/README.md`](../client/README.md) — React unit tests
+- [`docker/README.md`](../docker/README.md) — entrypoint tests
 
 ### JVM vs Native Integration Tests
 
