@@ -57,16 +57,9 @@ Access the application at [http://localhost:9753](http://localhost:9753)
 
 ## Testing
 
-### Server Tests
+For test commands, see the per-component READMEs: [`server/README.md`](../server/README.md), [`client/README.md`](../client/README.md), [`docker/README.md`](../docker/README.md).
 
-Run the Spring Boot backend tests:
-
-```bash
-make -C server test    # Unit tests
-make -C it             # Integration tests with coverage report at server/target/site/jacoco/index.html
-```
-
-#### JVM vs Native Integration Tests
+### JVM vs Native Integration Tests
 
 The integration test suite runs twice in the pipeline, each time against a different runtime:
 
@@ -80,48 +73,19 @@ A feature can pass all JVM tests and still fail in native. GraalVM AOT compilati
 
 Running the same IT suite against the native binary surfaces missing reflection config, incomplete AOT hints, or `ClassNotFoundException`s before the image is pushed. Both runs are necessary; neither substitutes for the other.
 
-### Client Tests
-
-Run the React client unit tests:
-
-```bash
-cd client
-npm test              # Watch mode
-npm run test:run      # Single run
-npm run test:coverage # With coverage report
-```
-
-### Docker Entrypoint Tests
-
-The project includes a dedicated script to test the Docker entrypoint logic (e.g., dynamic socket group handling). This script builds a test image and runs scenarios to verify correct permission handling.
-
-```bash
-make -C docker test
-```
-
-> [!NOTE]
-> Running this script locally may prompt for your `sudo` password to create and set permissions for a mock Docker socket.
-
 ## Development Workflow
 
 For active development, you can run the client and server separately:
 
-1. **Start the backend** (from `server/`):
-   ```bash
-   mvn spring-boot:run
-   ```
-
-Or use IntelliJ IDEA Pre-configured run configurations available in `server/.run/`:
-
-- **Porthole java local** - Runs the application locally
-- **Porthole container** - Remote debugging for containerized application (port 5005)
-
-2. **Start the client dev server** (from `client/`):
-   ```bash
-   npm run dev
-   ```
+1. **Start the backend** (from `server/`): `make dev`
+2. **Start the client dev server** (from `client/`): `make dev`
 
 The client dev server proxies API requests to the backend.
+
+IntelliJ IDEA run configurations are available in `server/.run/`:
+
+- **Porthole java local** — runs the backend locally
+- **Porthole container** — remote debugging for containerized app (port 5005)
 
 ## GitHub Actions Workflows
 
