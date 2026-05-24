@@ -16,5 +16,5 @@ make test    # single run with coverage report
 
 ## Docs
 
-- [Building & testing the client](../docs/DEVELOPMENT.md#client-only)
 - [Client tech stack](../docs/ARCHITECTURE.md#client)
+- [Build process](../docs/ARCHITECTURE.md#build-process)

@@ -33,5 +33,5 @@ Builds a test image and runs entrypoint scenarios (socket permissions, group han
 ## Docs
 
 - [Building the Docker image](../docs/DEVELOPMENT.md#docker-image)
-- [Docker entrypoint tests](../docs/DEVELOPMENT.md#docker-entrypoint-tests)
 - [Runtime design & permissions](../docs/ARCHITECTURE.md#docker-runtime-design)
+- [JVM vs Native integration tests](../docs/ARCHITECTURE.md#jvm-vs-native-integration-tests)
