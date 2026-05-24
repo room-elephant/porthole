@@ -1,6 +1,7 @@
 package com.roomelephant.porthole.it.infra;
 
 import java.io.File;
+import org.jspecify.annotations.NonNull;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -52,19 +53,35 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
     private static void applyNativeAgentIfEnabled(GenericContainer<?> container) {
         String outputDir = System.getProperty("native.agent.output.dir");
         if (outputDir != null) {
-            File dir = new File(outputDir);
-            dir.mkdirs();
-            // Allow the nonroot user (UID 65532) inside the container to write hint files.
-            dir.setWritable(true, false);
-            dir.setReadable(true, false);
-            dir.setExecutable(true, false);
-            // Remove stale lock file that the agent may have left from a previous aborted run.
-            new File(dir, ".lock").delete();
+            File lockFile = getLockFile(outputDir);
+            if (lockFile.exists() && !lockFile.delete()) {
+                throw new IllegalStateException("Failed to delete stale lock file: " + lockFile);
+            }
             // Written periodically so hints survive if the JVM is killed by Ryuk before graceful shutdown.
             container.withEnv(
                     "JAVA_TOOL_OPTIONS",
                     "-agentlib:native-image-agent=config-output-dir=/tmp/native-hints,config-write-period-secs=10");
             container.withFileSystemBind(outputDir, "/tmp/native-hints", BindMode.READ_WRITE);
         }
+    }
+
+    private static @NonNull File getLockFile(String outputDir) {
+        File dir = new File(outputDir);
+        if (!dir.mkdirs() && !dir.exists()) {
+            throw new IllegalStateException("Failed to create native agent output directory: " + dir);
+        }
+        // Allow the nonroot user (UID 65532) inside the container to write hint files.
+        if (!dir.setWritable(true, false)) {
+            throw new IllegalStateException("Failed to set writable on: " + dir);
+        }
+        if (!dir.setReadable(true, false)) {
+            throw new IllegalStateException("Failed to set readable on: " + dir);
+        }
+        if (!dir.setExecutable(true, false)) {
+            throw new IllegalStateException("Failed to set executable on: " + dir);
+        }
+        // Remove stale lock file that the agent may have left from a previous aborted run.
+        File lockFile = new File(dir, ".lock");
+        return lockFile;
     }
 }
