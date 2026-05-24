@@ -1,6 +1,8 @@
 package com.roomelephant.porthole.config;
 
 import java.util.Arrays;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
@@ -13,18 +15,17 @@ import org.springframework.core.type.filter.AssignableTypeFilter;
 @ImportRuntimeHints(DockerNativeConfig.DockerNativeHints.class)
 class DockerNativeConfig {
 
+    private DockerNativeConfig() {}
+
     static class DockerNativeHints implements RuntimeHintsRegistrar {
 
-        private static final MemberCategory[] CATEGORIES = {
-            MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
-            MemberCategory.INVOKE_DECLARED_METHODS,
-            MemberCategory.DECLARED_FIELDS
-        };
+        private DockerNativeHints() {}
 
         @Override
-        public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
-            registerPackage(hints, classLoader, "com.github.dockerjava.api.model");
-            registerPackage(hints, classLoader, "com.github.dockerjava.api.command");
+        public void registerHints(@NonNull RuntimeHints hints, @Nullable ClassLoader classLoader) {
+            var loader = classLoader != null ? classLoader : getClass().getClassLoader();
+            registerPackage(hints, loader, "com.github.dockerjava.api.model");
+            registerPackage(hints, loader, "com.github.dockerjava.api.command");
         }
 
         private void registerPackage(RuntimeHints hints, ClassLoader classLoader, String basePackage) {
@@ -33,12 +34,17 @@ class DockerNativeConfig {
             for (var bd : scanner.findCandidateComponents(basePackage)) {
                 try {
                     registerClass(hints, classLoader.loadClass(bd.getBeanClassName()));
-                } catch (ClassNotFoundException ignored) {}
+                } catch (ClassNotFoundException _) {
+                    // class not present at build time — skip
+                }
             }
         }
 
         private void registerClass(RuntimeHints hints, Class<?> clazz) {
-            hints.reflection().registerType(clazz, CATEGORIES);
+            hints.reflection().registerType(clazz,
+                    MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                    MemberCategory.INVOKE_DECLARED_METHODS);
+            Arrays.stream(clazz.getDeclaredFields()).forEach(hints.reflection()::registerField);
             Arrays.stream(clazz.getDeclaredClasses()).forEach(inner -> registerClass(hints, inner));
         }
     }
