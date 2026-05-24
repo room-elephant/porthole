@@ -12,7 +12,12 @@ For deeper technical details on how Porthole works, see the [Architecture](ARCHI
 
 ## Building from Source
 
-For building a single component in isolation, see [`client/README.md`](../client/README.md) or [`server/README.md`](../server/README.md). The sections below cover cross-component builds.
+For building a single component in isolation:
+
+- [`client/README.md`](../client/README.md) — React frontend
+- [`server/README.md`](../server/README.md) — Spring Boot backend
+
+The sections below cover cross-component builds.
 
 ### Full Application (JAR)
 
