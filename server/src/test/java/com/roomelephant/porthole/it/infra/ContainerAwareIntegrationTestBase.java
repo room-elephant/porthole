@@ -30,6 +30,7 @@ public abstract class ContainerAwareIntegrationTestBase extends IntegrationTestB
         }
 
         dc.tagImageCmd(PAUSE_IMAGE, "my-local-image", "1.0").exec();
+        dc.tagImageCmd(PAUSE_IMAGE, "registry.k8s.io/pause", "latest").exec();
 
         testAppContainer = new GenericContainer<>(PAUSE_IMAGE)
                 .withCreateContainerCmdModifier(cmd -> cmd.withName(TEST_APP_CONTAINER_NAME))
@@ -53,7 +54,8 @@ public abstract class ContainerAwareIntegrationTestBase extends IntegrationTestB
         localContainer.start();
 
         noPortsContainer = new GenericContainer<>(PAUSE_LATEST_IMAGE)
-                .withCreateContainerCmdModifier(cmd -> cmd.withName(TEST_NO_PORTS_CONTAINER_NAME));
+                .withCreateContainerCmdModifier(cmd -> cmd.withName(TEST_NO_PORTS_CONTAINER_NAME))
+                .withImagePullPolicy(imageName -> false);
         noPortsContainer.start();
     }
 }
