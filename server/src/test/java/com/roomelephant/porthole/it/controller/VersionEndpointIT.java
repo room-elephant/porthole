@@ -20,12 +20,12 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldReturnUpdateAvailableWhenNewerVersionExists() {
         stubAuth();
-        stubRegistryTags("pause", "1.0", "3.10");
-        stubManifestDigest("pause", "1.0", "sha256:currentdiggest");
+        stubRegistryTags("pause", "3.9", "3.10");
+        stubManifestDigest("pause", "3.9", "sha256:currentdiggest");
 
         VersionDTO response = fetchVersion(testAppContainer.getContainerId());
 
-        assertThat(response.currentVersion()).isEqualTo("1.0");
+        assertThat(response.currentVersion()).isEqualTo("3.9");
         assertThat(response.latestVersion()).isEqualTo("3.10");
         assertThat(response.updateAvailable()).isTrue();
     }

@@ -23,7 +23,7 @@
         <npm.version>11.6.2</npm.version>
         <jspecify.version>1.0.0</jspecify.version>
         <jacoco.version>0.8.14</jacoco.version>
-        <spotless.version>3.4.0</spotless.version>
+        <spotless.version>3.5.1</spotless.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <testcontainers-junit.version>1.21.4</testcontainers-junit.version>
         <wiremock.version>3.13.2</wiremock.version>
@@ -279,6 +279,45 @@
                             <includes>
                                 <include>**/*IT.java</include>
                             </includes>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>generate-native-hints</id>
+            <properties>
+                <jacoco.skip>true</jacoco.skip>
+                <spotless.check.skip>true</spotless.check.skip>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <native.agent.output.dir>${project.basedir}/src/main/resources/META-INF/native-image/com.roomelephant/porthole</native.agent.output.dir>
+                            </systemPropertyVariables>
                         </configuration>
                         <executions>
                             <execution>

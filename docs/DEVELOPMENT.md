@@ -36,8 +36,7 @@ Porthole is built as a **GraalVM native image**. The React client is bundled int
 Build just the Spring Boot backend without the client:
 
 ```bash
-cd server
-mvn clean package -DskipTests
+make -C server package
 ```
 
 The JAR will be in `server/target/porthole-0.0.1-SNAPSHOT.jar` but won't include client assets.
@@ -81,8 +80,7 @@ Build a GraalVM native executable for faster startup and lower memory usage:
 cd client && npm run build && cd ..
 
 # Build native image with client bundled
-cd server
-mvn -Pnative,copy-client native:compile -DskipTests
+make -C server native
 ```
 
 The native executable will be in `server/target/porthole`. First compilation takes 3-5 minutes; subsequent builds are faster with caching.
@@ -134,10 +132,23 @@ Access the application at [http://localhost:9753](http://localhost:9753)
 Run the Spring Boot backend tests:
 
 ```bash
-cd server
-mvn test   # Single run
-mvn verify # Report available at server/target/site/jacoco/index.html
+make -C server test    # Unit tests
+make -C it             # Integration tests with coverage report at server/target/site/jacoco/index.html
 ```
+
+#### JVM vs Native Integration Tests
+
+The integration test suite runs twice in the pipeline, each time against a different runtime:
+
+| | CI (`reusable-server.yml`) | Release (`native-it` job) |
+|---|---|---|
+| **Runtime** | JVM JAR (`Dockerfile.it`) | Native binary (`docker/Dockerfile`) |
+| **Trigger** | Every push / PR to `main` | Every release tag |
+| **Purpose** | Catch logic and API bugs fast | Catch AOT/native-image failures |
+
+A feature can pass all JVM tests and still fail in native. GraalVM AOT compilation requires explicit configuration for reflection, proxies, and JNI — any class or method not registered will be missing at runtime. These failures are invisible on the JVM because the JVM resolves everything dynamically.
+
+Running the same IT suite against the native binary surfaces missing reflection config, incomplete AOT hints, or `ClassNotFoundException`s before the image is pushed. Both runs are necessary; neither substitutes for the other.
 
 ### Client Tests
 
@@ -155,11 +166,7 @@ npm run test:coverage # With coverage report
 The project includes a dedicated script to test the Docker entrypoint logic (e.g., dynamic socket group handling). This script builds a test image and runs scenarios to verify correct permission handling.
 
 ```bash
-# Build the test image first
-docker build -t porthole:ci-test -f docker/Dockerfile .
-
-# Run entrypoint tests locally
-./docker/test_entrypoint.sh
+make -C docker test
 ```
 
 > [!NOTE]
@@ -196,6 +203,8 @@ Runs on push/PR to `main`. Detects which parts of the codebase changed and only 
 - **Client job**: Builds and tests the React frontend (skipped if no `client/` changes)
 - **Docker job**: Verifies the Docker image build (skipped if no `docker/` changes)
 
+The server job runs integration tests against the **JVM-based JAR** (`Dockerfile.it`). This gives fast feedback on business logic and API correctness during development.
+
 See `.github/workflows/ci.yml` for the full workflow definition.
 
 ### Release Workflow
@@ -204,107 +213,33 @@ Runs when a version tag (e.g., `v1.0.0`) is pushed:
 
 - **Client job**: Installs, tests, and builds the React frontend, saving build artifacts.
 - **Server Test job**: Runs backend tests with GraalVM.
-- **Build & Push job**: Runs a matrix build for `amd64` and `arm64` that:
-  - Builds the GraalVM native executable for the specific architecture.
-  - Pushes architecture-specific Docker images.
+- **Build Binary job**: Runs a matrix build for `amd64` and `arm64` that builds the GraalVM native executable and uploads it as an artifact.
+- **Native Integration Tests job**: Downloads the native binary, builds a production Docker image from it (`docker/Dockerfile`), and runs the full integration test suite against the **native binary**. The registry push is gated behind this job — a failing IT blocks the release.
+- **Push Image job**: Builds and pushes architecture-specific Docker images (runs only after native ITs pass).
 - **Manifest job**:
   - Creates a multi-arch Docker manifest combining the images.
   - Pushes the final version tag (and `latest` for stable releases).
   - Creates the GitHub Release with auto-generated notes.
 
+
 The Docker image is published to GitHub Container Registry at `ghcr.io/room-elephant/porthole`.
 
 See `.github/workflows/release.yml` for the full workflow definition.
 
-## Docker Production Setup
+## Regenerating Native Image Hints
 
-### Base Image Strategy
-Given a standard GraalVM native-image build (glibc-based, dynamically linked), **`debian:bookworm-slim`** is the correct runtime choice instead of Alpine.
-- **Reason**: The native binary built by GraalVM is dynamically linked against `glibc` (present in the build stage).
-- **Compatibility**: Alpine uses `musl`, which makes it incompatible with standard glibc-linked binaries without complex static linking configurations.
-- **Trade-off**: Bookworm-slim offers a stable, multi-arch foundation and is relatively small (~75MB), providing a good balance between size and compatibility.
-
-### Permissions & Security
-
-To run the application as a non-root user while minimising container-level privileges and enabling optional access to the host Docker daemon:
-
-1. **Build Time**:
-   - Creates a `nonroot` user with UID/GID 65532.
-   - **No privileged group memberships are baked into the image.**
-
-2. **Run Time (Entrypoint)**:
-   - The container starts as `root` to perform one-time setup.
-   - **Docker Socket Detection**: If `/var/run/docker.sock` is mounted, the entrypoint inspects its owning GID.
-   - **Root Ownership (GID 0)**:
-     - If the socket is owned by `root` (GID 0), often the case for Docker Desktop or rootless setups, the container **stays as root**.
-     - This ensures seamless access without complex group mapping in these environments.
-   - **Dynamic Group Reconciliation** (if GID != 0):
-     - If the socket’s GID does not exist in the container, a group (`dockersock-<GID>`) is created.
-     - The `nonroot` user is added to this group if not already a member.
-     - **Privilege Drop**: The entrypoint switches to the `nonroot` user via `gosu` before launching the application.
-   - **Access Verification**: A read/write check is performed to warn about potential permission issues.
-
-The application process itself runs without root privileges and is granted only the minimum group access required to communicate with the host’s Docker daemon when the socket is mounted.
-
-
-> [!NOTE]
-> Access to `/var/run/docker.sock` effectively grants control over the host Docker daemon. This setup limits container privileges but does not provide isolation from the host.
-
-
-## Native Image Troubleshooting
-
-If you encounter `ClassNotFoundException`, `InvalidDefinitionException`, or other reflection-related errors when running the native image (especially with `docker-java` or Jackson), you can use the GraalVM Tracing Agent to automatically generate the missing configuration.
-
-### 1. Build the JAR
-
-Build the application as a standard uber-jar:
+Native-image hint files are auto-generated by running the integration test suite with the GraalVM native-image agent. Run this after adding new features that use reflection, proxies, or JNI:
 
 ```bash
-cd server
-mvn package -DskipTests
+mvn verify -Pgenerate-native-hints -f server/pom.xml
 ```
 
-### 2. Run with Agent
+The agent runs inside the IT container and writes `reachability-metadata.json` directly to `server/src/main/resources/META-INF/native-image/com.roomelephant/porthole/`. Commit the updated file and rebuild the native image.
 
-Run the jar with the `native-image-agent` attached. This agent will observe all reflection, JNI, and proxy usage and write the configuration to `agent-output`.
+**Requirements**: GraalVM JDK 25+ must be installed and set as `JAVA_HOME` (same requirement as native builds).
 
-```bash
-# Run on a different port to avoid conflicts if needed
-java -Dserver.port=9999 \
-  -agentlib:native-image-agent=config-output-dir=agent-output \
-  -jar server/target/porthole-0.0.1-SNAPSHOT.jar
-```
+### Troubleshooting missing hints
 
-### 3. Exercise the Application
-
-Critically, you must **exercise the code paths** that are failing. The agent only captures what is actually executed.
-
-1.  **List Containers**: `curl http://localhost:9999/api/containers`
-2.  **Inspect Container**: `curl http://localhost:9999/api/containers/{id}/version`
-3.  **Trigger Errors**: If the error happens during failure modes (e.g. 404), trigger those explicitly.
-
-### 4. Process and Apply Configuration
-
-The agent may generate a `reachability-metadata.json` or individual config files. If you get a single metadata file, you can extract the relevant reflection config using `jq`.
-
-**Filter for project classes:**
-
-```bash
-jq '.reflection 
-  | map(select(.type | strings)) 
-  | map(select(.type | test("com\\.github\\.dockerjava|com\\.roomelephant"; "i"))) 
-  | map(. + {name: .type} | del(.type))' \
-  agent-output/reachability-metadata.json > reflect-config.json
-```
-
-**Apply the config:**
-
-Move the generated file to the project's native image configuration directory:
-
-```bash
-mv reflect-config.json server/src/main/resources/META-INF/native-image/com.roomelephant/porthole/reflect-config.json
-```
-
-Rebuild the native image to apply valid changes.
+If the native binary throws `ClassNotFoundException` or `InvalidDefinitionException` for a class not reached by the ITs, register it explicitly in `DockerNativeConfig` using `RuntimeHints` or `@RegisterReflectionForBinding` rather than editing the generated file by hand.
 
 
