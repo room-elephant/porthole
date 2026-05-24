@@ -8,7 +8,9 @@ Porthole is a Docker dashboard that auto-discovers running containers and their 
 
 ## Commands
 
-Run a single server test class:
+### Server
+
+Run a single test class:
 ```bash
 make -C server test-one TEST=ContainerServiceTest
 ```
@@ -47,3 +49,5 @@ Regenerate with `make server-native-hints` after adding features that use reflec
 ### CI/CD
 
 See [CI/CD Pipelines](docs/ARCHITECTURE.md#cicd-pipelines) in ARCHITECTURE.md. Key point: a feature can pass all JVM tests and still fail native — GraalVM AOT issues are only caught by running ITs against the native binary.
+
+When creating PRs, apply labels from `.github/release.yml` so the release changelog is generated correctly: `feature`/`enhancement`, `fix`/`bug`, `chore`/`test`/`refactor`, `documentation`/`docs`, `dependencies`, or `ignore-for-release`.
