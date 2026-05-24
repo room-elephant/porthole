@@ -29,9 +29,9 @@ make bundle
 
 The client will be automatically built and copied into the JAR's static resources.
 
-### Native Image
+### Full Application (Native)
 
-Build a GraalVM native executable for faster startup and lower memory usage:
+Build a GraalVM native executable:
 
 ```bash
 make bundle-native
