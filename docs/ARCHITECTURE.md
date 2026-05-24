@@ -81,15 +81,11 @@ Running the same IT suite against the native binary surfaces missing reflection 
 
 ### CI Workflow
 
-Runs on push/PR to `main`. Detects which parts of the codebase changed and only runs relevant jobs:
+Three separate workflows run on push/PR to `main`, each triggered by path filters:
 
-- **Server job**: Builds and tests the Spring Boot backend (skipped if no `server/` changes)
-- **Client job**: Builds and tests the React frontend (skipped if no `client/` changes)
-- **Docker job**: Verifies the Docker image build (skipped if no `docker/` changes)
-
-The server job runs integration tests against the **JVM-based JAR** (`Dockerfile.jvm`). This gives fast feedback on business logic and API correctness during development.
-
-See `.github/workflows/ci.yml` for the full workflow definition.
+- **ci-server.yml**: Builds and tests the backend — triggered by `server/**` changes. Runs integration tests against the JVM JAR (`Dockerfile.jvm`) for fast feedback on business logic and API correctness.
+- **ci-client.yml**: Builds and tests the frontend — triggered by `client/**` changes.
+- **ci-docker.yml**: Verifies the Docker image build — triggered by `docker/**` changes.
 
 ### Release Workflow
 
