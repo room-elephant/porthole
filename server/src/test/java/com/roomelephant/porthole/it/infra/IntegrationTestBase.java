@@ -4,6 +4,8 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
@@ -25,6 +27,9 @@ public abstract class IntegrationTestBase {
         porthole.start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                Files.writeString(Path.of("target/porthole-container.log"), porthole.getLogs());
+            } catch (Exception ignored) {}
             porthole.stop();
             wireMockServer.stop();
         }));

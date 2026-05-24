@@ -131,7 +131,8 @@ jobs:
 
       - name: Print porthole container logs on failure
         if: failure()
-        run: docker ps -a && docker logs $(docker ps -aq --filter ancestor=porthole-it:latest | head -1) 2>&1 || true
+        working-directory: server
+        run: cat target/porthole-container.log 2>/dev/null || echo "No container logs available"
 
       - name: Generate integration test results
         if: always()
