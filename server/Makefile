@@ -1,9 +1,12 @@
-.PHONY: format-check build test package it native-hints native dev
+.PHONY: format-check format build test test-one package it native-hints native dev
 
 MVN ?= mvn
 
 format-check:
 	$(MVN) spotless:check
+
+format:
+	$(MVN) spotless:apply
 
 dev:
 	$(MVN) spring-boot:run -Dspotless.check.skip=true
@@ -16,6 +19,9 @@ package:
 
 test:
 	$(MVN) test -Dspotless.check.skip=true
+
+test-one:
+	$(MVN) test -Dtest=$(TEST) -Dspotless.check.skip=true
 
 it:
 	$(MVN) verify -Pintegration-tests -Dspotless.check.skip=true

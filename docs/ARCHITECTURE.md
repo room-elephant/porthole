@@ -179,3 +179,26 @@ This is required because the Docker Registry API expects the full path:
 ├── docker/             # Docker configuration (see docker/README.md)
 └── docs/               # Documentation
 ```
+
+## Server Package Layout
+
+`server/src/main/java/com/roomelephant/porthole/`:
+
+- `controller/` — REST endpoints (`ContainerController`) and `GlobalExceptionHandler`
+- `domain/service/` — `ContainerService` (lists containers), `VersionService` (version + update detection)
+- `domain/component/` — `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries)
+- `domain/mapper/` — `ContainerMapper` maps docker-java types to DTOs
+- `domain/model/` — `ContainerDTO`, `VersionDTO`, and domain exceptions
+- `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
+- `config/` — `DockerConfig` (docker-java client bean), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
+- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `DashboardProperties`
+- `config/nativehints/` — `DockerNativeConfig` (Spring AOT hints for types the agent can't observe)
+
+## Integration Test Infrastructure
+
+`server/src/test/java/.../it/`:
+
+- `PortholeContainer` — Testcontainers wrapper that launches the application image; supports optional native-image agent attachment for hint generation
+- `IntegrationTestBase` — base class wiring WireMock (Docker Hub mock) and shared Porthole container
+- `ContainerAwareIntegrationTestBase` — extends base to also start real Docker containers for end-to-end scenarios
+- Tests in `controller/`, `health/`, and `resilience/` extend these bases
