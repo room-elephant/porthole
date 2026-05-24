@@ -95,12 +95,11 @@ See `.github/workflows/ci.yml` for the full workflow definition.
 
 Runs when a version tag (e.g., `v1.0.0`) is pushed:
 
-- **Client job**: Installs, tests, and builds the React frontend, saving build artifacts.
-- **Server Test job**: Runs backend tests with GraalVM.
-- **Build Binary job**: Runs a matrix build for `amd64` and `arm64` that builds the GraalVM native executable and uploads it as an artifact.
-- **Native Integration Tests job**: Downloads the native binary, builds a production Docker image from it (`docker/Dockerfile`), and runs the full integration test suite against the **native binary**. The registry push is gated behind this job — a failing IT blocks the release.
-- **Push Image job**: Builds and pushes architecture-specific Docker images (runs only after native ITs pass).
-- **Manifest job**: Creates a multi-arch Docker manifest, pushes the final version tag (and `latest` for stable releases), and creates the GitHub Release with auto-generated notes.
+- **server-check / client-check / docker-check**: Same checks as CI — run in parallel as a gate before the binary build.
+- **build-binary** *(matrix: amd64, arm64)*: Sets the project version, downloads the pre-built client artifact, and compiles the GraalVM native executable. Uploads the binary as an artifact.
+- **native-it** *(matrix: amd64, arm64)*: Downloads the native binary, builds a production Docker image (`docker/Dockerfile`), and runs the full integration test suite against it. The registry push is gated behind this job — a failing IT blocks the release.
+- **push-image** *(matrix: amd64, arm64)*: Builds and pushes architecture-specific images to GHCR.
+- **manifest**: Creates a multi-arch manifest combining the two images, pushes the version tag (and `latest` for stable releases), and creates the GitHub Release with the native binaries attached.
 
 The Docker image is published to GitHub Container Registry at `ghcr.io/room-elephant/porthole`.
 
