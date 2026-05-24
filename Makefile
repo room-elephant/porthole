@@ -16,10 +16,10 @@ bundle-native:
 	$(MVN) -f server/pom.xml -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
 
 server-it:
-	$(MAKE) -C docker it-image
+	$(MAKE) -C docker jvm-image
 	$(MAKE) -C server it
 
 server-native-hints:
-	$(MAKE) -C docker it-image
+	$(MAKE) -C docker jvm-image
 	$(MAKE) -C server native-hints
 

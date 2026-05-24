@@ -43,19 +43,15 @@ The native executable will be in `server/target/porthole`.
 
 ### Docker Image
 
-For local development, use the multi-stage Dockerfile in `dev/`:
+For local Docker testing, build the JVM image — fast to build, no native compilation required:
 
 ```bash
-# From the project root
-docker build -f dev/Dockerfile -t porthole:latest .
-
-# Or use docker compose
-docker compose -f dev/compose.yml up --build
+make bundle                                              # build JAR with client
+docker build -f docker/Dockerfile.jvm -t porthole:jvm . # build JVM image
+docker run -p 9753:9753 -v /var/run/docker.sock:/var/run/docker.sock porthole:jvm
 ```
 
-The development Dockerfile uses a multi-stage build that automatically builds both client and server. Dependencies are cached for faster rebuild times.
-
-For CI/production, the `docker/Dockerfile` expects a pre-built native executable (built with `make bundle-native`).
+For a production-equivalent image, use `make bundle-native` then `docker/Dockerfile`.
 
 ## Running Locally
 
@@ -96,7 +92,7 @@ The integration test suite runs twice in the pipeline, each time against a diffe
 
 | | CI (`reusable-server.yml`) | Release (`native-it` job) |
 |---|---|---|
-| **Runtime** | JVM JAR (`Dockerfile.it`) | Native binary (`docker/Dockerfile`) |
+| **Runtime** | JVM JAR (`Dockerfile.jvm`) | Native binary (`docker/Dockerfile`) |
 | **Trigger** | Every push / PR to `main` | Every release tag |
 | **Purpose** | Catch logic and API bugs fast | Catch AOT/native-image failures |
 
@@ -157,7 +153,7 @@ Runs on push/PR to `main`. Detects which parts of the codebase changed and only 
 - **Client job**: Builds and tests the React frontend (skipped if no `client/` changes)
 - **Docker job**: Verifies the Docker image build (skipped if no `docker/` changes)
 
-The server job runs integration tests against the **JVM-based JAR** (`Dockerfile.it`). This gives fast feedback on business logic and API correctness during development.
+The server job runs integration tests against the **JVM-based JAR** (`Dockerfile.jvm`). This gives fast feedback on business logic and API correctness during development.
 
 See `.github/workflows/ci.yml` for the full workflow definition.
 

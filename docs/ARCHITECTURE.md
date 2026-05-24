@@ -56,7 +56,7 @@ mvn verify -Pgenerate-native-hints
     └── on container stop → agent flushes hint files → appear on host immediately
 ```
 
-The `Dockerfile.it` uses a GraalVM JDK 25 community image so the agent is available in the IT container. Regular IT runs (`-Pintegration-tests`) are unaffected — the agent is a no-op unless `JAVA_TOOL_OPTIONS` is set, which only happens under the generation profile.
+The `Dockerfile.jvm` uses a GraalVM JDK 25 community image so the agent is available in the IT container. Regular IT runs (`-Pintegration-tests`) are unaffected — the agent is a no-op unless `JAVA_TOOL_OPTIONS` is set, which only happens under the generation profile.
 
 ### Spring AOT hints
 
@@ -172,7 +172,7 @@ When stopping Porthole, active requests are allowed up to 20 seconds to complete
 ├── server/             # Spring Boot backend (Java 25)
 ├── docker/             # Production Docker configuration
 │   ├── Dockerfile       # CI/release image (wraps pre-built native binary)
-│   ├── Dockerfile.it    # Integration test image (JVM JAR + native-image agent)
+│   ├── Dockerfile.jvm    # Integration test image (JVM JAR + native-image agent)
 │   └── entrypoint.sh   # Socket group reconciliation and privilege drop
 ├── dev/                # Development Docker files
 │   ├── Dockerfile       # Multi-stage build for local development

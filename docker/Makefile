@@ -1,10 +1,10 @@
-.PHONY: it-image build test
+.PHONY: jvm-image build test
 
 # Docker builds require the repo root as context (files are copied from server/target, docker/, etc.)
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))..)
 
-it-image:
-	docker build -t porthole-it:latest -f $(ROOT)/docker/Dockerfile.it $(ROOT)
+jvm-image:
+	docker build -t porthole-jvm:latest -f $(ROOT)/docker/Dockerfile.jvm $(ROOT)
 
 
 build:

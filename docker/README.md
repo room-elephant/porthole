@@ -5,7 +5,7 @@ Production Docker configuration. The `Dockerfile` expects a pre-built native exe
 | File | Purpose |
 |------|---------|
 | `Dockerfile` | Production image (CI/release) — wraps a pre-built native binary |
-| `Dockerfile.it` | Integration test image — runs the JVM JAR (and the native-image agent when generating hints) |
+| `Dockerfile.jvm` | JVM image — runs the JAR; used by integration tests and local Docker testing |
 | `entrypoint.sh` | Handles Docker socket group reconciliation and privilege drop at runtime |
 | `templates/` | Default configuration files copied into the image |
 
