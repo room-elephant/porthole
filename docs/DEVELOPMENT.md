@@ -57,13 +57,13 @@ For CI/production, the `docker/Dockerfile` expects a pre-built native executable
 ### From Native Executable
 
 ```bash
-./server/target/porthole --spring.profiles.active=local
+./server/target/porthole
 ```
 
 ### From JAR
 
 ```bash
-java -jar server/target/porthole-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
+java -jar server/target/porthole-0.0.1-SNAPSHOT.jar
 ```
 
 ### With Docker
@@ -132,7 +132,7 @@ For active development, you can run the client and server separately:
 
 Or use IntelliJ IDEA Pre-configured run configurations available in `server/.run/`:
 
-- **Porthole java local** - Runs the application with the `local` profile
+- **Porthole java local** - Runs the application locally
 - **Porthole container** - Remote debugging for containerized application (port 5005)
 
 2. **Start the client dev server** (from `client/`):

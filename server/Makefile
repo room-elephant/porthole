@@ -6,7 +6,7 @@ format-check:
 	$(MVN) spotless:check
 
 dev:
-	$(MVN) spring-boot:run -Dspotless.check.skip=true -Dspring-boot.run.profiles=local
+	$(MVN) spring-boot:run -Dspotless.check.skip=true
 
 build:
 	$(MVN) compile -Dspotless.check.skip=true
