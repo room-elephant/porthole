@@ -12,7 +12,7 @@ mvn spring-boot:run   # JVM mode, no client required
 
 ```bash
 make package            # JAR (no client)
-make jar                # JAR with client bundled
+make bundle             # JAR with client bundled
 make native             # GraalVM native executable (requires GraalVM JDK 25+)
 make test               # unit tests
 make server-it -C ../   # full integration tests (runs from repo root)

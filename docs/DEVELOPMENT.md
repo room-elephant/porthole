@@ -19,7 +19,7 @@ For building a single component in isolation, see [`client/README.md`](../client
 Build the complete application with client bundled into the backend JAR:
 
 ```bash
-make -C server jar
+make -C server bundle
 ```
 
 The client will be automatically built and copied into the JAR's static resources.
