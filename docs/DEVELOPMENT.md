@@ -19,18 +19,10 @@ For building a single component in isolation, see [`client/README.md`](../client
 Build the complete application with client bundled into the backend JAR:
 
 ```bash
-cd server
-mvn clean package -DskipTests -Pbuild-client
+make -C server jar
 ```
 
 The client will be automatically built and copied into the JAR's static resources.
-
-If you've already built the client separately, you can skip the node/npm steps and just copy the dist folder:
-
-```bash
-cd server
-mvn clean package -DskipTests -Pcopy-client
-```
 
 ### Native Image
 

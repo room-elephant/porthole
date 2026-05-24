@@ -1,4 +1,4 @@
-.PHONY: format format-check build test package it native-hints native
+.PHONY: format format-check build test package jar it native-hints native
 
 MVN ?= mvn
 
@@ -16,6 +16,9 @@ test:
 
 package:
 	$(MVN) package -DskipTests -Dspotless.check.skip=true
+
+jar:
+	$(MVN) package -DskipTests -Pbuild-client -Dspotless.check.skip=true
 
 it:
 	$(MVN) verify -Pintegration-tests -Dspotless.check.skip=true
