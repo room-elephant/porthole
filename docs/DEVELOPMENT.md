@@ -12,27 +12,7 @@ For deeper technical details on how Porthole works, see the [Architecture](ARCHI
 
 ## Building from Source
 
-### Server Only
-
-Build just the Spring Boot backend without the client:
-
-```bash
-make -C server package
-```
-
-The JAR will be in `server/target/porthole-0.0.1-SNAPSHOT.jar` but won't include client assets.
-
-### Client Only
-
-Build just the React client:
-
-```bash
-cd client
-npm install
-npm run build
-```
-
-The built client will be in `client/dist/`.
+For building a single component in isolation, see [`client/README.md`](../client/README.md) or [`server/README.md`](../server/README.md). The sections below cover cross-component builds.
 
 ### Full Application (JAR)
 
