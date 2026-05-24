@@ -31,11 +31,15 @@ jobs:
 
       - name: Install dependencies
         working-directory: client
-        run: npm ci
+        run: make install
+
+      - name: Run ESLint
+        working-directory: client
+        run: make lint
 
       - name: Run tests with coverage
         working-directory: client
-        run: npm run test:coverage
+        run: make test
 
       - name: Generate coverage summary
         if: ${{ inputs.upload_coverage }}
@@ -46,7 +50,7 @@ jobs:
 
       - name: Build application
         working-directory: client
-        run: npm run build
+        run: make build
 
       - name: Upload client dist
         if: ${{ inputs.upload_artifact }}
