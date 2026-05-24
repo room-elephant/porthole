@@ -134,6 +134,34 @@ The application process itself runs without root privileges and is granted only 
 > [!NOTE]
 > Access to `/var/run/docker.sock` effectively grants control over the host Docker daemon. This setup limits container privileges but does not provide isolation from the host.
 
+## Version Detection
+
+Porthole attempts to detect the current version of each container using multiple strategies (in priority order):
+
+1. **Image-specific environment variable**: Looks for `<IMAGE_NAME>_VERSION` (e.g., `MONGO_VERSION`, `REDIS_VERSION`)
+2. **Generic environment variable**: Falls back to `VERSION` if no image-specific var exists
+3. **OCI labels**: Checks `org.opencontainers.image.version` or `version` labels
+4. **Image tag**: Uses the tag from the image name (e.g., `7.0` from `mongo:7.0`)
+
+The image-specific check (step 1) takes priority because containers often have multiple `*_VERSION` env vars (like `GOSU_VERSION`, `PYTHON_VERSION`) that aren't the application version.
+
+## Docker Hub Integration
+
+Porthole queries Docker Hub to detect available updates. When resolving image names:
+
+- **Official images** (e.g., `redis`, `postgres`) are stored under the `library/` namespace
+- **User/org images** (e.g., `bitnami/redis`) use their namespace directly
+
+```
+redis           → library/redis      (official)
+bitnami/redis   → bitnami/redis      (third-party)
+mongo:7         → library/mongo      (tag stripped for API calls)
+```
+
+This is required because the Docker Registry API expects the full path:
+- ✅ `https://registry-1.docker.io/v2/library/redis/manifests/latest`
+- ❌ `https://registry-1.docker.io/v2/redis/manifests/latest`
+
 ## API Endpoints
 
 | Endpoint                                | Method | Description                                                                                 |
