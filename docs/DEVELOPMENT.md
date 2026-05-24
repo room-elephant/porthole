@@ -6,28 +6,9 @@ For deeper technical details on how Porthole works, see the [Architecture](ARCHI
 
 ## Prerequisites
 
-- Java 25+ (GraalVM required for native builds)
-- Maven
+- Java 25 and Maven
 - Node.js 24+ and npm
 - Docker
-
-## Project Structure
-
-```
-.
-├── client/             # React frontend (Vite + React 19)
-├── server/             # Spring Boot backend (Java 25)
-├── docker/             # Docker configuration
-│   ├── templates/      # Template configuration files
-│   ├── Dockerfile       # CI/production Dockerfile (uses pre-built native executable)
-│   └── entrypoint.sh   # Entrypoint script
-├── dev/                # Development Docker files
-│   ├── Dockerfile       # Multi-stage build for local development
-│   └── compose.yml     # Development compose file
-└── docs/               # Documentation
-```
-
-Porthole is built as a **GraalVM native image**. The React client is bundled into the Spring Boot backend, which is then compiled to a native executable for fast startup and low memory usage.
 
 ## Building from Source
 

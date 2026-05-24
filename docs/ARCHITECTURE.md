@@ -168,10 +168,14 @@ When stopping Porthole, active requests are allowed up to 20 seconds to complete
 
 ```
 .
-├── client/             # React Application
-├── server/             # Spring Boot Application
-│   └── src/main/java/com/roomelephant/porthole
+├── client/             # React frontend (Vite + React 19)
+├── server/             # Spring Boot backend (Java 25)
 ├── docker/             # Production Docker configuration
-├── dev/                # Development Docker configuration
+│   ├── Dockerfile       # CI/release image (wraps pre-built native binary)
+│   ├── Dockerfile.it    # Integration test image (JVM JAR + native-image agent)
+│   └── entrypoint.sh   # Socket group reconciliation and privilege drop
+├── dev/                # Development Docker files
+│   ├── Dockerfile       # Multi-stage build for local development
+│   └── compose.yml     # Development compose file
 └── docs/               # Documentation
 ```
