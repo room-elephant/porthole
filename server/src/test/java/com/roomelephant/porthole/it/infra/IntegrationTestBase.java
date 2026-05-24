@@ -29,7 +29,8 @@ public abstract class IntegrationTestBase {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 Files.writeString(Path.of("target/porthole-container.log"), porthole.getLogs());
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
             porthole.stop();
             wireMockServer.stop();
         }));
