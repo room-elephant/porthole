@@ -188,8 +188,5 @@ When stopping Porthole, active requests are allowed up to 20 seconds to complete
 │   ├── Dockerfile       # CI/release image (wraps pre-built native binary)
 │   ├── Dockerfile.jvm    # Integration test image (JVM JAR + native-image agent)
 │   └── entrypoint.sh   # Socket group reconciliation and privilege drop
-├── dev/                # Development Docker files
-│   ├── Dockerfile       # Multi-stage build for local development
-│   └── compose.yml     # Development compose file
 └── docs/               # Documentation
 ```
