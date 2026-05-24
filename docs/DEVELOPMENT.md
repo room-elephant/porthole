@@ -73,11 +73,6 @@ For active development, you can run the client and server separately:
 
 The client dev server proxies API requests to the backend.
 
-IntelliJ IDEA run configurations are available in `server/.run/`:
-
-- **Porthole java local** — runs the backend locally
-- **Porthole container** — remote debugging for containerized app (port 5005)
-
 ## GitHub Actions Workflows
 
 ### CI Workflow

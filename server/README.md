@@ -23,6 +23,13 @@ make it                 # integration tests against JVM JAR (no Docker image bui
 make server-it -C ../   # build IT Docker image + run integration tests (run from repo root)
 ```
 
+## IntelliJ IDEA
+
+Run configurations are available in `.run/`:
+
+- **Porthole java local** — runs the backend locally
+- **Porthole container** — remote debugging for containerized app (port 5005)
+
 ## Docs
 
 - [Building the server](../docs/DEVELOPMENT.md#building-from-source)
