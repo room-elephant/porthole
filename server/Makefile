@@ -1,4 +1,4 @@
-.PHONY: format format-check build test package bundle it native-hints native
+.PHONY: format format-check build test package bundle it native-hints native bundle-native
 
 MVN ?= mvn
 
@@ -28,4 +28,8 @@ native-hints:
 	$(MVN) verify -Pgenerate-native-hints -Dspotless.check.skip=true
 
 native:
+	$(MVN) -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
+
+bundle-native:
+	$(MAKE) -C ../client build
 	$(MVN) -Pnative,copy-client package native:compile -DskipTests -Dspotless.check.skip=true
