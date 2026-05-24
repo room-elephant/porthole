@@ -50,6 +50,9 @@ class DockerNativeConfig {
         }
 
         private void registerClass(RuntimeHints hints, Class<?> clazz) {
+            if (clazz.getCanonicalName() == null) {
+                return; // skip anonymous and local classes — they have no canonical name
+            }
             hints.reflection()
                     .registerType(
                             clazz, MemberCategory.INVOKE_DECLARED_CONSTRUCTORS, MemberCategory.INVOKE_DECLARED_METHODS);
