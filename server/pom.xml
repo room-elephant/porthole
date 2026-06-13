@@ -19,7 +19,7 @@
         <docker-java.version>3.7.1</docker-java.version>
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <jspecify.version>1.0.0</jspecify.version>
-        <jacoco.version>0.8.14</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <spotless.version>3.6.0</spotless.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <testcontainers-junit.version>1.21.4</testcontainers-junit.version>
