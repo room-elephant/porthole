@@ -1,0 +1,122 @@
+package com.roomelephant.porthole.domain.component.endpoint;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.roomelephant.porthole.domain.model.EndpointContext;
+import com.roomelephant.porthole.domain.model.EndpointDTO;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
+class TraefikEndpointProviderTest {
+    private final TraefikEndpointProvider provider = new TraefikEndpointProvider(new TraefikRuleParser());
+    private final EndpointContext context = new EndpointContext("192.168.50.6");
+
+    @Test
+    void shouldDiscoverHostOnlyTlsRouter() {
+        var labels = Map.of(
+                "traefik.http.routers.smh-transmission.rule",
+                "Host(`transmission.example.com`)",
+                "traefik.http.routers.smh-transmission.tls",
+                "true",
+                "traefik.http.services.smh-transmission.loadbalancer.server.port",
+                "9091");
+        assertThat(provider.discover(EndpointFixtures.container(Set.of(51413), labels), context))
+                .containsExactly(new EndpointDTO(
+                        "traefik:https://transmission.example.com/", "traefik", "https://transmission.example.com/"));
+    }
+
+    @Test
+    void shouldKeepRootAndDownloadRoutes() {
+        var labels = Map.of(
+                "traefik.http.routers.shelf.rule",
+                "Host(`SHELF.example.com`)",
+                "traefik.http.routers.shelf.tls",
+                "true",
+                "traefik.http.routers.download.rule",
+                "Host(`shelf.example.com`) && PathPrefix(`/dl/`)",
+                "traefik.http.routers.download.tls.certresolver",
+                "letsencrypt",
+                "traefik.http.routers.renamed.rule",
+                "Host(`shelf.example.com`)",
+                "traefik.http.routers.renamed.tls",
+                "true");
+        assertThat(provider.discover(EndpointFixtures.container(Set.of(), labels), context))
+                .extracting(EndpointDTO::url)
+                .containsExactly("https://shelf.example.com/", "https://shelf.example.com/dl/");
+    }
+
+    @Test
+    void shouldHandleMixedCaseLabelKeys() {
+        assertThat(provider.discover(
+                        EndpointFixtures.container(
+                                Set.of(),
+                                Map.of(
+                                        "TrAeFiK.HTTP.Routers.App.Rule",
+                                        "Host(`example.com`)",
+                                        "TRAEFIK.HTTP.ROUTERS.APP.TLS",
+                                        "true")),
+                        context))
+                .extracting(EndpointDTO::url)
+                .containsExactly("https://example.com/");
+    }
+
+    @Test
+    void shouldDisableTraefikWithoutAffectingPublishedPorts() {
+        var labels = Map.of("traefik.enable", "FALSE", "traefik.http.routers.app.rule", "Host(`example.com`)");
+        var container = EndpointFixtures.container(Set.of(51413), labels);
+        assertThat(provider.discover(container, context)).isEmpty();
+        assertThat(new EndpointDiscovery(java.util.List.of(provider, new PublishedPortEndpointProvider()))
+                        .discover(container, context))
+                .extracting(EndpointDTO::source)
+                .containsExactly("published-port");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,false,https", "false,true,http", "absent,true,https", "absent,false,http"})
+    void shouldInferSchemeFromRouterTls(String tls, boolean tlsSublabel, String scheme) {
+        var labels = new HashMap<String, String>();
+        labels.put("traefik.http.routers.app.rule", "Host(`example.com`)");
+        labels.put("traefik.http.routers.app.entrypoints", "websecure");
+        labels.put("traefik.http.services.app.loadbalancer.server.scheme", "https");
+        labels.put("traefik.http.services.app.loadbalancer.server.port", "8443");
+        if (!tls.equals("absent")) labels.put("traefik.http.routers.app.tls", tls);
+        if (tlsSublabel) labels.put("traefik.http.routers.app.tls.certresolver", "letsencrypt");
+        assertThat(provider.discover(EndpointFixtures.container(Set.of(), labels), context))
+                .extracting(EndpointDTO::url)
+                .containsExactly(scheme + "://example.com/");
+    }
+
+    @Test
+    void shouldKeepOtherCandidatesWhenOneRouterIsInvalid() {
+        var labels = Map.of(
+                "traefik.http.routers.invalid.rule",
+                "Host(`example.com`) && Method(`POST`)",
+                "traefik.http.routers.valid.rule",
+                "Host(`valid.example.com`)");
+        assertThat(provider.discover(EndpointFixtures.container(Set.of(), labels), context))
+                .extracting(EndpointDTO::url)
+                .containsExactly("http://valid.example.com/");
+    }
+
+    @Test
+    void shouldIgnoreTcpUdpAndMissingRule() {
+        assertThat(provider.discover(EndpointFixtures.container(Set.of(), Map.of()), context))
+                .isEmpty();
+        assertThat(provider.discover(
+                        EndpointFixtures.container(
+                                Set.of(),
+                                Map.of(
+                                        "traefik.tcp.routers.app.rule",
+                                        "HostSNI(`example.com`)",
+                                        "traefik.udp.routers.app.entrypoints",
+                                        "udp",
+                                        "traefik.http.routers.app.tls",
+                                        "true")),
+                        context))
+                .isEmpty();
+    }
+}
