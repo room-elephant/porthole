@@ -33,25 +33,40 @@ existing container metadata, `publishedPorts: Set<Integer>`, and
 Take immutable copies; raw labels remain internal and are not serialized by the
 containers API. No database or durable backend storage is introduced.
 
-Use an `EndpointProvider` interface with a single operation:
+Use one shared `EndpointProvider` interface with a single operation:
 
 ```java
-List<EndpointDTO> discover(ContainerSnapshot container, EndpointContext context);
+public interface EndpointProvider {
+    List<EndpointDTO> discover(ContainerSnapshot container, EndpointContext context);
+}
 ```
 
 Initial providers are `PublishedPortEndpointProvider` and
-`TraefikEndpointProvider`. An `EndpointDiscovery` component takes the Spring
-list of providers and aggregates their results. `ContainerMapper` maps Docker
-data into the snapshot, invokes discovery, and builds the API DTO. The controller
-resolves an immutable `EndpointContext` containing the published-port hostname
+`TraefikEndpointProvider`. Each implements this same interface and registers as
+a Spring bean, normally using `@Component`. `EndpointDiscovery` receives
+`List<EndpointProvider>` through constructor injection. Spring supplies every
+implementation bean; discovery invokes all of them and aggregates their results.
+There is no manually maintained provider list, factory, enum, or provider-name
+switch in discovery. A provider returns an empty list when the container has no
+applicable candidates. It returns complete URLs with its source identifier and
+stable endpoint IDs when candidates exist.
+
+`ContainerMapper` maps Docker data into the snapshot, invokes discovery, and
+builds the API DTO. The controller resolves an immutable `EndpointContext`
+containing the published-port hostname
 once per request and passes it through the service and mapper into discovery.
 Keep servlet request types at the controller boundary. This retains the current
 service/controller structure while separating provider logic.
 
-Adding a proxy requires a provider returning the same endpoint contract. A
-provider can receive its own dependencies or configuration through Spring.
-The provider interface makes no requirement that discovery must use labels.
-This version implements Traefik Docker labels only.
+Adding another proxy means implementing `EndpointProvider` in a new class and
+registering that class as a Spring bean within component scanning (or through
+`@Bean`). For example, an `NgNextEndpointProvider` would implement the same
+interface as Traefik, rather than introducing a new interface. Its endpoints then
+appear automatically in API responses and settings, with no changes to
+`EndpointDiscovery`, the mapper, service, controller, or frontend source registry.
+Any provider-specific dependencies or configuration are injected by Spring.
+The interface does not require providers to use labels. This version implements
+the published-port and Traefik providers; other proxies are extension examples.
 
 ## API contract
 
@@ -208,10 +223,13 @@ empty source sections. Display full returned URLs in both sections, including
 published-port URLs. Long URLs wrap within the modal. Use keyboard-operable
 controls and expose the single selected option accessibly across all source groups.
 
-Group by `source` with a centralized source-to-title mapping. Future sources get
-a generic readable title until given a friendly display name; their HTTP(S)
-URL candidates use the same selection and launch logic. No Traefik label parsing
-occurs in React. Only Traefik receives automatic source preference in this version.
+Group all endpoints dynamically by `source`, without a source allowlist. Use
+friendly titles for the initial sources (Traefik URLs and Published Ports) and
+derive a readable title from the identifier for any other source. A new provider
+must get a visible, selectable section without adding a frontend mapping entry.
+Its HTTP(S) URL candidates use the same selection and launch logic. No proxy
+label parsing occurs in React. Only Traefik receives automatic source preference
+in this version; registration of another provider does not change that policy.
 
 Replace port-only logic throughout tile enablement, settings props, API requests,
 local-storage selection, and memo comparison. Remove the frontend port-to-URL
@@ -229,13 +247,18 @@ raw labels and old port fields do not leak into the API. Verify published-port
 URL construction from the request hostname, override precedence, configuration
 validation, IPv6 formatting, HTTP scheme preservation, and isolation between
 requests using different hostnames. Stable port IDs must not depend on hostname.
+Add a Spring context test with an additional test-only `EndpointProvider` bean
+and verify that its endpoints appear through discovery without changing a
+registry or production wiring. Verify that providers returning no candidates do
+not prevent other providers from contributing endpoints.
 
 Frontend coverage must verify saved choices over Traefik defaults, sole Traefik
 selection despite published ports, unique-root preference, ambiguous routes
 opening settings, port fallback, stale preferences, legacy port migration,
 source grouping, checkmarks, and changes after a container refresh. All launch
 tests must use the API's URL, without consulting `window.location.hostname` or
-reconstructing a port URL.
+reconstructing a port URL. Include an unfamiliar source identifier and verify
+that settings render its section and let the user select and open its URL.
 
 Add Docker-backed integration fixtures with labels and no published ports, plus
 a container with both labels and a published port. Verify the serialized API
