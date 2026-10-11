@@ -284,14 +284,41 @@ tests must use the API's URL, without consulting `window.location.hostname` or
 reconstructing a port URL. Include an unfamiliar source identifier and verify
 that settings render its section and let the user select and open its URL.
 
-Add Docker-backed integration fixtures with labels and no published ports, plus
-a container with both labels and a published port. Verify the serialized API
-contract and filtering with `includeWithoutEndpoints`, including non-null URLs
-for both sources. No live Traefik instance is required because this feature
-interprets Docker metadata rather than querying Traefik or validating reachability.
-Extend `ContainersEndpointIT` and reuse `ContainerAwareIntegrationTestBase`,
-`IntegrationTestBase`, and `PortholeContainer` for fixtures and application
-lifecycle. Preserve existing coverage thresholds and the JVM/native IT split.
+### Required server component tests
+
+Implementation must add or extend component tests under
+`server/src/test/java/com/roomelephant/porthole/it`, using the repository's existing
+Docker-backed `*IT` suite. These tests exercise the packaged application through
+its HTTP API with real Docker container metadata. Unit tests and the Spring
+provider-wiring test are additional coverage and do not replace component tests.
+
+Extend `it/controller/ContainersEndpointIT.java` and reuse
+`ContainerAwareIntegrationTestBase`, `IntegrationTestBase`, and `PortholeContainer`
+for fixtures and application lifecycle. Component coverage must verify:
+
+- A running container with Traefik labels and no published ports appears in the
+  default response and exposes the expected complete HTTPS URL.
+- A container with both Traefik labels and a published port returns candidates
+  from both providers, including a complete port URL using the request hostname.
+- Multiple supported routers retain distinct host/path URLs, including a root
+  route and `/dl/`, while duplicate destinations produce one endpoint.
+- Disabled Traefik and malformed or unsupported rules produce no Traefik
+  candidates without losing valid published-port or other-router candidates.
+- `includeWithoutEndpoints` controls containers without discovered candidates;
+  `includeStopped` retains its existing behavior.
+- The configured published-host override takes precedence over the request
+  hostname in the serialized published-port URL.
+- The actual JSON contains non-null absolute URLs, stable endpoint IDs, source
+  identifiers, and correct `hasEndpoints`, with no raw labels, `exposedPorts`,
+  `hasPublicPorts`, or endpoint `port` fields.
+
+No live Traefik instance is required because this feature interprets Docker
+metadata rather than querying Traefik or validating reachability. Preserve
+existing coverage thresholds and run this component suite against both the JVM
+and native application images. The feature is not complete until the required
+component scenarios pass against the intended runtime images.
+
+### Build and native verification
 
 During implementation, run server unit tests, client tests/lint/build, and
 Spotless checks using the per-component Makefiles. Apply server formatting before
