@@ -8,7 +8,11 @@ import static org.mockito.Mockito.when;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.ContainerPort;
 import com.roomelephant.porthole.domain.component.IconComponent;
+import com.roomelephant.porthole.domain.component.endpoint.*;
 import com.roomelephant.porthole.domain.model.ContainerDTO;
+import com.roomelephant.porthole.domain.model.EndpointContext;
+import com.roomelephant.porthole.domain.model.EndpointDTO;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +33,10 @@ class ContainerMapperTest {
 
     @BeforeEach
     void setUp() {
-        containerMapper = new ContainerMapper(iconComponent);
+        containerMapper = new ContainerMapper(
+                iconComponent,
+                new EndpointDiscovery(List.of(
+                        new PublishedPortEndpointProvider(), new TraefikEndpointProvider(new TraefikRuleParser()))));
     }
 
     @Nested
@@ -49,14 +56,16 @@ class ContainerMapperTest {
                     "Up 2 hours");
             when(iconComponent.resolveIcon("nginx")).thenReturn("https://example.com/nginx.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
             assertEquals("abc123", dto.id());
             assertEquals("my-container", dto.name());
             assertEquals("nginx:1.25", dto.image());
-            assertEquals(2, dto.exposedPorts().size());
-            assertTrue(dto.exposedPorts().contains(80));
-            assertTrue(dto.exposedPorts().contains(443));
+            assertEquals(2, dto.endpoints().size());
+            assertTrue(dto.endpoints()
+                    .contains(new EndpointDTO("published-port:80", "published-port", "http://192.168.50.6/")));
+            assertTrue(dto.endpoints()
+                    .contains(new EndpointDTO("published-port:443", "published-port", "http://192.168.50.6:443/")));
             assertEquals("https://example.com/nginx.png", dto.iconUrl());
             assertEquals("my-project", dto.project());
             assertEquals("running", dto.state());
@@ -70,10 +79,10 @@ class ContainerMapperTest {
                     "abc123", "/my-container", "redis:7", new Integer[] {}, null, "running", "Up 1 hour");
             when(iconComponent.resolveIcon("redis")).thenReturn("https://example.com/redis.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
-            assertTrue(dto.exposedPorts().isEmpty());
-            assertFalse(dto.hasPublicPorts());
+            assertTrue(dto.endpoints().isEmpty());
+            assertFalse(dto.hasEndpoints());
         }
 
         @Test
@@ -95,10 +104,11 @@ class ContainerMapperTest {
 
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
-            assertEquals(1, dto.exposedPorts().size());
-            assertTrue(dto.exposedPorts().contains(80));
+            assertEquals(1, dto.endpoints().size());
+            assertTrue(dto.endpoints()
+                    .contains(new EndpointDTO("published-port:80", "published-port", "http://192.168.50.6/")));
         }
 
         @Test
@@ -114,9 +124,9 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
-            assertEquals(2, dto.exposedPorts().size());
+            assertEquals(2, dto.endpoints().size());
         }
 
         @Test
@@ -132,7 +142,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
             assertEquals("my-project-web", dto.name());
             assertEquals("web", dto.displayName());
@@ -151,7 +161,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
             assertEquals("other-web", dto.name());
             assertEquals("other-web", dto.displayName());
@@ -164,7 +174,7 @@ class ContainerMapperTest {
                     "abc123", "/standalone-app", "myapp:latest", new Integer[] {8080}, null, "running", "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
             assertEquals("standalone-app", dto.name());
             assertEquals("standalone-app", dto.displayName());
@@ -183,7 +193,7 @@ class ContainerMapperTest {
             when(container.getPorts()).thenReturn(new ContainerPort[] {});
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
             assertEquals("Unknown", dto.name());
         }
@@ -201,10 +211,48 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon("postgresql")).thenReturn("https://example.com/postgresql.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            ContainerDTO dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
 
             assertEquals("https://example.com/postgresql.png", dto.iconUrl());
         }
+    }
+
+    @Test
+    void shouldDiscoverLabelsAlongsidePorts() {
+        var container = createMockContainer(
+                "id",
+                "/smh-jellyfin",
+                "jellyfin:latest",
+                new Integer[] {8096},
+                Map.of(
+                        "com.docker.compose.project",
+                        "smh",
+                        "traefik.http.routers.jellyfin.rule",
+                        "Host(`jellyfin.example.com`)",
+                        "traefik.http.routers.jellyfin.tls",
+                        "true"),
+                "running",
+                "Up");
+        when(iconComponent.resolveIcon("jellyfin")).thenReturn("icon");
+        var dto = containerMapper.toDTO(container, new EndpointContext("192.168.50.6"));
+        assertEquals("jellyfin", dto.displayName());
+        assertEquals(
+                List.of(
+                        new EndpointDTO("published-port:8096", "published-port", "http://192.168.50.6:8096/"),
+                        new EndpointDTO(
+                                "traefik:https://jellyfin.example.com/", "traefik", "https://jellyfin.example.com/")),
+                dto.endpoints());
+    }
+
+    @Test
+    void shouldHandleAbsentCollectionsAndNames() {
+        var container = mock(Container.class);
+        when(container.getId()).thenReturn("id");
+        when(container.getImage()).thenReturn("app:latest");
+        when(iconComponent.resolveIcon("app")).thenReturn("icon");
+        var dto = containerMapper.toDTO(container, new EndpointContext("localhost"));
+        assertEquals("Unknown", dto.name());
+        assertTrue(dto.endpoints().isEmpty());
     }
 
     private Container createMockContainer(

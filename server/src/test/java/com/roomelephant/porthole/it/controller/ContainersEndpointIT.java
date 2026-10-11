@@ -27,8 +27,9 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_APP_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_IMAGE);
-        assertThat(container.exposedPorts()).size().isEqualTo(1);
-        assertThat(container.exposedPorts())
+        assertThat(container.endpoints()).size().isEqualTo(1);
+        assertThat(container.endpoints())
+                .extracting(endpoint -> Integer.parseInt(endpoint.id().substring("published-port:".length())))
                 .first()
                 .isEqualTo(testAppContainer.getMappedPort(
                         testAppContainer.getExposedPorts().getFirst()));
@@ -36,15 +37,16 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         assertThat(container.state()).isIn("running", "created");
         assertThat(container.status()).contains("Up");
         assertThat(container.project()).isNull();
-        assertThat(container.hasPublicPorts()).isTrue();
+        assertThat(container.hasEndpoints()).isTrue();
 
         container = containersByName.get(TEST_LOCAL_CONTAINER_NAME);
         assertThat(container).isNotNull();
         assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_LOCAL_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo("my-local-image:1.0");
-        assertThat(container.exposedPorts()).size().isEqualTo(1);
-        assertThat(container.exposedPorts())
+        assertThat(container.endpoints()).size().isEqualTo(1);
+        assertThat(container.endpoints())
+                .extracting(endpoint -> Integer.parseInt(endpoint.id().substring("published-port:".length())))
                 .first()
                 .isEqualTo(localContainer.getMappedPort(
                         localContainer.getExposedPorts().getFirst()));
@@ -52,7 +54,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         assertThat(container.state()).isIn("running", "created");
         assertThat(container.status()).contains("Up");
         assertThat(container.project()).isNull();
-        assertThat(container.hasPublicPorts()).isTrue();
+        assertThat(container.hasEndpoints()).isTrue();
     }
 
     @Test
@@ -69,17 +71,17 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_NO_PORTS_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_LATEST_IMAGE);
-        assertThat(container.exposedPorts()).isEmpty();
+        assertThat(container.endpoints()).isEmpty();
         assertThat(container.iconUrl()).contains("/pause.");
         assertThat(container.state()).isEqualTo("running");
         assertThat(container.status()).contains("Up");
         assertThat(container.project()).isNull();
-        assertThat(container.hasPublicPorts()).isFalse();
+        assertThat(container.hasEndpoints()).isFalse();
     }
 
     @Test
     void shouldShowStoppedContainers() {
-        // stopped container has no ports, so includeWithoutPorts must also be true for it to appear
+        // stopped container has no ports, so includeWithoutEndpoints must also be true for it to appear
         Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
 
         assertThat(containersByName)
@@ -92,12 +94,12 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_STOPPED_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_IMAGE);
-        assertThat(container.exposedPorts()).isEmpty();
+        assertThat(container.endpoints()).isEmpty();
         assertThat(container.iconUrl()).contains("/pause.");
         assertThat(container.state()).isIn("running", "created");
         assertThat(container.status()).isEqualTo("Created");
         assertThat(container.project()).isNull();
-        assertThat(container.hasPublicPorts()).isFalse();
+        assertThat(container.hasEndpoints()).isFalse();
     }
 
     @Test
@@ -111,9 +113,11 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
                 .containsKey(TEST_STOPPED_CONTAINER_NAME);
     }
 
-    private @NotNull Map<String, ContainerDTO> fetchContainers(boolean includeWithoutPorts, boolean includeStopped) {
+    private @NotNull Map<String, ContainerDTO> fetchContainers(
+            boolean includeWithoutEndpoints, boolean includeStopped) {
         ResponseEntity<ContainerDTO @NotNull []> response = fetch(
-                "/api/containers?includeWithoutPorts=" + includeWithoutPorts + "&includeStopped=" + includeStopped,
+                "/api/containers?includeWithoutEndpoints=" + includeWithoutEndpoints + "&includeStopped="
+                        + includeStopped,
                 ContainerDTO[].class);
 
         assertThat(response.getStatusCode()).isEqualTo(OK);

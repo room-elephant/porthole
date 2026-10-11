@@ -4,16 +4,19 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.Container;
 import com.roomelephant.porthole.domain.mapper.ContainerMapper;
 import com.roomelephant.porthole.domain.model.ContainerDTO;
+import com.roomelephant.porthole.domain.model.EndpointContext;
 import com.roomelephant.porthole.domain.model.exception.DockerUnavailableException;
 import com.roomelephant.porthole.domain.model.exception.UnexpectedException;
 import java.net.SocketException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@NullMarked
 public class ContainerService {
 
     private final DockerClient dockerClient;
@@ -24,7 +27,8 @@ public class ContainerService {
         this.containerMapper = containerMapper;
     }
 
-    public @NonNull List<ContainerDTO> getContainers(boolean includeWithoutPorts, boolean includeStopped) {
+    public @NonNull List<ContainerDTO> getContainers(
+            boolean includeWithoutEndpoints, boolean includeStopped, EndpointContext context) {
         List<Container> containers;
         try {
             containers =
@@ -37,8 +41,8 @@ public class ContainerService {
         }
 
         return containers.stream()
-                .map(containerMapper::toDTO)
-                .filter(dto -> includeWithoutPorts || dto.hasPublicPorts())
+                .map(container -> containerMapper.toDTO(container, context))
+                .filter(dto -> includeWithoutEndpoints || dto.hasEndpoints())
                 .toList();
     }
 
