@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import userEvent from '@testing-library/user-event';
 import ContainerTile from '../../components/ContainerTile';
 import * as api from '../../api';
 import { createMockContainer, publishedEndpoint } from '../testUtils';
@@ -103,6 +104,48 @@ describe('ContainerTile', () => {
     });
   });
 
+  describe('Keyboard behavior', () => {
+    it.each(['Enter', ' '])('opens the API URL with keyboard key %s', async key => {
+      const user = userEvent.setup();
+      const container = createMockContainer({
+        endpoints: [{ id: 'proxy', source: 'traefik', url: 'https://app.example.com/' }],
+      });
+      renderWithQuery(<ContainerTile container={container} />);
+      const launch = screen.getByRole('button', { name: 'Open Test Container' });
+
+      await user.tab();
+      expect(launch).toHaveFocus();
+      await user.keyboard(key === 'Enter' ? '{Enter}' : ' ');
+
+      expect(window.open).toHaveBeenCalledExactlyOnceWith('https://app.example.com/', '_blank');
+    });
+
+    it('opens the chooser from the keyboard for ambiguous endpoints', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(443)] })} />);
+      const launch = screen.getByRole('button', { name: 'Open Test Container' });
+      launch.focus();
+
+      await user.keyboard('{Enter}');
+
+      expect(screen.getByText('Published Ports')).toBeInTheDocument();
+      expect(window.open).not.toHaveBeenCalled();
+    });
+
+    it('skips the disabled launch control and keeps settings keyboard-accessible', async () => {
+      const user = userEvent.setup();
+      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [], hasEndpoints: false })} />);
+      expect(screen.getByRole('button', { name: 'Open Test Container' })).toBeDisabled();
+
+      await user.tab();
+      expect(screen.getByTitle('Container Settings')).toHaveFocus();
+      await user.keyboard('{Enter}');
+
+      expect(screen.getByText('Version Updates')).toBeInTheDocument();
+      expect(window.open).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Click behavior', () => {
     it('should open URL on click when container has single port', () => {
       const container = createMockContainer({
@@ -112,7 +155,7 @@ describe('ContainerTile', () => {
 
       renderWithQuery(<ContainerTile container={container} />);
 
-      fireEvent.click(screen.getByRole('img').closest('.card'));
+      fireEvent.click(screen.getByRole('button', { name: /^Open / }));
 
       expect(window.open).toHaveBeenCalledWith('http://localhost:8080/', '_blank');
     });
@@ -125,7 +168,7 @@ describe('ContainerTile', () => {
 
       renderWithQuery(<ContainerTile container={container} />);
 
-      fireEvent.click(screen.getByRole('img').closest('.card'));
+      fireEvent.click(screen.getByRole('button', { name: /^Open / }));
 
       expect(window.open).not.toHaveBeenCalled();
     });
@@ -138,7 +181,7 @@ describe('ContainerTile', () => {
 
       renderWithQuery(<ContainerTile container={container} />);
 
-      fireEvent.click(screen.getByRole('img').closest('.card'));
+      fireEvent.click(screen.getByRole('button', { name: /^Open / }));
 
       expect(screen.getByText('Published Ports')).toBeInTheDocument();
     });
@@ -230,12 +273,12 @@ describe('ContainerTile', () => {
     const root = { id: 'proxy', source: 'traefik', url: 'https://transmission.example.com/' };
     const container = createMockContainer({ endpoints: [publishedEndpoint(51413), root] });
     renderWithQuery(<ContainerTile container={container} />);
-    fireEvent.click(screen.getByRole('img').closest('.card'));
+    fireEvent.click(screen.getByRole('button', { name: /^Open / }));
     expect(window.open).toHaveBeenLastCalledWith(root.url, '_blank');
     fireEvent.click(screen.getByTitle('Container Settings'));
     fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:51413/' }));
     fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.click(screen.getByRole('img').closest('.card'));
+    fireEvent.click(screen.getByRole('button', { name: /^Open / }));
     expect(window.open).toHaveBeenLastCalledWith('http://localhost:51413/', '_blank');
   });
 
@@ -244,7 +287,7 @@ describe('ContainerTile', () => {
     const container = createMockContainer();
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
     view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, endpoints: [{ ...container.endpoints[0], url: 'http://other.example.com:8080/' }] }} /></QueryClientProvider>);
-    fireEvent.click(screen.getByRole('img').closest('.card'));
+    fireEvent.click(screen.getByRole('button', { name: /^Open / }));
     expect(window.open).toHaveBeenLastCalledWith('http://other.example.com:8080/', '_blank');
   });
 
@@ -264,7 +307,7 @@ describe('ContainerTile', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
     view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed' }} /></QueryClientProvider>);
-    fireEvent.click(screen.getByRole('img').closest('.card'));
+    fireEvent.click(screen.getByRole('button', { name: /^Open / }));
     expect(window.open).toHaveBeenLastCalledWith(root.url, '_blank');
   });
 

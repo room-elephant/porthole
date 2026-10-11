@@ -29,8 +29,6 @@ function ContainerTile({ container }) {
     };
 
     const handleTileClick = () => {
-        if (!hasEndpoints) return;
-
         if (selectedEndpoint) {
             window.open(selectedEndpoint.url, '_blank');
         } else {
@@ -38,43 +36,50 @@ function ContainerTile({ container }) {
         }
     };
 
-    const handleConfigClick = (e) => {
-        e.stopPropagation();
+    const handleConfigClick = () => {
         setShowConfig(true);
     };
 
     return (
         <>
-            <div className={`card ${!hasEndpoints ? 'disabled' : ''}`} onClick={handleTileClick}>
+            <div className={`card container-card ${!hasEndpoints ? 'disabled' : ''}`}>
+                <button
+                    type="button"
+                    className="card-launch"
+                    aria-label={`Open ${container.displayName}`}
+                    disabled={!hasEndpoints}
+                    onClick={handleTileClick}
+                >
+                    <img
+                        src={container.name.includes("porthole") ? ASSETS.PORTHOLE_ICON : container.iconUrl}
+                        alt={container.name}
+                        className="container-icon"
+                        loading="lazy"
+                        onError={(e) => { e.target.src = ASSETS.FALLBACK_ICON; }}
+                    />
+                    <span className="container-info">
+                        <span className="container-title" title={container.name}>{container.displayName}</span>
+                        <span className="container-image" title={container.image}>
+                            {checkUpdates && versionLoading && (
+                                <Loader2 size={14} className="version-loading" title="Checking for updates..." />
+                            )}
+                            {checkUpdates && !versionLoading && versionInfo?.updateAvailable && (
+                                <span className="update-warning" title={`Update available: ${versionInfo.latestVersion}`}>
+                                    ⚠️
+                                </span>
+                            )}
+                            {container.image}
+                        </span>
+                    </span>
+                </button>
                 <div className="card-actions">
-                    <span 
-                        className={`status-indicator ${getStatusClass()}`} 
+                    <span
+                        className={`status-indicator ${getStatusClass()}`}
                         title={container.status || container.state}
                     ></span>
-                    <button className="config-btn" onClick={handleConfigClick} title="Container Settings">
+                    <button type="button" className="config-btn" onClick={handleConfigClick} title="Container Settings">
                         <Settings size={20} />
                     </button>
-                </div>
-                <img
-                    src={container.name.includes("porthole") ? ASSETS.PORTHOLE_ICON : container.iconUrl}
-                    alt={container.name}
-                    className="container-icon"
-                    loading="lazy"
-                    onError={(e) => { e.target.src = ASSETS.FALLBACK_ICON; }}
-                />
-                <div className="container-info">
-                    <h3 title={container.name}>{container.displayName}</h3>
-                    <p className="container-image" title={container.image}>
-                        {checkUpdates && versionLoading && (
-                            <Loader2 size={14} className="version-loading" title="Checking for updates..." />
-                        )}
-                        {checkUpdates && !versionLoading && versionInfo?.updateAvailable && (
-                            <span className="update-warning" title={`Update available: ${versionInfo.latestVersion}`}>
-                                ⚠️
-                            </span>
-                        )}
-                        {container.image}
-                    </p>
                 </div>
             </div>
 

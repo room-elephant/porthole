@@ -17,7 +17,11 @@ const sourceTitle = (source) => {
   return `${source.split(/[-_]+/).filter(Boolean).map(word => word[0].toUpperCase() + word.slice(1)).join(' ')} URLs`;
 };
 
-const sourceOrder = source => source === 'traefik' ? 0 : source === 'published-port' ? 1 : 2;
+const sourceOrder = (source) => {
+  if (source === 'traefik') return 0;
+  if (source === 'published-port') return 1;
+  return 2;
+};
 
 export const groupEndpointsBySource = (endpoints) => {
   const groups = new Map();
