@@ -8,8 +8,9 @@ import static org.mockito.Mockito.when;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.ContainerPort;
 import com.roomelephant.porthole.domain.component.IconComponent;
-import com.roomelephant.porthole.domain.model.ContainerDTO;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,12 +34,12 @@ class ContainerMapperTest {
     }
 
     @Nested
-    @DisplayName("toDTO")
-    class ToDTO {
+    @DisplayName("toModel")
+    class ToModel {
 
         @Test
-        @DisplayName("should map container to DTO with all fields")
-        void shouldMapContainerToDTOWithAllFields() {
+        @DisplayName("should map container to domain model with all fields")
+        void shouldMapContainerToModelWithAllFields() {
             Container container = createMockContainer(
                     "abc123",
                     "/my-container",
@@ -49,14 +50,14 @@ class ContainerMapperTest {
                     "Up 2 hours");
             when(iconComponent.resolveIcon("nginx")).thenReturn("https://example.com/nginx.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("abc123", dto.id());
             assertEquals("my-container", dto.name());
             assertEquals("nginx:1.25", dto.image());
-            assertEquals(2, dto.exposedPorts().size());
-            assertTrue(dto.exposedPorts().contains(80));
-            assertTrue(dto.exposedPorts().contains(443));
+            assertEquals(2, dto.publishedPorts().size());
+            assertTrue(dto.publishedPorts().contains(80));
+            assertTrue(dto.publishedPorts().contains(443));
             assertEquals("https://example.com/nginx.png", dto.iconUrl());
             assertEquals("my-project", dto.project());
             assertEquals("running", dto.state());
@@ -70,10 +71,10 @@ class ContainerMapperTest {
                     "abc123", "/my-container", "redis:7", new Integer[] {}, null, "running", "Up 1 hour");
             when(iconComponent.resolveIcon("redis")).thenReturn("https://example.com/redis.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
-            assertTrue(dto.exposedPorts().isEmpty());
-            assertFalse(dto.hasPublicPorts());
+            assertTrue(dto.publishedPorts().isEmpty());
+            assertTrue(dto.urlCandidates().isEmpty());
         }
 
         @Test
@@ -95,10 +96,10 @@ class ContainerMapperTest {
 
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
-            assertEquals(1, dto.exposedPorts().size());
-            assertTrue(dto.exposedPorts().contains(80));
+            assertEquals(1, dto.publishedPorts().size());
+            assertTrue(dto.publishedPorts().contains(80));
         }
 
         @Test
@@ -114,9 +115,9 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
-            assertEquals(2, dto.exposedPorts().size());
+            assertEquals(2, dto.publishedPorts().size());
         }
 
         @Test
@@ -132,7 +133,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("my-project-web", dto.name());
             assertEquals("web", dto.displayName());
@@ -151,7 +152,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("other-web", dto.name());
             assertEquals("other-web", dto.displayName());
@@ -164,7 +165,7 @@ class ContainerMapperTest {
                     "abc123", "/standalone-app", "myapp:latest", new Integer[] {8080}, null, "running", "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("standalone-app", dto.name());
             assertEquals("standalone-app", dto.displayName());
@@ -183,7 +184,7 @@ class ContainerMapperTest {
             when(container.getPorts()).thenReturn(new ContainerPort[] {});
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("Unknown", dto.name());
         }
@@ -201,10 +202,51 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon("postgresql")).thenReturn("https://example.com/postgresql.png");
 
-            ContainerDTO dto = containerMapper.toDTO(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("https://example.com/postgresql.png", dto.iconUrl());
         }
+    }
+
+    @Test
+    void shouldRetainRawLabelsAndPortsWithoutDiscoveringUrls() {
+        HashMap<String, String> labels = new HashMap<>(Map.of(
+                "com.docker.compose.project", "smh",
+                "traefik.http.routers.jellyfin.rule", "Host(`jellyfin.example.com`)",
+                "traefik.http.routers.jellyfin.tls", "true",
+                "custom.metadata", "retained"));
+        Container container = createMockContainer(
+                "id", "/smh-jellyfin", "jellyfin:latest", new Integer[] {8096}, labels, "running", "Up");
+        when(iconComponent.resolveIcon("jellyfin")).thenReturn("icon");
+
+        com.roomelephant.porthole.domain.model.Container model = containerMapper.toModel(container);
+        labels.clear();
+
+        assertEquals("jellyfin", model.displayName());
+        assertEquals(Set.of(8096), model.publishedPorts());
+        assertEquals(
+                Map.of(
+                        "com.docker.compose.project", "smh",
+                        "traefik.http.routers.jellyfin.rule", "Host(`jellyfin.example.com`)",
+                        "traefik.http.routers.jellyfin.tls", "true",
+                        "custom.metadata", "retained"),
+                model.labels());
+        assertTrue(model.urlCandidates().isEmpty());
+        assertThrows(UnsupportedOperationException.class, () -> model.labels().clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> model.publishedPorts().clear());
+    }
+
+    @Test
+    void shouldHandleAbsentCollectionsAndNames() {
+        Container container = mock(Container.class);
+        when(container.getId()).thenReturn("id");
+        when(container.getImage()).thenReturn("app:latest");
+        when(iconComponent.resolveIcon("app")).thenReturn("icon");
+        com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
+        assertEquals("Unknown", dto.name());
+        assertTrue(dto.publishedPorts().isEmpty());
     }
 
     private Container createMockContainer(

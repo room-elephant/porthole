@@ -33,7 +33,7 @@ describe('api', () => {
       const result = await fetchContainers({ showAll: false, showStopped: false });
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
-        params: { includeWithoutPorts: false, includeStopped: false },
+        params: { includeWithoutEndpoints: false, includeStopped: false },
         signal: undefined,
       });
       expect(result).toEqual(mockData);
@@ -46,7 +46,7 @@ describe('api', () => {
       const result = await fetchContainers({ showAll: true, showStopped: true });
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
-        params: { includeWithoutPorts: true, includeStopped: true },
+        params: { includeWithoutEndpoints: true, includeStopped: true },
         signal: undefined,
       });
       expect(result).toEqual(mockData);
@@ -60,7 +60,7 @@ describe('api', () => {
       await fetchContainers({ showAll: false, showStopped: false, signal: controller.signal });
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
-        params: { includeWithoutPorts: false, includeStopped: false },
+        params: { includeWithoutEndpoints: false, includeStopped: false },
         signal: controller.signal,
       });
     });

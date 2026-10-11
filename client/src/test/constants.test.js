@@ -8,6 +8,10 @@ describe('constants', () => {
       expect(STORAGE_KEYS.SHOW_STOPPED).toBe('porthole_showStopped');
     });
 
+    it('should generate endpoint preference keys', () => {
+      expect(STORAGE_KEYS.ENDPOINT_PREF('nginx')).toBe('endpoint_pref_nginx');
+    });
+
     it('should generate correct port preference key', () => {
       expect(STORAGE_KEYS.PORT_PREF('nginx')).toBe('port_pref_nginx');
       expect(STORAGE_KEYS.PORT_PREF('my-container')).toBe('port_pref_my-container');

@@ -24,6 +24,26 @@ make it                          # integration tests against JVM JAR (no Docker 
 make -C ../ server-it            # build IT Docker image + run integration tests (run from repo root)
 ```
 
+Endpoint discovery requires Docker-backed component scenarios in `src/test/java/com/roomelephant/porthole/it/controller/`, exercising the packaged JVM and native applications. Unit and MockMvc tests complement these scenarios.
+
+Rebuild the packaged JVM image after server source changes before running component tests:
+
+```bash
+make -C .. bundle
+make -C ../docker jvm-image
+make it
+```
+
+The component suite in `src/test/java/com/roomelephant/porthole/it` is also required against native. Build the Linux native executable with GraalVM JDK 25 using `make bundle-native` from the repository root, then package it as `porthole` with the production Dockerfile in a temporary build context. A macOS native binary cannot run in that Linux image. Select the resulting image explicitly:
+
+```bash
+make it MVN='mvn -Dporthole.it.image=porthole-native-validation:latest'
+```
+
+`porthole.it.image` defaults to `porthole-jvm:latest` and applies to normal and custom-socket app factories. JVM success does not prove native serialization or AOT behavior. The existing release workflow's `porthole-it:latest` tag must be passed explicitly to select that image; its current command does not set this property.
+
+Under `make native-hints`, every application instance records native-agent hints, including hostname-override and resilience fixtures. Each writes to its own directory under `target/native-hints/`. Recording JVMs stop gracefully, then GraalVM merges all outputs after the tests pass. Ordinary JVM/native component runs do not attach the agent.
+
 ## Format
 
 ```bash

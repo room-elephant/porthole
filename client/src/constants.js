@@ -1,6 +1,7 @@
 export const STORAGE_KEYS = {
   SHOW_ALL: 'porthole_showAll',
   SHOW_STOPPED: 'porthole_showStopped',
+  ENDPOINT_PREF: (name) => `endpoint_pref_${name}`,
   PORT_PREF: (name) => `port_pref_${name}`,
   VERSION_CHECK: (name) => `version_check_${name}`,
 };

@@ -30,3 +30,6 @@ logs/
 .worktrees/
 
 .idea
+
+# Local design and implementation notes
+/docs/superpowers/

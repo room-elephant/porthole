@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { publishedEndpoint } from '../testUtils';
 import ContainerSettings from '../../components/ContainerSettings';
 
 describe('ContainerSettings', () => {
   const defaultProps = {
     containerName: 'nginx',
-    ports: [80, 443],
-    selectedPort: 80,
+    endpoints: [publishedEndpoint(80), publishedEndpoint(443)],
+    selectedEndpointId: 'published-port:80',
     checkUpdates: true,
     onClose: vi.fn(),
-    onSelectPort: vi.fn(),
+    onSelectEndpoint: vi.fn(),
     onToggleCheckUpdates: vi.fn(),
   };
 
@@ -25,25 +27,25 @@ describe('ContainerSettings', () => {
   it('should render port options', () => {
     render(<ContainerSettings {...defaultProps} />);
 
-    expect(screen.getByText(':80')).toBeInTheDocument();
-    expect(screen.getByText(':443')).toBeInTheDocument();
+    expect(screen.getByText('http://localhost:80/')).toBeInTheDocument();
+    expect(screen.getByText('http://localhost:443/')).toBeInTheDocument();
   });
 
   it('should show checkmark for selected port', () => {
-    render(<ContainerSettings {...defaultProps} selectedPort={80} />);
+    render(<ContainerSettings {...defaultProps} selectedEndpointId="published-port:80" />);
 
-    const selectedPortOption = screen.getByText(':80').closest('.port-option');
-    expect(selectedPortOption).toHaveClass('selected');
-    expect(selectedPortOption).toHaveTextContent('✓');
+    const selectedEndpointOption = screen.getByText('http://localhost:80/').closest('.endpoint-option');
+    expect(selectedEndpointOption).toHaveClass('selected');
+    expect(selectedEndpointOption).toHaveTextContent('✓');
   });
 
-  it('should call onSelectPort when port is clicked', () => {
-    const onSelectPort = vi.fn();
-    render(<ContainerSettings {...defaultProps} onSelectPort={onSelectPort} />);
+  it('should call onSelectEndpoint when port is clicked', () => {
+    const onSelectEndpoint = vi.fn();
+    render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} />);
 
-    fireEvent.click(screen.getByText(':443'));
+    fireEvent.click(screen.getByText('http://localhost:443/'));
 
-    expect(onSelectPort).toHaveBeenCalledWith(443);
+    expect(onSelectEndpoint).toHaveBeenCalledWith('published-port:443');
   });
 
   it('should render version updates toggle', () => {
@@ -92,9 +94,9 @@ describe('ContainerSettings', () => {
   });
 
   it('should not render port section when no ports', () => {
-    render(<ContainerSettings {...defaultProps} ports={[]} />);
+    render(<ContainerSettings {...defaultProps} endpoints={[]} />);
 
-    expect(screen.queryByText('Port Selection')).not.toBeInTheDocument();
+    expect(screen.queryByText('Published Ports')).not.toBeInTheDocument();
     expect(screen.getByText('Version Updates')).toBeInTheDocument();
   });
 
@@ -105,4 +107,30 @@ describe('ContainerSettings', () => {
       screen.getByText(/When enabled, Porthole will check if newer versions are available/)
     ).toBeInTheDocument();
   });
+  it('groups all sources and offers one accessible selection across sections', async () => {
+    const onSelectEndpoint = vi.fn();
+    const user = userEvent.setup();
+    render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} endpoints={[
+      { id: 'root', source: 'traefik', url: 'https://app.example.com/' },
+      { id: 'dl', source: 'traefik', url: 'https://app.example.com/dl/' },
+      publishedEndpoint(80),
+      { id: 'custom', source: 'ngnext', url: 'https://custom.example.com/' },
+      { id: 'proto', source: '__proto__', url: 'https://proto.example.com/' },
+    ]} />);
+    expect(screen.getAllByRole('heading', { level: 4 }).map(heading => heading.textContent)).toEqual(['Traefik URLs', 'Published Ports', 'Proto URLs', 'Ngnext URLs', 'Version Updates']);
+    expect(screen.getAllByRole('radio').filter(radio => radio.checked)).toHaveLength(1);
+    expect(screen.getAllByText('✓')).toHaveLength(1);
+    screen.getByRole('radio', { name: 'https://proto.example.com/' }).focus();
+    await user.keyboard(' ');
+    expect(onSelectEndpoint).toHaveBeenCalledWith('proto');
+    await user.click(screen.getByRole('radio', { name: 'https://custom.example.com/' }));
+    expect(onSelectEndpoint).toHaveBeenCalledWith('custom');
+  });
+
+  it('shows no checked option when selection is ambiguous', () => {
+    render(<ContainerSettings {...defaultProps} selectedEndpointId={null} />);
+    expect(screen.getAllByRole('radio').filter(radio => radio.checked)).toHaveLength(0);
+    expect(screen.queryByText('✓')).not.toBeInTheDocument();
+  });
+
 });

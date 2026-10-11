@@ -41,23 +41,17 @@ server/src/main/resources/META-INF/native-image/com.roomelephant/porthole/reacha
 
 ### Automated generation
 
-Hints are generated automatically by a dedicated Maven profile (`generate-native-hints`) that runs the integration test suite with the GraalVM native-image agent attached to the app container. The agent observes all runtime reflection and writes the output directly to the source-tree path via a volume mount. No manual post-processing is required.
+The dedicated `generate-native-hints` Maven profile runs every component test against the GraalVM JVM application. Every application instance records: the shared app, configuration-specific apps, and custom-socket resilience apps. Each receives a fresh output directory under `server/target/native-hints/`, so concurrent agents never share files or locks.
 
-```
-mvn verify -Pgenerate-native-hints
-    │
-    ├── failsafe passes system property: native.agent.output.dir=<source-tree path>
-    │
-    ├── PortholeContainer (if property set):
-    │     ├── env: JAVA_TOOL_OPTIONS=-agentlib:native-image-agent=config-output-dir=/tmp/native-hints
-    │     └── volume: <source-tree path> → /tmp/native-hints (READ_WRITE)
-    │
-    ├── ITs run normally (all *IT.java classes)
-    │
-    └── on container stop → agent flushes hint files → appear on host immediately
+```bash
+make server-native-hints
 ```
 
-The `Dockerfile.jvm` uses a GraalVM JDK 25 community image so the agent is available in the IT container. Regular IT runs (`-Pintegration-tests`) are unaffected — the agent is a no-op unless `JAVA_TOOL_OPTIONS` is set, which only happens under the generation profile.
+The profile prepares an empty recording directory before the tests. `PortholeContainer` attaches the native-image agent whenever the profile supplies `native.agent.output.dir`. Recording instances stop gracefully so their agents flush metadata; a JUnit launcher-session listener stops the shared recording instance before JVM shutdown and Testcontainers cleanup.
+
+After Failsafe verifies that the tests passed, `NativeHintsMerger` checks every instance produced metadata and released its lock. It runs the official `native-image-configure generate` tool from `ghcr.io/graalvm/native-image-community:25` with every recording as an input. The merged metadata is staged separately and replaces the source-tree `reachability-metadata.json` only after successful merging. Failed tests, missing recordings, active locks, or merge failures leave the published metadata unchanged. Locks are never deleted to bypass an active agent.
+
+Regular JVM and native IT runs do not supply the recording property and therefore do not attach an agent. The JVM test image provides the agent; the separate GraalVM tool image provides merging. Hint generation requires Java 25, Maven, and Docker, without requiring a host GraalVM installation. The raw recordings and merged intermediate outputs remain under `server/target/` for inspection.
 
 ### Spring AOT hints
 
@@ -166,9 +160,63 @@ This is required because the Docker Registry API expects the full path:
 
 | Endpoint                                | Method | Description                                                                                 |
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
-| `/api/containers`                       | GET    | Returns all containers. Supports `includeWithoutPorts` and `includeStopped` query params    |
+| `/api/containers`                       | GET    | Returns all containers. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
 | `/api/containers/{containerId}/version` | GET    | Returns version info for a container (current version, latest version, update availability) |
 | `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
+
+### Container Endpoint Contract
+
+`GET /api/containers` returns `endpoints` and `hasEndpoints` alongside existing container metadata. Each endpoint has exactly these fields:
+
+```json
+{
+  "id": "traefik:https://app.example.com/",
+  "source": "traefik",
+  "url": "https://app.example.com/"
+}
+```
+
+Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fields. `includeWithoutEndpoints=false` filters after discovery, so label-only services are included. Both query flags default to false. The former `includeWithoutPorts` parameter is not an alias.
+
+### Endpoint Provider Extension
+
+`ContainerService` retrieves all docker-java containers and maps them through `ContainerMapper` into domain `Container` objects. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
+
+The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the container and the request-specific `ContainerContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler; enrichment handlers update the same container instance, and filters retain it without changing it. An empty chain retains the input, and handler failures propagate to the existing exception handling.
+
+The production handlers run in this order:
+
+1. `ContainerStateFilter` (`@Order(0)`) rejects stopped containers unless `includeStopped` is enabled.
+2. `UrlCandidateEnricher` (`@Order(100)`) discovers URL candidates through the registered endpoint providers.
+3. `EndpointAvailabilityFilter` (`@Order(200)`) rejects containers without URL candidates unless `includeWithoutEndpoints` is enabled. This filter runs after discovery so label-only services remain discoverable.
+
+To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` under `domain/component/enrichment/` and declare its order with `@Order` (for example, `@Order(300)` to run after the existing handlers). Spring includes it automatically without changes to the service or chain.
+
+The controller extracts the request server name and passes that plain hostname and the query flags to the service. The service builds an immutable `ContainerContext` containing the raw request host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to apply the configured hostname override without changing the shared request context. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
+
+The service returns domain containers. `ContainerController` maps these through `controller/mapper/ContainerDTOMapper` into `controller/model/ContainerDTO` and `EndpointDTO`. The API exposes domain URL candidates as `endpoints`, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
+
+`EndpointProvider` is a sealed interface permitting `PublishedPortEndpointProvider` and `TraefikEndpointProvider`, both final Spring components. To add a provider, implement the interface in a final `@Component` in the same package and add that class to its `permits` clause. `EndpointDiscovery` constructor-injects `List<EndpointProvider>`, so every permitted provider bean participates automatically without changing discovery or adding a runtime registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
+
+For example, after adding `MyProxyEndpointProvider` to the interface's `permits` clause, this illustrative provider uses an application-specific label (not a standard proxy label):
+
+```java
+@Component
+@NullMarked
+public final class MyProxyEndpointProvider implements EndpointProvider {
+    @Override
+    public List<Endpoint> discover(Container container, ContainerContext context) {
+        String host = container.labels().get("myproxy.host");
+        if (host == null || !EndpointUrls.isValidHost(host)) return List.of();
+        String url = EndpointUrls.routeUrl("https", host, "/");
+        return List.of(new Endpoint("my-proxy:" + url, "my-proxy", url));
+    }
+}
+```
+
+Place implementations in `domain/component/endpoint/`; shared input/output records live in `domain/model/` and URL helpers in `domain/util/`. Endpoint configuration lives in `config/properties/EndpointProperties`. New reflectively accessed types require Spring AOT binding hints; generated reachability metadata must not be edited by hand.
+
+Published-port IDs use `published-port:<port>` independently of the request hostname. Traefik IDs use `traefik:<normalized-url>`. The client opens the API URL directly, resolves saved IDs before Traefik defaults, and keeps automatic defaults out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
 
 ## Directory Structure
 
@@ -184,14 +232,14 @@ This is required because the Docker Registry API expects the full path:
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `controller/` — REST endpoints (`ContainerController`) and `GlobalExceptionHandler`
-- `domain/service/` — `ContainerService` (lists containers), `VersionService` (version + update detection)
-- `domain/component/` — `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries)
-- `domain/mapper/` — `ContainerMapper` maps docker-java types to DTOs
-- `domain/model/` — `ContainerDTO`, `VersionDTO`, and domain exceptions
+- `controller/` — REST endpoints (`ContainerController`), `GlobalExceptionHandler`, API records in `model/`, and API mapping in `mapper/`
+- `domain/service/` — `ContainerService` (retrieves, maps, and applies the filtering/enrichment chain to domain containers), `VersionService` (version + update detection)
+- `domain/component/` — `ContainerEnrichment` (ordered enrichment chain), `enrichment/` handlers, `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
+- `domain/mapper/` — `ContainerMapper` maps docker-java types to internal containers
+- `domain/model/` — `Container`, `Endpoint`, `ContainerContext`, `VersionDTO`, and domain exceptions
 - `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
 - `config/` — `DockerConfig` (docker-java client bean), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
-- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `DashboardProperties`
+- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `DashboardProperties`, `EndpointProperties`
 - `config/nativehints/` — `DockerNativeConfig` (Spring AOT hints for types the agent can't observe)
 
 ## Integration Test Infrastructure
@@ -202,3 +250,5 @@ This is required because the Docker Registry API expects the full path:
 - `IntegrationTestBase` — base class wiring WireMock (Docker Hub mock) and shared Porthole container
 - `ContainerAwareIntegrationTestBase` — extends base to also start real Docker containers for end-to-end scenarios
 - Tests in `controller/`, `health/`, and `resilience/` extend these bases
+
+See [server test commands](../server/README.md#test) for component-test requirements and runtime selection.

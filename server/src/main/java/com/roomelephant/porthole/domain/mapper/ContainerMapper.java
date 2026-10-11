@@ -2,21 +2,24 @@ package com.roomelephant.porthole.domain.mapper;
 
 import static com.roomelephant.porthole.domain.util.ImageUtils.UNKNOWN_IMAGE_NAME;
 
-import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.ContainerPort;
 import com.roomelephant.porthole.domain.component.IconComponent;
-import com.roomelephant.porthole.domain.model.ContainerDTO;
+import com.roomelephant.porthole.domain.model.Container;
 import com.roomelephant.porthole.domain.util.ImageUtils;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 @Component
+@NullMarked
 public class ContainerMapper {
 
     private static final String LABEL_PROJECT = "com.docker.compose.project";
@@ -27,29 +30,41 @@ public class ContainerMapper {
         this.iconComponent = iconComponent;
     }
 
-    public @NonNull ContainerDTO toDTO(@NonNull Container container) {
+    public Container toModel(com.github.dockerjava.api.model.Container container) {
         String name = getName(container.getNames());
         String imageFull = container.getImage();
         Set<Integer> ports = getPorts(container.getPorts());
-        String project = getProject(container.getLabels());
+        Map<String, String> labels =
+                container.getLabels() == null ? Map.<String, String>of() : Map.copyOf(container.getLabels());
+        String project = getProject(labels);
         String state = container.getState();
         String status = container.getStatus();
 
         String displayName = computeDisplayName(name, project);
         String iconUrl = resolveIconUrl(imageFull);
 
-        return new ContainerDTO(
-                container.getId(), name, displayName, imageFull, ports, iconUrl, project, state, status);
+        return new Container(
+                container.getId(),
+                name,
+                displayName,
+                imageFull,
+                ports,
+                labels,
+                List.of(),
+                iconUrl,
+                project,
+                state,
+                status);
     }
 
-    private @NonNull String getName(String[] names) {
+    private @NonNull String getName(String @Nullable [] names) {
         if (names == null) {
             return UNKNOWN_IMAGE_NAME;
         }
         return names.length > 0 ? names[0].substring(1) : UNKNOWN_IMAGE_NAME;
     }
 
-    private @NonNull Set<Integer> getPorts(ContainerPort[] ports) {
+    private @NonNull Set<Integer> getPorts(ContainerPort @Nullable [] ports) {
         if (ports == null) {
             return Collections.emptySet();
         }
@@ -60,11 +75,11 @@ public class ContainerMapper {
                 .collect(Collectors.toSet());
     }
 
-    private String getProject(Map<String, String> labels) {
-        return labels != null ? labels.get(LABEL_PROJECT) : null;
+    private @Nullable String getProject(Map<String, String> labels) {
+        return labels.get(LABEL_PROJECT);
     }
 
-    private @NonNull String computeDisplayName(String name, String project) {
+    private @NonNull String computeDisplayName(String name, @Nullable String project) {
         if (project != null && name.startsWith(project + "-")) {
             return name.substring(project.length() + 1);
         }

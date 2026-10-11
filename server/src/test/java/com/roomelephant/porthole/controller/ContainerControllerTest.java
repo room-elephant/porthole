@@ -4,22 +4,27 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.roomelephant.porthole.domain.model.ContainerDTO;
+import com.roomelephant.porthole.controller.mapper.ContainerDTOMapper;
+import com.roomelephant.porthole.domain.model.Container;
+import com.roomelephant.porthole.domain.model.Endpoint;
 import com.roomelephant.porthole.domain.model.VersionDTO;
 import com.roomelephant.porthole.domain.service.ContainerService;
 import com.roomelephant.porthole.domain.service.VersionService;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ContainerController.class)
+@Import(ContainerDTOMapper.class)
 @DisplayName("ContainerController")
 class ContainerControllerTest {
 
@@ -39,11 +44,11 @@ class ContainerControllerTest {
         @Test
         @DisplayName("should return containers with default parameters")
         void shouldReturnContainersWithDefaultParameters() throws Exception {
-            ContainerDTO dto1 = createContainerDTO("container1");
-            ContainerDTO dto2 = createContainerDTO("container2");
-            List<ContainerDTO> containerDTOs = List.of(dto1, dto2);
+            Container dto1 = createContainer("container1");
+            Container dto2 = createContainer("container2");
+            List<Container> containerDTOs = List.of(dto1, dto2);
 
-            when(containerService.getContainers(false, false)).thenReturn(containerDTOs);
+            when(containerService.getContainers(false, false, "localhost")).thenReturn(containerDTOs);
 
             mockMvc.perform(get("/api/containers"))
                     .andExpect(status().isOk())
@@ -51,52 +56,52 @@ class ContainerControllerTest {
                     .andExpect(jsonPath("$[0].name").value("container1"))
                     .andExpect(jsonPath("$[1].name").value("container2"));
 
-            verify(containerService).getContainers(false, false);
+            verify(containerService).getContainers(false, false, "localhost");
         }
 
         @Test
-        @DisplayName("should pass includeWithoutPorts parameter")
-        void shouldPassIncludeWithoutPortsParameter() throws Exception {
-            ContainerDTO dtoWithPort = createContainerDTO("c1");
-            ContainerDTO dtoNoPort = createContainerDTO("c2", Collections.emptySet());
+        @DisplayName("should pass includeWithoutEndpoints parameter")
+        void shouldPassIncludeWithoutEndpointsParameter() throws Exception {
+            Container dtoWithPort = createContainer("c1");
+            Container dtoNoPort = createContainer("c2", Collections.emptySet());
 
-            when(containerService.getContainers(true, false)).thenReturn(List.of(dtoWithPort, dtoNoPort));
+            when(containerService.getContainers(true, false, "localhost")).thenReturn(List.of(dtoWithPort, dtoNoPort));
 
-            mockMvc.perform(get("/api/containers").param("includeWithoutPorts", "true"))
+            mockMvc.perform(get("/api/containers").param("includeWithoutEndpoints", "true"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(2));
 
-            verify(containerService).getContainers(true, false);
+            verify(containerService).getContainers(true, false, "localhost");
         }
 
         @Test
         @DisplayName("should pass includeStopped parameter")
         void shouldPassIncludeStoppedParameter() throws Exception {
-            when(containerService.getContainers(false, true)).thenReturn(Collections.emptyList());
+            when(containerService.getContainers(false, true, "localhost")).thenReturn(Collections.emptyList());
 
             mockMvc.perform(get("/api/containers").param("includeStopped", "true"))
                     .andExpect(status().isOk());
 
-            verify(containerService).getContainers(false, true);
+            verify(containerService).getContainers(false, true, "localhost");
         }
 
         @Test
         @DisplayName("should pass both parameters")
         void shouldPassBothParameters() throws Exception {
-            when(containerService.getContainers(true, true)).thenReturn(Collections.emptyList());
+            when(containerService.getContainers(true, true, "localhost")).thenReturn(Collections.emptyList());
 
             mockMvc.perform(get("/api/containers")
-                            .param("includeWithoutPorts", "true")
+                            .param("includeWithoutEndpoints", "true")
                             .param("includeStopped", "true"))
                     .andExpect(status().isOk());
 
-            verify(containerService).getContainers(true, true);
+            verify(containerService).getContainers(true, true, "localhost");
         }
 
         @Test
         @DisplayName("should return empty array when no containers")
         void shouldReturnEmptyArrayWhenNoContainers() throws Exception {
-            when(containerService.getContainers(false, false)).thenReturn(Collections.emptyList());
+            when(containerService.getContainers(false, false, "localhost")).thenReturn(Collections.emptyList());
 
             mockMvc.perform(get("/api/containers"))
                     .andExpect(status().isOk())
@@ -135,17 +140,76 @@ class ContainerControllerTest {
         }
     }
 
-    private ContainerDTO createContainerDTO(String name) {
-        return createContainerDTO(name, Set.of(80));
+    @Test
+    void shouldSerializeEndpointContractOnly() throws Exception {
+        when(containerService.getContainers(false, false, "localhost")).thenReturn(List.of(createContainer("app")));
+        mockMvc.perform(get("/api/containers"))
+                .andExpect(jsonPath("$[0].endpoints[0].id").value("published-port:80"))
+                .andExpect(jsonPath("$[0].endpoints[0].source").value("published-port"))
+                .andExpect(jsonPath("$[0].endpoints[0].url").value("http://localhost/"))
+                .andExpect(jsonPath("$[0].hasEndpoints").value(true))
+                .andExpect(jsonPath("$[0].exposedPorts").doesNotExist())
+                .andExpect(jsonPath("$[0].hasPublicPorts").doesNotExist())
+                .andExpect(jsonPath("$[0].labels").doesNotExist())
+                .andExpect(jsonPath("$[0].publishedPorts").doesNotExist())
+                .andExpect(jsonPath("$[0].urlCandidates").doesNotExist())
+                .andExpect(jsonPath("$[0].endpoints[0].port").doesNotExist());
     }
 
-    private ContainerDTO createContainerDTO(String name, Set<Integer> ports) {
-        return new ContainerDTO(
+    @Test
+    void shouldPassEachRequestHostnameToService() throws Exception {
+        when(containerService.getContainers(eq(false), eq(false), anyString())).thenAnswer(call -> {
+            String hostname = call.getArgument(2, String.class);
+            return List.of(createContainer(
+                    "app",
+                    List.of(new Endpoint("published-port:51413", "published-port", "http://" + hostname + ":51413/"))));
+        });
+        for (String hostname : List.of("192.168.50.6", "other.example.com")) {
+            mockMvc.perform(get("http://" + hostname + ":9753/api/containers")
+                            .header("X-Forwarded-Host", "ignored.example.com"))
+                    .andExpect(jsonPath("$[0].endpoints[0].url").value("http://" + hostname + ":51413/"))
+                    .andExpect(jsonPath("$[0].endpoints[0].id").value("published-port:51413"));
+        }
+    }
+
+    @Test
+    void shouldNotAliasOldQueryParameter() throws Exception {
+        when(containerService.getContainers(false, false, "localhost")).thenReturn(List.of());
+        mockMvc.perform(get("/api/containers").param("includeWithoutPorts", "true"))
+                .andExpect(status().isOk());
+        verify(containerService).getContainers(false, false, "localhost");
+    }
+
+    private Container createContainer(String name, List<Endpoint> endpoints) {
+        return new Container(
+                name + "-id",
+                name,
+                name,
+                "nginx:latest",
+                Set.of(),
+                Map.of("secret", "internal-only"),
+                endpoints,
+                "icon",
+                "test-project",
+                "running",
+                "Up");
+    }
+
+    private Container createContainer(String name) {
+        return createContainer(name, Set.of(80));
+    }
+
+    private Container createContainer(String name, Set<Integer> ports) {
+        return new Container(
                 name + "-id",
                 name,
                 name,
                 "nginx:latest",
                 ports,
+                Map.of("secret", "internal-only"),
+                ports.stream()
+                        .map(port -> new Endpoint("published-port:" + port, "published-port", "http://localhost/"))
+                        .toList(),
                 "https://example.com/nginx.png",
                 "test-project",
                 "running",

@@ -2,6 +2,7 @@ package com.roomelephant.porthole.domain.service;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.command.InspectImageResponse;
 import com.github.dockerjava.api.model.ContainerConfig;
 import com.roomelephant.porthole.domain.component.RegistryService;
 import com.roomelephant.porthole.domain.model.VersionDTO;
@@ -45,7 +46,7 @@ public class VersionService {
             throw new UnexpectedException(e);
         }
 
-        var config = container.getConfig();
+        ContainerConfig config = container.getConfig();
         if (config == null || config.getImage() == null) {
             return new VersionDTO(null, null, false);
         }
@@ -69,7 +70,8 @@ public class VersionService {
 
     private @Nullable List<String> getRepoDigests(@NonNull String imageId) {
         try {
-            var inspectImage = dockerClient.inspectImageCmd(imageId).exec();
+            InspectImageResponse inspectImage =
+                    dockerClient.inspectImageCmd(imageId).exec();
             return inspectImage.getRepoDigests();
         } catch (Exception e) {
             log.error("Failed to inspect image: " + imageId, e);

@@ -8,6 +8,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpStatus.OK;
 
+import com.github.dockerjava.api.command.InspectImageResponse;
 import com.roomelephant.porthole.domain.model.VersionDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import org.jetbrains.annotations.NotNull;
@@ -97,7 +98,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
     }
 
     private String getLocalDigest(String imageName) {
-        var inspect =
+        InspectImageResponse inspect =
                 noPortsContainer.getDockerClient().inspectImageCmd(imageName).exec();
         return inspect.getRepoDigests().stream()
                 .findFirst()

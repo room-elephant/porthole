@@ -54,8 +54,10 @@ export const createMockContainer = (overrides = {}) => ({
   state: 'running',
   status: 'Up 2 hours',
   project: null,
-  exposedPorts: [8080],
-  hasPublicPorts: true,
+  endpoints: [publishedEndpoint(8080)],
+  hasEndpoints: true,
   iconUrl: 'https://example.com/icon.png',
   ...overrides,
 });
+
+export const publishedEndpoint = port => ({ id: `published-port:${port}`, source: 'published-port', url: `http://localhost:${port}/` });

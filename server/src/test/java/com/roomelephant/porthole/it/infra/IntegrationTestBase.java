@@ -26,14 +26,22 @@ public abstract class IntegrationTestBase {
         porthole = new PortholeContainer(wireMockServer.port());
         porthole.start();
 
+        if (System.getProperty("native.agent.output.dir") != null) {
+            NativeHintsLifecycle.beforeRecordingShutdown(IntegrationTestBase::savePortholeLogs);
+        }
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                Files.writeString(Path.of("target/porthole-container.log"), porthole.getLogs());
-            } catch (Exception ignored) {
-            }
+            savePortholeLogs();
             porthole.stop();
             wireMockServer.stop();
         }));
+    }
+
+    private static void savePortholeLogs() {
+        if (!porthole.isRunning()) return;
+        try {
+            Files.writeString(Path.of("target/porthole-container.log"), porthole.getLogs());
+        } catch (Exception ignored) {
+        }
     }
 
     @AfterEach
@@ -80,7 +88,7 @@ public abstract class IntegrationTestBase {
     }
 
     private static @NotNull RestTemplate createRestTemplate() {
-        var template = new RestTemplate();
+        RestTemplate template = new RestTemplate();
         template.setErrorHandler(response -> response.getStatusCode().is5xxServerError());
         return template;
     }
