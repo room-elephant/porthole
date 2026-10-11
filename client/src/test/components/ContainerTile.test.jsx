@@ -256,4 +256,16 @@ describe('ContainerTile', () => {
     expect(window.open).not.toHaveBeenCalled();
   });
 
+  it('launches the new name preference after a rename with the same Docker ID', () => {
+    const root = { id: 'proxy', source: 'traefik', url: 'https://app.example.com/' };
+    const container = createMockContainer({ endpoints: [publishedEndpoint(8080), root] });
+    localStorage.setItem('endpoint_pref_test-container', JSON.stringify('published-port:8080'));
+    localStorage.setItem('endpoint_pref_renamed', JSON.stringify(root.id));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
+    view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed' }} /></QueryClientProvider>);
+    fireEvent.click(screen.getByRole('img').closest('.card'));
+    expect(window.open).toHaveBeenLastCalledWith(root.url, '_blank');
+  });
+
 });

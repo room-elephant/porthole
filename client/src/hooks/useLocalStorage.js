@@ -16,15 +16,22 @@ const parseStoredValue = (stored, defaultValue) => {
  * @returns {[*, function]} Tuple of [value, setValue]
  */
 export const useLocalStorage = (key, defaultValue) => {
-  const [value, setValue] = useState(() => {
-    const saved = localStorage.getItem(key);
-    return parseStoredValue(saved, defaultValue);
-  });
+  const [state, setState] = useState(() => ({
+    key,
+    value: parseStoredValue(localStorage.getItem(key), defaultValue),
+  }));
+
+  // A renamed container must use its new preference scope before returning a value.
+  let current = state;
+  if (state.key !== key) {
+    current = { key, value: parseStoredValue(localStorage.getItem(key), defaultValue) };
+    setState(current);
+  }
 
   useEffect(() => {
     const handleStorageChange = (event) => {
       if (event.key === key) {
-        setValue(parseStoredValue(event.newValue, defaultValue));
+        setState({ key, value: parseStoredValue(event.newValue, defaultValue) });
       }
     };
 
@@ -33,7 +40,7 @@ export const useLocalStorage = (key, defaultValue) => {
   }, [key, defaultValue]);
 
   const setStoredValue = useCallback((newValue) => {
-    setValue(newValue);
+    setState(previous => ({ key, value: typeof newValue === 'function' ? newValue(previous.value) : newValue }));
     try {
       localStorage.setItem(key, JSON.stringify(newValue));
     } catch (error) {
@@ -41,5 +48,5 @@ export const useLocalStorage = (key, defaultValue) => {
     }
   }, [key]);
 
-  return [value, setStoredValue];
+  return [current.value, setStoredValue];
 };
