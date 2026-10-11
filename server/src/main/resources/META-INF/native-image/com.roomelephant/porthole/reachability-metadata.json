@@ -183,30 +183,10 @@
       "type": "com.github.dockerjava.api.DockerClient"
     },
     {
-      "type": "com.github.dockerjava.api.command.GraphData",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
+      "type": "com.github.dockerjava.api.command.GraphData"
     },
     {
-      "type": "com.github.dockerjava.api.command.GraphDriver",
-      "fields": [
-        {
-          "name": "data"
-        },
-        {
-          "name": "name"
-        }
-      ],
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
+      "type": "com.github.dockerjava.api.command.GraphDriver"
     },
     {
       "type": "com.github.dockerjava.api.command.HealthState"
@@ -231,9 +211,6 @@
         },
         {
           "name": "execIds"
-        },
-        {
-          "name": "graphDriver"
         },
         {
           "name": "hostConfig"
@@ -350,9 +327,6 @@
           "name": "arch"
         },
         {
-          "name": "author"
-        },
-        {
           "name": "comment"
         },
         {
@@ -362,19 +336,10 @@
           "name": "created"
         },
         {
-          "name": "dockerVersion"
-        },
-        {
-          "name": "graphDriver"
-        },
-        {
           "name": "id"
         },
         {
           "name": "os"
-        },
-        {
-          "name": "parent"
         },
         {
           "name": "repoDigests"
@@ -538,9 +503,6 @@
           "name": "labels"
         },
         {
-          "name": "onBuild"
-        },
-        {
           "name": "stdInOnce"
         },
         {
@@ -587,7 +549,13 @@
           "name": "destination"
         },
         {
+          "name": "driver"
+        },
+        {
           "name": "mode"
+        },
+        {
+          "name": "name"
         },
         {
           "name": "propagation"
@@ -1006,42 +974,6 @@
       "type": "com.github.dockerjava.api.model.NetworkSettings",
       "fields": [
         {
-          "name": "bridge"
-        },
-        {
-          "name": "endpointID"
-        },
-        {
-          "name": "gateway"
-        },
-        {
-          "name": "globalIPv6Address"
-        },
-        {
-          "name": "globalIPv6PrefixLen"
-        },
-        {
-          "name": "hairpinMode"
-        },
-        {
-          "name": "ipAddress"
-        },
-        {
-          "name": "ipPrefixLen"
-        },
-        {
-          "name": "ipV6Gateway"
-        },
-        {
-          "name": "linkLocalIPv6Address"
-        },
-        {
-          "name": "linkLocalIPv6PrefixLen"
-        },
-        {
-          "name": "macAddress"
-        },
-        {
           "name": "networks"
         },
         {
@@ -1052,12 +984,6 @@
         },
         {
           "name": "sandboxKey"
-        },
-        {
-          "name": "secondaryIPAddresses"
-        },
-        {
-          "name": "secondaryIPv6Addresses"
         }
       ],
       "methods": [
@@ -1150,7 +1076,73 @@
       "type": "com.github.dockerjava.api.model.VolumesRW"
     },
     {
+      "type": "com.github.dockerjava.core.DefaultInvocationBuilder"
+    },
+    {
       "type": "com.github.dockerjava.core.DockerClientImpl"
+    },
+    {
+      "type": "com.github.dockerjava.core.command.AbstrDockerCmd"
+    },
+    {
+      "type": "com.github.dockerjava.core.command.InspectContainerCmdImpl"
+    },
+    {
+      "type": "com.github.dockerjava.core.exec.AbstrSyncDockerCmdExec"
+    },
+    {
+      "type": "com.github.dockerjava.core.exec.InspectContainerCmdExec"
+    },
+    {
+      "type": "com.github.dockerjava.core.exec.ListContainersCmdExec"
+    },
+    {
+      "type": "com.github.dockerjava.transport.UnixSocket"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.ApacheDockerHttpClientImpl"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.ZerodepDockerHttpClient"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.classic.HttpClient"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.CloseableHttpClient"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.ConnectExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.ContentCompressionExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.ExecChainElement"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.HttpRequestRetryExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.InternalExecRuntime"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.InternalHttpClient"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.ProtocolExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.RedirectExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.io.DefaultHttpClientConnectionOperator"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.io.DetachedSocketFactory"
     },
     {
       "type": "com.google.gson.Gson"
@@ -1365,6 +1357,15 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.config.nativehints.DockerNativeConfig",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.config.properties.DashboardProperties",
       "fields": [
         {
@@ -1425,6 +1426,21 @@
             "java.time.Duration",
             "java.time.Duration"
           ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.config.properties.EndpointProperties",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "isPublishedHostValid",
+          "parameterTypes": []
         }
       ]
     },
@@ -1523,14 +1539,16 @@
           "name": "<init>",
           "parameterTypes": [
             "com.roomelephant.porthole.domain.service.ContainerService",
-            "com.roomelephant.porthole.domain.service.VersionService"
+            "com.roomelephant.porthole.domain.service.VersionService",
+            "com.roomelephant.porthole.controller.mapper.ContainerDTOMapper"
           ]
         },
         {
           "name": "getContainers",
           "parameterTypes": [
             "boolean",
-            "boolean"
+            "boolean",
+            "jakarta.servlet.http.HttpServletRequest"
           ]
         },
         {
@@ -1549,6 +1567,12 @@
           "parameterTypes": []
         },
         {
+          "name": "handleDockerUnavailable",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.model.exception.DockerUnavailableException"
+          ]
+        },
+        {
           "name": "handleNotFound",
           "parameterTypes": [
             "com.roomelephant.porthole.domain.model.exception.NotFoundException"
@@ -1557,53 +1581,27 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.domain.component.IconComponent",
+      "type": "com.roomelephant.porthole.controller.mapper.ContainerDTOMapper",
       "methods": [
         {
           "name": "<init>",
-          "parameterTypes": [
-            "java.util.Map",
-            "com.roomelephant.porthole.config.properties.DashboardProperties"
-          ]
+          "parameterTypes": []
         }
       ]
     },
     {
-      "type": "com.roomelephant.porthole.domain.component.RegistryService",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "org.springframework.web.client.RestClient",
-            "com.roomelephant.porthole.config.properties.RegistryProperties"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.mapper.ContainerMapper",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.domain.component.IconComponent"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.model.ContainerDTO",
+      "type": "com.roomelephant.porthole.controller.model.ContainerDTO",
       "methods": [
         {
           "name": "displayName",
           "parameterTypes": []
         },
         {
-          "name": "exposedPorts",
+          "name": "endpoints",
           "parameterTypes": []
         },
         {
-          "name": "hasPublicPorts",
+          "name": "hasEndpoints",
           "parameterTypes": []
         },
         {
@@ -1637,6 +1635,160 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.controller.model.EndpointDTO",
+      "methods": [
+        {
+          "name": "id",
+          "parameterTypes": []
+        },
+        {
+          "name": "source",
+          "parameterTypes": []
+        },
+        {
+          "name": "url",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.controller.model.EndpointDTO[]"
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.ContainerEnrichment",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.util.List"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.IconComponent",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.util.Map",
+            "com.roomelephant.porthole.config.properties.DashboardProperties"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.RegistryService",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "org.springframework.web.client.RestClient",
+            "com.roomelephant.porthole.config.properties.RegistryProperties"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.util.List"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.EndpointProvider"
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.PublishedHostResolver",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.config.properties.EndpointProperties"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.PublishedPortEndpointProvider",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.component.endpoint.PublishedHostResolver"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.TraefikEndpointProvider",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.component.endpoint.TraefikRuleParser"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.TraefikRuleParser",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.enrichment.ContainerEnricher"
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.enrichment.ContainerStateFilter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.enrichment.EndpointAvailabilityFilter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.enrichment.UrlCandidateEnricher",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.mapper.ContainerMapper",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.component.IconComponent"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.domain.model.VersionDTO",
       "methods": [
         {
@@ -1660,7 +1812,8 @@
           "name": "<init>",
           "parameterTypes": [
             "com.github.dockerjava.api.DockerClient",
-            "com.roomelephant.porthole.domain.mapper.ContainerMapper"
+            "com.roomelephant.porthole.domain.mapper.ContainerMapper",
+            "com.roomelephant.porthole.domain.component.ContainerEnrichment"
           ]
         }
       ]
@@ -1880,7 +2033,13 @@
       "type": "io.micrometer.core.instrument.Clock$1"
     },
     {
-      "type": "io.micrometer.core.instrument.MeterRegistry"
+      "type": "io.micrometer.core.instrument.MeterRegistry",
+      "methods": [
+        {
+          "name": "close",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "io.micrometer.core.instrument.binder.MeterBinder"
@@ -2109,6 +2268,23 @@
     },
     {
       "type": "jakarta.validation.bootstrap.GenericBootstrap"
+    },
+    {
+      "type": "jakarta.validation.constraints.AssertTrue",
+      "methods": [
+        {
+          "name": "groups",
+          "parameterTypes": []
+        },
+        {
+          "name": "message",
+          "parameterTypes": []
+        },
+        {
+          "name": "payload",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "jakarta.validation.constraints.NotBlank",
@@ -2362,6 +2538,9 @@
       ]
     },
     {
+      "type": "java.lang.VirtualThread"
+    },
+    {
       "type": "java.lang.Void",
       "fields": [
         {
@@ -2453,6 +2632,9 @@
       "type": "java.lang.reflect.GenericDeclaration"
     },
     {
+      "type": "java.lang.reflect.Method"
+    },
+    {
       "type": "java.lang.reflect.ParameterizedType",
       "methods": [
         {
@@ -2518,6 +2700,9 @@
       "type": "java.net.http.HttpClient"
     },
     {
+      "type": "java.nio.channels.SocketChannel"
+    },
+    {
       "type": "java.security.AlgorithmParametersSpi"
     },
     {
@@ -2525,6 +2710,9 @@
     },
     {
       "type": "java.sql.Date"
+    },
+    {
+      "type": "java.sql.DriverManager"
     },
     {
       "type": "java.sql.Timestamp"
@@ -2545,7 +2733,7 @@
       "type": "java.util.AbstractCollection"
     },
     {
-      "type": "java.util.AbstractSet"
+      "type": "java.util.ArrayList"
     },
     {
       "type": "java.util.Arrays",
@@ -2563,19 +2751,25 @@
       "type": "java.util.Collection"
     },
     {
-      "type": "java.util.Collections$EmptySet"
-    },
-    {
       "type": "java.util.Collections$UnmodifiableMap"
     },
     {
       "type": "java.util.Date"
     },
     {
+      "type": "java.util.Enumeration"
+    },
+    {
+      "type": "java.util.HashSet"
+    },
+    {
       "type": "java.util.ImmutableCollections$AbstractImmutableCollection"
     },
     {
       "type": "java.util.ImmutableCollections$AbstractImmutableList"
+    },
+    {
+      "type": "java.util.ImmutableCollections$List12"
     },
     {
       "type": "java.util.ImmutableCollections$ListN"
@@ -2677,6 +2871,9 @@
       "type": "jdk.internal.misc.Unsafe"
     },
     {
+      "type": "jdk.internal.reflect.DirectMethodHandleAccessor"
+    },
+    {
       "type": "jdk.management.VirtualThreadSchedulerMXBean"
     },
     {
@@ -2725,7 +2922,41 @@
       "type": "org.apache.catalina.Manager"
     },
     {
+      "type": "org.apache.catalina.authenticator.AuthenticatorBase"
+    },
+    {
+      "type": "org.apache.catalina.connector.CoyoteAdapter"
+    },
+    {
       "type": "org.apache.catalina.core.ApplicationContextFacade"
+    },
+    {
+      "type": "org.apache.catalina.core.ApplicationFilterChain"
+    },
+    {
+      "type": "org.apache.catalina.core.StandardContextValve"
+    },
+    {
+      "type": "org.apache.catalina.core.StandardEngineValve"
+    },
+    {
+      "type": "org.apache.catalina.core.StandardHostValve"
+    },
+    {
+      "type": "org.apache.catalina.core.StandardWrapperValve"
+    },
+    {
+      "type": "org.apache.catalina.loader.JdbcLeakPrevention",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "clearJdbcDriverRegistrations",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "org.apache.catalina.startup.Tomcat"
@@ -2738,6 +2969,12 @@
           "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "org.apache.catalina.valves.ErrorReportValve"
+    },
+    {
+      "type": "org.apache.coyote.AbstractProcessorLight"
     },
     {
       "type": "org.apache.coyote.AbstractProtocol",
@@ -2772,6 +3009,9 @@
       ]
     },
     {
+      "type": "org.apache.coyote.AbstractProtocol$ConnectionHandler"
+    },
+    {
       "type": "org.apache.coyote.UpgradeProtocol"
     },
     {
@@ -2785,6 +3025,9 @@
     },
     {
       "type": "org.apache.coyote.http11.Http11NioProtocol"
+    },
+    {
+      "type": "org.apache.coyote.http11.Http11Processor"
     },
     {
       "type": "org.apache.el.ExpressionFactoryImpl",
@@ -2825,6 +3068,12 @@
       "type": "org.apache.tomcat.util.net.NioEndpoint"
     },
     {
+      "type": "org.apache.tomcat.util.net.NioEndpoint$SocketProcessor"
+    },
+    {
+      "type": "org.apache.tomcat.util.net.SocketProcessorBase"
+    },
+    {
       "type": "org.apache.tomcat.websocket.server.WsFilter"
     },
     {
@@ -2856,6 +3105,15 @@
     },
     {
       "type": "org.hibernate.validator.HibernateValidator"
+    },
+    {
+      "type": "org.hibernate.validator.internal.constraintvalidators.bv.AssertTrueValidator",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "org.hibernate.validator.internal.constraintvalidators.bv.NotBlankValidator",
@@ -3001,7 +3259,13 @@
       ]
     },
     {
+      "type": "org.springframework.aot.hint.RuntimeHintsRegistrar"
+    },
+    {
       "type": "org.springframework.aot.hint.annotation.Reflective"
+    },
+    {
+      "type": "org.springframework.aot.hint.annotation.RegisterReflection"
     },
     {
       "type": "org.springframework.aot.hint.annotation.RegisterReflectionForBinding"
@@ -4576,7 +4840,8 @@
           "name": "healthEndpointGroupMembershipValidator",
           "parameterTypes": [
             "org.springframework.boot.health.autoconfigure.actuate.endpoint.HealthEndpointProperties",
-            "org.springframework.boot.health.registry.HealthContributorRegistry"
+            "org.springframework.boot.health.registry.HealthContributorRegistry",
+            "org.springframework.beans.factory.ObjectProvider"
           ]
         },
         {
@@ -4857,12 +5122,15 @@
           "parameterTypes": []
         },
         {
-          "name": "stringHttpMessageConverter",
+          "name": "stringHttpMessageConvertersCustomizer",
           "parameterTypes": [
             "org.springframework.boot.http.converter.autoconfigure.HttpMessageConvertersProperties"
           ]
         }
       ]
+    },
+    {
+      "type": "org.springframework.boot.http.converter.autoconfigure.HttpMessageConvertersAutoConfiguration$StringHttpMessageConvertersCustomizer"
     },
     {
       "type": "org.springframework.boot.http.converter.autoconfigure.HttpMessageConvertersProperties",
@@ -4908,12 +5176,15 @@
           "parameterTypes": []
         },
         {
-          "name": "jacksonJsonHttpMessageConverter",
+          "name": "jacksonJsonHttpMessageConvertersCustomizer",
           "parameterTypes": [
             "tools.jackson.databind.json.JsonMapper"
           ]
         }
       ]
+    },
+    {
+      "type": "org.springframework.boot.http.converter.autoconfigure.JacksonHttpMessageConvertersConfiguration$JacksonJsonHttpMessageConvertersCustomizer"
     },
     {
       "type": "org.springframework.boot.http.converter.autoconfigure.JsonbHttpMessageConvertersConfiguration"
@@ -5165,7 +5436,7 @@
         {
           "name": "meterRegistryCloser",
           "parameterTypes": [
-            "org.springframework.beans.factory.ObjectProvider"
+            "org.springframework.context.ApplicationContext"
           ]
         },
         {
@@ -5317,6 +5588,25 @@
         {
           "name": "<init>",
           "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.springframework.boot.micrometer.metrics.autoconfigure.ssl.SslMeterBinder"
+    },
+    {
+      "type": "org.springframework.boot.micrometer.metrics.autoconfigure.ssl.SslMetricsAutoConfiguration",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "sslMeterBinder",
+          "parameterTypes": [
+            "org.springframework.boot.ssl.SslBundles",
+            "org.springframework.beans.factory.ObjectProvider"
+          ]
         }
       ]
     },
@@ -5995,7 +6285,19 @@
       "type": "org.springframework.boot.web.servlet.ServletRegistrationBean"
     },
     {
+      "type": "org.springframework.boot.webmvc.WebMvcWebApplicationTypeDeducer",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.springframework.boot.webmvc.actuate.endpoint.web.AbstractWebMvcEndpointHandlerMapping"
+    },
+    {
+      "type": "org.springframework.boot.webmvc.actuate.endpoint.web.AbstractWebMvcEndpointHandlerMapping$CatchAllHandler"
     },
     {
       "type": "org.springframework.boot.webmvc.actuate.endpoint.web.AbstractWebMvcEndpointHandlerMapping$LinksHandler"
@@ -6167,6 +6469,9 @@
       ]
     },
     {
+      "type": "org.springframework.boot.webmvc.autoconfigure.WebMvcAutoConfiguration$MvcValidatorRuntimeHints"
+    },
+    {
       "type": "org.springframework.boot.webmvc.autoconfigure.WebMvcAutoConfiguration$WebMvcAutoConfigurationAdapter",
       "methods": [
         {
@@ -6320,6 +6625,15 @@
     },
     {
       "type": "org.springframework.boot.webmvc.autoconfigure.actuate.web.WebMvcEndpointManagementContextConfiguration$EndpointJsonMapperWebMvcConfigurer"
+    },
+    {
+      "type": "org.springframework.boot.webmvc.autoconfigure.actuate.web.WebMvcEndpointManagementContextConfiguration$HealthConfiguration",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "org.springframework.boot.webmvc.autoconfigure.error.AbstractErrorController"
@@ -6591,6 +6905,9 @@
       "type": "org.springframework.core.type.classreading.MetadataReaderFactory"
     },
     {
+      "type": "org.springframework.dao.DataAccessException"
+    },
+    {
       "type": "org.springframework.data.rest.webmvc.alps.AlpsJacksonJsonHttpMessageConverter"
     },
     {
@@ -6638,19 +6955,7 @@
       "type": "org.springframework.http.ReactiveHttpInputMessage"
     },
     {
-      "type": "org.springframework.http.converter.AbstractHttpMessageConverter"
-    },
-    {
-      "type": "org.springframework.http.converter.AbstractJacksonHttpMessageConverter"
-    },
-    {
-      "type": "org.springframework.http.converter.AbstractSmartHttpMessageConverter"
-    },
-    {
       "type": "org.springframework.http.converter.HttpMessageConverter"
-    },
-    {
-      "type": "org.springframework.http.converter.SmartHttpMessageConverter"
     },
     {
       "type": "org.springframework.http.converter.StringHttpMessageConverter"
@@ -6666,6 +6971,9 @@
     },
     {
       "type": "org.springframework.jmx.export.MBeanExporter"
+    },
+    {
+      "type": "org.springframework.messaging.MessagingException"
     },
     {
       "type": "org.springframework.scheduling.annotation.AsyncConfigurer"
@@ -6827,6 +7135,9 @@
       "type": "org.springframework.web.method.support.CompositeUriComponentsContributor"
     },
     {
+      "type": "org.springframework.web.method.support.InvocableHandlerMethod"
+    },
+    {
       "type": "org.springframework.web.method.support.UriComponentsContributor"
     },
     {
@@ -6834,9 +7145,6 @@
     },
     {
       "type": "org.springframework.web.multipart.support.StandardServletMultipartResolver"
-    },
-    {
-      "type": "org.springframework.web.reactive.DispatcherHandler"
     },
     {
       "type": "org.springframework.web.reactive.HandlerResult"
@@ -7065,6 +7373,9 @@
       "type": "org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping"
     },
     {
+      "type": "org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod"
+    },
+    {
       "type": "org.springframework.web.servlet.resource.ResourceUrlProvider"
     },
     {
@@ -7177,6 +7488,12 @@
           "name": "threadContentionMonitoringSupport"
         }
       ]
+    },
+    {
+      "type": "sun.nio.ch.SocketChannelImpl"
+    },
+    {
+      "type": "sun.nio.ch.UnixDomainSockets"
     },
     {
       "type": "sun.security.pkcs12.PKCS12KeyStore",
@@ -7554,6 +7871,15 @@
     {
       "type": {
         "proxy": [
+          "java.lang.reflect.TypeVariable",
+          "org.springframework.core.SerializableTypeWrapper$SerializableTypeProxy",
+          "java.io.Serializable"
+        ]
+      }
+    },
+    {
+      "type": {
+        "proxy": [
           "java.lang.reflect.WildcardType",
           "org.springframework.core.SerializableTypeWrapper$SerializableTypeProxy",
           "java.io.Serializable"
@@ -7739,6 +8065,9 @@
       "glob": "META-INF/services/java.nio.channels.spi.SelectorProvider"
     },
     {
+      "glob": "META-INF/services/java.sql.Driver"
+    },
+    {
       "glob": "META-INF/services/java.time.zone.ZoneRulesProvider"
     },
     {
@@ -7805,6 +8134,12 @@
       "glob": "banner.txt"
     },
     {
+      "glob": "ch/qos/logback/classic/logback-classic-version.properties"
+    },
+    {
+      "glob": "ch/qos/logback/core/logback-core-version.properties"
+    },
+    {
       "glob": "com/github/dockerjava/zerodep/shaded/org/apache/hc/client5/version.properties"
     },
     {
@@ -7823,16 +8158,64 @@
       "glob": "com/roomelephant/porthole/config/RestClientConfig.class"
     },
     {
+      "glob": "com/roomelephant/porthole/config/nativehints/DockerNativeConfig.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/controller/ContainerController.class"
     },
     {
       "glob": "com/roomelephant/porthole/controller/GlobalExceptionHandler.class"
     },
     {
+      "glob": "com/roomelephant/porthole/controller/mapper/ContainerDTOMapper.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/ContainerEnrichment.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/domain/component/IconComponent.class"
     },
     {
       "glob": "com/roomelephant/porthole/domain/component/RegistryService.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/EndpointDiscovery.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/EndpointProvider.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/PublishedHostResolver.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/PublishedPortEndpointProvider.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/TraefikEndpointProvider.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/TraefikRuleParser$Input.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/TraefikRuleParser$Matcher.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/TraefikRuleParser$Route.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/TraefikRuleParser.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/enrichment/ContainerEnricher.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/enrichment/ContainerStateFilter.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/enrichment/EndpointAvailabilityFilter.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/enrichment/UrlCandidateEnricher.class"
     },
     {
       "glob": "com/roomelephant/porthole/domain/mapper/ContainerMapper.class"
@@ -7949,6 +8332,9 @@
       "glob": "org/apache/catalina/deploy/LocalStrings.properties"
     },
     {
+      "glob": "org/apache/catalina/loader/JdbcLeakPrevention.class"
+    },
+    {
       "glob": "org/apache/catalina/loader/LocalStrings.properties"
     },
     {
@@ -8000,6 +8386,9 @@
       "glob": "org/apache/naming/LocalStrings_en_US.properties"
     },
     {
+      "glob": "org/apache/tomcat/jni/AprStatus.class"
+    },
+    {
       "glob": "org/apache/tomcat/util/LocalStrings.properties"
     },
     {
@@ -8036,7 +8425,13 @@
       "glob": "org/apache/tomcat/websocket/server/LocalStrings.properties"
     },
     {
+      "glob": "org/jspecify/annotations/NullMarked.class"
+    },
+    {
       "glob": "org/publicsuffix/list/effective_tld_names.dat"
+    },
+    {
+      "glob": "org/springframework/aot/hint/RuntimeHintsRegistrar.class"
     },
     {
       "glob": "org/springframework/aot/hint/annotation/Reflective.class"
@@ -8345,7 +8740,16 @@
       "glob": "org/springframework/boot/http/converter/autoconfigure/HttpMessageConvertersAutoConfiguration$StringHttpMessageConverterConfiguration.class"
     },
     {
+      "glob": "org/springframework/boot/http/converter/autoconfigure/HttpMessageConvertersAutoConfiguration$StringHttpMessageConvertersCustomizer.class"
+    },
+    {
       "glob": "org/springframework/boot/http/converter/autoconfigure/HttpMessageConvertersAutoConfiguration.class"
+    },
+    {
+      "glob": "org/springframework/boot/http/converter/autoconfigure/Jackson2HttpMessageConvertersConfiguration$Jackson2JsonMessageConvertersCustomizer.class"
+    },
+    {
+      "glob": "org/springframework/boot/http/converter/autoconfigure/Jackson2HttpMessageConvertersConfiguration$Jackson2XmlMessageConvertersCustomizer.class"
     },
     {
       "glob": "org/springframework/boot/http/converter/autoconfigure/Jackson2HttpMessageConvertersConfiguration$MappingJackson2HttpMessageConverterConfiguration.class"
@@ -8369,7 +8773,13 @@
       "glob": "org/springframework/boot/http/converter/autoconfigure/JacksonHttpMessageConvertersConfiguration$JacksonJsonHttpMessageConverterConfiguration.class"
     },
     {
+      "glob": "org/springframework/boot/http/converter/autoconfigure/JacksonHttpMessageConvertersConfiguration$JacksonJsonHttpMessageConvertersCustomizer.class"
+    },
+    {
       "glob": "org/springframework/boot/http/converter/autoconfigure/JacksonHttpMessageConvertersConfiguration$JacksonXmlHttpMessageConverterConfiguration.class"
+    },
+    {
+      "glob": "org/springframework/boot/http/converter/autoconfigure/JacksonHttpMessageConvertersConfiguration$JacksonXmlHttpMessageConvertersCustomizer.class"
     },
     {
       "glob": "org/springframework/boot/http/converter/autoconfigure/JacksonHttpMessageConvertersConfiguration.class"
@@ -8477,6 +8887,9 @@
       "glob": "org/springframework/boot/micrometer/metrics/autoconfigure/logging/logback/LogbackMetricsAutoConfiguration.class"
     },
     {
+      "glob": "org/springframework/boot/micrometer/metrics/autoconfigure/ssl/SslMetricsAutoConfiguration.class"
+    },
+    {
       "glob": "org/springframework/boot/micrometer/metrics/autoconfigure/startup/StartupTimeMetricsListenerAutoConfiguration.class"
     },
     {
@@ -8573,6 +8986,9 @@
       "glob": "org/springframework/boot/webmvc/autoconfigure/WebMvcAutoConfiguration$EnableWebMvcConfiguration.class"
     },
     {
+      "glob": "org/springframework/boot/webmvc/autoconfigure/WebMvcAutoConfiguration$MvcValidatorRuntimeHints.class"
+    },
+    {
       "glob": "org/springframework/boot/webmvc/autoconfigure/WebMvcAutoConfiguration$ProblemDetailsErrorHandlingConfiguration.class"
     },
     {
@@ -8610,6 +9026,9 @@
     },
     {
       "glob": "org/springframework/boot/webmvc/autoconfigure/actuate/web/WebMvcEndpointManagementContextConfiguration$EndpointJsonMapperWebMvcConfigurer.class"
+    },
+    {
+      "glob": "org/springframework/boot/webmvc/autoconfigure/actuate/web/WebMvcEndpointManagementContextConfiguration$HealthConfiguration.class"
     },
     {
       "glob": "org/springframework/boot/webmvc/autoconfigure/actuate/web/WebMvcEndpointManagementContextConfiguration.class"

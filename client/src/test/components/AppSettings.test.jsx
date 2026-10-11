@@ -91,7 +91,7 @@ describe('AppSettings', () => {
   describe('Show Containers Without Ports Toggle', () => {
     it('should render toggle', () => {
       render(<AppSettings {...defaultProps} />);
-      expect(screen.getByText('Show containers without ports')).toBeInTheDocument();
+      expect(screen.getByText('Show containers without endpoints')).toBeInTheDocument();
     });
 
     it('should be unchecked when showAll is false', () => {

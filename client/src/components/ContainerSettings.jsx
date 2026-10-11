@@ -1,29 +1,35 @@
+import { useId } from 'react';
 import Modal from './Modal';
+import { groupEndpointsBySource } from '../utils/endpoints';
 
-function ContainerSettings({ containerName, ports, selectedPort, checkUpdates, onClose, onSelectPort, onToggleCheckUpdates }) {
-    const hasPorts = ports && ports.length > 0;
+function ContainerSettings({ containerName, endpoints, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates }) {
+    const selectionName = useId();
+    const groups = groupEndpointsBySource(endpoints);
 
     return (
         <Modal title={containerName} onClose={onClose} className="settings-modal">
-            {hasPorts && (
-                <div className="settings-section">
-                    <h4 className="settings-section-title">Port Selection</h4>
-                    <div className="port-list">
-                        {ports.map(port => (
-                            <div
-                                key={port}
-                                className={`port-option ${selectedPort === port ? 'selected' : ''}`}
-                                onClick={() => onSelectPort(port)}
-                            >
-                                :{port}
-                                {selectedPort === port && <span className="checkmark">✓</span>}
-                            </div>
+            {groups.map((group, index) => (
+                <div key={group.source} className={`settings-section ${index > 0 ? 'with-divider' : ''}`}>
+                    <h4 className="settings-section-title">{group.title}</h4>
+                    <div className="endpoint-list">
+                        {group.endpoints.map(endpoint => (
+                            <label key={endpoint.id} className={`endpoint-option ${selectedEndpointId === endpoint.id ? 'selected' : ''}`}>
+                                <input
+                                    type="radio"
+                                    name={selectionName}
+                                    value={endpoint.id}
+                                    checked={selectedEndpointId === endpoint.id}
+                                    onChange={() => onSelectEndpoint(endpoint.id)}
+                                />
+                                <span className="endpoint-url">{endpoint.url}</span>
+                                {selectedEndpointId === endpoint.id && <span className="checkmark" aria-hidden="true">✓</span>}
+                            </label>
                         ))}
                     </div>
                 </div>
-            )}
+            ))}
 
-            <div className={`settings-section ${hasPorts ? 'with-divider' : ''}`}>
+            <div className={`settings-section ${groups.length > 0 ? 'with-divider' : ''}`}>
                 <h4 className="settings-section-title">Version Updates</h4>
                 <label className="toggle-switch settings-toggle">
                     <input
