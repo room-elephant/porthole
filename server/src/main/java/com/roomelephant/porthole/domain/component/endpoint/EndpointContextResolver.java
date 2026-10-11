@@ -1,8 +1,7 @@
-package com.roomelephant.porthole.controller;
+package com.roomelephant.porthole.domain.component.endpoint;
 
 import com.roomelephant.porthole.config.properties.EndpointProperties;
 import com.roomelephant.porthole.domain.model.EndpointContext;
-import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
 
@@ -15,8 +14,8 @@ public class EndpointContextResolver {
         this.properties = properties;
     }
 
-    public EndpointContext resolve(HttpServletRequest request) {
+    public EndpointContext resolve(String requestHostname) {
         var override = properties.publishedHost();
-        return new EndpointContext(override == null ? request.getServerName() : override);
+        return new EndpointContext(override == null ? requestHostname : override);
     }
 }

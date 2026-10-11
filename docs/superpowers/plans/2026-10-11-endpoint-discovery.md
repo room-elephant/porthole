@@ -46,7 +46,7 @@ All server paths below are relative to `server/src/main/java/com/roomelephant/po
 | `domain/component/endpoint/{TraefikRuleParser,TraefikEndpointProvider}.java` | Restricted rule parsing and Traefik URL discovery |
 | `domain/util/EndpointUrls.java` | URI construction/normalization shared by providers |
 | `config/properties/EndpointProperties.java` | Optional validated hostname override, scanned by existing application configuration |
-| `controller/EndpointContextResolver.java` | Resolve hostname from configuration and servlet request at the HTTP boundary |
+| `domain/component/endpoint/EndpointContextResolver.java` | Resolve the domain hostname policy from configuration and a plain request hostname |
 | Existing DTO, mapper, service, controller | Replace port API and propagate immutable request context |
 | `client/src/utils/endpoints.js` | Pure selection policy and dynamic source grouping |
 | `client/src/hooks/useEndpointSelection.js` | Stored selection, migration, and cross-tab behavior using existing storage hook |
@@ -68,7 +68,7 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 - `EndpointDiscovery(List<EndpointProvider> providers)`; `discover(ContainerSnapshot, EndpointContext) -> List<EndpointDTO>` deduplicates IDs and sorts by source/destination.
 - `EndpointUrls.publishedPortUrl(String host, int port) -> String` and `routeUrl(String scheme, String host, String path) -> String` construct normalized URIs.
 - `EndpointProperties(@Nullable String publishedHost)` uses prefix `porthole.endpoints`, startup validation, and native binding registration.
-- `EndpointContextResolver(EndpointProperties properties)`; `resolve(HttpServletRequest request) -> EndpointContext` reads configured hostname first, otherwise `request.getServerName()`.
+- `EndpointContextResolver(EndpointProperties properties)`; `resolve(String requestHostname) -> EndpointContext` reads configured hostname first, otherwise the plain hostname extracted by the controller.
 
 - [x] **Step 1: Write failing provider, URI, context, and Spring-wiring tests.** Name and pin these cases:
   - `shouldBuildCompletePublishedPortUrl`: port `51413` and host `192.168.50.6` yield exactly `EndpointDTO("published-port:51413", "published-port", "http://192.168.50.6:51413/")`.
@@ -83,7 +83,7 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 
 - [x] **Step 2: Run the new test classes before implementation.** Use `make -C server test-one TEST=PublishedPortEndpointProviderTest,EndpointUrlsTest,EndpointContextResolverTest,EndpointPropertiesTest,EndpointDiscoveryTest`. Expect missing types or failing assertions. Do not count dependency/environment errors as the intended failure.
 
-- [x] **Step 3: Implement the contracts and port discovery.** Use Spring beans and constructor injection; keep request state only in `EndpointContext`. Use a URI builder rather than concatenating IPv6 addresses. Keep `publishedPorts` numeric/protocol-agnostic as specified; inputs with no ports return an empty list. Keep servlet dependencies in the resolver/controller package.
+- [x] **Step 3: Implement the contracts and port discovery.** Use Spring beans and constructor injection; keep request state only in `EndpointContext`. Use a URI builder rather than concatenating IPv6 addresses. Keep `publishedPorts` numeric/protocol-agnostic as specified; inputs with no ports return an empty list. Keep servlet dependencies in the controller; the domain resolver accepts only a plain hostname.
 
 - [x] **Step 4: Run the same tests and server unit suite.** Require all new tests and `make -C server test` to pass; inspect the Spring-wiring assertions and configuration-validation failures.
 
@@ -121,8 +121,8 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 
 - `ContainerDTO` replaces `Set<Integer> exposedPorts` with `List<EndpointDTO> endpoints`; `hasEndpoints()` is serialized as `hasEndpoints`.
 - `ContainerMapper(IconComponent, EndpointDiscovery)`; `toDTO(Container container, EndpointContext context) -> ContainerDTO` extracts the immutable snapshot and invokes discovery.
-- `ContainerService.getContainers(boolean includeWithoutEndpoints, boolean includeStopped, EndpointContext context) -> List<ContainerDTO>` filters after discovery.
-- Controller uses `EndpointContextResolver` and accepts `includeWithoutEndpoints=false` and `includeStopped=false`; version endpoint and Docker error handling remain intact.
+- `ContainerService.getContainers(boolean includeWithoutEndpoints, boolean includeStopped, String requestHostname) -> List<ContainerDTO>` resolves the immutable domain context using its injected `EndpointContextResolver` and filters after discovery.
+- Controller passes `request.getServerName()` to the service and accepts `includeWithoutEndpoints=false` and `includeStopped=false`; version endpoint and Docker error handling remain intact.
 
 - [x] **Step 1: Write/update failing mapper, service, DTO, and MockMvc tests.** Assertions must pin:
   - Runtime Docker labels reach the providers; null labels/port arrays become empty collections, and null public-port values are ignored.

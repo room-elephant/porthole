@@ -1467,8 +1467,7 @@
           "name": "<init>",
           "parameterTypes": [
             "com.roomelephant.porthole.domain.service.ContainerService",
-            "com.roomelephant.porthole.domain.service.VersionService",
-            "com.roomelephant.porthole.controller.EndpointContextResolver"
+            "com.roomelephant.porthole.domain.service.VersionService"
           ]
         },
         {
@@ -1483,17 +1482,6 @@
           "name": "getVersion",
           "parameterTypes": [
             "java.lang.String"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.controller.EndpointContextResolver",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.config.properties.EndpointProperties"
           ]
         }
       ]
@@ -1533,6 +1521,17 @@
           "parameterTypes": [
             "org.springframework.web.client.RestClient",
             "com.roomelephant.porthole.config.properties.RegistryProperties"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.EndpointContextResolver",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.config.properties.EndpointProperties"
           ]
         }
       ]
@@ -1681,7 +1680,8 @@
           "name": "<init>",
           "parameterTypes": [
             "com.github.dockerjava.api.DockerClient",
-            "com.roomelephant.porthole.domain.mapper.ContainerMapper"
+            "com.roomelephant.porthole.domain.mapper.ContainerMapper",
+            "com.roomelephant.porthole.domain.component.endpoint.EndpointContextResolver"
           ]
         }
       ]
@@ -7932,9 +7932,6 @@
       "glob": "com/roomelephant/porthole/controller/ContainerController.class"
     },
     {
-      "glob": "com/roomelephant/porthole/controller/EndpointContextResolver.class"
-    },
-    {
       "glob": "com/roomelephant/porthole/controller/GlobalExceptionHandler.class"
     },
     {
@@ -7942,6 +7939,9 @@
     },
     {
       "glob": "com/roomelephant/porthole/domain/component/RegistryService.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/EndpointContextResolver.class"
     },
     {
       "glob": "com/roomelephant/porthole/domain/component/endpoint/EndpointDiscovery.class"

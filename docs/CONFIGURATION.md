@@ -124,13 +124,13 @@ Discovery reads resolved Docker container labels such as:
 
 ```yaml
 labels:
-  traefik.http.routers.jellyfin.rule: 'Host(`jellyfin.example.com`)'
-  traefik.http.routers.jellyfin.tls: 'true'
-  traefik.http.routers.download.rule: 'Host(`transmission.example.com`) && PathPrefix(`/dl/`)'
-  traefik.http.routers.download.tls: 'true'
+  traefik.http.routers.app.rule: 'Host(`app.example.com`)'
+  traefik.http.routers.app.tls: 'true'
+  traefik.http.routers.files.rule: 'Host(`files.example.com`) && PathPrefix(`/dl/`)'
+  traefik.http.routers.files.tls: 'true'
 ```
 
-These yield `https://jellyfin.example.com/` and `https://transmission.example.com/dl/`. A Host-only router and a path router remain separate choices; renamed routers with identical URLs are deduplicated. Label keys are matched case-insensitively. `traefik.enable=false` suppresses Traefik discovery while published-port candidates remain.
+These yield `https://app.example.com/` and `https://files.example.com/dl/`. A Host-only router and a path router remain separate choices; renamed routers with identical URLs are deduplicated. Label keys are matched case-insensitively. `traefik.enable=false` suppresses Traefik discovery while published-port candidates remain.
 
 Supported rules contain one literal `Host` and optionally one literal `Path` or `PathPrefix`, joined by `&&`, with grouping parentheses and backtick or double-quoted strings. The whole rule must be supported. OR, negation, regex matchers, multiple arguments, additional predicates, unresolved substitutions, and malformed rules are skipped. No Traefik connection or reachability probe is needed.
 

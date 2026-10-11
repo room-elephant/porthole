@@ -23,13 +23,7 @@ public class ContainerController {
     private final ContainerService containerService;
     private final VersionService versionService;
 
-    private final EndpointContextResolver endpointContextResolver;
-
-    public ContainerController(
-            ContainerService containerService,
-            VersionService versionService,
-            EndpointContextResolver endpointContextResolver) {
-        this.endpointContextResolver = endpointContextResolver;
+    public ContainerController(ContainerService containerService, VersionService versionService) {
         this.containerService = containerService;
         this.versionService = versionService;
     }
@@ -39,8 +33,7 @@ public class ContainerController {
             @RequestParam(defaultValue = "false") boolean includeWithoutEndpoints,
             @RequestParam(defaultValue = "false") boolean includeStopped,
             HttpServletRequest request) {
-        return containerService.getContainers(
-                includeWithoutEndpoints, includeStopped, endpointContextResolver.resolve(request));
+        return containerService.getContainers(includeWithoutEndpoints, includeStopped, request.getServerName());
     }
 
     @GetMapping("/containers/{containerId}/version")

@@ -2,9 +2,9 @@ package com.roomelephant.porthole.domain.service;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.Container;
+import com.roomelephant.porthole.domain.component.endpoint.EndpointContextResolver;
 import com.roomelephant.porthole.domain.mapper.ContainerMapper;
 import com.roomelephant.porthole.domain.model.ContainerDTO;
-import com.roomelephant.porthole.domain.model.EndpointContext;
 import com.roomelephant.porthole.domain.model.exception.DockerUnavailableException;
 import com.roomelephant.porthole.domain.model.exception.UnexpectedException;
 import java.net.SocketException;
@@ -21,14 +21,20 @@ public class ContainerService {
 
     private final DockerClient dockerClient;
     private final ContainerMapper containerMapper;
+    private final EndpointContextResolver endpointContextResolver;
 
-    public ContainerService(DockerClient dockerClient, ContainerMapper containerMapper) {
+    public ContainerService(
+            DockerClient dockerClient,
+            ContainerMapper containerMapper,
+            EndpointContextResolver endpointContextResolver) {
         this.dockerClient = dockerClient;
         this.containerMapper = containerMapper;
+        this.endpointContextResolver = endpointContextResolver;
     }
 
     public @NonNull List<ContainerDTO> getContainers(
-            boolean includeWithoutEndpoints, boolean includeStopped, EndpointContext context) {
+            boolean includeWithoutEndpoints, boolean includeStopped, String requestHostname) {
+        var context = endpointContextResolver.resolve(requestHostname);
         List<Container> containers;
         try {
             containers =

@@ -52,9 +52,10 @@ applicable candidates. It returns complete URLs with its source identifier and
 stable endpoint IDs when candidates exist.
 
 `ContainerMapper` maps Docker data into the snapshot, invokes discovery, and
-builds the API DTO. The controller resolves an immutable `EndpointContext`
-containing the published-port hostname
-once per request and passes it through the service and mapper into discovery.
+builds the API DTO. The controller extracts the request server name and passes
+that plain hostname to `ContainerService`. The service uses the domain
+`EndpointContextResolver` to apply the configured override and create an immutable
+`EndpointContext` once per request, then passes it through the mapper into discovery.
 Keep servlet request types at the controller boundary. This retains the current
 service/controller structure while separating provider logic.
 
@@ -102,9 +103,9 @@ There is no separate `port` field and no client-side URL construction:
 {
   "endpoints": [
     {
-      "id": "traefik:https://transmission.example.com/",
+      "id": "traefik:https://app.example.com/",
       "source": "traefik",
-      "url": "https://transmission.example.com/"
+      "url": "https://app.example.com/"
     },
     {
       "id": "published-port:51413",

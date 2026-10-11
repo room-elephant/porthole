@@ -6,6 +6,8 @@ import static org.mockito.Mockito.*;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.model.Container;
+import com.roomelephant.porthole.config.properties.EndpointProperties;
+import com.roomelephant.porthole.domain.component.endpoint.EndpointContextResolver;
 import com.roomelephant.porthole.domain.mapper.ContainerMapper;
 import com.roomelephant.porthole.domain.model.ContainerDTO;
 import com.roomelephant.porthole.domain.model.EndpointContext;
@@ -42,7 +44,8 @@ class ContainerServiceTest {
 
     @BeforeEach
     void setUp() {
-        containerService = new ContainerService(dockerClient, containerMapper);
+        containerService = new ContainerService(
+                dockerClient, containerMapper, new EndpointContextResolver(new EndpointProperties(null)));
     }
 
     @Nested
@@ -63,7 +66,7 @@ class ContainerServiceTest {
             when(containerMapper.toDTO(container1, context)).thenReturn(dto1);
             when(containerMapper.toDTO(container2, context)).thenReturn(dto2);
 
-            List<ContainerDTO> result = containerService.getContainers(true, false, context);
+            List<ContainerDTO> result = containerService.getContainers(true, false, "localhost");
 
             assertEquals(2, result.size());
             verify(listContainersCmd).withShowAll(false);
@@ -78,7 +81,7 @@ class ContainerServiceTest {
             when(listContainersCmd.withShowAll(true)).thenReturn(listContainersCmd);
             when(listContainersCmd.exec()).thenReturn(Collections.emptyList());
 
-            containerService.getContainers(true, true, context);
+            containerService.getContainers(true, true, "localhost");
 
             verify(listContainersCmd).withShowAll(true);
         }
@@ -97,7 +100,7 @@ class ContainerServiceTest {
             when(containerMapper.toDTO(container1, context)).thenReturn(dtoWithPorts);
             when(containerMapper.toDTO(container2, context)).thenReturn(dtoNoPorts);
 
-            List<ContainerDTO> result = containerService.getContainers(false, false, context);
+            List<ContainerDTO> result = containerService.getContainers(false, false, "localhost");
 
             assertEquals(1, result.size());
             assertEquals(dtoWithPorts, result.get(0));
@@ -113,7 +116,8 @@ class ContainerServiceTest {
             when(listContainersCmd.withShowAll(anyBoolean())).thenReturn(listContainersCmd);
             when(listContainersCmd.exec()).thenThrow(dockerException);
 
-            assertThrows(DockerUnavailableException.class, () -> containerService.getContainers(true, false, context));
+            assertThrows(
+                    DockerUnavailableException.class, () -> containerService.getContainers(true, false, "localhost"));
         }
 
         @Test
@@ -125,8 +129,8 @@ class ContainerServiceTest {
             when(listContainersCmd.withShowAll(anyBoolean())).thenReturn(listContainersCmd);
             when(listContainersCmd.exec()).thenThrow(otherException);
 
-            UnexpectedException thrown =
-                    assertThrows(UnexpectedException.class, () -> containerService.getContainers(true, false, context));
+            UnexpectedException thrown = assertThrows(
+                    UnexpectedException.class, () -> containerService.getContainers(true, false, "localhost"));
             assertEquals("Some other error", thrown.getCause().getMessage());
         }
 
@@ -137,7 +141,7 @@ class ContainerServiceTest {
             when(listContainersCmd.withShowAll(anyBoolean())).thenReturn(listContainersCmd);
             when(listContainersCmd.exec()).thenReturn(Collections.emptyList());
 
-            List<ContainerDTO> result = containerService.getContainers(true, true, context);
+            List<ContainerDTO> result = containerService.getContainers(true, true, "localhost");
 
             assertTrue(result.isEmpty());
         }
@@ -157,17 +161,53 @@ class ContainerServiceTest {
                 new com.roomelephant.porthole.domain.component.endpoint.PublishedPortEndpointProvider(),
                 new com.roomelephant.porthole.domain.component.endpoint.TraefikEndpointProvider(
                         new com.roomelephant.porthole.domain.component.endpoint.TraefikRuleParser())));
-        var service = new ContainerService(dockerClient, new ContainerMapper(icon, discovery));
+        var service = new ContainerService(
+                dockerClient,
+                new ContainerMapper(icon, discovery),
+                new EndpointContextResolver(new EndpointProperties(null)));
         when(dockerClient.listContainersCmd()).thenReturn(listContainersCmd);
         when(listContainersCmd.withShowAll(false)).thenReturn(listContainersCmd);
         when(listContainersCmd.exec()).thenReturn(List.of(container));
         assertEquals(
                 "http://app.example.com/",
-                service.getContainers(false, false, context)
+                service.getContainers(false, false, "localhost")
                         .getFirst()
                         .endpoints()
                         .getFirst()
                         .url());
+    }
+
+    @Test
+    void shouldApplyPublishedHostOverrideInsideService() {
+        var service = new ContainerService(
+                dockerClient,
+                containerMapper,
+                new EndpointContextResolver(new EndpointProperties("docker.example.com")));
+        var container = createMockContainer();
+        var dto = createContainerDTO("app", Set.of(8080));
+        var expectedContext = new EndpointContext("docker.example.com");
+        when(dockerClient.listContainersCmd()).thenReturn(listContainersCmd);
+        when(listContainersCmd.withShowAll(false)).thenReturn(listContainersCmd);
+        when(listContainersCmd.exec()).thenReturn(List.of(container));
+        when(containerMapper.toDTO(container, expectedContext)).thenReturn(dto);
+
+        assertEquals(List.of(dto), service.getContainers(false, false, "proxy.example.com"));
+        verify(containerMapper).toDTO(container, expectedContext);
+    }
+
+    @Test
+    void shouldResolveIndependentContextsForEachRequestHostname() {
+        var container = createMockContainer();
+        var dto = createContainerDTO("app", Set.of(8080));
+        when(dockerClient.listContainersCmd()).thenReturn(listContainersCmd);
+        when(listContainersCmd.withShowAll(false)).thenReturn(listContainersCmd);
+        when(listContainersCmd.exec()).thenReturn(List.of(container));
+        when(containerMapper.toDTO(eq(container), any(EndpointContext.class))).thenReturn(dto);
+
+        for (var hostname : List.of("192.168.50.6", "other.example.com")) {
+            assertEquals(List.of(dto), containerService.getContainers(false, false, hostname));
+            verify(containerMapper).toDTO(container, new EndpointContext(hostname));
+        }
     }
 
     private Container createMockContainer() {

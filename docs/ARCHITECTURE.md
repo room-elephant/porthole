@@ -176,9 +176,9 @@ This is required because the Docker Registry API expects the full path:
 
 ```json
 {
-  "id": "traefik:https://jellyfin.example.com/",
+  "id": "traefik:https://app.example.com/",
   "source": "traefik",
-  "url": "https://jellyfin.example.com/"
+  "url": "https://app.example.com/"
 }
 ```
 
@@ -186,7 +186,7 @@ Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fi
 
 ### Endpoint Provider Extension
 
-`ContainerMapper` builds an immutable `ContainerSnapshot` with published ports and raw labels. `EndpointContextResolver` keeps servlet request handling in `controller/`, passing a request-specific `EndpointContext` through the service and mapper. Domain providers receive no servlet objects and retain no request state.
+`ContainerMapper` builds an immutable `ContainerSnapshot` with published ports and raw labels. The controller extracts the request server name and passes that plain hostname to `ContainerService`. The service uses the domain `EndpointContextResolver` to apply the configured hostname override and build an immutable, request-specific `EndpointContext`, which it passes through the mapper into discovery. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
 
 `EndpointDiscovery` constructor-injects `List<EndpointProvider>`. Any additional Spring `@Component` implementing the interface participates automatically; there is no registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
 
