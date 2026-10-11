@@ -386,13 +386,13 @@ h1 {
   text-align: center;
 }
 
-.port-list {
+.endpoint-list {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.port-option {
+.endpoint-option {
   background: #0f172a;
   border: 1px solid #334155;
   padding: 0.75rem;
@@ -403,28 +403,55 @@ h1 {
   position: relative;
 }
 
-.port-option:hover {
+.endpoint-option:hover {
   border-color: #3b82f6;
   background: #1e3a8a;
 }
 
-.port-option.selected {
+.endpoint-option.selected {
   border-color: #3b82f6;
   background: #1d4ed8;
   color: white;
   font-weight: 600;
 }
 
-.port-option .checkmark {
+.endpoint-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.endpoint-option input {
   position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.endpoint-option:has(input:focus-visible) {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.endpoint-url {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.endpoint-option .checkmark {
+  flex-shrink: 0;
 }
 
 /* Settings Modal */
 .settings-modal {
-  width: 340px;
+  box-sizing: border-box;
+  width: 506px;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
 }
 
 .settings-section {

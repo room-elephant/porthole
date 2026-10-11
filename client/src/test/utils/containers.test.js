@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { groupByProject, getTargetUrl } from '../../utils/containers';
+import { describe, it, expect } from 'vitest';
+import { groupByProject } from '../../utils/containers';
 
 describe('containers utils', () => {
   describe('groupByProject', () => {
@@ -79,26 +79,4 @@ describe('containers utils', () => {
     });
   });
 
-  describe('getTargetUrl', () => {
-    beforeEach(() => {
-      window.location.hostname = 'localhost';
-    });
-
-    it('should generate URL with port using current hostname', () => {
-      const result = getTargetUrl(8080);
-      expect(result).toBe('http://localhost:8080');
-    });
-
-    it('should work with different hostnames', () => {
-      window.location.hostname = '192.168.1.100';
-      const result = getTargetUrl(3000);
-      expect(result).toBe('http://192.168.1.100:3000');
-    });
-
-    it('should handle string port numbers', () => {
-      const result = getTargetUrl('9000');
-      expect(result).toBe('http://localhost:9000');
-    });
-  });
 });
-

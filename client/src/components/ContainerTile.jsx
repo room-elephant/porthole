@@ -3,17 +3,17 @@ import { Settings, Loader2 } from 'lucide-react';
 import { useContainerVersion } from '../hooks/useContainerVersion';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS, ASSETS } from '../constants';
-import { getTargetUrl } from '../utils/containers';
+import { useEndpointSelection } from '../hooks/useEndpointSelection';
 import ContainerSettings from './ContainerSettings';
 
 const arraysEqual = (a, b) => 
-    a.length === b.length && a.every((v, i) => v === b[i]);
+    a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
 
 function ContainerTile({ container }) {
     const [showConfig, setShowConfig] = useState(false);
-    const hasPublicPorts = container.hasPublicPorts;
+    const hasEndpoints = container.hasEndpoints;
 
-    const [selectedPort, setSelectedPort] = useLocalStorage(STORAGE_KEYS.PORT_PREF(container.name), null);
+    const { selectedEndpoint, selectEndpoint } = useEndpointSelection(container.name, container.endpoints);
     const [checkUpdates, setCheckUpdates] = useLocalStorage(STORAGE_KEYS.VERSION_CHECK(container.name), true);
 
     const { data: versionInfo, isLoading: versionLoading } = useContainerVersion(
@@ -29,15 +29,10 @@ function ContainerTile({ container }) {
     };
 
     const handleTileClick = () => {
-        if (!hasPublicPorts) return;
+        if (!hasEndpoints) return;
 
-        if (selectedPort && container.exposedPorts.includes(selectedPort)) {
-            window.open(getTargetUrl(selectedPort), '_blank');
-            return;
-        }
-
-        if (container.exposedPorts.length === 1) {
-            window.open(getTargetUrl(container.exposedPorts[0]), '_blank');
+        if (selectedEndpoint) {
+            window.open(selectedEndpoint.url, '_blank');
         } else {
             setShowConfig(true);
         }
@@ -50,7 +45,7 @@ function ContainerTile({ container }) {
 
     return (
         <>
-            <div className={`card ${!hasPublicPorts ? 'disabled' : ''}`} onClick={handleTileClick}>
+            <div className={`card ${!hasEndpoints ? 'disabled' : ''}`} onClick={handleTileClick}>
                 <div className="card-actions">
                     <span 
                         className={`status-indicator ${getStatusClass()}`} 
@@ -86,11 +81,11 @@ function ContainerTile({ container }) {
             {showConfig && (
                 <ContainerSettings
                     containerName={container.name}
-                    ports={container.exposedPorts}
-                    selectedPort={selectedPort}
+                    endpoints={container.endpoints}
+                    selectedEndpointId={selectedEndpoint?.id ?? null}
                     checkUpdates={checkUpdates}
                     onClose={() => setShowConfig(false)}
-                    onSelectPort={setSelectedPort}
+                    onSelectEndpoint={selectEndpoint}
                     onToggleCheckUpdates={setCheckUpdates}
                 />
             )}
@@ -108,10 +103,12 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
     const next = nextProps.container;
     return (
         prev.id === next.id &&
+        prev.name === next.name &&
+        prev.displayName === next.displayName &&
         prev.state === next.state &&
         prev.image === next.image &&
         prev.iconUrl === next.iconUrl &&
-        prev.hasPublicPorts === next.hasPublicPorts &&
-        arraysEqual(prev.exposedPorts, next.exposedPorts)
+        prev.hasEndpoints === next.hasEndpoints &&
+        arraysEqual(prev.endpoints, next.endpoints)
     );
 });

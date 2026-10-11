@@ -17,7 +17,7 @@ api.interceptors.response.use(
 
 export const fetchContainers = async ({ showAll, showStopped, signal }) => {
   const { data } = await api.get(API.CONTAINERS, {
-    params: { includeWithoutPorts: showAll, includeStopped: showStopped },
+    params: { includeWithoutEndpoints: showAll, includeStopped: showStopped },
     signal,
   });
   return data;

@@ -14,11 +14,3 @@ export const groupByProject = (containers) => {
   return groups;
 };
 
-/**
- * Generates a target URL for a given port using the current hostname.
- */
-export const getTargetUrl = (port) => {
-  const hostname = window.location.hostname;
-  return `http://${hostname}:${port}`;
-};
-

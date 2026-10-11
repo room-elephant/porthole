@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ContainerTile from '../../components/ContainerTile';
 import * as api from '../../api';
-import { createMockContainer } from '../testUtils';
+import { createMockContainer, publishedEndpoint } from '../testUtils';
 
 vi.mock('../../api', () => ({
   fetchContainerVersion: vi.fn(),
@@ -106,21 +106,21 @@ describe('ContainerTile', () => {
   describe('Click behavior', () => {
     it('should open URL on click when container has single port', () => {
       const container = createMockContainer({
-        exposedPorts: [8080],
-        hasPublicPorts: true,
+        endpoints: [publishedEndpoint(8080)],
+        hasEndpoints: true,
       });
 
       renderWithQuery(<ContainerTile container={container} />);
 
       fireEvent.click(screen.getByRole('img').closest('.card'));
 
-      expect(window.open).toHaveBeenCalledWith('http://localhost:8080', '_blank');
+      expect(window.open).toHaveBeenCalledWith('http://localhost:8080/', '_blank');
     });
 
     it('should not open URL when container has no ports', () => {
       const container = createMockContainer({
-        exposedPorts: [],
-        hasPublicPorts: false,
+        endpoints: [],
+        hasEndpoints: false,
       });
 
       renderWithQuery(<ContainerTile container={container} />);
@@ -132,15 +132,15 @@ describe('ContainerTile', () => {
 
     it('should show settings modal when container has multiple ports and no preference', () => {
       const container = createMockContainer({
-        exposedPorts: [80, 443],
-        hasPublicPorts: true,
+        endpoints: [publishedEndpoint(80), publishedEndpoint(443)],
+        hasEndpoints: true,
       });
 
       renderWithQuery(<ContainerTile container={container} />);
 
       fireEvent.click(screen.getByRole('img').closest('.card'));
 
-      expect(screen.getByText('Port Selection')).toBeInTheDocument();
+      expect(screen.getByText('Published Ports')).toBeInTheDocument();
     });
   });
 
@@ -158,8 +158,8 @@ describe('ContainerTile', () => {
 
     it('should not trigger card click when settings button is clicked', () => {
       const container = createMockContainer({
-        exposedPorts: [8080],
-        hasPublicPorts: true,
+        endpoints: [publishedEndpoint(8080)],
+        hasEndpoints: true,
       });
 
       renderWithQuery(<ContainerTile container={container} />);
@@ -205,7 +205,8 @@ describe('ContainerTile', () => {
   describe('Disabled state', () => {
     it('should have disabled class when no public ports', () => {
       const container = createMockContainer({
-        hasPublicPorts: false,
+        hasEndpoints: false,
+        endpoints: [],
       });
 
       renderWithQuery(<ContainerTile container={container} />);
@@ -216,7 +217,7 @@ describe('ContainerTile', () => {
 
     it('should not have disabled class when has public ports', () => {
       const container = createMockContainer({
-        hasPublicPorts: true,
+        hasEndpoints: true,
       });
 
       renderWithQuery(<ContainerTile container={container} />);
@@ -225,4 +226,34 @@ describe('ContainerTile', () => {
       expect(card).not.toHaveClass('disabled');
     });
   });
+  it('opens Traefik by default and a saved published port when explicitly selected', () => {
+    const root = { id: 'proxy', source: 'traefik', url: 'https://transmission.example.com/' };
+    const container = createMockContainer({ endpoints: [publishedEndpoint(51413), root] });
+    renderWithQuery(<ContainerTile container={container} />);
+    fireEvent.click(screen.getByRole('img').closest('.card'));
+    expect(window.open).toHaveBeenLastCalledWith(root.url, '_blank');
+    fireEvent.click(screen.getByTitle('Container Settings'));
+    fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:51413/' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('img').closest('.card'));
+    expect(window.open).toHaveBeenLastCalledWith('http://localhost:51413/', '_blank');
+  });
+
+  it('uses a refreshed URL even when the endpoint ID is unchanged', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const container = createMockContainer();
+    const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
+    view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, endpoints: [{ ...container.endpoints[0], url: 'http://other.example.com:8080/' }] }} /></QueryClientProvider>);
+    fireEvent.click(screen.getByRole('img').closest('.card'));
+    expect(window.open).toHaveBeenLastCalledWith('http://other.example.com:8080/', '_blank');
+  });
+
+  it('allows settings and version controls on a disabled tile', () => {
+    renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [], hasEndpoints: false })} />);
+    fireEvent.click(screen.getByTitle('Container Settings'));
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(localStorage.getItem('version_check_test-container')).toBe('false');
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
 });
