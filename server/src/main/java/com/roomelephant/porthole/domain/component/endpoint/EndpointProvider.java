@@ -7,6 +7,6 @@ import java.util.List;
 import org.jspecify.annotations.NullMarked;
 
 @NullMarked
-public interface EndpointProvider {
+public sealed interface EndpointProvider permits PublishedPortEndpointProvider, TraefikEndpointProvider {
     List<EndpointDTO> discover(ContainerSnapshot container, EndpointContext context);
 }

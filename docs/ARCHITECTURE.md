@@ -188,14 +188,14 @@ Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fi
 
 `ContainerMapper` builds an immutable `ContainerSnapshot` with published ports and raw labels. The controller extracts the request server name and passes that plain hostname to `ContainerService`. The service uses the domain `EndpointContextResolver` to apply the configured hostname override and build an immutable, request-specific `EndpointContext`, which it passes through the mapper into discovery. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
 
-`EndpointDiscovery` constructor-injects `List<EndpointProvider>`. Any additional Spring `@Component` implementing the interface participates automatically; there is no registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
+`EndpointProvider` is a sealed interface permitting `PublishedPortEndpointProvider` and `TraefikEndpointProvider`, both final Spring components. To add a provider, implement the interface in a final `@Component` in the same package and add that class to its `permits` clause. `EndpointDiscovery` constructor-injects `List<EndpointProvider>`, so every permitted provider bean participates automatically without changing discovery or adding a runtime registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
 
-For example, this illustrative custom provider uses an application-specific label (not a standard proxy label):
+For example, after adding `MyProxyEndpointProvider` to the interface's `permits` clause, this illustrative provider uses an application-specific label (not a standard proxy label):
 
 ```java
 @Component
 @NullMarked
-public class MyProxyEndpointProvider implements EndpointProvider {
+public final class MyProxyEndpointProvider implements EndpointProvider {
     @Override
     public List<EndpointDTO> discover(ContainerSnapshot container, EndpointContext context) {
         String host = container.labels().get("myproxy.host");
@@ -243,4 +243,4 @@ Published-port IDs use `published-port:<port>` independently of the request host
 - `ContainerAwareIntegrationTestBase` — extends base to also start real Docker containers for end-to-end scenarios
 - Tests in `controller/`, `health/`, and `resilience/` extend these bases
 
-Endpoint discovery requires Docker-backed component scenarios in `server/src/test/java/com/roomelephant/porthole/it/controller/`, exercising the packaged JVM and native applications. Unit and MockMvc tests complement these scenarios. `PortholeContainer` defaults to `porthole-jvm:latest`; `-Dporthole.it.image=<tag>` selects a different runtime for both normal and custom-socket factories. Only the shared app records agent hints, avoiding competing writers from isolated override-test instances. See [server test commands](../server/README.md#test).
+See [server test commands](../server/README.md#test) for component-test requirements and runtime selection.

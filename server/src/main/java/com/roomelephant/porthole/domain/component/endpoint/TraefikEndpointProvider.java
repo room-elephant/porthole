@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 @NullMarked
 @Slf4j
-public class TraefikEndpointProvider implements EndpointProvider {
+public final class TraefikEndpointProvider implements EndpointProvider {
     private static final String ROUTER_PREFIX = "traefik.http.routers.";
     private final TraefikRuleParser parser;
 

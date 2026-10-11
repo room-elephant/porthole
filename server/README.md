@@ -24,6 +24,8 @@ make it                          # integration tests against JVM JAR (no Docker 
 make -C ../ server-it            # build IT Docker image + run integration tests (run from repo root)
 ```
 
+Endpoint discovery requires Docker-backed component scenarios in `src/test/java/com/roomelephant/porthole/it/controller/`, exercising the packaged JVM and native applications. Unit and MockMvc tests complement these scenarios.
+
 Rebuild the packaged JVM image after server source changes before running component tests:
 
 ```bash
@@ -39,6 +41,8 @@ make it MVN='mvn -Dporthole.it.image=porthole-native-validation:latest'
 ```
 
 `porthole.it.image` defaults to `porthole-jvm:latest` and applies to normal and custom-socket app factories. JVM success does not prove native serialization or AOT behavior. The existing release workflow's `porthole-it:latest` tag must be passed explicitly to select that image; its current command does not set this property.
+
+Only the shared application records native-agent hints. Isolated hostname-override instances disable recording to avoid competing writers in the shared output directory.
 
 ## Format
 

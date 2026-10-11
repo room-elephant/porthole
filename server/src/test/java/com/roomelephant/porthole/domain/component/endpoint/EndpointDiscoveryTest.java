@@ -12,36 +12,39 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 class EndpointDiscoveryTest {
     @Test
-    void shouldInjectEveryProviderBean() {
-        try (var context = new AnnotationConfigApplicationContext()) {
-            context.register(EndpointDiscovery.class, PublishedPortEndpointProvider.class);
-            context.registerBean(
-                    "additionalProvider",
-                    EndpointProvider.class,
-                    () -> (container, endpointContext) ->
-                            List.of(new EndpointDTO("ngnext:https://example.com/", "ngnext", "https://example.com/")));
-            context.refresh();
+    void shouldInjectEveryRegisteredProviderBean() {
+        try (var context = new AnnotationConfigApplicationContext(
+                EndpointDiscovery.class,
+                PublishedPortEndpointProvider.class,
+                TraefikEndpointProvider.class,
+                TraefikRuleParser.class)) {
             assertThat(context.getBean(EndpointDiscovery.class)
                             .discover(
-                                    EndpointFixtures.container(Set.of(51413), Map.of()),
+                                    EndpointFixtures.container(
+                                            Set.of(51413),
+                                            Map.of(
+                                                    "traefik.http.routers.app.rule", "Host(`app.example.com`)",
+                                                    "traefik.http.routers.app.tls", "true")),
                                     new EndpointContext("192.168.50.6")))
                     .containsExactly(
-                            new EndpointDTO("ngnext:https://example.com/", "ngnext", "https://example.com/"),
-                            new EndpointDTO("published-port:51413", "published-port", "http://192.168.50.6:51413/"));
+                            new EndpointDTO("published-port:51413", "published-port", "http://192.168.50.6:51413/"),
+                            new EndpointDTO("traefik:https://app.example.com/", "traefik", "https://app.example.com/"));
         }
     }
 
     @Test
     void shouldDeduplicateAndSortWithoutSelectingDefault() {
-        EndpointProvider first = (container, context) -> List.of(
-                new EndpointDTO("traefik:https://example.com/z/", "traefik", "https://example.com/z/"),
-                new EndpointDTO("traefik:https://example.com/", "traefik", "https://example.com/"));
-        EndpointProvider duplicate = (container, context) ->
-                List.of(new EndpointDTO("traefik:https://example.com/", "traefik", "https://example.com/"));
-        EndpointProvider empty = (container, context) -> List.of();
-        assertThat(new EndpointDiscovery(List.of(first, duplicate, empty))
-                        .discover(EndpointFixtures.container(Set.of(), Map.of()), new EndpointContext("localhost")))
+        var proxy = new TraefikEndpointProvider(new TraefikRuleParser());
+        var container = EndpointFixtures.container(
+                Set.of(),
+                Map.of(
+                        "traefik.http.routers.root.rule", "Host(`app.example.com`)",
+                        "traefik.http.routers.root.tls", "true",
+                        "traefik.http.routers.path.rule", "Host(`app.example.com`) && PathPrefix(`/z/`)",
+                        "traefik.http.routers.path.tls", "true"));
+        assertThat(new EndpointDiscovery(List.of(proxy, proxy, new PublishedPortEndpointProvider()))
+                        .discover(container, new EndpointContext("localhost")))
                 .extracting(EndpointDTO::url)
-                .containsExactly("https://example.com/", "https://example.com/z/");
+                .containsExactly("https://app.example.com/", "https://app.example.com/z/");
     }
 }

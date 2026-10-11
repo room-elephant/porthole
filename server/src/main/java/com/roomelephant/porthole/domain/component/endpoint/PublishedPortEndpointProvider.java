@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @NullMarked
-public class PublishedPortEndpointProvider implements EndpointProvider {
+public final class PublishedPortEndpointProvider implements EndpointProvider {
     @Override
     public List<EndpointDTO> discover(ContainerSnapshot container, EndpointContext context) {
         return container.publishedPorts().stream()
