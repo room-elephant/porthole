@@ -186,7 +186,11 @@ Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fi
 
 ### Endpoint Provider Extension
 
-`ContainerMapper` builds an immutable `ContainerSnapshot` with published ports and raw labels. The controller extracts the request server name and passes that plain hostname to `ContainerService`. The service uses the domain `EndpointContextResolver` to apply the configured hostname override and build an immutable, request-specific `EndpointContext`, which it passes through the mapper into discovery. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
+`ContainerService` retrieves docker-java containers and maps them through `ContainerMapper` into immutable domain `Container` records. These retain container metadata, published ports, raw labels, and `urlCandidates`. Mapping starts with no URL candidates. The service then applies `ContainerEnrichment`, which currently discovers URL candidates through the registered endpoint providers. Future derived information belongs in this enrichment phase. Filtering happens after enrichment, so label-only services are retained.
+
+The controller extracts the request server name and passes that plain hostname to the service. The domain `EndpointContextResolver` applies the configured hostname override and builds an immutable, request-specific `EndpointContext` for enrichment. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
+
+The service returns domain containers. `ContainerController` maps these through `controller/mapper/ContainerDTOMapper` into `controller/model/ContainerDTO` and `EndpointDTO`. The API exposes domain URL candidates as `endpoints`, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
 
 `EndpointProvider` is a sealed interface permitting `PublishedPortEndpointProvider` and `TraefikEndpointProvider`, both final Spring components. To add a provider, implement the interface in a final `@Component` in the same package and add that class to its `permits` clause. `EndpointDiscovery` constructor-injects `List<EndpointProvider>`, so every permitted provider bean participates automatically without changing discovery or adding a runtime registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
 
@@ -197,11 +201,11 @@ For example, after adding `MyProxyEndpointProvider` to the interface's `permits`
 @NullMarked
 public final class MyProxyEndpointProvider implements EndpointProvider {
     @Override
-    public List<EndpointDTO> discover(ContainerSnapshot container, EndpointContext context) {
+    public List<Endpoint> discover(Container container, EndpointContext context) {
         String host = container.labels().get("myproxy.host");
         if (host == null || !EndpointUrls.isValidHost(host)) return List.of();
         String url = EndpointUrls.routeUrl("https", host, "/");
-        return List.of(new EndpointDTO("my-proxy:" + url, "my-proxy", url));
+        return List.of(new Endpoint("my-proxy:" + url, "my-proxy", url));
     }
 }
 ```
@@ -224,11 +228,11 @@ Published-port IDs use `published-port:<port>` independently of the request host
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `controller/` — REST endpoints (`ContainerController`) and `GlobalExceptionHandler`
-- `domain/service/` — `ContainerService` (lists containers), `VersionService` (version + update detection)
-- `domain/component/` — `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
-- `domain/mapper/` — `ContainerMapper` maps docker-java types to DTOs
-- `domain/model/` — `ContainerDTO`, `EndpointDTO`, `ContainerSnapshot`, `EndpointContext`, `VersionDTO`, and domain exceptions
+- `controller/` — REST endpoints (`ContainerController`), `GlobalExceptionHandler`, API records in `model/`, and API mapping in `mapper/`
+- `domain/service/` — `ContainerService` (retrieves, maps, enriches, and filters domain containers), `VersionService` (version + update detection)
+- `domain/component/` — `ContainerEnrichment` (derived container information), `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
+- `domain/mapper/` — `ContainerMapper` maps docker-java types to internal containers
+- `domain/model/` — `Container`, `Endpoint`, `EndpointContext`, `VersionDTO`, and domain exceptions
 - `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
 - `config/` — `DockerConfig` (docker-java client bean), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
 - `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `DashboardProperties`, `EndpointProperties`

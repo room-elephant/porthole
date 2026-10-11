@@ -2,16 +2,13 @@ package com.roomelephant.porthole.domain.mapper;
 
 import static com.roomelephant.porthole.domain.util.ImageUtils.UNKNOWN_IMAGE_NAME;
 
-import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.ContainerPort;
 import com.roomelephant.porthole.domain.component.IconComponent;
-import com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery;
-import com.roomelephant.porthole.domain.model.ContainerDTO;
-import com.roomelephant.porthole.domain.model.ContainerSnapshot;
-import com.roomelephant.porthole.domain.model.EndpointContext;
+import com.roomelephant.porthole.domain.model.Container;
 import com.roomelephant.porthole.domain.util.ImageUtils;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -29,14 +26,11 @@ public class ContainerMapper {
 
     private final IconComponent iconComponent;
 
-    private final EndpointDiscovery endpointDiscovery;
-
-    public ContainerMapper(IconComponent iconComponent, EndpointDiscovery endpointDiscovery) {
-        this.endpointDiscovery = endpointDiscovery;
+    public ContainerMapper(IconComponent iconComponent) {
         this.iconComponent = iconComponent;
     }
 
-    public @NonNull ContainerDTO toDTO(@NonNull Container container, EndpointContext context) {
+    public Container toModel(com.github.dockerjava.api.model.Container container) {
         String name = getName(container.getNames());
         String imageFull = container.getImage();
         Set<Integer> ports = getPorts(container.getPorts());
@@ -48,14 +42,14 @@ public class ContainerMapper {
         String displayName = computeDisplayName(name, project);
         String iconUrl = resolveIconUrl(imageFull);
 
-        return new ContainerDTO(
+        return new Container(
                 container.getId(),
                 name,
                 displayName,
                 imageFull,
-                endpointDiscovery.discover(
-                        new ContainerSnapshot(container.getId(), name, imageFull, ports, labels, state, status),
-                        context),
+                ports,
+                labels,
+                List.of(),
                 iconUrl,
                 project,
                 state,

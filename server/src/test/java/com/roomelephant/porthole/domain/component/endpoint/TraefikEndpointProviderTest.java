@@ -2,8 +2,8 @@ package com.roomelephant.porthole.domain.component.endpoint;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roomelephant.porthole.domain.model.Endpoint;
 import com.roomelephant.porthole.domain.model.EndpointContext;
-import com.roomelephant.porthole.domain.model.EndpointDTO;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -25,7 +25,7 @@ class TraefikEndpointProviderTest {
                 "traefik.http.services.smh-transmission.loadbalancer.server.port",
                 "9091");
         assertThat(provider.discover(EndpointFixtures.container(Set.of(51413), labels), context))
-                .containsExactly(new EndpointDTO(
+                .containsExactly(new Endpoint(
                         "traefik:https://transmission.example.com/", "traefik", "https://transmission.example.com/"));
     }
 
@@ -45,7 +45,7 @@ class TraefikEndpointProviderTest {
                 "traefik.http.routers.renamed.tls",
                 "true");
         assertThat(provider.discover(EndpointFixtures.container(Set.of(), labels), context))
-                .extracting(EndpointDTO::url)
+                .extracting(Endpoint::url)
                 .containsExactly("https://shelf.example.com/", "https://shelf.example.com/dl/");
     }
 
@@ -60,7 +60,7 @@ class TraefikEndpointProviderTest {
                                         "TRAEFIK.HTTP.ROUTERS.APP.TLS",
                                         "true")),
                         context))
-                .extracting(EndpointDTO::url)
+                .extracting(Endpoint::url)
                 .containsExactly("https://example.com/");
     }
 
@@ -71,7 +71,7 @@ class TraefikEndpointProviderTest {
         assertThat(provider.discover(container, context)).isEmpty();
         assertThat(new EndpointDiscovery(java.util.List.of(provider, new PublishedPortEndpointProvider()))
                         .discover(container, context))
-                .extracting(EndpointDTO::source)
+                .extracting(Endpoint::source)
                 .containsExactly("published-port");
     }
 
@@ -86,7 +86,7 @@ class TraefikEndpointProviderTest {
         if (!tls.equals("absent")) labels.put("traefik.http.routers.app.tls", tls);
         if (tlsSublabel) labels.put("traefik.http.routers.app.tls.certresolver", "letsencrypt");
         assertThat(provider.discover(EndpointFixtures.container(Set.of(), labels), context))
-                .extracting(EndpointDTO::url)
+                .extracting(Endpoint::url)
                 .containsExactly(scheme + "://example.com/");
     }
 
@@ -98,7 +98,7 @@ class TraefikEndpointProviderTest {
                 "traefik.http.routers.valid.rule",
                 "Host(`valid.example.com`)");
         assertThat(provider.discover(EndpointFixtures.container(Set.of(), labels), context))
-                .extracting(EndpointDTO::url)
+                .extracting(Endpoint::url)
                 .containsExactly("http://valid.example.com/");
     }
 

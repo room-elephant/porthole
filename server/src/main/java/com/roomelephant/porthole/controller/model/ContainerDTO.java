@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.domain.model;
+package com.roomelephant.porthole.controller.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;

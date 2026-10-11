@@ -4,23 +4,27 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.roomelephant.porthole.domain.model.ContainerDTO;
-import com.roomelephant.porthole.domain.model.EndpointDTO;
+import com.roomelephant.porthole.controller.mapper.ContainerDTOMapper;
+import com.roomelephant.porthole.domain.model.Container;
+import com.roomelephant.porthole.domain.model.Endpoint;
 import com.roomelephant.porthole.domain.model.VersionDTO;
 import com.roomelephant.porthole.domain.service.ContainerService;
 import com.roomelephant.porthole.domain.service.VersionService;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ContainerController.class)
+@Import(ContainerDTOMapper.class)
 @DisplayName("ContainerController")
 class ContainerControllerTest {
 
@@ -40,9 +44,9 @@ class ContainerControllerTest {
         @Test
         @DisplayName("should return containers with default parameters")
         void shouldReturnContainersWithDefaultParameters() throws Exception {
-            ContainerDTO dto1 = createContainerDTO("container1");
-            ContainerDTO dto2 = createContainerDTO("container2");
-            List<ContainerDTO> containerDTOs = List.of(dto1, dto2);
+            Container dto1 = createContainer("container1");
+            Container dto2 = createContainer("container2");
+            List<Container> containerDTOs = List.of(dto1, dto2);
 
             when(containerService.getContainers(false, false, "localhost")).thenReturn(containerDTOs);
 
@@ -58,8 +62,8 @@ class ContainerControllerTest {
         @Test
         @DisplayName("should pass includeWithoutEndpoints parameter")
         void shouldPassIncludeWithoutEndpointsParameter() throws Exception {
-            ContainerDTO dtoWithPort = createContainerDTO("c1");
-            ContainerDTO dtoNoPort = createContainerDTO("c2", Collections.emptySet());
+            Container dtoWithPort = createContainer("c1");
+            Container dtoNoPort = createContainer("c2", Collections.emptySet());
 
             when(containerService.getContainers(true, false, "localhost")).thenReturn(List.of(dtoWithPort, dtoNoPort));
 
@@ -138,7 +142,7 @@ class ContainerControllerTest {
 
     @Test
     void shouldSerializeEndpointContractOnly() throws Exception {
-        when(containerService.getContainers(false, false, "localhost")).thenReturn(List.of(createContainerDTO("app")));
+        when(containerService.getContainers(false, false, "localhost")).thenReturn(List.of(createContainer("app")));
         mockMvc.perform(get("/api/containers"))
                 .andExpect(jsonPath("$[0].endpoints[0].id").value("published-port:80"))
                 .andExpect(jsonPath("$[0].endpoints[0].source").value("published-port"))
@@ -147,6 +151,8 @@ class ContainerControllerTest {
                 .andExpect(jsonPath("$[0].exposedPorts").doesNotExist())
                 .andExpect(jsonPath("$[0].hasPublicPorts").doesNotExist())
                 .andExpect(jsonPath("$[0].labels").doesNotExist())
+                .andExpect(jsonPath("$[0].publishedPorts").doesNotExist())
+                .andExpect(jsonPath("$[0].urlCandidates").doesNotExist())
                 .andExpect(jsonPath("$[0].endpoints[0].port").doesNotExist());
     }
 
@@ -154,10 +160,9 @@ class ContainerControllerTest {
     void shouldPassEachRequestHostnameToService() throws Exception {
         when(containerService.getContainers(eq(false), eq(false), anyString())).thenAnswer(call -> {
             var hostname = call.getArgument(2, String.class);
-            return List.of(createContainerDTO(
+            return List.of(createContainer(
                     "app",
-                    List.of(new EndpointDTO(
-                            "published-port:51413", "published-port", "http://" + hostname + ":51413/"))));
+                    List.of(new Endpoint("published-port:51413", "published-port", "http://" + hostname + ":51413/"))));
         });
         for (var hostname : List.of("192.168.50.6", "other.example.com")) {
             mockMvc.perform(get("http://" + hostname + ":9753/api/containers")
@@ -175,23 +180,35 @@ class ContainerControllerTest {
         verify(containerService).getContainers(false, false, "localhost");
     }
 
-    private ContainerDTO createContainerDTO(String name, List<EndpointDTO> endpoints) {
-        return new ContainerDTO(
-                name + "-id", name, name, "nginx:latest", endpoints, "icon", "test-project", "running", "Up");
-    }
-
-    private ContainerDTO createContainerDTO(String name) {
-        return createContainerDTO(name, Set.of(80));
-    }
-
-    private ContainerDTO createContainerDTO(String name, Set<Integer> ports) {
-        return new ContainerDTO(
+    private Container createContainer(String name, List<Endpoint> endpoints) {
+        return new Container(
                 name + "-id",
                 name,
                 name,
                 "nginx:latest",
+                Set.of(),
+                Map.of("secret", "internal-only"),
+                endpoints,
+                "icon",
+                "test-project",
+                "running",
+                "Up");
+    }
+
+    private Container createContainer(String name) {
+        return createContainer(name, Set.of(80));
+    }
+
+    private Container createContainer(String name, Set<Integer> ports) {
+        return new Container(
+                name + "-id",
+                name,
+                name,
+                "nginx:latest",
+                ports,
+                Map.of("secret", "internal-only"),
                 ports.stream()
-                        .map(port -> new EndpointDTO("published-port:" + port, "published-port", "http://localhost/"))
+                        .map(port -> new Endpoint("published-port:" + port, "published-port", "http://localhost/"))
                         .toList(),
                 "https://example.com/nginx.png",
                 "test-project",

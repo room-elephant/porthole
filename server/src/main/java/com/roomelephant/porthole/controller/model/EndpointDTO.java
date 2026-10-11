@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.domain.model;
+package com.roomelephant.porthole.controller.model;
 
 import org.jspecify.annotations.NullMarked;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;

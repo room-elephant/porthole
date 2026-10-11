@@ -2,8 +2,8 @@ package com.roomelephant.porthole.it.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.roomelephant.porthole.domain.model.ContainerDTO;
-import com.roomelephant.porthole.domain.model.EndpointDTO;
+import com.roomelephant.porthole.controller.model.ContainerDTO;
+import com.roomelephant.porthole.controller.model.EndpointDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
 import java.util.Arrays;

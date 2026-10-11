@@ -2,8 +2,8 @@ package com.roomelephant.porthole.domain.component.endpoint;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roomelephant.porthole.domain.model.Endpoint;
 import com.roomelephant.porthole.domain.model.EndpointContext;
-import com.roomelephant.porthole.domain.model.EndpointDTO;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,8 +27,8 @@ class EndpointDiscoveryTest {
                                                     "traefik.http.routers.app.tls", "true")),
                                     new EndpointContext("192.168.50.6")))
                     .containsExactly(
-                            new EndpointDTO("published-port:51413", "published-port", "http://192.168.50.6:51413/"),
-                            new EndpointDTO("traefik:https://app.example.com/", "traefik", "https://app.example.com/"));
+                            new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/"),
+                            new Endpoint("traefik:https://app.example.com/", "traefik", "https://app.example.com/"));
         }
     }
 
@@ -44,7 +44,7 @@ class EndpointDiscoveryTest {
                         "traefik.http.routers.path.tls", "true"));
         assertThat(new EndpointDiscovery(List.of(proxy, proxy, new PublishedPortEndpointProvider()))
                         .discover(container, new EndpointContext("localhost")))
-                .extracting(EndpointDTO::url)
+                .extracting(Endpoint::url)
                 .containsExactly("https://app.example.com/", "https://app.example.com/z/");
     }
 }

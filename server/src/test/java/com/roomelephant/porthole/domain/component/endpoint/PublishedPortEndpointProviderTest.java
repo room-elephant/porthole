@@ -2,8 +2,8 @@ package com.roomelephant.porthole.domain.component.endpoint;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roomelephant.porthole.domain.model.Endpoint;
 import com.roomelephant.porthole.domain.model.EndpointContext;
-import com.roomelephant.porthole.domain.model.EndpointDTO;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -15,8 +15,7 @@ class PublishedPortEndpointProviderTest {
     void shouldBuildCompletePublishedPortUrl() {
         assertThat(provider.discover(
                         EndpointFixtures.container(Set.of(51413), Map.of()), new EndpointContext("192.168.50.6")))
-                .containsExactly(
-                        new EndpointDTO("published-port:51413", "published-port", "http://192.168.50.6:51413/"));
+                .containsExactly(new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/"));
     }
 
     @Test

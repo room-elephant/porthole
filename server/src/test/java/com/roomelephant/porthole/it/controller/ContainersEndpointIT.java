@@ -3,8 +3,8 @@ package com.roomelephant.porthole.it.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpStatus.OK;
 
-import com.roomelephant.porthole.domain.model.ContainerDTO;
-import com.roomelephant.porthole.domain.model.EndpointDTO;
+import com.roomelephant.porthole.controller.model.ContainerDTO;
+import com.roomelephant.porthole.controller.model.EndpointDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import java.util.Arrays;
 import java.util.Map;
@@ -183,6 +183,8 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
             assertThat(container.has("exposedPorts")).isFalse();
             assertThat(container.has("hasPublicPorts")).isFalse();
             assertThat(container.has("labels")).isFalse();
+            assertThat(container.has("publishedPorts")).isFalse();
+            assertThat(container.has("urlCandidates")).isFalse();
             assertThat(container.path("hasEndpoints").asBoolean()).isTrue();
             for (var endpoint : container.path("endpoints")) {
                 assertThat(endpoint.properties().stream().map(Map.Entry::getKey).toList())

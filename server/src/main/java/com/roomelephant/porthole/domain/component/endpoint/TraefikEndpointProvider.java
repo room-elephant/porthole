@@ -1,8 +1,8 @@
 package com.roomelephant.porthole.domain.component.endpoint;
 
-import com.roomelephant.porthole.domain.model.ContainerSnapshot;
+import com.roomelephant.porthole.domain.model.Container;
+import com.roomelephant.porthole.domain.model.Endpoint;
 import com.roomelephant.porthole.domain.model.EndpointContext;
-import com.roomelephant.porthole.domain.model.EndpointDTO;
 import com.roomelephant.porthole.domain.util.EndpointUrls;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -26,11 +26,11 @@ public final class TraefikEndpointProvider implements EndpointProvider {
     }
 
     @Override
-    public List<EndpointDTO> discover(ContainerSnapshot container, EndpointContext context) {
+    public List<Endpoint> discover(Container container, EndpointContext context) {
         var labels = new TreeMap<String, String>();
         container.labels().forEach((key, value) -> labels.put(key.toLowerCase(Locale.ROOT), value));
         if (labels.getOrDefault("traefik.enable", "").strip().equalsIgnoreCase("false")) return List.of();
-        var endpoints = new ArrayList<EndpointDTO>();
+        var endpoints = new ArrayList<Endpoint>();
         labels.forEach((key, rule) -> {
             if (!key.startsWith(ROUTER_PREFIX)
                     || !key.endsWith(".rule")
@@ -43,11 +43,11 @@ public final class TraefikEndpointProvider implements EndpointProvider {
             }
             String url = EndpointUrls.routeUrl(
                     scheme(labels, router), route.get().host(), route.get().path());
-            endpoints.add(new EndpointDTO("traefik:" + url, "traefik", url));
+            endpoints.add(new Endpoint("traefik:" + url, "traefik", url));
         });
         return endpoints.stream()
                 .distinct()
-                .sorted(Comparator.comparing(EndpointDTO::url))
+                .sorted(Comparator.comparing(Endpoint::url))
                 .toList();
     }
 
