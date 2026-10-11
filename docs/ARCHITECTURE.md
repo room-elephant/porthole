@@ -186,7 +186,11 @@ Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fi
 
 ### Endpoint Provider Extension
 
-`ContainerService` retrieves docker-java containers and maps them through `ContainerMapper` into immutable domain `Container` records. These retain container metadata, published ports, raw labels, and `urlCandidates`. Mapping starts with no URL candidates. The service then applies `ContainerEnrichment`, which currently discovers URL candidates through the registered endpoint providers. Future derived information belongs in this enrichment phase. Filtering happens after enrichment, so label-only services are retained.
+`ContainerService` retrieves docker-java containers and maps them through `ContainerMapper` into immutable domain `Container` records. These retain container metadata, published ports, raw labels, and `urlCandidates`. Mapping starts with no URL candidates.
+
+The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the previous handler's immutable result and the request-specific context, and returns the container passed to the next handler. Every handler runs, including after a handler that makes no changes. An empty chain returns the input unchanged, and handler failures propagate to the existing exception handling.
+
+The first production handler, `UrlCandidateEnricher` (`@Order(0)`), discovers URL candidates through the registered endpoint providers. To add enrichment, implement `ContainerEnricher` as a `@Component` under `domain/component/enrichment/` and declare its order with `@Order` (for example, `@Order(100)` to run after URL discovery). Spring includes it automatically without changes to the service or chain. Filtering happens after enrichment, so label-only services are retained.
 
 The controller extracts the request server name and passes that plain hostname to the service. The domain `EndpointContextResolver` applies the configured hostname override and builds an immutable, request-specific `EndpointContext` for enrichment. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
 
@@ -230,7 +234,7 @@ Published-port IDs use `published-port:<port>` independently of the request host
 
 - `controller/` — REST endpoints (`ContainerController`), `GlobalExceptionHandler`, API records in `model/`, and API mapping in `mapper/`
 - `domain/service/` — `ContainerService` (retrieves, maps, enriches, and filters domain containers), `VersionService` (version + update detection)
-- `domain/component/` — `ContainerEnrichment` (derived container information), `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
+- `domain/component/` — `ContainerEnrichment` (ordered enrichment chain), `enrichment/` handlers, `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
 - `domain/mapper/` — `ContainerMapper` maps docker-java types to internal containers
 - `domain/model/` — `Container`, `Endpoint`, `EndpointContext`, `VersionDTO`, and domain exceptions
 - `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)

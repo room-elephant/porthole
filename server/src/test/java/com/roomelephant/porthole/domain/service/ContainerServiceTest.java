@@ -12,6 +12,7 @@ import com.roomelephant.porthole.config.properties.EndpointProperties;
 import com.roomelephant.porthole.domain.component.ContainerEnrichment;
 import com.roomelephant.porthole.domain.component.IconComponent;
 import com.roomelephant.porthole.domain.component.endpoint.*;
+import com.roomelephant.porthole.domain.component.enrichment.UrlCandidateEnricher;
 import com.roomelephant.porthole.domain.mapper.ContainerMapper;
 import com.roomelephant.porthole.domain.model.Endpoint;
 import com.roomelephant.porthole.domain.model.exception.DockerUnavailableException;
@@ -156,7 +157,7 @@ class ContainerServiceTest {
         return new ContainerService(
                 dockerClient,
                 new ContainerMapper(icon),
-                new ContainerEnrichment(discovery),
+                new ContainerEnrichment(List.of(new UrlCandidateEnricher(discovery))),
                 new EndpointContextResolver(new EndpointProperties(publishedHost)));
     }
 
