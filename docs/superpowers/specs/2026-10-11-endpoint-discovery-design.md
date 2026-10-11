@@ -68,6 +68,28 @@ Any provider-specific dependencies or configuration are injected by Spring.
 The interface does not require providers to use labels. This version implements
 the published-port and Traefik providers; other proxies are extension examples.
 
+### Fit with the existing architecture
+
+Keep the application as one Spring Boot backend with its bundled React client
+and GraalVM native executable. Use existing package responsibilities:
+
+- `domain/model`: snapshot, endpoint DTO, and immutable endpoint context.
+- `domain/component/endpoint`: provider interface, implementations, and discovery
+  component, within the existing domain component layer.
+- `domain/mapper`: Docker-to-model/API mapping in `ContainerMapper`.
+- `domain/service` and `controller`: retain container listing, error handling,
+  filtering, and HTTP request handling in their current layers.
+- `config/properties`: a validated `EndpointProperties` record with prefix
+  `porthole.endpoints`, discovered by the existing `@ConfigurationPropertiesScan`.
+
+Follow the repository's JSpecify/`@NullMarked` conventions: provider results,
+collection inputs, context hostname, and endpoint fields are non-null; only the
+optional configured hostname is nullable. Register reflection binding for new
+API DTOs and configuration properties, as existing configuration records do.
+Use Spring constructor injection and existing dependencies. Retain React Query
+for server state and browser local storage for selections. No new deployment,
+storage system, client state framework, or Docker transport is introduced.
+
 ## API contract
 
 Replace `ContainerDTO.exposedPorts` with `endpoints: List<EndpointDTO>` and
@@ -131,7 +153,7 @@ HTTP probe, port allowlist, or protocol detection in this feature.
 Resolve the published-port hostname in this order:
 
 1. The optional `porthole.endpoints.published-host` configuration property
-   (`PORTHOLE_ENDPOINTS_PUBLISHED_HOST`), containing a hostname or IP address
+   (`PORTHOLE_ENDPOINTS_PUBLISHEDHOST`), containing a hostname or IP address
    without scheme, port, or path. Validate configured values at startup.
 2. The incoming request's server name, using the servlet API's parsed hostname.
    For a request to `http://192.168.50.6:9753/api/containers`, this is
@@ -236,6 +258,8 @@ local-storage selection, and memo comparison. Remove the frontend port-to-URL
 helper. Compare endpoint contents so a refreshed URL changes the tile even when
 its container ID remains the same.
 Retain the current Show All setting, now including containers without endpoints.
+Update its visible label and the app's empty-state messages from "without ports"
+to "without endpoints" so label-only containers are described correctly.
 
 ## Verification and acceptance criteria
 
@@ -265,17 +289,34 @@ a container with both labels and a published port. Verify the serialized API
 contract and filtering with `includeWithoutEndpoints`, including non-null URLs
 for both sources. No live Traefik instance is required because this feature
 interprets Docker metadata rather than querying Traefik or validating reachability.
+Extend `ContainersEndpointIT` and reuse `ContainerAwareIntegrationTestBase`,
+`IntegrationTestBase`, and `PortholeContainer` for fixtures and application
+lifecycle. Preserve existing coverage thresholds and the JVM/native IT split.
 
 During implementation, run server unit tests, client tests/lint/build, and
-Spotless checks. Rebuild the JVM image before server ITs when server source
-changes. Register reflection binding for endpoint DTOs; regenerate native hints
-when reflection-dependent types are added, without editing generated JSON by
-hand. Verify the same IT suite against the native image to check AOT serialization.
-Update Architecture and Configuration documentation for the new contract and
-selection behavior. No runtime tests are required for this design-only commit.
+Spotless checks using the per-component Makefiles. Apply server formatting before
+committing. When server source changes, package the updated JAR before rebuilding
+the JVM image and running server ITs; the Dockerfile consumes a pre-built JAR.
+Register reflection binding for endpoint DTOs and configuration properties;
+regenerate native hints when reflection-dependent types are added, without editing
+generated JSON by hand. Verify the same IT suite against the native image to check
+AOT serialization.
+Confirm which image the IT fixture actually launches: `PortholeContainer`
+currently hardcodes `porthole-jvm:latest`, while the release workflow builds its
+native IT image as `porthole-it:latest`. A native-image check must explicitly make
+the fixture launch the native image; the workflow's step title alone does not
+establish that. Resolving the release workflow mismatch is a separate tooling
+concern, not a change to endpoint discovery's architecture.
+Update README, Architecture, and Configuration documentation for the new contract,
+provider extension mechanism, optional hostname override, and selection behavior.
+No runtime tests are required for this design-only commit.
 
 ## References
 
+- [Repository architecture](../../ARCHITECTURE.md)
+- [Development workflow](../../DEVELOPMENT.md)
+- [Configuration conventions](../../CONFIGURATION.md)
+- [Spring environment-variable binding](https://docs.spring.io/spring-boot/reference/features/external-config.html#features.external-config.typesafe-configuration-properties.relaxed-binding.environment-variables)
 - [Traefik Docker routing labels](https://doc.traefik.io/traefik/reference/routing-configuration/other-providers/docker/)
 - [Traefik HTTP TLS configuration](https://doc.traefik.io/traefik/reference/routing-configuration/http/tls/overview/)
 - [Traefik entrypoints](https://doc.traefik.io/traefik/routing/entrypoints/)
