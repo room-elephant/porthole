@@ -159,12 +159,12 @@ class ContainerControllerTest {
     @Test
     void shouldPassEachRequestHostnameToService() throws Exception {
         when(containerService.getContainers(eq(false), eq(false), anyString())).thenAnswer(call -> {
-            var hostname = call.getArgument(2, String.class);
+            String hostname = call.getArgument(2, String.class);
             return List.of(createContainer(
                     "app",
                     List.of(new Endpoint("published-port:51413", "published-port", "http://" + hostname + ":51413/"))));
         });
-        for (var hostname : List.of("192.168.50.6", "other.example.com")) {
+        for (String hostname : List.of("192.168.50.6", "other.example.com")) {
             mockMvc.perform(get("http://" + hostname + ":9753/api/containers")
                             .header("X-Forwarded-Host", "ignored.example.com"))
                     .andExpect(jsonPath("$[0].endpoints[0].url").value("http://" + hostname + ":51413/"))

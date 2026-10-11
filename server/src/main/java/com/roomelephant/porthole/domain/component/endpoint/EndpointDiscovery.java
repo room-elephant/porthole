@@ -1,8 +1,8 @@
 package com.roomelephant.porthole.domain.component.endpoint;
 
 import com.roomelephant.porthole.domain.model.Container;
+import com.roomelephant.porthole.domain.model.ContainerContext;
 import com.roomelephant.porthole.domain.model.Endpoint;
-import com.roomelephant.porthole.domain.model.EndpointContext;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,10 +18,10 @@ public class EndpointDiscovery {
         this.providers = List.copyOf(providers);
     }
 
-    public List<Endpoint> discover(Container container, EndpointContext context) {
-        var endpoints = new LinkedHashMap<String, Endpoint>();
-        for (var provider : providers) {
-            for (var endpoint : provider.discover(container, context)) {
+    public List<Endpoint> discover(Container container, ContainerContext context) {
+        LinkedHashMap<String, Endpoint> endpoints = new LinkedHashMap<String, Endpoint>();
+        for (EndpointProvider provider : providers) {
+            for (Endpoint endpoint : provider.discover(container, context)) {
                 endpoints.putIfAbsent(endpoint.id(), endpoint);
             }
         }

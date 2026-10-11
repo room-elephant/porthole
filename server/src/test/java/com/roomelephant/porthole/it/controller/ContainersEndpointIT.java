@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
@@ -117,7 +118,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldIncludeTraefikContainerWithoutPublishedPorts() {
-        var container = fetchContainers(false, false).get(TEST_PROXY_CONTAINER_NAME);
+        ContainerDTO container = fetchContainers(false, false).get(TEST_PROXY_CONTAINER_NAME);
         assertThat(container).isNotNull();
         assertThat(container.endpoints())
                 .containsExactly(new EndpointDTO(
@@ -126,7 +127,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldReturnProxyAndPublishedPortCandidates() {
-        var container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
+        ContainerDTO container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
         int port = mixedContainer.getMappedPort(51413);
         assertThat(container.endpoints())
                 .contains(
@@ -136,7 +137,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldKeepDistinctRoutesAndDeduplicateEquivalentRouters() {
-        var container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
+        ContainerDTO container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
         assertThat(container.endpoints().stream()
                         .filter(endpoint -> endpoint.source().equals("traefik"))
                         .toList())
@@ -153,9 +154,9 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldSkipDisabledAndUnsupportedRoutersWithoutLosingOtherCandidates() {
-        var containers = fetchContainers(false, false);
+        Map<String, ContainerDTO> containers = fetchContainers(false, false);
         assertThat(containers).doesNotContainKey(TEST_UNSUPPORTED_CONTAINER_NAME);
-        var disabled = containers.get(TEST_DISABLED_CONTAINER_NAME);
+        ContainerDTO disabled = containers.get(TEST_DISABLED_CONTAINER_NAME);
         assertThat(disabled.endpoints()).hasSize(1);
         assertThat(disabled.endpoints().getFirst().source()).isEqualTo("published-port");
         assertThat(containers.get(TEST_MIXED_CONTAINER_NAME).endpoints()).hasSize(3);
@@ -170,23 +171,24 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
                 .containsKeys(TEST_NO_PORTS_CONTAINER_NAME, TEST_UNSUPPORTED_CONTAINER_NAME)
                 .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
         assertThat(fetchContainers(true, true)).containsKey(TEST_STOPPED_CONTAINER_NAME);
-        var response = fetch("/api/containers?includeWithoutPorts=true", ContainerDTO[].class);
+        ResponseEntity<ContainerDTO[]> response =
+                fetch("/api/containers?includeWithoutPorts=true", ContainerDTO[].class);
         assertThat(Arrays.stream(response.getBody()).map(ContainerDTO::name).toList())
                 .doesNotContain(TEST_NO_PORTS_CONTAINER_NAME);
     }
 
     @Test
     void shouldSerializeOnlyEndpointContract() throws Exception {
-        var body = new JsonMapper().readTree(fetch("/api/containers").getBody());
+        JsonNode body = new JsonMapper().readTree(fetch("/api/containers").getBody());
         boolean found = false;
-        for (var container : body) {
+        for (JsonNode container : body) {
             assertThat(container.has("exposedPorts")).isFalse();
             assertThat(container.has("hasPublicPorts")).isFalse();
             assertThat(container.has("labels")).isFalse();
             assertThat(container.has("publishedPorts")).isFalse();
             assertThat(container.has("urlCandidates")).isFalse();
             assertThat(container.path("hasEndpoints").asBoolean()).isTrue();
-            for (var endpoint : container.path("endpoints")) {
+            for (JsonNode endpoint : container.path("endpoints")) {
                 assertThat(endpoint.properties().stream().map(Map.Entry::getKey).toList())
                         .containsExactlyInAnyOrder("id", "source", "url");
                 assertThat(endpoint.path("url").asText()).startsWith("http");

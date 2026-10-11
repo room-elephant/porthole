@@ -186,13 +186,19 @@ Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fi
 
 ### Endpoint Provider Extension
 
-`ContainerService` retrieves docker-java containers and maps them through `ContainerMapper` into immutable domain `Container` records. These retain container metadata, published ports, raw labels, and `urlCandidates`. Mapping starts with no URL candidates.
+`ContainerService` retrieves all docker-java containers and maps them through `ContainerMapper` into immutable domain `Container` records. These retain container metadata, published ports, raw labels, and `urlCandidates`. Mapping starts with no URL candidates.
 
-The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the previous handler's immutable result and the request-specific context, and returns the container passed to the next handler. Every handler runs, including after a handler that makes no changes. An empty chain returns the input unchanged, and handler failures propagate to the existing exception handling.
+The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the previous handler's immutable result and the request-specific `ContainerContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler, including when the handler makes no changes. An empty chain retains the input, and handler failures propagate to the existing exception handling.
 
-The first production handler, `UrlCandidateEnricher` (`@Order(0)`), discovers URL candidates through the registered endpoint providers. To add enrichment, implement `ContainerEnricher` as a `@Component` under `domain/component/enrichment/` and declare its order with `@Order` (for example, `@Order(100)` to run after URL discovery). Spring includes it automatically without changes to the service or chain. Filtering happens after enrichment, so label-only services are retained.
+The production handlers run in this order:
 
-The controller extracts the request server name and passes that plain hostname to the service. The domain `EndpointContextResolver` applies the configured hostname override and builds an immutable, request-specific `EndpointContext` for enrichment. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
+1. `ContainerStateFilter` (`@Order(0)`) rejects stopped containers unless `includeStopped` is enabled.
+2. `UrlCandidateEnricher` (`@Order(100)`) discovers URL candidates through the registered endpoint providers.
+3. `EndpointAvailabilityFilter` (`@Order(200)`) rejects containers without URL candidates unless `includeWithoutEndpoints` is enabled. This filter runs after discovery so label-only services remain discoverable.
+
+To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` under `domain/component/enrichment/` and declare its order with `@Order` (for example, `@Order(300)` to run after the existing handlers). Spring includes it automatically without changes to the service or chain.
+
+The controller extracts the request server name and passes that plain hostname and the query flags to the service. The service builds an immutable `ContainerContext` containing the raw request host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to apply the configured hostname override without changing the shared request context. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
 
 The service returns domain containers. `ContainerController` maps these through `controller/mapper/ContainerDTOMapper` into `controller/model/ContainerDTO` and `EndpointDTO`. The API exposes domain URL candidates as `endpoints`, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
 
@@ -205,7 +211,7 @@ For example, after adding `MyProxyEndpointProvider` to the interface's `permits`
 @NullMarked
 public final class MyProxyEndpointProvider implements EndpointProvider {
     @Override
-    public List<Endpoint> discover(Container container, EndpointContext context) {
+    public List<Endpoint> discover(Container container, ContainerContext context) {
         String host = container.labels().get("myproxy.host");
         if (host == null || !EndpointUrls.isValidHost(host)) return List.of();
         String url = EndpointUrls.routeUrl("https", host, "/");
@@ -233,10 +239,10 @@ Published-port IDs use `published-port:<port>` independently of the request host
 `server/src/main/java/com/roomelephant/porthole/`:
 
 - `controller/` — REST endpoints (`ContainerController`), `GlobalExceptionHandler`, API records in `model/`, and API mapping in `mapper/`
-- `domain/service/` — `ContainerService` (retrieves, maps, enriches, and filters domain containers), `VersionService` (version + update detection)
+- `domain/service/` — `ContainerService` (retrieves, maps, and applies the filtering/enrichment chain to domain containers), `VersionService` (version + update detection)
 - `domain/component/` — `ContainerEnrichment` (ordered enrichment chain), `enrichment/` handlers, `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
 - `domain/mapper/` — `ContainerMapper` maps docker-java types to internal containers
-- `domain/model/` — `Container`, `Endpoint`, `EndpointContext`, `VersionDTO`, and domain exceptions
+- `domain/model/` — `Container`, `Endpoint`, `ContainerContext`, `VersionDTO`, and domain exceptions
 - `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
 - `config/` — `DockerConfig` (docker-java client bean), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
 - `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `DashboardProperties`, `EndpointProperties`

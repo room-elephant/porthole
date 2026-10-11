@@ -2,13 +2,14 @@ package com.roomelephant.porthole.domain.component.enrichment;
 
 import com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery;
 import com.roomelephant.porthole.domain.model.Container;
-import com.roomelephant.porthole.domain.model.EndpointContext;
+import com.roomelephant.porthole.domain.model.ContainerContext;
+import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
-@Order(0)
+@Order(100)
 @NullMarked
 public class UrlCandidateEnricher implements ContainerEnricher {
     private final EndpointDiscovery endpointDiscovery;
@@ -18,7 +19,7 @@ public class UrlCandidateEnricher implements ContainerEnricher {
     }
 
     @Override
-    public Container enrich(Container container, EndpointContext context) {
-        return container.withUrlCandidates(endpointDiscovery.discover(container, context));
+    public Optional<Container> enrich(Container container, ContainerContext context) {
+        return Optional.of(container.withUrlCandidates(endpointDiscovery.discover(container, context)));
     }
 }

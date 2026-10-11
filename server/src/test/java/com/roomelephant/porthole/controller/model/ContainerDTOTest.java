@@ -13,7 +13,7 @@ class ContainerDTOTest {
     @Test
     @DisplayName("should return true for hasEndpoints when ports are present")
     void shouldReturnTrueForHasEndpointsWhenPortsArePresent() {
-        var dto = new ContainerDTO(
+        ContainerDTO dto = new ContainerDTO(
                 "container-id",
                 "my-container",
                 "my-container",
@@ -30,7 +30,7 @@ class ContainerDTOTest {
     @Test
     @DisplayName("should return false for hasEndpoints when ports list is empty")
     void shouldReturnFalseForHasEndpointsWhenPortsListIsEmpty() {
-        var dto = new ContainerDTO(
+        ContainerDTO dto = new ContainerDTO(
                 "container-id",
                 "my-container",
                 "my-container",
@@ -47,7 +47,7 @@ class ContainerDTOTest {
     @Test
     @DisplayName("should correctly expose all record components")
     void shouldCorrectlyExposeAllRecordComponents() {
-        var dto = new ContainerDTO(
+        ContainerDTO dto = new ContainerDTO(
                 "abc123",
                 "test-container",
                 "test",

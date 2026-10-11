@@ -14,11 +14,12 @@ class PublishedHostOverrideIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldUseConfiguredPublishedHost() {
         // The shared app owns hint recording; two agents must never write to the same directory.
-        try (var app = new PortholeContainer(wireMockClient().port(), false)
+        try (PortholeContainer app = new PortholeContainer(wireMockClient().port(), false)
                 .withEnv("PORTHOLE_ENDPOINTS_PUBLISHEDHOST", "docker.example.com")) {
             app.start();
-            var containers = new RestTemplate().getForObject(app.baseUrl() + "/api/containers", ContainerDTO[].class);
-            var container = Arrays.stream(containers)
+            ContainerDTO[] containers =
+                    new RestTemplate().getForObject(app.baseUrl() + "/api/containers", ContainerDTO[].class);
+            ContainerDTO container = Arrays.stream(containers)
                     .filter(candidate -> candidate.name().equals(TEST_APP_CONTAINER_NAME))
                     .findFirst()
                     .orElseThrow();
@@ -26,7 +27,7 @@ class PublishedHostOverrideIT extends ContainerAwareIntegrationTestBase {
             assertThat(container.endpoints())
                     .containsExactly(new EndpointDTO(
                             "published-port:" + port, "published-port", "http://docker.example.com:" + port + "/"));
-            var proxy = Arrays.stream(containers)
+            ContainerDTO proxy = Arrays.stream(containers)
                     .filter(candidate -> candidate.name().equals(TEST_PROXY_CONTAINER_NAME))
                     .findFirst()
                     .orElseThrow();

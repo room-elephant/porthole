@@ -2,8 +2,9 @@ package com.roomelephant.porthole.domain.component;
 
 import com.roomelephant.porthole.domain.component.enrichment.ContainerEnricher;
 import com.roomelephant.porthole.domain.model.Container;
-import com.roomelephant.porthole.domain.model.EndpointContext;
+import com.roomelephant.porthole.domain.model.ContainerContext;
 import java.util.List;
+import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
 
@@ -16,11 +17,13 @@ public class ContainerEnrichment {
         this.enrichers = List.copyOf(enrichers);
     }
 
-    public Container enrich(Container container, EndpointContext context) {
-        var enriched = container;
-        for (var enricher : enrichers) {
-            enriched = enricher.enrich(enriched, context);
+    public Optional<Container> enrich(Container container, ContainerContext context) {
+        Container enriched = container;
+        for (ContainerEnricher enricher : enrichers) {
+            Optional<Container> result = enricher.enrich(enriched, context);
+            if (result.isEmpty()) return Optional.empty();
+            enriched = result.get();
         }
-        return enriched;
+        return Optional.of(enriched);
     }
 }

@@ -2,8 +2,10 @@ package com.roomelephant.porthole.domain.component.endpoint;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roomelephant.porthole.config.properties.EndpointProperties;
+import com.roomelephant.porthole.domain.model.Container;
+import com.roomelephant.porthole.domain.model.ContainerContext;
 import com.roomelephant.porthole.domain.model.Endpoint;
-import com.roomelephant.porthole.domain.model.EndpointContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -13,11 +15,11 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class TraefikEndpointProviderTest {
     private final TraefikEndpointProvider provider = new TraefikEndpointProvider(new TraefikRuleParser());
-    private final EndpointContext context = new EndpointContext("192.168.50.6");
+    private final ContainerContext context = new ContainerContext("192.168.50.6", false, false);
 
     @Test
     void shouldDiscoverHostOnlyTlsRouter() {
-        var labels = Map.of(
+        Map<String, String> labels = Map.of(
                 "traefik.http.routers.smh-transmission.rule",
                 "Host(`transmission.example.com`)",
                 "traefik.http.routers.smh-transmission.tls",
@@ -31,7 +33,7 @@ class TraefikEndpointProviderTest {
 
     @Test
     void shouldKeepRootAndDownloadRoutes() {
-        var labels = Map.of(
+        Map<String, String> labels = Map.of(
                 "traefik.http.routers.shelf.rule",
                 "Host(`SHELF.example.com`)",
                 "traefik.http.routers.shelf.tls",
@@ -66,10 +68,14 @@ class TraefikEndpointProviderTest {
 
     @Test
     void shouldDisableTraefikWithoutAffectingPublishedPorts() {
-        var labels = Map.of("traefik.enable", "FALSE", "traefik.http.routers.app.rule", "Host(`example.com`)");
-        var container = EndpointFixtures.container(Set.of(51413), labels);
+        Map<String, String> labels =
+                Map.of("traefik.enable", "FALSE", "traefik.http.routers.app.rule", "Host(`example.com`)");
+        Container container = EndpointFixtures.container(Set.of(51413), labels);
         assertThat(provider.discover(container, context)).isEmpty();
-        assertThat(new EndpointDiscovery(java.util.List.of(provider, new PublishedPortEndpointProvider()))
+        assertThat(new EndpointDiscovery(java.util.List.of(
+                                provider,
+                                new PublishedPortEndpointProvider(
+                                        new PublishedHostResolver(new EndpointProperties(null)))))
                         .discover(container, context))
                 .extracting(Endpoint::source)
                 .containsExactly("published-port");
@@ -78,7 +84,7 @@ class TraefikEndpointProviderTest {
     @ParameterizedTest
     @CsvSource({"true,false,https", "false,true,http", "absent,true,https", "absent,false,http"})
     void shouldInferSchemeFromRouterTls(String tls, boolean tlsSublabel, String scheme) {
-        var labels = new HashMap<String, String>();
+        HashMap<String, String> labels = new HashMap<String, String>();
         labels.put("traefik.http.routers.app.rule", "Host(`example.com`)");
         labels.put("traefik.http.routers.app.entrypoints", "websecure");
         labels.put("traefik.http.services.app.loadbalancer.server.scheme", "https");
@@ -92,7 +98,7 @@ class TraefikEndpointProviderTest {
 
     @Test
     void shouldKeepOtherCandidatesWhenOneRouterIsInvalid() {
-        var labels = Map.of(
+        Map<String, String> labels = Map.of(
                 "traefik.http.routers.invalid.rule",
                 "Host(`example.com`) && Method(`POST`)",
                 "traefik.http.routers.valid.rule",

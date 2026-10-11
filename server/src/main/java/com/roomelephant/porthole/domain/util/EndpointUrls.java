@@ -20,7 +20,7 @@ public final class EndpointUrls {
     public static boolean isValidHost(String host) {
         if (host.isEmpty() || !host.equals(host.strip())) return false;
         try {
-            var uri = new URI("http", null, host, -1, "/", null, null);
+            URI uri = new URI("http", null, host, -1, "/", null, null);
             String expectedHost = host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
             return uri.getHost() != null && uri.getHost().equalsIgnoreCase(expectedHost);
         } catch (URISyntaxException | IllegalArgumentException e) {

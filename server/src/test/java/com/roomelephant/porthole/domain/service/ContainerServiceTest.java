@@ -12,6 +12,9 @@ import com.roomelephant.porthole.config.properties.EndpointProperties;
 import com.roomelephant.porthole.domain.component.ContainerEnrichment;
 import com.roomelephant.porthole.domain.component.IconComponent;
 import com.roomelephant.porthole.domain.component.endpoint.*;
+import com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery;
+import com.roomelephant.porthole.domain.component.enrichment.ContainerStateFilter;
+import com.roomelephant.porthole.domain.component.enrichment.EndpointAvailabilityFilter;
 import com.roomelephant.porthole.domain.component.enrichment.UrlCandidateEnricher;
 import com.roomelephant.porthole.domain.mapper.ContainerMapper;
 import com.roomelephant.porthole.domain.model.Endpoint;
@@ -46,11 +49,11 @@ class ContainerServiceTest {
 
     @Test
     void shouldMapAndEnrichDockerContainersBeforeReturningDomainModels() {
-        var labels = Map.of("custom.metadata", "retained", "com.docker.compose.project", "project");
-        var app = container("project-app", 8080, labels);
+        Map<String, String> labels = Map.of("custom.metadata", "retained", "com.docker.compose.project", "project");
+        Container app = container("project-app", 8080, labels);
         when(listContainersCmd.exec()).thenReturn(List.of(app));
 
-        var result =
+        com.roomelephant.porthole.domain.model.Container result =
                 containerService.getContainers(false, false, "192.168.50.6").getFirst();
 
         assertThat(result.id()).isEqualTo("project-app-id");
@@ -65,7 +68,18 @@ class ContainerServiceTest {
         assertThat(result.publishedPorts()).isEqualTo(Set.of(8080));
         assertThat(result.urlCandidates())
                 .containsExactly(new Endpoint("published-port:8080", "published-port", "http://192.168.50.6:8080/"));
-        verify(listContainersCmd).withShowAll(false);
+        verify(listContainersCmd).withShowAll(true);
+    }
+
+    @Test
+    void shouldApplyStoppedFilteringInsideTheChainUsingRequestFlags() {
+        Container app = container("stopped", 8080, Map.of());
+        when(app.getState()).thenReturn("exited");
+        when(listContainersCmd.exec()).thenReturn(List.of(app));
+        assertThat(containerService.getContainers(false, false, "localhost")).isEmpty();
+        assertThat(containerService.getContainers(false, true, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::name)
+                .containsExactly("stopped");
     }
 
     @Test
@@ -77,12 +91,13 @@ class ContainerServiceTest {
 
     @Test
     void shouldFilterAfterEnrichmentAndRetainLabelOnlyContainers() {
-        var labels = Map.of("traefik.http.routers.app.rule", "Host(`app.example.com`)");
-        var proxy = container("proxy", null, labels);
-        var internal = container("internal", null, Map.of());
+        Map<String, String> labels = Map.of("traefik.http.routers.app.rule", "Host(`app.example.com`)");
+        Container proxy = container("proxy", null, labels);
+        Container internal = container("internal", null, Map.of());
         when(listContainersCmd.exec()).thenReturn(List.of(proxy, internal));
 
-        var results = containerService.getContainers(false, false, "localhost");
+        List<com.roomelephant.porthole.domain.model.Container> results =
+                containerService.getContainers(false, false, "localhost");
 
         assertThat(results)
                 .extracting(com.roomelephant.porthole.domain.model.Container::name)
@@ -95,9 +110,10 @@ class ContainerServiceTest {
 
     @Test
     void shouldIncludeContainersWithoutCandidatesWhenRequested() {
-        var internal = container("internal", null, Map.of());
+        Container internal = container("internal", null, Map.of());
         when(listContainersCmd.exec()).thenReturn(List.of(internal));
-        var result = containerService.getContainers(true, false, "localhost").getFirst();
+        com.roomelephant.porthole.domain.model.Container result =
+                containerService.getContainers(true, false, "localhost").getFirst();
         assertThat(result.name()).isEqualTo("internal");
         assertThat(result.urlCandidates()).isEmpty();
     }
@@ -112,7 +128,7 @@ class ContainerServiceTest {
     @Test
     void shouldWrapOtherDockerFailuresAsUnexpectedExceptions() {
         when(listContainersCmd.exec()).thenThrow(new RuntimeException("Some other error"));
-        var thrown =
+        UnexpectedException thrown =
                 assertThrows(UnexpectedException.class, () -> containerService.getContainers(true, false, "localhost"));
         assertThat(thrown.getCause()).hasMessage("Some other error");
     }
@@ -125,9 +141,9 @@ class ContainerServiceTest {
 
     @Test
     void shouldApplyPublishedHostOverrideDuringEnrichment() {
-        var app = container("app", 8080, Map.of());
+        Container app = container("app", 8080, Map.of());
         when(listContainersCmd.exec()).thenReturn(List.of(app));
-        var result = service("docker.example.com")
+        com.roomelephant.porthole.domain.model.Container result = service("docker.example.com")
                 .getContainers(false, false, "proxy.example.com")
                 .getFirst();
         assertThat(result.urlCandidates())
@@ -137,10 +153,11 @@ class ContainerServiceTest {
 
     @Test
     void shouldResolveIndependentContextsForEachRequestHostname() {
-        var app = container("app", 8080, Map.of());
+        Container app = container("app", 8080, Map.of());
         when(listContainersCmd.exec()).thenReturn(List.of(app));
-        var first = containerService.getContainers(false, false, "192.168.50.6").getFirst();
-        var second = containerService
+        com.roomelephant.porthole.domain.model.Container first =
+                containerService.getContainers(false, false, "192.168.50.6").getFirst();
+        com.roomelephant.porthole.domain.model.Container second = containerService
                 .getContainers(false, false, "other.example.com")
                 .getFirst();
         assertThat(first.urlCandidates())
@@ -151,18 +168,21 @@ class ContainerServiceTest {
     }
 
     private ContainerService service(String publishedHost) {
-        var icon = mock(IconComponent.class, invocation -> "icon");
-        var discovery = new EndpointDiscovery(
-                List.of(new PublishedPortEndpointProvider(), new TraefikEndpointProvider(new TraefikRuleParser())));
+        IconComponent icon = mock(IconComponent.class, invocation -> "icon");
+        EndpointDiscovery discovery = new EndpointDiscovery(List.of(
+                new PublishedPortEndpointProvider(new PublishedHostResolver(new EndpointProperties(publishedHost))),
+                new TraefikEndpointProvider(new TraefikRuleParser())));
         return new ContainerService(
                 dockerClient,
                 new ContainerMapper(icon),
-                new ContainerEnrichment(List.of(new UrlCandidateEnricher(discovery))),
-                new EndpointContextResolver(new EndpointProperties(publishedHost)));
+                new ContainerEnrichment(List.of(
+                        new ContainerStateFilter(),
+                        new UrlCandidateEnricher(discovery),
+                        new EndpointAvailabilityFilter())));
     }
 
     private Container container(String name, Integer publicPort, Map<String, String> labels) {
-        var container = mock(Container.class);
+        Container container = mock(Container.class);
         when(container.getId()).thenReturn(name + "-id");
         when(container.getNames()).thenReturn(new String[] {"/" + name});
         when(container.getImage()).thenReturn("nginx:latest");
@@ -170,7 +190,7 @@ class ContainerServiceTest {
         when(container.getState()).thenReturn("running");
         when(container.getStatus()).thenReturn("Up");
         if (publicPort != null) {
-            var port = mock(ContainerPort.class);
+            ContainerPort port = mock(ContainerPort.class);
             when(port.getPublicPort()).thenReturn(publicPort);
             when(container.getPorts()).thenReturn(new ContainerPort[] {port});
         }

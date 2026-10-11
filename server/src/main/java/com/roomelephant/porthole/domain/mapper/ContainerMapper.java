@@ -34,7 +34,8 @@ public class ContainerMapper {
         String name = getName(container.getNames());
         String imageFull = container.getImage();
         Set<Integer> ports = getPorts(container.getPorts());
-        var labels = container.getLabels() == null ? Map.<String, String>of() : Map.copyOf(container.getLabels());
+        Map<String, String> labels =
+                container.getLabels() == null ? Map.<String, String>of() : Map.copyOf(container.getLabels());
         String project = getProject(labels);
         String state = container.getState();
         String status = container.getStatus();

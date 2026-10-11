@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
@@ -79,7 +80,7 @@ public class RegistryService {
     private @Nullable String fetchDigest(String tag, String repository, String token) {
         String url = registryProperties.urls().registry() + repository + "/manifests/" + tag;
 
-        var response = restClient
+        ResponseEntity<Void> response = restClient
                 .head()
                 .uri(url)
                 .header(HttpHeaders.AUTHORIZATION, BEARER + token)

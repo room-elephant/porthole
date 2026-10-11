@@ -50,7 +50,7 @@ class ContainerMapperTest {
                     "Up 2 hours");
             when(iconComponent.resolveIcon("nginx")).thenReturn("https://example.com/nginx.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("abc123", dto.id());
             assertEquals("my-container", dto.name());
@@ -71,7 +71,7 @@ class ContainerMapperTest {
                     "abc123", "/my-container", "redis:7", new Integer[] {}, null, "running", "Up 1 hour");
             when(iconComponent.resolveIcon("redis")).thenReturn("https://example.com/redis.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertTrue(dto.publishedPorts().isEmpty());
             assertTrue(dto.urlCandidates().isEmpty());
@@ -96,7 +96,7 @@ class ContainerMapperTest {
 
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals(1, dto.publishedPorts().size());
             assertTrue(dto.publishedPorts().contains(80));
@@ -115,7 +115,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals(2, dto.publishedPorts().size());
         }
@@ -133,7 +133,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("my-project-web", dto.name());
             assertEquals("web", dto.displayName());
@@ -152,7 +152,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("other-web", dto.name());
             assertEquals("other-web", dto.displayName());
@@ -165,7 +165,7 @@ class ContainerMapperTest {
                     "abc123", "/standalone-app", "myapp:latest", new Integer[] {8080}, null, "running", "Up 1 hour");
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("standalone-app", dto.name());
             assertEquals("standalone-app", dto.displayName());
@@ -184,7 +184,7 @@ class ContainerMapperTest {
             when(container.getPorts()).thenReturn(new ContainerPort[] {});
             when(iconComponent.resolveIcon(anyString())).thenReturn("https://example.com/icon.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("Unknown", dto.name());
         }
@@ -202,7 +202,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
             when(iconComponent.resolveIcon("postgresql")).thenReturn("https://example.com/postgresql.png");
 
-            var dto = containerMapper.toModel(container);
+            com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
 
             assertEquals("https://example.com/postgresql.png", dto.iconUrl());
         }
@@ -210,16 +210,16 @@ class ContainerMapperTest {
 
     @Test
     void shouldRetainRawLabelsAndPortsWithoutDiscoveringUrls() {
-        var labels = new HashMap<>(Map.of(
+        HashMap<String, String> labels = new HashMap<>(Map.of(
                 "com.docker.compose.project", "smh",
                 "traefik.http.routers.jellyfin.rule", "Host(`jellyfin.example.com`)",
                 "traefik.http.routers.jellyfin.tls", "true",
                 "custom.metadata", "retained"));
-        var container = createMockContainer(
+        Container container = createMockContainer(
                 "id", "/smh-jellyfin", "jellyfin:latest", new Integer[] {8096}, labels, "running", "Up");
         when(iconComponent.resolveIcon("jellyfin")).thenReturn("icon");
 
-        var model = containerMapper.toModel(container);
+        com.roomelephant.porthole.domain.model.Container model = containerMapper.toModel(container);
         labels.clear();
 
         assertEquals("jellyfin", model.displayName());
@@ -239,11 +239,11 @@ class ContainerMapperTest {
 
     @Test
     void shouldHandleAbsentCollectionsAndNames() {
-        var container = mock(Container.class);
+        Container container = mock(Container.class);
         when(container.getId()).thenReturn("id");
         when(container.getImage()).thenReturn("app:latest");
         when(iconComponent.resolveIcon("app")).thenReturn("icon");
-        var dto = containerMapper.toModel(container);
+        com.roomelephant.porthole.domain.model.Container dto = containerMapper.toModel(container);
         assertEquals("Unknown", dto.name());
         assertTrue(dto.publishedPorts().isEmpty());
     }

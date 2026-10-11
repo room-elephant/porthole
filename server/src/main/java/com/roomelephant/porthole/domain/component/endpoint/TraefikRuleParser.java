@@ -15,8 +15,8 @@ public class TraefikRuleParser {
     private record Matcher(String name, String value) {}
 
     public Optional<Route> parse(String rule) {
-        var input = new Input(rule);
-        var matchers = new ArrayList<Matcher>();
+        Input input = new Input(rule);
+        ArrayList<Matcher> matchers = new ArrayList<Matcher>();
         boolean expectTerm = true;
         int groups = 0;
         while (!input.end()) {
@@ -25,7 +25,7 @@ public class TraefikRuleParser {
                     groups++;
                     continue;
                 }
-                var matcher = input.matcher();
+                Optional<Matcher> matcher = input.matcher();
                 if (matcher.isEmpty() || matchers.size() == 2) return Optional.empty();
                 matchers.add(matcher.get());
                 expectTerm = false;
@@ -41,7 +41,7 @@ public class TraefikRuleParser {
         if (expectTerm || groups != 0) return Optional.empty();
         @Nullable String host = null;
         @Nullable String path = null;
-        for (var matcher : matchers) {
+        for (Matcher matcher : matchers) {
             if (matcher.name().equals("Host")) {
                 if (host != null || !EndpointUrls.isValidHost(matcher.value())) return Optional.empty();
                 host = matcher.value();
@@ -87,7 +87,7 @@ public class TraefikRuleParser {
             String name = text.substring(start, position);
             if (!name.equals("Host") && !name.equals("Path") && !name.equals("PathPrefix")) return Optional.empty();
             if (!take("(")) return Optional.empty();
-            var literal = literal();
+            Optional<String> literal = literal();
             if (literal.isEmpty() || !take(")")) return Optional.empty();
             return Optional.of(new Matcher(name, literal.get()));
         }
@@ -97,7 +97,7 @@ public class TraefikRuleParser {
             if (position == text.length()) return Optional.empty();
             char quote = text.charAt(position++);
             if (quote != 96 && quote != '"') return Optional.empty();
-            var result = new StringBuilder();
+            StringBuilder result = new StringBuilder();
             while (position < text.length()) {
                 char character = text.charAt(position++);
                 if (character == quote) return Optional.of(result.toString());

@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.it.infra;
 
+import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.ExposedPort;
 import java.util.Map;
 import org.testcontainers.DockerClientFactory;
@@ -30,7 +31,7 @@ public abstract class ContainerAwareIntegrationTestBase extends IntegrationTestB
     protected static final GenericContainer<?> unsupportedContainer;
 
     static {
-        var dc = DockerClientFactory.instance().client();
+        DockerClient dc = DockerClientFactory.instance().client();
 
         try {
             dc.pullImageCmd(PAUSE_IMAGE).start().awaitCompletion();
@@ -94,7 +95,7 @@ public abstract class ContainerAwareIntegrationTestBase extends IntegrationTestB
         unsupportedContainer = endpointFixture(
                 TEST_UNSUPPORTED_CONTAINER_NAME,
                 Map.of("traefik.http.routers.app.rule", "Host(`bad.example.com`) || Host(`other.example.com`)"));
-        for (var fixture :
+        for (GenericContainer<?> fixture :
                 new GenericContainer<?>[] {proxyContainer, mixedContainer, disabledContainer, unsupportedContainer}) {
             fixture.start();
         }
