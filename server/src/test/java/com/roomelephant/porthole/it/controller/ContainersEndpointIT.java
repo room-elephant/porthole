@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpStatus.OK;
 
 import com.roomelephant.porthole.domain.model.ContainerDTO;
+import com.roomelephant.porthole.domain.model.EndpointDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import java.util.Arrays;
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import tools.jackson.databind.json.JsonMapper;
 
 class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
     @Test
@@ -111,6 +113,89 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
                 .containsKey(TEST_LOCAL_CONTAINER_NAME)
                 .containsKey(TEST_NO_PORTS_CONTAINER_NAME)
                 .containsKey(TEST_STOPPED_CONTAINER_NAME);
+    }
+
+    @Test
+    void shouldIncludeTraefikContainerWithoutPublishedPorts() {
+        var container = fetchContainers(false, false).get(TEST_PROXY_CONTAINER_NAME);
+        assertThat(container).isNotNull();
+        assertThat(container.endpoints())
+                .containsExactly(new EndpointDTO(
+                        "traefik:https://jellyfin.example.com/", "traefik", "https://jellyfin.example.com/"));
+    }
+
+    @Test
+    void shouldReturnProxyAndPublishedPortCandidates() {
+        var container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
+        int port = mixedContainer.getMappedPort(51413);
+        assertThat(container.endpoints())
+                .contains(
+                        new EndpointDTO("published-port:" + port, "published-port", "http://localhost:" + port + "/"));
+        assertThat(container.endpoints()).extracting(EndpointDTO::source).contains("traefik", "published-port");
+    }
+
+    @Test
+    void shouldKeepDistinctRoutesAndDeduplicateEquivalentRouters() {
+        var container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
+        assertThat(container.endpoints().stream()
+                        .filter(endpoint -> endpoint.source().equals("traefik"))
+                        .toList())
+                .containsExactly(
+                        new EndpointDTO(
+                                "traefik:https://transmission.example.com/",
+                                "traefik",
+                                "https://transmission.example.com/"),
+                        new EndpointDTO(
+                                "traefik:https://transmission.example.com/dl/",
+                                "traefik",
+                                "https://transmission.example.com/dl/"));
+    }
+
+    @Test
+    void shouldSkipDisabledAndUnsupportedRoutersWithoutLosingOtherCandidates() {
+        var containers = fetchContainers(false, false);
+        assertThat(containers).doesNotContainKey(TEST_UNSUPPORTED_CONTAINER_NAME);
+        var disabled = containers.get(TEST_DISABLED_CONTAINER_NAME);
+        assertThat(disabled.endpoints()).hasSize(1);
+        assertThat(disabled.endpoints().getFirst().source()).isEqualTo("published-port");
+        assertThat(containers.get(TEST_MIXED_CONTAINER_NAME).endpoints()).hasSize(3);
+    }
+
+    @Test
+    void shouldFilterContainersWithoutEndpointsAndRespectStoppedFlag() {
+        assertThat(fetchContainers(false, true))
+                .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME)
+                .containsKey(TEST_PROXY_CONTAINER_NAME);
+        assertThat(fetchContainers(true, false))
+                .containsKeys(TEST_NO_PORTS_CONTAINER_NAME, TEST_UNSUPPORTED_CONTAINER_NAME)
+                .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
+        assertThat(fetchContainers(true, true)).containsKey(TEST_STOPPED_CONTAINER_NAME);
+        var response = fetch("/api/containers?includeWithoutPorts=true", ContainerDTO[].class);
+        assertThat(Arrays.stream(response.getBody()).map(ContainerDTO::name).toList())
+                .doesNotContain(TEST_NO_PORTS_CONTAINER_NAME);
+    }
+
+    @Test
+    void shouldSerializeOnlyEndpointContract() throws Exception {
+        var body = new JsonMapper().readTree(fetch("/api/containers").getBody());
+        boolean found = false;
+        for (var container : body) {
+            assertThat(container.has("exposedPorts")).isFalse();
+            assertThat(container.has("hasPublicPorts")).isFalse();
+            assertThat(container.has("labels")).isFalse();
+            assertThat(container.path("hasEndpoints").asBoolean()).isTrue();
+            for (var endpoint : container.path("endpoints")) {
+                assertThat(endpoint.properties().stream().map(Map.Entry::getKey).toList())
+                        .containsExactlyInAnyOrder("id", "source", "url");
+                assertThat(endpoint.path("url").asText()).startsWith("http");
+            }
+            if (container.path("name").asText().equals(TEST_PROXY_CONTAINER_NAME)) {
+                found = true;
+                assertThat(container.path("endpoints").get(0).path("url").asText())
+                        .isEqualTo("https://jellyfin.example.com/");
+            }
+        }
+        assertThat(found).isTrue();
     }
 
     private @NotNull Map<String, ContainerDTO> fetchContainers(

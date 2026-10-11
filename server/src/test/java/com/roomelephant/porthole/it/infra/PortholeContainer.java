@@ -9,15 +9,19 @@ import org.testcontainers.containers.wait.strategy.Wait;
 public class PortholeContainer extends GenericContainer<PortholeContainer> {
 
     public static final int PORTHOLE_PORT = 9753;
-    static final String IMAGE_TAG = "porthole-jvm:latest";
+    static final String IMAGE_TAG = System.getProperty("porthole.it.image", "porthole-jvm:latest");
 
     public PortholeContainer(int wireMockPort) {
+        this(wireMockPort, true);
+    }
+
+    public PortholeContainer(int wireMockPort, boolean recordNativeHints) {
         super(IMAGE_TAG);
         withExposedPorts(PORTHOLE_PORT);
         withFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
         withEnv("PORTHOLE_DOCKER_HOST", "unix:///var/run/docker.sock");
         applyRegistryEnv(this, wireMockPort);
-        applyNativeAgentIfEnabled(this);
+        if (recordNativeHints) applyNativeAgentIfEnabled(this);
         waitingFor(Wait.forHttp("/actuator/health").forPort(PORTHOLE_PORT));
     }
 
