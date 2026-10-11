@@ -549,7 +549,13 @@
           "name": "destination"
         },
         {
+          "name": "driver"
+        },
+        {
           "name": "mode"
+        },
+        {
+          "name": "name"
         },
         {
           "name": "propagation"
@@ -1070,7 +1076,73 @@
       "type": "com.github.dockerjava.api.model.VolumesRW"
     },
     {
+      "type": "com.github.dockerjava.core.DefaultInvocationBuilder"
+    },
+    {
       "type": "com.github.dockerjava.core.DockerClientImpl"
+    },
+    {
+      "type": "com.github.dockerjava.core.command.AbstrDockerCmd"
+    },
+    {
+      "type": "com.github.dockerjava.core.command.InspectContainerCmdImpl"
+    },
+    {
+      "type": "com.github.dockerjava.core.exec.AbstrSyncDockerCmdExec"
+    },
+    {
+      "type": "com.github.dockerjava.core.exec.InspectContainerCmdExec"
+    },
+    {
+      "type": "com.github.dockerjava.core.exec.ListContainersCmdExec"
+    },
+    {
+      "type": "com.github.dockerjava.transport.UnixSocket"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.ApacheDockerHttpClientImpl"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.ZerodepDockerHttpClient"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.classic.HttpClient"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.CloseableHttpClient"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.ConnectExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.ContentCompressionExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.ExecChainElement"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.HttpRequestRetryExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.InternalExecRuntime"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.InternalHttpClient"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.ProtocolExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.classic.RedirectExec"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.io.DefaultHttpClientConnectionOperator"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager"
+    },
+    {
+      "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.io.DetachedSocketFactory"
     },
     {
       "type": "com.google.gson.Gson"
@@ -1467,7 +1539,8 @@
           "name": "<init>",
           "parameterTypes": [
             "com.roomelephant.porthole.domain.service.ContainerService",
-            "com.roomelephant.porthole.domain.service.VersionService"
+            "com.roomelephant.porthole.domain.service.VersionService",
+            "com.roomelephant.porthole.controller.mapper.ContainerDTOMapper"
           ]
         },
         {
@@ -1494,6 +1567,12 @@
           "parameterTypes": []
         },
         {
+          "name": "handleDockerUnavailable",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.model.exception.DockerUnavailableException"
+          ]
+        },
+        {
           "name": "handleNotFound",
           "parameterTypes": [
             "com.roomelephant.porthole.domain.model.exception.NotFoundException"
@@ -1502,56 +1581,7 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.domain.component.IconComponent",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.util.Map",
-            "com.roomelephant.porthole.config.properties.DashboardProperties"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.component.RegistryService",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "org.springframework.web.client.RestClient",
-            "com.roomelephant.porthole.config.properties.RegistryProperties"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.component.endpoint.EndpointContextResolver",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.config.properties.EndpointProperties"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.util.List"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.component.endpoint.EndpointProvider"
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.component.endpoint.PublishedPortEndpointProvider",
+      "type": "com.roomelephant.porthole.controller.mapper.ContainerDTOMapper",
       "methods": [
         {
           "name": "<init>",
@@ -1560,39 +1590,7 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.domain.component.endpoint.TraefikEndpointProvider",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.domain.component.endpoint.TraefikRuleParser"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.component.endpoint.TraefikRuleParser",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.mapper.ContainerMapper",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.domain.component.IconComponent",
-            "com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.domain.model.ContainerDTO",
+      "type": "com.roomelephant.porthole.controller.model.ContainerDTO",
       "methods": [
         {
           "name": "displayName",
@@ -1637,7 +1635,7 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.domain.model.EndpointDTO",
+      "type": "com.roomelephant.porthole.controller.model.EndpointDTO",
       "methods": [
         {
           "name": "id",
@@ -1654,7 +1652,141 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.domain.model.EndpointDTO[]"
+      "type": "com.roomelephant.porthole.controller.model.EndpointDTO[]"
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.ContainerEnrichment",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.util.List"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.IconComponent",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.util.Map",
+            "com.roomelephant.porthole.config.properties.DashboardProperties"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.RegistryService",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "org.springframework.web.client.RestClient",
+            "com.roomelephant.porthole.config.properties.RegistryProperties"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.util.List"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.EndpointProvider"
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.PublishedHostResolver",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.config.properties.EndpointProperties"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.PublishedPortEndpointProvider",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.component.endpoint.PublishedHostResolver"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.TraefikEndpointProvider",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.component.endpoint.TraefikRuleParser"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.endpoint.TraefikRuleParser",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.enrichment.ContainerEnricher"
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.enrichment.ContainerStateFilter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.enrichment.EndpointAvailabilityFilter",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.component.enrichment.UrlCandidateEnricher",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.component.endpoint.EndpointDiscovery"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.domain.mapper.ContainerMapper",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.domain.component.IconComponent"
+          ]
+        }
+      ]
     },
     {
       "type": "com.roomelephant.porthole.domain.model.VersionDTO",
@@ -1681,7 +1813,7 @@
           "parameterTypes": [
             "com.github.dockerjava.api.DockerClient",
             "com.roomelephant.porthole.domain.mapper.ContainerMapper",
-            "com.roomelephant.porthole.domain.component.endpoint.EndpointContextResolver"
+            "com.roomelephant.porthole.domain.component.ContainerEnrichment"
           ]
         }
       ]
@@ -1901,7 +2033,13 @@
       "type": "io.micrometer.core.instrument.Clock$1"
     },
     {
-      "type": "io.micrometer.core.instrument.MeterRegistry"
+      "type": "io.micrometer.core.instrument.MeterRegistry",
+      "methods": [
+        {
+          "name": "close",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "io.micrometer.core.instrument.binder.MeterBinder"
@@ -2400,6 +2538,9 @@
       ]
     },
     {
+      "type": "java.lang.VirtualThread"
+    },
+    {
       "type": "java.lang.Void",
       "fields": [
         {
@@ -2491,6 +2632,9 @@
       "type": "java.lang.reflect.GenericDeclaration"
     },
     {
+      "type": "java.lang.reflect.Method"
+    },
+    {
       "type": "java.lang.reflect.ParameterizedType",
       "methods": [
         {
@@ -2556,6 +2700,9 @@
       "type": "java.net.http.HttpClient"
     },
     {
+      "type": "java.nio.channels.SocketChannel"
+    },
+    {
       "type": "java.security.AlgorithmParametersSpi"
     },
     {
@@ -2563,6 +2710,9 @@
     },
     {
       "type": "java.sql.Date"
+    },
+    {
+      "type": "java.sql.DriverManager"
     },
     {
       "type": "java.sql.Timestamp"
@@ -2581,6 +2731,9 @@
     },
     {
       "type": "java.util.AbstractCollection"
+    },
+    {
+      "type": "java.util.ArrayList"
     },
     {
       "type": "java.util.Arrays",
@@ -2602,6 +2755,12 @@
     },
     {
       "type": "java.util.Date"
+    },
+    {
+      "type": "java.util.Enumeration"
+    },
+    {
+      "type": "java.util.HashSet"
     },
     {
       "type": "java.util.ImmutableCollections$AbstractImmutableCollection"
@@ -2626,6 +2785,9 @@
     },
     {
       "type": "java.util.SequencedCollection"
+    },
+    {
+      "type": "java.util.Set"
     },
     {
       "type": "java.util.SortedSet"
@@ -2709,6 +2871,9 @@
       "type": "jdk.internal.misc.Unsafe"
     },
     {
+      "type": "jdk.internal.reflect.DirectMethodHandleAccessor"
+    },
+    {
       "type": "jdk.management.VirtualThreadSchedulerMXBean"
     },
     {
@@ -2757,7 +2922,41 @@
       "type": "org.apache.catalina.Manager"
     },
     {
+      "type": "org.apache.catalina.authenticator.AuthenticatorBase"
+    },
+    {
+      "type": "org.apache.catalina.connector.CoyoteAdapter"
+    },
+    {
       "type": "org.apache.catalina.core.ApplicationContextFacade"
+    },
+    {
+      "type": "org.apache.catalina.core.ApplicationFilterChain"
+    },
+    {
+      "type": "org.apache.catalina.core.StandardContextValve"
+    },
+    {
+      "type": "org.apache.catalina.core.StandardEngineValve"
+    },
+    {
+      "type": "org.apache.catalina.core.StandardHostValve"
+    },
+    {
+      "type": "org.apache.catalina.core.StandardWrapperValve"
+    },
+    {
+      "type": "org.apache.catalina.loader.JdbcLeakPrevention",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "clearJdbcDriverRegistrations",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "org.apache.catalina.startup.Tomcat"
@@ -2770,6 +2969,12 @@
           "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "org.apache.catalina.valves.ErrorReportValve"
+    },
+    {
+      "type": "org.apache.coyote.AbstractProcessorLight"
     },
     {
       "type": "org.apache.coyote.AbstractProtocol",
@@ -2804,6 +3009,9 @@
       ]
     },
     {
+      "type": "org.apache.coyote.AbstractProtocol$ConnectionHandler"
+    },
+    {
       "type": "org.apache.coyote.UpgradeProtocol"
     },
     {
@@ -2817,6 +3025,9 @@
     },
     {
       "type": "org.apache.coyote.http11.Http11NioProtocol"
+    },
+    {
+      "type": "org.apache.coyote.http11.Http11Processor"
     },
     {
       "type": "org.apache.el.ExpressionFactoryImpl",
@@ -2855,6 +3066,12 @@
     },
     {
       "type": "org.apache.tomcat.util.net.NioEndpoint"
+    },
+    {
+      "type": "org.apache.tomcat.util.net.NioEndpoint$SocketProcessor"
+    },
+    {
+      "type": "org.apache.tomcat.util.net.SocketProcessorBase"
     },
     {
       "type": "org.apache.tomcat.websocket.server.WsFilter"
@@ -6918,6 +7135,9 @@
       "type": "org.springframework.web.method.support.CompositeUriComponentsContributor"
     },
     {
+      "type": "org.springframework.web.method.support.InvocableHandlerMethod"
+    },
+    {
       "type": "org.springframework.web.method.support.UriComponentsContributor"
     },
     {
@@ -7153,6 +7373,9 @@
       "type": "org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping"
     },
     {
+      "type": "org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod"
+    },
+    {
       "type": "org.springframework.web.servlet.resource.ResourceUrlProvider"
     },
     {
@@ -7265,6 +7488,12 @@
           "name": "threadContentionMonitoringSupport"
         }
       ]
+    },
+    {
+      "type": "sun.nio.ch.SocketChannelImpl"
+    },
+    {
+      "type": "sun.nio.ch.UnixDomainSockets"
     },
     {
       "type": "sun.security.pkcs12.PKCS12KeyStore",
@@ -7836,6 +8065,9 @@
       "glob": "META-INF/services/java.nio.channels.spi.SelectorProvider"
     },
     {
+      "glob": "META-INF/services/java.sql.Driver"
+    },
+    {
       "glob": "META-INF/services/java.time.zone.ZoneRulesProvider"
     },
     {
@@ -7935,19 +8167,25 @@
       "glob": "com/roomelephant/porthole/controller/GlobalExceptionHandler.class"
     },
     {
+      "glob": "com/roomelephant/porthole/controller/mapper/ContainerDTOMapper.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/ContainerEnrichment.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/domain/component/IconComponent.class"
     },
     {
       "glob": "com/roomelephant/porthole/domain/component/RegistryService.class"
     },
     {
-      "glob": "com/roomelephant/porthole/domain/component/endpoint/EndpointContextResolver.class"
-    },
-    {
       "glob": "com/roomelephant/porthole/domain/component/endpoint/EndpointDiscovery.class"
     },
     {
       "glob": "com/roomelephant/porthole/domain/component/endpoint/EndpointProvider.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/endpoint/PublishedHostResolver.class"
     },
     {
       "glob": "com/roomelephant/porthole/domain/component/endpoint/PublishedPortEndpointProvider.class"
@@ -7966,6 +8204,18 @@
     },
     {
       "glob": "com/roomelephant/porthole/domain/component/endpoint/TraefikRuleParser.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/enrichment/ContainerEnricher.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/enrichment/ContainerStateFilter.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/enrichment/EndpointAvailabilityFilter.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/domain/component/enrichment/UrlCandidateEnricher.class"
     },
     {
       "glob": "com/roomelephant/porthole/domain/mapper/ContainerMapper.class"
@@ -8080,6 +8330,9 @@
     },
     {
       "glob": "org/apache/catalina/deploy/LocalStrings.properties"
+    },
+    {
+      "glob": "org/apache/catalina/loader/JdbcLeakPrevention.class"
     },
     {
       "glob": "org/apache/catalina/loader/LocalStrings.properties"
@@ -8866,6 +9119,9 @@
     },
     {
       "glob": "org/springframework/web/servlet/config/annotation/WebMvcConfigurer.class"
+    },
+    {
+      "glob": "public/index.html"
     },
     {
       "glob": "resources/index.html"

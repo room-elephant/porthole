@@ -13,8 +13,7 @@ import org.springframework.web.client.RestTemplate;
 class PublishedHostOverrideIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldUseConfiguredPublishedHost() {
-        // The shared app owns hint recording; two agents must never write to the same directory.
-        try (PortholeContainer app = new PortholeContainer(wireMockClient().port(), false)
+        try (PortholeContainer app = new PortholeContainer(wireMockClient().port())
                 .withEnv("PORTHOLE_ENDPOINTS_PUBLISHEDHOST", "docker.example.com")) {
             app.start();
             ContainerDTO[] containers =
