@@ -42,7 +42,7 @@ make it MVN='mvn -Dporthole.it.image=porthole-native-validation:latest'
 
 `porthole.it.image` defaults to `porthole-jvm:latest` and applies to normal and custom-socket app factories. JVM success does not prove native serialization or AOT behavior. The existing release workflow's `porthole-it:latest` tag must be passed explicitly to select that image; its current command does not set this property.
 
-Only the shared application records native-agent hints. Isolated hostname-override instances disable recording to avoid competing writers in the shared output directory.
+Under `make native-hints`, every application instance records native-agent hints, including hostname-override and resilience fixtures. Each writes to its own directory under `target/native-hints/`. Recording JVMs stop gracefully, then GraalVM merges all outputs after the tests pass. Ordinary JVM/native component runs do not attach the agent.
 
 ## Format
 

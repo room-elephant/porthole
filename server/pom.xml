@@ -80,6 +80,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <version>${testcontainers.version}</version>
@@ -312,7 +317,7 @@
                                 <include>**/*IT.java</include>
                             </includes>
                             <systemPropertyVariables>
-                                <native.agent.output.dir>${project.basedir}/src/main/resources/META-INF/native-image/com.roomelephant/porthole</native.agent.output.dir>
+                                <native.agent.output.dir>${project.build.directory}/native-hints</native.agent.output.dir>
                             </systemPropertyVariables>
                         </configuration>
                         <executions>
@@ -321,6 +326,50 @@
                                     <goal>integration-test</goal>
                                     <goal>verify</goal>
                                 </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.5.0</version>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <classpathScope>test</classpathScope>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>prepare-native-hint-recordings</id>
+                                <phase>pre-integration-test</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <arguments>
+                                        <argument>-classpath</argument>
+                                        <classpath/>
+                                        <argument>com.roomelephant.porthole.it.infra.NativeHintsMerger</argument>
+                                        <argument>prepare</argument>
+                                        <argument>${project.build.directory}/native-hints</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>merge-native-hint-recordings</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <arguments>
+                                        <argument>-classpath</argument>
+                                        <classpath/>
+                                        <argument>com.roomelephant.porthole.it.infra.NativeHintsMerger</argument>
+                                        <argument>merge</argument>
+                                        <argument>${project.build.directory}/native-hints</argument>
+                                        <argument>${project.basedir}/src/main/resources/META-INF/native-image/com.roomelephant/porthole</argument>
+                                    </arguments>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>

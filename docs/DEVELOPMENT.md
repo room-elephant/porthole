@@ -66,11 +66,13 @@ For test commands, see the per-component READMEs:
 
 ## Regenerating Native Image Hints
 
-Run this after adding new features that use reflection, proxies, or JNI. Requires GraalVM JDK 25+ as `JAVA_HOME`.
+Run this after adding new features that use reflection, proxies, or JNI. Requires Java 25, Maven, and Docker. The recording agent and merge tool run in GraalVM containers.
 
 ```bash
 make server-native-hints
 ```
+
+Every IT application instance records separately under `server/target/native-hints/`. After the tests pass, GraalVM merges all recordings into `reachability-metadata.json`; incomplete recordings fail generation rather than silently losing coverage.
 
 Commit the updated `reachability-metadata.json` and rebuild the native image. If a class isn't reached by the ITs, register it explicitly in `DockerNativeConfig` using `RuntimeHints` or `@RegisterReflectionForBinding` rather than editing the generated file by hand.
 
