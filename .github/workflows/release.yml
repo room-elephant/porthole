@@ -245,9 +245,9 @@ jobs:
 
           # Create manifest for the version tag
           docker buildx imagetools create \
-            --annotation "org.opencontainers.image.title=Porthole" \
-            --annotation "org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}" \
-            --annotation "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --annotation "index:org.opencontainers.image.title=Porthole" \
+            --annotation "index:org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}" \
+            --annotation "index:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             -t ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:$VERSION \
             ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:$VERSION-amd64 \
             ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:$VERSION-arm64
@@ -255,9 +255,9 @@ jobs:
           # Create manifest for latest tag if it looks like a stable release (no hyphen)
           if [[ "$VERSION" != *"-"* ]]; then
             docker buildx imagetools create \
-              --annotation "org.opencontainers.image.title=Porthole" \
-              --annotation "org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}" \
-              --annotation "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+              --annotation "index:org.opencontainers.image.title=Porthole" \
+              --annotation "index:org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}" \
+              --annotation "index:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
               -t ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:latest \
               ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:$VERSION-amd64 \
               ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:$VERSION-arm64
