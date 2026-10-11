@@ -166,9 +166,49 @@ This is required because the Docker Registry API expects the full path:
 
 | Endpoint                                | Method | Description                                                                                 |
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
-| `/api/containers`                       | GET    | Returns all containers. Supports `includeWithoutPorts` and `includeStopped` query params    |
+| `/api/containers`                       | GET    | Returns all containers. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
 | `/api/containers/{containerId}/version` | GET    | Returns version info for a container (current version, latest version, update availability) |
 | `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
+
+### Container Endpoint Contract
+
+`GET /api/containers` returns `endpoints` and `hasEndpoints` alongside existing container metadata. Each endpoint has exactly these fields:
+
+```json
+{
+  "id": "traefik:https://jellyfin.example.com/",
+  "source": "traefik",
+  "url": "https://jellyfin.example.com/"
+}
+```
+
+Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fields. `includeWithoutEndpoints=false` filters after discovery, so label-only services are included. Both query flags default to false. The former `includeWithoutPorts` parameter is not an alias.
+
+### Endpoint Provider Extension
+
+`ContainerMapper` builds an immutable `ContainerSnapshot` with published ports and raw labels. `EndpointContextResolver` keeps servlet request handling in `controller/`, passing a request-specific `EndpointContext` through the service and mapper. Domain providers receive no servlet objects and retain no request state.
+
+`EndpointDiscovery` constructor-injects `List<EndpointProvider>`. Any additional Spring `@Component` implementing the interface participates automatically; there is no registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
+
+For example, this illustrative custom provider uses an application-specific label (not a standard proxy label):
+
+```java
+@Component
+@NullMarked
+public class MyProxyEndpointProvider implements EndpointProvider {
+    @Override
+    public List<EndpointDTO> discover(ContainerSnapshot container, EndpointContext context) {
+        String host = container.labels().get("myproxy.host");
+        if (host == null || !EndpointUrls.isValidHost(host)) return List.of();
+        String url = EndpointUrls.routeUrl("https", host, "/");
+        return List.of(new EndpointDTO("my-proxy:" + url, "my-proxy", url));
+    }
+}
+```
+
+Place implementations in `domain/component/endpoint/`; shared input/output records live in `domain/model/` and URL helpers in `domain/util/`. Endpoint configuration lives in `config/properties/EndpointProperties`. New reflectively accessed types require Spring AOT binding hints; generated reachability metadata must not be edited by hand.
+
+Published-port IDs use `published-port:<port>` independently of the request hostname. Traefik IDs use `traefik:<normalized-url>`. The client opens the API URL directly, resolves saved IDs before Traefik defaults, and keeps automatic defaults out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
 
 ## Directory Structure
 
@@ -186,12 +226,12 @@ This is required because the Docker Registry API expects the full path:
 
 - `controller/` — REST endpoints (`ContainerController`) and `GlobalExceptionHandler`
 - `domain/service/` — `ContainerService` (lists containers), `VersionService` (version + update detection)
-- `domain/component/` — `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries)
+- `domain/component/` — `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
 - `domain/mapper/` — `ContainerMapper` maps docker-java types to DTOs
-- `domain/model/` — `ContainerDTO`, `VersionDTO`, and domain exceptions
+- `domain/model/` — `ContainerDTO`, `EndpointDTO`, `ContainerSnapshot`, `EndpointContext`, `VersionDTO`, and domain exceptions
 - `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
 - `config/` — `DockerConfig` (docker-java client bean), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
-- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `DashboardProperties`
+- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `DashboardProperties`, `EndpointProperties`
 - `config/nativehints/` — `DockerNativeConfig` (Spring AOT hints for types the agent can't observe)
 
 ## Integration Test Infrastructure
@@ -202,3 +242,5 @@ This is required because the Docker Registry API expects the full path:
 - `IntegrationTestBase` — base class wiring WireMock (Docker Hub mock) and shared Porthole container
 - `ContainerAwareIntegrationTestBase` — extends base to also start real Docker containers for end-to-end scenarios
 - Tests in `controller/`, `health/`, and `resilience/` extend these bases
+
+Endpoint discovery requires Docker-backed component scenarios in `server/src/test/java/com/roomelephant/porthole/it/controller/`, exercising the packaged JVM and native applications. Unit and MockMvc tests complement these scenarios. `PortholeContainer` defaults to `porthole-jvm:latest`; `-Dporthole.it.image=<tag>` selects a different runtime for both normal and custom-socket factories. Only the shared app records agent hints, avoiding competing writers from isolated override-test instances. See [server test commands](../server/README.md#test).

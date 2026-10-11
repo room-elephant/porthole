@@ -70,7 +70,7 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 - `EndpointProperties(@Nullable String publishedHost)` uses prefix `porthole.endpoints`, startup validation, and native binding registration.
 - `EndpointContextResolver(EndpointProperties properties)`; `resolve(HttpServletRequest request) -> EndpointContext` reads configured hostname first, otherwise `request.getServerName()`.
 
-- [ ] **Step 1: Write failing provider, URI, context, and Spring-wiring tests.** Name and pin these cases:
+- [x] **Step 1: Write failing provider, URI, context, and Spring-wiring tests.** Name and pin these cases:
   - `shouldBuildCompletePublishedPortUrl`: port `51413` and host `192.168.50.6` yield exactly `EndpointDTO("published-port:51413", "published-port", "http://192.168.50.6:51413/")`.
   - `shouldPreservePortIdAcrossHostnames`: changing host changes URL but not ID.
   - `shouldFormatIpv6Url`: `2001:db8::6` and `51413` yield `http://[2001:db8::6]:51413/`.
@@ -81,13 +81,13 @@ Tasks are sequential because the API and client depend on the shared endpoint co
   - `shouldInjectEveryProviderBean`: a minimal Spring context with discovery, the port provider, and a test-only provider returning source `ngnext` aggregates both without production registration changes.
   - `shouldDeduplicateAndSortWithoutSelectingDefault`: duplicate IDs collapse, unrelated sources remain, and a provider returning an empty list does not remove another's results.
 
-- [ ] **Step 2: Run the new test classes before implementation.** Use `make -C server test-one TEST=PublishedPortEndpointProviderTest,EndpointUrlsTest,EndpointContextResolverTest,EndpointPropertiesTest,EndpointDiscoveryTest`. Expect missing types or failing assertions. Do not count dependency/environment errors as the intended failure.
+- [x] **Step 2: Run the new test classes before implementation.** Use `make -C server test-one TEST=PublishedPortEndpointProviderTest,EndpointUrlsTest,EndpointContextResolverTest,EndpointPropertiesTest,EndpointDiscoveryTest`. Expect missing types or failing assertions. Do not count dependency/environment errors as the intended failure.
 
-- [ ] **Step 3: Implement the contracts and port discovery.** Use Spring beans and constructor injection; keep request state only in `EndpointContext`. Use a URI builder rather than concatenating IPv6 addresses. Keep `publishedPorts` numeric/protocol-agnostic as specified; inputs with no ports return an empty list. Keep servlet dependencies in the resolver/controller package.
+- [x] **Step 3: Implement the contracts and port discovery.** Use Spring beans and constructor injection; keep request state only in `EndpointContext`. Use a URI builder rather than concatenating IPv6 addresses. Keep `publishedPorts` numeric/protocol-agnostic as specified; inputs with no ports return an empty list. Keep servlet dependencies in the resolver/controller package.
 
-- [ ] **Step 4: Run the same tests and server unit suite.** Require all new tests and `make -C server test` to pass; inspect the Spring-wiring assertions and configuration-validation failures.
+- [x] **Step 4: Run the same tests and server unit suite.** Require all new tests and `make -C server test` to pass; inspect the Spring-wiring assertions and configuration-validation failures.
 
-- [ ] **Step 5: Format and commit the task-owned files.** Run `make -C server format`, check the diff, stage only listed additions, and commit `feat: add extensible endpoint discovery and port URLs`.
+- [x] **Step 5: Format and commit the task-owned files.** Run `make -C server format`, check the diff, stage only listed additions, and commit `feat: add extensible endpoint discovery and port URLs`.
 
 ### Task 2: Restricted Traefik routing provider
 
@@ -95,7 +95,7 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 
 **Interfaces:** Consumes Task 1 models, provider contract, and URL helper. Produces `TraefikRuleParser.parse(String rule) -> Optional<Route>`, where nested `Route(String host, String path)` contains a literal host and root/literal path. `TraefikEndpointProvider(TraefikRuleParser parser)` implements `discover` and registers as a Spring bean.
 
-- [ ] **Step 1: Write failing parser/provider tests.** Use resolved runtime labels and assert complete endpoint objects:
+- [x] **Step 1: Write failing parser/provider tests.** Use resolved runtime labels and assert complete endpoint objects:
   - `shouldDiscoverHostOnlyTlsRouter`: `Host(\`transmission.example.com\`)` plus `tls=true` yields URL `https://transmission.example.com/` and ID `traefik:https://transmission.example.com/`.
   - `shouldKeepRootAndDownloadRoutes`: host-only and host plus `PathPrefix(\`/dl/\`)` yield both root and `/dl/`; identical URLs from renamed routers collapse.
   - `shouldParseQuotedLiteralsAndGrouping`: support double-quoted arguments and parentheses around the supported conjunction; preserve path case and trailing slash.
@@ -105,13 +105,13 @@ Tasks are sequential because the API and client depend on the shared endpoint co
   - `shouldKeepOtherCandidatesWhenOneRouterIsInvalid`: one unsupported rule does not remove another router's endpoint.
   - `shouldIgnoreTcpUdpAndMissingRule`: TCP/UDP labels and label-free snapshots produce empty results; absence of `traefik.enable` does not suppress an explicit HTTP router.
 
-- [ ] **Step 2: Run `make -C server test-one TEST=TraefikRuleParserTest,TraefikEndpointProviderTest,EndpointUrlsTest`.** Expect missing parser/provider types or the new behavioral assertions to fail.
+- [x] **Step 2: Run `make -C server test-one TEST=TraefikRuleParserTest,TraefikEndpointProviderTest,EndpointUrlsTest`.** Expect missing parser/provider types or the new behavioral assertions to fail.
 
-- [ ] **Step 3: Implement the restricted grammar and provider.** Consume the entire expression, including grouping and whitespace; do not use a host-substring extraction regex that ignores predicates. Normalize label keys case-insensitively, preserve values, and build URLs through Task 1's helper. Debug diagnostics identify the container/router without dumping labels. Use no Traefik API connection, probes, or external parser dependency.
+- [x] **Step 3: Implement the restricted grammar and provider.** Consume the entire expression, including grouping and whitespace; do not use a host-substring extraction regex that ignores predicates. Normalize label keys case-insensitively, preserve values, and build URLs through Task 1's helper. Debug diagnostics identify the container/router without dumping labels. Use no Traefik API connection, probes, or external parser dependency.
 
-- [ ] **Step 4: Run the same targeted tests and `make -C server test`.** Require successful parsing of supported forms and empty results for every unsupported form.
+- [x] **Step 4: Run the same targeted tests and `make -C server test`.** Require successful parsing of supported forms and empty results for every unsupported form.
 
-- [ ] **Step 5: Format, inspect, and commit only this task's files.** Commit `feat: discover service URLs from Traefik routers`.
+- [x] **Step 5: Format, inspect, and commit only this task's files.** Commit `feat: discover service URLs from Traefik routers`.
 
 ### Task 3: Replace the container API with endpoints
 
@@ -124,7 +124,7 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 - `ContainerService.getContainers(boolean includeWithoutEndpoints, boolean includeStopped, EndpointContext context) -> List<ContainerDTO>` filters after discovery.
 - Controller uses `EndpointContextResolver` and accepts `includeWithoutEndpoints=false` and `includeStopped=false`; version endpoint and Docker error handling remain intact.
 
-- [ ] **Step 1: Write/update failing mapper, service, DTO, and MockMvc tests.** Assertions must pin:
+- [x] **Step 1: Write/update failing mapper, service, DTO, and MockMvc tests.** Assertions must pin:
   - Runtime Docker labels reach the providers; null labels/port arrays become empty collections, and null public-port values are ignored.
   - A label-only running container survives default endpoint filtering.
   - Ports and labels from the same container return both endpoint sources; project/display-name/icon behavior remains as before.
@@ -132,13 +132,13 @@ Tasks are sequential because the API and client depend on the shared endpoint co
   - JSON includes `endpoints[*].id/source/url` and `hasEndpoints`, but omits `exposedPorts`, `hasPublicPorts`, labels, and endpoint `port`.
   - `includeWithoutEndpoints=true` passes the renamed flag; the old query parameter is not an alias. `includeStopped` and Docker-connection exception behavior retain existing assertions.
 
-- [ ] **Step 2: Run `make -C server test-one TEST=ContainerDTOTest,ContainerMapperTest,ContainerServiceTest,ContainerControllerTest`.** Expect missing signatures/record accessors or changed-contract assertions to fail.
+- [x] **Step 2: Run `make -C server test-one TEST=ContainerDTOTest,ContainerMapperTest,ContainerServiceTest,ContainerControllerTest`.** Expect missing signatures/record accessors or changed-contract assertions to fail.
 
-- [ ] **Step 3: Implement the API migration and context propagation.** Preserve unchanged metadata behavior, normalize absent collections, copy labels/ports, and keep raw labels outside the API DTO. Register endpoint serialization binding. Migrate existing IT assertions to endpoint IDs/URLs so compilation succeeds; new Docker-backed scenarios belong to Task 5.
+- [x] **Step 3: Implement the API migration and context propagation.** Preserve unchanged metadata behavior, normalize absent collections, copy labels/ports, and keep raw labels outside the API DTO. Register endpoint serialization binding. Migrate existing IT assertions to endpoint IDs/URLs so compilation succeeds; new Docker-backed scenarios belong to Task 5.
 
-- [ ] **Step 4: Run the targeted tests and `make -C server test`.** Require all tests to pass and confirm both hostnames produce different URLs while port IDs stay stable.
+- [x] **Step 4: Run the targeted tests and `make -C server test`.** Require all tests to pass and confirm both hostnames produce different URLs while port IDs stay stable.
 
-- [ ] **Step 5: Format, inspect, and commit only this task's files.** Commit `feat: expose discovered endpoints through the containers API`. The feature branch is temporarily incompatible with the old client until Task 4; do not publish it at this point.
+- [x] **Step 5: Format, inspect, and commit only this task's files.** Commit `feat: expose discovered endpoints through the containers API`. The feature branch is temporarily incompatible with the old client until Task 4; do not publish it at this point.
 
 ### Task 4: URL selection, saved preferences, and grouped settings
 
@@ -153,13 +153,13 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 - `ContainerSettings` consumes `endpoints`, `selectedEndpointId`, and `onSelectEndpoint(id)` instead of port props. Version-update props are preserved.
 - Tile launches `selectedEndpoint.url` directly or opens settings; memo comparison includes every endpoint's ID, source, and URL.
 
-- [ ] **Step 1: Write failing pure-selection tests.** Pin saved port over Traefik, sole Traefik over any ports, unique root over `/dl/`, two root URLs opening settings, multiple non-root URLs opening settings, no-Traefik single/multiple candidate behavior, unknown-source candidates, no endpoints, and stale IDs falling back to automatic selection.
+- [x] **Step 1: Write failing pure-selection tests.** Pin saved port over Traefik, sole Traefik over any ports, unique root over `/dl/`, two root URLs opening settings, multiple non-root URLs opening settings, no-Traefik single/multiple candidate behavior, unknown-source candidates, no endpoints, and stale IDs falling back to automatic selection.
 
-- [ ] **Step 2: Run `npm --prefix client run test:run -- src/test/utils/endpoints.test.js`.** Expect a missing utility or policy assertion failure.
+- [x] **Step 2: Run `npm --prefix client run test:run -- src/test/utils/endpoints.test.js`.** Expect a missing utility or policy assertion failure.
 
-- [ ] **Step 3: Implement the pure selection and source grouping utilities.** Return null for ambiguity/no candidate. Use Map or an equivalent grouping structure safe for identifiers such as `__proto__`; derive readable titles for unfamiliar sources without an allowlist.
+- [x] **Step 3: Implement the pure selection and source grouping utilities.** Return null for ambiguity/no candidate. Use Map or an equivalent grouping structure safe for identifiers such as `__proto__`; derive readable titles for unfamiliar sources without an allowlist.
 
-- [ ] **Step 4: Write failing hook and component tests.** Cover:
+- [x] **Step 4: Write failing hook and component tests.** Cover:
   - Valid legacy numeric port migration to its matching `published-port:<port>` ID only when the new key is absent; preserve the old key.
   - A new preference always wins over legacy storage; malformed/non-numeric legacy values and removed ports are ignored.
   - Automatic defaults do not write storage; unavailable saved IDs do not open stale URLs.
@@ -170,13 +170,13 @@ Tasks are sequential because the API and client depend on the shared endpoint co
   - Settings-button clicks do not launch a URL; no-endpoint tiles stay disabled while settings/version controls still work.
   - The API request uses `includeWithoutEndpoints`; Show All and empty-state copy say "without endpoints".
 
-- [ ] **Step 5: Run `npm --prefix client run test:run -- src/test/hooks/useEndpointSelection.test.jsx src/test/components/ContainerTile.test.jsx src/test/components/ContainerSettings.test.jsx src/test/api.test.js`.** Expect the new props, launch policy, or persistence assertions to fail.
+- [x] **Step 5: Run `npm --prefix client run test:run -- src/test/hooks/useEndpointSelection.test.jsx src/test/components/ContainerTile.test.jsx src/test/components/ContainerSettings.test.jsx src/test/api.test.js`.** Expect the new props, launch policy, or persistence assertions to fail.
 
-- [ ] **Step 6: Implement storage migration and connect the UI.** Reuse `useLocalStorage` for cross-tab synchronization; persist IDs only after explicit selection or valid legacy migration. Render accessible single-selection controls across all source groups, with the existing version section last. Add URL wrapping using `overflow-wrap:anywhere` and `min-width:0` where needed. Remove `getTargetUrl`; the client never consults its hostname to launch endpoints. Update all test fixtures and port-only copy together.
+- [x] **Step 6: Implement storage migration and connect the UI.** Reuse `useLocalStorage` for cross-tab synchronization; persist IDs only after explicit selection or valid legacy migration. Render accessible single-selection controls across all source groups, with the existing version section last. Add URL wrapping using `overflow-wrap:anywhere` and `min-width:0` where needed. Remove `getTargetUrl`; the client never consults its hostname to launch endpoints. Update all test fixtures and port-only copy together.
 
-- [ ] **Step 7: Run the new and affected tests, then `make -C client test`, `make -C client lint`, and `make -C client build`.** Require passing coverage gates, lint, and build. Visually inspect a modal with root/path routes, a published-port URL, an unfamiliar source, and a long URL at desktop and narrow viewport widths.
+- [x] **Step 7: Run the new and affected tests, then `make -C client test`, `make -C client lint`, and `make -C client build`.** Require passing coverage gates, lint, and build. Visually inspect a modal with root/path routes, a published-port URL, an unfamiliar source, and a long URL at desktop and narrow viewport widths.
 
-- [ ] **Step 8: Inspect and commit only this task's files.** Commit `feat: prefer Traefik URLs and group endpoint settings`.
+- [x] **Step 8: Inspect and commit only this task's files.** Commit `feat: prefer Traefik URLs and group endpoint settings`.
 
 ### Task 5: Required Docker-backed component tests on JVM and native
 
@@ -184,7 +184,7 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 
 **Interfaces:** Default IT image remains `porthole-jvm:latest`. Resolve `System.getProperty("porthole.it.image", "porthole-jvm:latest")` for both normal and custom-socket app factories. A command-line `-Dporthole.it.image=<tag>` selects the explicit native image. Use `PORTHOLE_ENDPOINTS_PUBLISHEDHOST` on a dedicated app instance for override scenarios. Shared component tests still consume the same `/api/containers` contract from Task 3.
 
-- [ ] **Step 1: Write the required failing component scenarios.** Use real Docker containers with resolved labels:
+- [x] **Step 1: Write the required failing component scenarios.** Use real Docker containers with resolved labels:
   - `shouldIncludeTraefikContainerWithoutPublishedPorts`: label-only container appears by default with the exact HTTPS URL.
   - `shouldReturnProxyAndPublishedPortCandidates`: mixed container exposes both sources and its mapped port in the complete HTTP URL.
   - `shouldKeepDistinctRoutesAndDeduplicateEquivalentRouters`: root and `/dl/` persist, duplicate root routers collapse.
@@ -193,15 +193,15 @@ Tasks are sequential because the API and client depend on the shared endpoint co
   - `shouldUseConfiguredPublishedHost`: dedicated app configured with `docker.example.com` returns that hostname despite a request through localhost.
   - `shouldSerializeOnlyEndpointContract`: inspect actual JSON, not only deserialized DTOs, and assert all mandatory fields plus absence of labels/legacy port fields.
 
-- [ ] **Step 2: Run the new component scenarios.** Run `make bundle`, `make -C docker jvm-image`, and `make -C server it` against the current application. Missing new fixtures or override setup should fail the corresponding assertions before Step 3 supplies them. If a scenario already passes because Tasks 1–4 implemented its behavior, record that result; do not manufacture a failure. The production behavior's red/green cycle belongs to its owning earlier task. Do not count stale images or Docker-environment errors as regression evidence.
+- [x] **Step 2: Run the new component scenarios.** Run `make bundle`, `make -C docker jvm-image`, and `make -C server it` against the current application. Missing new fixtures or override setup should fail the corresponding assertions before Step 3 supplies them. If a scenario already passes because Tasks 1–4 implemented its behavior, record that result; do not manufacture a failure. The production behavior's red/green cycle belongs to its owning earlier task. Do not count stale images or Docker-environment errors as regression evidence.
 
-- [ ] **Step 3: Implement fixture lifecycle and explicit image selection.** Add labels and mappings using the existing pause-image fixtures. Ensure new fixture containers are cleaned up. Keep override configuration isolated to its dedicated Porthole instance. Do not query Traefik or perform web reachability probes. This fixture change enables native verification; fixing the existing release workflow's image-tag mismatch remains a separate tooling change.
+- [x] **Step 3: Implement fixture lifecycle and explicit image selection.** Add labels and mappings using the existing pause-image fixtures. Ensure new fixture containers are cleaned up. Keep override configuration isolated to its dedicated Porthole instance. Do not query Traefik or perform web reachability probes. This fixture change enables native verification; fixing the existing release workflow's image-tag mismatch remains a separate tooling change.
 
-- [ ] **Step 4: Build current artifacts and run the JVM component suite.** Run `make bundle`, `make -C docker jvm-image`, then `make -C server it`. Require all failsafe tests to pass, including the new component scenarios and existing health/resilience/version tests. Verify the launched app image is `porthole-jvm:latest`.
+- [x] **Step 4: Build current artifacts and run the JVM component suite.** Run `make bundle`, `make -C docker jvm-image`, then `make -C server it`. Require all failsafe tests to pass, including the new component scenarios and existing health/resilience/version tests. Verify the launched app image is `porthole-jvm:latest`.
 
-- [ ] **Step 5: Verify native serialization with the same suite.** Regenerate native hints with `make server-native-hints` when required; inspect generated changes and never edit the generated metadata manually. In a Linux environment with GraalVM JDK 25, run `make bundle-native` using the same prerequisites as the release workflow. A Linux CI artifact is usable only if built from this feature branch's tested commit. The macOS executable from a local native build cannot run in the Debian image. Stage the Linux binary as `porthole` in a temporary Docker build context containing the repository's production Dockerfile, entrypoint, and templates. Run `docker build -t porthole-native-validation:latest -f docker/Dockerfile <temporary-context>`, then `make -C server it MVN='mvn -Dporthole.it.image=porthole-native-validation:latest'`. Require the same tests to pass; record image identity and architecture. Do not treat JVM success as native evidence or overwrite a tracked repository file with the staged binary.
+- [x] **Step 5: Verify native serialization with the same suite.** Regenerate native hints with `make server-native-hints` when required; inspect generated changes and never edit the generated metadata manually. In a Linux environment with GraalVM JDK 25, run `make bundle-native` using the same prerequisites as the release workflow. A Linux CI artifact is usable only if built from this feature branch's tested commit. The macOS executable from a local native build cannot run in the Debian image. Stage the Linux binary as `porthole` in a temporary Docker build context containing the repository's production Dockerfile, entrypoint, and templates. Run `docker build -t porthole-native-validation:latest -f docker/Dockerfile <temporary-context>`, then `make -C server it MVN='mvn -Dporthole.it.image=porthole-native-validation:latest'`. Require the same tests to pass; record image identity and architecture. Do not treat JVM success as native evidence or overwrite a tracked repository file with the staged binary.
 
-- [ ] **Step 6: Format and commit this task's tests plus generated hints when needed.** Commit `test: cover endpoint discovery through packaged application`. If the runtime environment prevents native compilation/execution, report that limitation and keep native verification outstanding.
+- [x] **Step 6: Format and commit this task's tests plus generated hints when needed.** Commit `test: cover endpoint discovery through packaged application`. If the runtime environment prevents native compilation/execution, report that limitation and keep native verification outstanding.
 
 ### Task 6: Documentation, complete verification, and branch review
 
@@ -209,13 +209,13 @@ Tasks are sequential because the API and client depend on the shared endpoint co
 
 **Interfaces:** Consumes the final API, provider contract, frontend behavior, and component-test commands from Tasks 1–5. Produces documented behavior and a branch ready for integration review.
 
-- [ ] **Step 1: Document the shipped behavior.** Explain endpoint discovery and selection, Traefik/port sections, label-only inclusion, the renamed query flag, and the hostname override/default. Add a provider extension example using `@Component implements EndpointProvider` with no manual registry. Describe literal rule support and global Traefik/custom-port limitations. Show the exact `{id,source,url}` schema and `PORTHOLE_ENDPOINTS_PUBLISHEDHOST` name.
+- [x] **Step 1: Document the shipped behavior.** Explain endpoint discovery and selection, Traefik/port sections, label-only inclusion, the renamed query flag, and the hostname override/default. Add a provider extension example using `@Component implements EndpointProvider` with no manual registry. Describe literal rule support and global Traefik/custom-port limitations. Show the exact `{id,source,url}` schema and `PORTHOLE_ENDPOINTS_PUBLISHEDHOST` name.
 
-- [ ] **Step 2: Check for missed port-contract consumers.** Run `rg -n 'exposedPorts|hasPublicPorts|includeWithoutPorts|getTargetUrl|selectedPort' server/src client/src README.md docs/ARCHITECTURE.md docs/CONFIGURATION.md`. Remaining occurrences must be legacy-absence assertions or documented migration notes, not live consumers. Confirm the implementation matches every spec acceptance criterion, including component tests.
+- [x] **Step 2: Check for missed port-contract consumers.** Run `rg -n 'exposedPorts|hasPublicPorts|includeWithoutPorts|getTargetUrl|selectedPort' server/src client/src README.md docs/ARCHITECTURE.md docs/CONFIGURATION.md`. Remaining occurrences must be legacy-absence assertions or documented migration notes, not live consumers. Confirm the implementation matches every spec acceptance criterion, including component tests.
 
-- [ ] **Step 3: Verify the assembled branch.** Run `make -C server format`, `make -C server format-check`, `make -C server test`, `make -C client test`, `make -C client lint`, and `make -C client build`. Run `mvn -f server/pom.xml verify -Dspotless.check.skip=true` to exercise the existing server coverage gates. If any runtime-affecting change occurred after Task 5, repackage/rebuild and rerun the affected JVM/native component suite; otherwise retain Task 5's recorded image/test evidence. Run `git diff --check`. Require all applicable checks to pass.
+- [x] **Step 3: Verify the assembled branch.** Run `make -C server format`, `make -C server format-check`, `make -C server test`, `make -C client test`, `make -C client lint`, and `make -C client build`. Run `mvn -f server/pom.xml verify -Dspotless.check.skip=true` to exercise the existing server coverage gates. If any runtime-affecting change occurred after Task 5, repackage/rebuild and rerun the affected JVM/native component suite; otherwise retain Task 5's recorded image/test evidence. Run `git diff --check`. Require all applicable checks to pass.
 
-- [ ] **Step 4: Commit documentation and request whole-branch review.** Commit `docs: explain endpoint discovery and provider extensions`. Review the full diff against the approved spec and existing architecture before integration; do not review only the last commit. Report what changed, test results, native runtime evidence, and any remaining limitation. Use `feature` as the PR label if a PR is authorized.
+- [x] **Step 4: Commit documentation and request whole-branch review.** Commit `docs: explain endpoint discovery and provider extensions`. Review the full diff against the approved spec and existing architecture before integration; do not review only the last commit. Report what changed, test results, native runtime evidence, and any remaining limitation. Use `feature` as the PR label if a PR is authorized.
 
 ## Execution handoff
 
