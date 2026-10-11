@@ -5,15 +5,15 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS, ASSETS } from '../constants';
 import { useEndpointSelection } from '../hooks/useEndpointSelection';
 import ContainerSettings from './ContainerSettings';
+import { NO_ENDPOINT_ID } from '../utils/endpoints';
 
 const arraysEqual = (a, b) => 
     a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
 
 function ContainerTile({ container }) {
     const [showConfig, setShowConfig] = useState(false);
-    const hasEndpoints = container.hasEndpoints;
-
-    const { selectedEndpoint, selectEndpoint } = useEndpointSelection(container.name, container.endpoints);
+    const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.name, container.endpoints);
+    const hasEndpoints = container.hasEndpoints && selectedEndpointId !== NO_ENDPOINT_ID;
     const [checkUpdates, setCheckUpdates] = useLocalStorage(STORAGE_KEYS.VERSION_CHECK(container.name), true);
 
     const { data: versionInfo, isLoading: versionLoading } = useContainerVersion(
@@ -87,7 +87,7 @@ function ContainerTile({ container }) {
                 <ContainerSettings
                     containerName={container.name}
                     endpoints={container.endpoints}
-                    selectedEndpointId={selectedEndpoint?.id ?? null}
+                    selectedEndpointId={selectedEndpointId}
                     checkUpdates={checkUpdates}
                     onClose={() => setShowConfig(false)}
                     onSelectEndpoint={selectEndpoint}

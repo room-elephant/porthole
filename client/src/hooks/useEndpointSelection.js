@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { STORAGE_KEYS } from '../constants';
-import { resolveEndpointSelection } from '../utils/endpoints';
+import { NO_ENDPOINT_ID, resolveEndpointSelection } from '../utils/endpoints';
 
 export const useEndpointSelection = (containerName, endpoints) => {
   const key = STORAGE_KEYS.ENDPOINT_PREF(containerName);
@@ -22,5 +22,8 @@ export const useEndpointSelection = (containerName, endpoints) => {
     if (candidate) selectEndpoint(candidate.id);
   }, [containerName, endpoints, key, savedId, selectEndpoint]);
 
-  return { selectedEndpoint: resolveEndpointSelection(endpoints, savedId), selectEndpoint };
+  const selectedEndpoint = resolveEndpointSelection(endpoints, savedId);
+  const selectedEndpointId = savedId === NO_ENDPOINT_ID ? NO_ENDPOINT_ID : selectedEndpoint?.id ?? null;
+
+  return { selectedEndpoint, selectedEndpointId, selectEndpoint };
 };
