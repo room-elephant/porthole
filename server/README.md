@@ -40,7 +40,7 @@ The component suite in `src/test/java/com/roomelephant/porthole/it` is also requ
 make it MVN='mvn -Dporthole.it.image=porthole-native-validation:latest'
 ```
 
-`porthole.it.image` defaults to `porthole-jvm:latest` and applies to normal and custom-socket app factories. JVM success does not prove native serialization or AOT behavior. The existing release workflow's `porthole-it:latest` tag must be passed explicitly to select that image; its current command does not set this property.
+`porthole.it.image` defaults to `porthole-jvm:latest` and applies to normal and custom-socket app factories. JVM success does not prove native serialization or AOT behavior. The release workflow explicitly selects its `porthole-it:latest` image through this property for both native architectures.
 
 Under `make native-hints`, every application instance records native-agent hints, including hostname-override and resilience fixtures. Each writes to its own directory under `target/native-hints/`. Recording JVMs stop gracefully, then GraalVM merges all outputs after the tests pass. Ordinary JVM/native component runs do not attach the agent.
 

@@ -126,7 +126,7 @@ jobs:
 
       - name: Run integration tests against native image
         working-directory: server
-        run: make it
+        run: make it MVN="$MVN -Dporthole.it.image=porthole-it:latest"
 
       - name: Print porthole container logs on failure
         if: failure()
