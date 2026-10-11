@@ -20,6 +20,7 @@ public class UrlCandidateEnricher implements ContainerEnricher {
 
     @Override
     public Optional<Container> enrich(Container container, ContainerContext context) {
-        return Optional.of(container.withUrlCandidates(endpointDiscovery.discover(container, context)));
+        container.setUrlCandidates(endpointDiscovery.discover(container, context));
+        return Optional.of(container);
     }
 }

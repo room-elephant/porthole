@@ -186,9 +186,9 @@ Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fi
 
 ### Endpoint Provider Extension
 
-`ContainerService` retrieves all docker-java containers and maps them through `ContainerMapper` into immutable domain `Container` records. These retain container metadata, published ports, raw labels, and `urlCandidates`. Mapping starts with no URL candidates.
+`ContainerService` retrieves all docker-java containers and maps them through `ContainerMapper` into domain `Container` objects. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
 
-The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the previous handler's immutable result and the request-specific `ContainerContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler, including when the handler makes no changes. An empty chain retains the input, and handler failures propagate to the existing exception handling.
+The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the container and the request-specific `ContainerContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler; enrichment handlers update the same container instance, and filters retain it without changing it. An empty chain retains the input, and handler failures propagate to the existing exception handling.
 
 The production handlers run in this order:
 

@@ -38,7 +38,7 @@ class ContainerEnrichmentTest {
                             new Endpoint("later", "later", "http://192.168.50.6:8080/later"));
             assertThat(enriched.labels()).containsEntry("custom.metadata", "retained");
             assertThat(enriched.publishedPorts()).containsExactly(8080);
-            assertThat(raw.urlCandidates()).isEmpty();
+            assertThat(enriched).isSameAs(raw);
         }
     }
 
@@ -120,8 +120,10 @@ class ContainerEnrichmentTest {
     @Test
     void shouldContinueAfterAHandlerThatMakesNoChanges() {
         ContainerEnricher noChange = (container, context) -> Optional.of(container);
-        ContainerEnricher next = (container, context) -> Optional.of(
-                container.withUrlCandidates(List.of(new Endpoint("next", "next", "https://" + context.host() + "/"))));
+        ContainerEnricher next = (container, context) -> {
+            container.setUrlCandidates(List.of(new Endpoint("next", "next", "https://" + context.host() + "/")));
+            return Optional.of(container);
+        };
         Container enriched = new ContainerEnrichment(List.of(noChange, next))
                 .enrich(container("running", Set.of(), Map.of()), new ContainerContext("app.example.com", false, false))
                 .orElseThrow();
@@ -160,7 +162,8 @@ class ContainerEnrichmentTest {
                 if (container.urlCandidates().isEmpty()) return Optional.of(container);
                 List<Endpoint> urls = new ArrayList<>(container.urlCandidates());
                 urls.add(new Endpoint("later", "later", urls.getFirst().url() + "later"));
-                return Optional.of(container.withUrlCandidates(urls));
+                container.setUrlCandidates(urls);
+                return Optional.of(container);
             };
         }
 

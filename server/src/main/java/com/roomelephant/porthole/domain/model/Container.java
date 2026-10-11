@@ -7,26 +7,89 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 @NullMarked
-public record Container(
-        String id,
-        String name,
-        String displayName,
-        String image,
-        Set<Integer> publishedPorts,
-        Map<String, String> labels,
-        List<Endpoint> urlCandidates,
-        String iconUrl,
-        @Nullable String project,
-        @Nullable String state,
-        @Nullable String status) {
-    public Container {
-        publishedPorts = Set.copyOf(publishedPorts);
-        labels = Map.copyOf(labels);
-        urlCandidates = List.copyOf(urlCandidates);
+public final class Container {
+    private final String id;
+    private final String name;
+    private final String displayName;
+    private final String image;
+    private final Set<Integer> publishedPorts;
+    private final Map<String, String> labels;
+    private List<Endpoint> urlCandidates;
+    private final String iconUrl;
+    private final @Nullable String project;
+    private final @Nullable String state;
+    private final @Nullable String status;
+
+    public Container(
+            String id,
+            String name,
+            String displayName,
+            String image,
+            Set<Integer> publishedPorts,
+            Map<String, String> labels,
+            List<Endpoint> urlCandidates,
+            String iconUrl,
+            @Nullable String project,
+            @Nullable String state,
+            @Nullable String status) {
+        this.id = id;
+        this.name = name;
+        this.displayName = displayName;
+        this.image = image;
+        this.publishedPorts = Set.copyOf(publishedPorts);
+        this.labels = Map.copyOf(labels);
+        this.urlCandidates = List.copyOf(urlCandidates);
+        this.iconUrl = iconUrl;
+        this.project = project;
+        this.state = state;
+        this.status = status;
     }
 
-    public Container withUrlCandidates(List<Endpoint> candidates) {
-        return new Container(
-                id, name, displayName, image, publishedPorts, labels, candidates, iconUrl, project, state, status);
+    public String id() {
+        return id;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public String displayName() {
+        return displayName;
+    }
+
+    public String image() {
+        return image;
+    }
+
+    public Set<Integer> publishedPorts() {
+        return publishedPorts;
+    }
+
+    public Map<String, String> labels() {
+        return labels;
+    }
+
+    public List<Endpoint> urlCandidates() {
+        return urlCandidates;
+    }
+
+    public String iconUrl() {
+        return iconUrl;
+    }
+
+    public @Nullable String project() {
+        return project;
+    }
+
+    public @Nullable String state() {
+        return state;
+    }
+
+    public @Nullable String status() {
+        return status;
+    }
+
+    public void setUrlCandidates(List<Endpoint> candidates) {
+        this.urlCandidates = List.copyOf(candidates);
     }
 }
