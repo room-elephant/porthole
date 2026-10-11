@@ -233,8 +233,9 @@ class ContainerMapperTest {
                 model.labels());
         assertTrue(model.urlCandidates().isEmpty());
         assertThrows(UnsupportedOperationException.class, () -> model.labels().clear());
-        assertThrows(UnsupportedOperationException.class, () -> model.publishedPorts()
-                .clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> model.publishedPorts().clear());
     }
 
     @Test
