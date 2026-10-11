@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
+import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
@@ -17,7 +18,7 @@ class DockerNativeConfig implements RuntimeHintsRegistrar {
 
     @Override
     public void registerHints(@NonNull RuntimeHints hints, @Nullable ClassLoader classLoader) {
-        var loader = classLoader != null ? classLoader : getClass().getClassLoader();
+        ClassLoader loader = classLoader != null ? classLoader : getClass().getClassLoader();
         registerPackage(hints, loader, "com.github.dockerjava.api.model");
         registerPackage(hints, loader, "com.github.dockerjava.api.command");
         tryRegisterClass(hints, loader, "com.github.dockerjava.core.DockerConfigFile");
@@ -25,9 +26,9 @@ class DockerNativeConfig implements RuntimeHintsRegistrar {
     }
 
     private void registerPackage(RuntimeHints hints, ClassLoader classLoader, String basePackage) {
-        var scanner = new ClassPathScanningCandidateComponentProvider(false);
+        ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AssignableTypeFilter(Object.class));
-        for (var bd : scanner.findCandidateComponents(basePackage)) {
+        for (BeanDefinition bd : scanner.findCandidateComponents(basePackage)) {
             tryRegisterClass(hints, classLoader, bd.getBeanClassName());
         }
     }

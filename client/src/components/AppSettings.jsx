@@ -62,7 +62,7 @@ function AppSettings({
                         onChange={(e) => onToggleShowAll(e.target.checked)}
                     />
                     <span className="toggle-slider"></span>
-                    <span className="toggle-label">Show containers without ports</span>
+                    <span className="toggle-label">Show containers without endpoints</span>
                 </label>
             </div>
         </Modal>

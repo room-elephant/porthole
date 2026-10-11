@@ -86,11 +86,11 @@ function App() {
           <h2>No containers found</h2>
           <p>
             {!showAll && !showStopped
-              ? 'No running containers with exposed ports. Try enabling "Show stopped containers" or "Show containers without ports" in settings.'
+              ? 'No running containers with endpoints. Try enabling "Show stopped containers" or "Show containers without endpoints" in settings.'
               : !showStopped
-              ? 'No containers with exposed ports found. Try enabling "Show stopped containers" in settings.'
+              ? 'No containers with endpoints found. Try enabling "Show stopped containers" in settings.'
               : !showAll
-              ? 'No running containers found. Try enabling "Show containers without ports" in settings.'
+              ? 'No running containers found. Try enabling "Show containers without endpoints" in settings.'
               : 'Docker is running but no containers exist. Start some containers to see them here.'}
           </p>
         </div>

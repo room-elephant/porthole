@@ -80,7 +80,7 @@ public abstract class IntegrationTestBase {
     }
 
     private static @NotNull RestTemplate createRestTemplate() {
-        var template = new RestTemplate();
+        RestTemplate template = new RestTemplate();
         template.setErrorHandler(response -> response.getStatusCode().is5xxServerError());
         return template;
     }

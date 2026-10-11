@@ -98,13 +98,55 @@ The application comes with these built-in defaults:
 
 Overriding these keys in your external file will take precedence.
 
+## Endpoint Discovery
+
+Porthole lists containers with at least one discovered endpoint by default. **Show containers without endpoints** includes containers with no usable URL; **Show stopped containers** is independent. Tiles without endpoints are disabled, but their gear icon and version settings remain available.
+
+### Published-Port Hostname
+
+Published-port URLs use HTTP and the hostname from the incoming Porthole request. For example, accessing `http://192.168.50.6:9753/` produces `http://192.168.50.6:51413/` for a container publishing port 51413. Port 80 uses the standard `http://192.168.50.6/` form. IPv6 addresses are bracketed correctly.
+
+Use an override when Porthole's browser hostname differs from the Docker host that publishes the ports, including remote Docker hosts or reverse-proxy deployments:
+
+```yaml
+porthole:
+  endpoints:
+    published-host: docker.example.com
+```
+
+The environment variable is **`PORTHOLE_ENDPOINTS_PUBLISHEDHOST`**. Its value must be a bare hostname or IP address, without a scheme, port, or path. Invalid values prevent application startup. The default is unset; the request hostname is resolved for each request. Porthole does not use the browser's client IP or a container bridge address.
+
+Direct ports are candidates, not guarantees of a web UI: a published torrent, database, or HTTPS-only port can still produce an HTTP candidate. Choose the appropriate endpoint in settings.
+
+### Traefik Labels
+
+Discovery reads resolved Docker container labels such as:
+
+```yaml
+labels:
+  traefik.http.routers.app.rule: 'Host(`app.example.com`)'
+  traefik.http.routers.app.tls: 'true'
+  traefik.http.routers.files.rule: 'Host(`files.example.com`) && PathPrefix(`/dl/`)'
+  traefik.http.routers.files.tls: 'true'
+```
+
+These yield `https://app.example.com/` and `https://files.example.com/dl/`. A Host-only router and a path router remain separate choices; renamed routers with identical URLs are deduplicated. Label keys are matched case-insensitively. `traefik.enable=false` suppresses Traefik discovery while published-port candidates remain.
+
+Supported rules contain one literal `Host` and optionally one literal `Path` or `PathPrefix`, joined by `&&`, with grouping parentheses and backtick or double-quoted strings. The whole rule must be supported. OR, negation, regex matchers, multiple arguments, additional predicates, unresolved substitutions, and malformed rules are skipped. No Traefik connection or reachability probe is needed.
+
+Router `tls=true`, or a TLS sublabel such as `tls.certresolver`, implies HTTPS; explicit `tls=false` wins, and absent TLS implies HTTP. Global entrypoint TLS defaults, custom external proxy ports, and middleware effects are not inferred. Backend service ports/schemes and entrypoint names do not determine the browser URL. Traefik candidates use standard external HTTP/HTTPS ports.
+
 ## Per-Container Settings
 
 Each container has a settings panel accessible via the gear icon. Settings are stored in your browser's local storage.
 
-### Port Selection
+### URL Selection
 
-For containers with multiple exposed ports, you can select which port to use when clicking the container tile. The selected port is remembered across sessions.
+Settings show full URLs grouped under **Traefik URLs**, **Published Ports**, and any additional provider sections. Choose one URL across all sections. Version Updates remains the last section.
+
+A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traefik URL or the unique root `/` route among several Traefik URLs. If Traefik is absent, it selects a sole candidate from any provider. Multiple root routes, multiple non-root Traefik routes, or multiple candidates without Traefik open settings for a choice.
+
+Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. Existing numeric port preferences migrate when their published port still exists and no new endpoint preference has been saved; the old preference remains intact. Preferences synchronize across browser tabs.
 
 ### Version Update Checking
 

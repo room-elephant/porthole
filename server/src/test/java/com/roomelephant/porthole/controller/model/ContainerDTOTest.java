@@ -1,9 +1,9 @@
-package com.roomelephant.porthole.domain.model;
+package com.roomelephant.porthole.controller.model;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Collections;
-import java.util.Set;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -11,65 +11,48 @@ import org.junit.jupiter.api.Test;
 class ContainerDTOTest {
 
     @Test
-    @DisplayName("should return true for hasPublicPorts when ports are present")
-    void shouldReturnTrueForHasPublicPortsWhenPortsArePresent() {
-        var dto = new ContainerDTO(
+    @DisplayName("should return true for hasEndpoints when ports are present")
+    void shouldReturnTrueForHasEndpointsWhenPortsArePresent() {
+        ContainerDTO dto = new ContainerDTO(
                 "container-id",
                 "my-container",
                 "my-container",
                 "nginx:latest",
-                Set.of(80, 443),
+                List.of(new EndpointDTO("a", "traefik", "https://example.com/")),
                 "https://example.com/nginx.png",
                 "my-project",
                 "running",
                 "Up 2 hours");
 
-        assertTrue(dto.hasPublicPorts());
+        assertTrue(dto.hasEndpoints());
     }
 
     @Test
-    @DisplayName("should return false for hasPublicPorts when ports list is empty")
-    void shouldReturnFalseForHasPublicPortsWhenPortsListIsEmpty() {
-        var dto = new ContainerDTO(
+    @DisplayName("should return false for hasEndpoints when ports list is empty")
+    void shouldReturnFalseForHasEndpointsWhenPortsListIsEmpty() {
+        ContainerDTO dto = new ContainerDTO(
                 "container-id",
                 "my-container",
                 "my-container",
                 "nginx:latest",
-                Collections.emptySet(),
+                Collections.emptyList(),
                 "https://example.com/nginx.png",
                 "my-project",
                 "running",
                 "Up 2 hours");
 
-        assertFalse(dto.hasPublicPorts());
-    }
-
-    @Test
-    @DisplayName("should return false for hasPublicPorts when ports list is null")
-    void shouldReturnFalseForHasPublicPortsWhenPortsListIsNull() {
-        var dto = new ContainerDTO(
-                "container-id",
-                "my-container",
-                "my-container",
-                "nginx:latest",
-                null,
-                "https://example.com/nginx.png",
-                "my-project",
-                "running",
-                "Up 2 hours");
-
-        assertFalse(dto.hasPublicPorts());
+        assertFalse(dto.hasEndpoints());
     }
 
     @Test
     @DisplayName("should correctly expose all record components")
     void shouldCorrectlyExposeAllRecordComponents() {
-        var dto = new ContainerDTO(
+        ContainerDTO dto = new ContainerDTO(
                 "abc123",
                 "test-container",
                 "test",
                 "redis:7",
-                Set.of(6379),
+                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/")),
                 "https://example.com/redis.png",
                 "test-project",
                 "running",
@@ -79,7 +62,9 @@ class ContainerDTOTest {
         assertEquals("test-container", dto.name());
         assertEquals("test", dto.displayName());
         assertEquals("redis:7", dto.image());
-        assertEquals(Set.of(6379), dto.exposedPorts());
+        assertEquals(
+                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/")),
+                dto.endpoints());
         assertEquals("https://example.com/redis.png", dto.iconUrl());
         assertEquals("test-project", dto.project());
         assertEquals("running", dto.state());
