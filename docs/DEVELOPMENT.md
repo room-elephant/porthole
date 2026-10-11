@@ -7,7 +7,7 @@ For deeper technical details on how Porthole works, see the [Architecture](ARCHI
 ## Prerequisites
 
 - Java 25 and Maven
-- Node.js 24+ and npm
+- Node.js 24.15+ and npm
 - Docker
 
 ## Building from Source
