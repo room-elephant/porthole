@@ -84,8 +84,8 @@ class ContainerServiceTest {
         }
 
         @Test
-        @DisplayName("should filter containers without public ports when includeWithoutPorts is false")
-        void shouldFilterContainersWithoutPublicPorts() {
+        @DisplayName("should filter containers without endpoints when includeWithoutEndpoints is false")
+        void shouldFilterContainersWithoutEndpoints() {
             Container container1 = createMockContainer();
             Container container2 = createMockContainer();
             ContainerDTO dtoWithPorts = createContainerDTO("c1", Set.of(8080));

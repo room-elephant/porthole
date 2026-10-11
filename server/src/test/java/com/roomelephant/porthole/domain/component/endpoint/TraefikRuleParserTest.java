@@ -44,9 +44,26 @@ class TraefikRuleParserTest {
                 "Host(`a.com`) && Host(`b.com`)",
                 "Path(`/app`)",
                 "",
-                "()"
+                "()",
+                "Host",
+                "Host(",
+                "Host(example.com)",
+                "Host('example.com')",
+                "Host(`example.com)",
+                "Host(\"example.com)",
+                "Host(\"example.com\\",
+                "Host(\"exa\\nmple.com\")",
+                "Host(`example.com`) && Path(`/a${PATH}`)",
+                "Host(`example.com`) && Path(`/a\nb`)",
+                "Path(`/one`) && PathPrefix(`/two`)"
             })
     void shouldConsumeTheWholeRule(String rule) {
         assertThat(parser.parse(rule)).isEmpty();
+    }
+
+    @Test
+    void shouldParseEscapedQuotesAndBackslashesInDoubleQuotedPaths() {
+        assertThat(parser.parse("Host(\"example.com\") && Path(\"/a\\\\b\\\"c\")"))
+                .contains(new TraefikRuleParser.Route("example.com", "/a\\b\"c"));
     }
 }
