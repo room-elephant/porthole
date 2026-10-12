@@ -419,6 +419,29 @@ h1 {
   gap: 0.5rem;
 }
 
+.endpoint-selection {
+  min-width: 0;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  border: none;
+  text-align: left;
+}
+
+.endpoint-selection legend {
+  padding: 0;
+}
+
+.endpoint-selection .endpoint-description {
+  margin: 0 0 1rem;
+}
+
+.endpoint-source-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin: 1rem 0 0.5rem;
+}
+
 .endpoint-option {
   display: flex;
   align-items: center;

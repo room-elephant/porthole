@@ -246,6 +246,46 @@ describe('ContainerTile', () => {
   });
 
   describe('Disabled state', () => {
+    it('disables the tile when no endpoint is selected and lets settings restore a URL', async () => {
+      const user = userEvent.setup();
+      const container = createMockContainer({ endpoints: [publishedEndpoint(53)] });
+      renderWithQuery(<ContainerTile container={container} />);
+      const launch = screen.getByRole('button', { name: /^Open / });
+      const card = launch.closest('.card');
+      await user.click(screen.getByTitle('Container Settings'));
+      await user.click(screen.getByRole('radio', { name: 'No endpoint' }));
+      expect(launch).toBeDisabled();
+      expect(card).toHaveClass('disabled');
+      expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
+      expect(localStorage.getItem('endpoint_pref_test-container')).toBe('"none"');
+      await user.keyboard('{Escape}');
+      await user.click(launch);
+      expect(window.open).not.toHaveBeenCalled();
+
+      await user.click(screen.getByTitle('Container Settings'));
+      expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
+      await user.click(screen.getByRole('checkbox'));
+      expect(localStorage.getItem('version_check_test-container')).toBe('false');
+      await user.click(screen.getByRole('radio', { name: 'http://localhost:53/' }));
+      expect(launch).toBeEnabled();
+      expect(card).not.toHaveClass('disabled');
+      await user.keyboard('{Escape}');
+      await user.click(launch);
+      expect(window.open).toHaveBeenCalledExactlyOnceWith('http://localhost:53/', '_blank');
+    });
+
+    it('skips a tile with a saved no endpoint choice while keeping settings accessible', async () => {
+      localStorage.setItem('endpoint_pref_test-container', '"none"');
+      const user = userEvent.setup();
+      renderWithQuery(<ContainerTile container={createMockContainer()} />);
+      expect(screen.getByRole('button', { name: /^Open / })).toBeDisabled();
+      await user.tab();
+      expect(screen.getByTitle('Container Settings')).toHaveFocus();
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
+      expect(window.open).not.toHaveBeenCalled();
+    });
+
     it('should have disabled class when no public ports', () => {
       const container = createMockContainer({
         hasEndpoints: false,

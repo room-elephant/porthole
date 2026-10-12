@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { publishedEndpoint } from '../testUtils';
 import ContainerSettings from '../../components/ContainerSettings';
@@ -46,6 +46,34 @@ describe('ContainerSettings', () => {
     fireEvent.click(screen.getByText('http://localhost:443/'));
 
     expect(onSelectEndpoint).toHaveBeenCalledWith('published-port:443');
+  });
+
+  it('offers no endpoint in the same selection group as all URL sources', async () => {
+    const onSelectEndpoint = vi.fn();
+    const user = userEvent.setup();
+    render(<ContainerSettings {...defaultProps} selectedEndpointId="none" onSelectEndpoint={onSelectEndpoint} endpoints={[
+      { id: 'root', source: 'traefik', url: 'https://app.example.com/' },
+      publishedEndpoint(80),
+    ]} />);
+
+    const group = screen.getByRole('group', { name: 'Endpoint' });
+    const radios = within(group).getAllByRole('radio');
+    expect(radios).toHaveLength(3);
+    expect(new Set(radios.map(radio => radio.name)).size).toBe(1);
+    expect(within(group).getByRole('radio', { name: 'No endpoint' })).toBeChecked();
+    expect(screen.getAllByText('✓')).toHaveLength(1);
+
+    await user.click(within(group).getByRole('radio', { name: 'https://app.example.com/' }));
+    expect(onSelectEndpoint).toHaveBeenCalledWith('root');
+  });
+
+  it('allows selecting no endpoint from the keyboard', async () => {
+    const onSelectEndpoint = vi.fn();
+    const user = userEvent.setup();
+    render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} />);
+    screen.getByRole('radio', { name: 'No endpoint' }).focus();
+    await user.keyboard(' ');
+    expect(onSelectEndpoint).toHaveBeenCalledWith('none');
   });
 
   it('should render version updates toggle', () => {
@@ -117,7 +145,8 @@ describe('ContainerSettings', () => {
       { id: 'custom', source: 'ngnext', url: 'https://custom.example.com/' },
       { id: 'proto', source: '__proto__', url: 'https://proto.example.com/' },
     ]} />);
-    expect(screen.getAllByRole('heading', { level: 4 }).map(heading => heading.textContent)).toEqual(['Traefik URLs', 'Published Ports', 'Proto URLs', 'Ngnext URLs', 'Version Updates']);
+    expect(screen.getAllByRole('heading', { level: 5 }).map(heading => heading.textContent)).toEqual(['Traefik URLs', 'Published Ports', 'Proto URLs', 'Ngnext URLs']);
+    expect(screen.getByRole('group', { name: 'Endpoint' })).toBeInTheDocument();
     expect(screen.getAllByRole('radio').filter(radio => radio.checked)).toHaveLength(1);
     expect(screen.getAllByText('✓')).toHaveLength(1);
     screen.getByRole('radio', { name: 'https://proto.example.com/' }).focus();

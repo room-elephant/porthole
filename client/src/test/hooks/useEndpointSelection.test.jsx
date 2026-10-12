@@ -47,6 +47,42 @@ describe('useEndpointSelection', () => {
     expect(localStorage.setItem).not.toHaveBeenCalled();
   });
 
+  it('persists no endpoint across remounts and endpoint changes', () => {
+    const { result, unmount } = renderHook(() => useEndpointSelection('app', endpoints));
+    act(() => result.current.selectEndpoint('none'));
+    expect(result.current.selectedEndpoint).toBeNull();
+    expect(result.current.selectedEndpointId).toBe('none');
+    expect(localStorage.getItem(key)).toBe('"none"');
+    unmount();
+
+    const next = renderHook(({ candidates }) => useEndpointSelection('app', candidates), { initialProps: { candidates: [] } });
+    expect(next.result.current.selectedEndpoint).toBeNull();
+    expect(next.result.current.selectedEndpointId).toBe('none');
+    next.rerender({ candidates: [root] });
+    expect(next.result.current.selectedEndpoint).toBeNull();
+    act(() => next.result.current.selectEndpoint(root.id));
+    expect(next.result.current.selectedEndpoint).toBe(root);
+    expect(next.result.current.selectedEndpointId).toBe(root.id);
+  });
+
+  it('does not replace a saved no endpoint choice with a legacy port', () => {
+    localStorage.setItem('port_pref_app', '80');
+    localStorage.setItem(key, '"none"');
+    const { result } = renderHook(() => useEndpointSelection('app', endpoints));
+    expect(result.current.selectedEndpoint).toBeNull();
+    expect(localStorage.getItem(key)).toBe('"none"');
+  });
+
+  it('synchronizes no endpoint from another tab and restores defaults when cleared', () => {
+    const { result } = renderHook(() => useEndpointSelection('app', endpoints));
+    act(() => window.dispatchEvent(new StorageEvent('storage', { key, newValue: '"none"' })));
+    expect(result.current.selectedEndpoint).toBeNull();
+    expect(result.current.selectedEndpointId).toBe('none');
+    act(() => window.dispatchEvent(new StorageEvent('storage', { key, newValue: null })));
+    expect(result.current.selectedEndpoint).toBe(root);
+    expect(result.current.selectedEndpointId).toBe(root.id);
+  });
+
   it('falls back when a saved endpoint disappears', () => {
     localStorage.setItem(key, JSON.stringify(port.id));
     const { result, rerender } = renderHook(({ candidates }) => useEndpointSelection('app', candidates), { initialProps: { candidates: endpoints } });

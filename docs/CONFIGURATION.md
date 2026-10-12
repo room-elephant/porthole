@@ -142,11 +142,11 @@ Each container has a settings panel accessible via the gear icon. Settings are s
 
 ### URL Selection
 
-Settings show full URLs grouped under **Traefik URLs**, **Published Ports**, and any additional provider sections. Choose one URL across all sections. Version Updates remains the last section.
+The **Endpoint** section contains one selection across **No endpoint**, **Traefik URLs**, **Published Ports**, and any additional providers. Choose a URL to launch from the tile, or **No endpoint** for a container without a web UI. No endpoint greys out the tile and disables launching; the gear icon remains available to choose a URL again. Version Updates is a separate section, and update checking remains available for tiles with no endpoint.
 
 A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traefik URL or the unique root `/` route among several Traefik URLs. If Traefik is absent, it selects a sole candidate from any provider. Multiple root routes, multiple non-root Traefik routes, or multiple candidates without Traefik open settings for a choice.
 
-Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. Existing numeric port preferences migrate when their published port still exists and no new endpoint preference has been saved; the old preference remains intact. Preferences synchronize across browser tabs.
+Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. An explicit **No endpoint** choice is saved and remains in effect when discovered URLs change. Existing numeric port preferences migrate when their published port still exists and no new endpoint preference has been saved; the old preference remains intact. Preferences synchronize across browser tabs.
 
 ### Version Update Checking
 

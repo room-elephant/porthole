@@ -1,4 +1,8 @@
+export const NO_ENDPOINT_ID = 'none';
+
 export const resolveEndpointSelection = (endpoints, savedId) => {
+  if (savedId === NO_ENDPOINT_ID) return null;
+
   const saved = endpoints.find(endpoint => endpoint.id === savedId);
   if (saved) return saved;
 
