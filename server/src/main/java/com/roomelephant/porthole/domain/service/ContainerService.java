@@ -44,8 +44,7 @@ public class ContainerService {
             throw new UnexpectedException(e);
         }
 
-        return containers.stream()
-                .map(containerMapper::toModel)
+        return containerMapper.toModels(containers).stream()
                 .map(container -> containerEnrichment.enrich(container, context))
                 .flatMap(Optional::stream)
                 .toList();

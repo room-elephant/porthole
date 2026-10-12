@@ -178,6 +178,8 @@ This is required because the Docker Registry API expects the full path:
 
 Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fields. `includeWithoutEndpoints=false` filters after discovery, so label-only services are included. Both query flags default to false. The former `includeWithoutPorts` parameter is not an alias.
 
+For names matching `<project>-<name>`, `displayName` removes the project prefix and a trailing numeric replica suffix (for example, `smh-sonarr-1` becomes `sonarr`). If shortening creates a collision within the same project, the affected names keep their replica suffixes. Names outside this project-prefix convention are preserved. Collision detection uses all discovered containers before filtering, so query flags do not change display names. The original `name` is always retained.
+
 ### Endpoint Provider Extension
 
 `ContainerService` retrieves all docker-java containers and maps them through `ContainerMapper` into domain `Container` objects. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
