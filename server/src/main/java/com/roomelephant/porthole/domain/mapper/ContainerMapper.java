@@ -8,10 +8,12 @@ import com.roomelephant.porthole.domain.model.Container;
 import com.roomelephant.porthole.domain.util.ImageUtils;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullMarked;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Component;
 public class ContainerMapper {
 
     private static final String LABEL_PROJECT = "com.docker.compose.project";
+    private static final Pattern REPLICA_SUFFIX = Pattern.compile("-[0-9]+$");
 
     private final IconComponent iconComponent;
 
@@ -31,6 +34,32 @@ public class ContainerMapper {
     }
 
     public Container toModel(com.github.dockerjava.api.model.Container container) {
+        return toModel(container, Set.of());
+    }
+
+    public List<Container> toModels(List<com.github.dockerjava.api.model.Container> containers) {
+        Set<DisplayNameKey> collisions = new HashSet<>();
+        boolean changed;
+        do {
+            Map<DisplayNameKey, Long> counts = containers.stream()
+                    .map(container -> {
+                        String project = container.getLabels() == null ? null : getProject(container.getLabels());
+                        return new DisplayNameKey(
+                                project, resolveDisplayName(getName(container.getNames()), project, collisions));
+                    })
+                    .collect(Collectors.groupingBy(key -> key, Collectors.counting()));
+            // Restoring a suffix can collide with another shortened name; repeat until stable.
+            changed = collisions.addAll(counts.entrySet().stream()
+                    .filter(entry -> entry.getValue() > 1)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet()));
+        } while (changed);
+        return containers.stream()
+                .map(container -> toModel(container, collisions))
+                .toList();
+    }
+
+    private Container toModel(com.github.dockerjava.api.model.Container container, Set<DisplayNameKey> collisions) {
         String name = getName(container.getNames());
         String imageFull = container.getImage();
         Set<Integer> ports = getPorts(container.getPorts());
@@ -40,7 +69,7 @@ public class ContainerMapper {
         String state = container.getState();
         String status = container.getStatus();
 
-        String displayName = computeDisplayName(name, project);
+        String displayName = resolveDisplayName(name, project, collisions);
         String iconUrl = resolveIconUrl(imageFull);
 
         return new Container(
@@ -81,10 +110,25 @@ public class ContainerMapper {
 
     private @NonNull String computeDisplayName(String name, @Nullable String project) {
         if (project != null && name.startsWith(project + "-")) {
-            return name.substring(project.length() + 1);
+            String displayName = stripProjectPrefix(name, project);
+            String shortName = REPLICA_SUFFIX.matcher(displayName).replaceFirst("");
+            return shortName.isEmpty() ? displayName : shortName;
         }
         return name;
     }
+
+    private String resolveDisplayName(String name, @Nullable String project, Set<DisplayNameKey> collisions) {
+        String shortName = computeDisplayName(name, project);
+        return collisions.contains(new DisplayNameKey(project, shortName))
+                ? stripProjectPrefix(name, project)
+                : shortName;
+    }
+
+    private String stripProjectPrefix(String name, @Nullable String project) {
+        return project != null && name.startsWith(project + "-") ? name.substring(project.length() + 1) : name;
+    }
+
+    private record DisplayNameKey(@Nullable String project, String name) {}
 
     private @NonNull String resolveIconUrl(String imageFull) {
         return iconComponent.resolveIcon(ImageUtils.extractName(imageFull));

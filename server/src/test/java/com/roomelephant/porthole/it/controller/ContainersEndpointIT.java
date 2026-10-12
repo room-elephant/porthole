@@ -8,15 +8,48 @@ import com.roomelephant.porthole.controller.model.EndpointDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import org.testcontainers.containers.GenericContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
+    @Test
+    void shouldShortenUniqueComposeNamesAndKeepCollidingReplicaSuffixes() {
+        String project = "porthole-names-" + UUID.randomUUID();
+        String uniqueName = project + "-sonarr-1";
+        String replicaOneName = project + "-web-1";
+        String replicaTwoName = project + "-web-2";
+        Map<String, String> labels = Map.of("com.docker.compose.project", project);
+        try (GenericContainer<?> unique = new GenericContainer<>(PAUSE_IMAGE)
+                        .withCreateContainerCmdModifier(cmd -> cmd.withName(uniqueName))
+                        .withLabels(labels)
+                        .withExposedPorts(8080);
+                GenericContainer<?> replicaOne = new GenericContainer<>(PAUSE_IMAGE)
+                        .withCreateContainerCmdModifier(cmd -> cmd.withName(replicaOneName))
+                        .withLabels(labels)
+                        .withExposedPorts(8080);
+                GenericContainer<?> replicaTwo = new GenericContainer<>(PAUSE_IMAGE)
+                        .withCreateContainerCmdModifier(cmd -> cmd.withName(replicaTwoName))
+                        .withLabels(labels)
+                        .withExposedPorts(8080)) {
+            unique.start();
+            replicaOne.start();
+            replicaTwo.start();
+
+            Map<String, ContainerDTO> containers = fetchContainers(false, false);
+            assertThat(containers.get(uniqueName).displayName()).isEqualTo("sonarr");
+            assertThat(containers.get(replicaOneName).displayName()).isEqualTo("web-1");
+            assertThat(containers.get(replicaTwoName).displayName()).isEqualTo("web-2");
+            assertThat(containers.get(uniqueName).project()).isEqualTo(project);
+        }
+    }
+
     @Test
     void shouldReturnRunningContainers() {
         Map<String, ContainerDTO> containersByName = fetchContainers(false, false);

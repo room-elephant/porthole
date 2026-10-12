@@ -72,6 +72,99 @@ class ContainerServiceTest {
     }
 
     @Test
+    void shouldRemoveReplicaSuffixWhenDisplayNameIsUniqueWithinProject() {
+        Container sonarr = container("smh-sonarr-1", 8080, Map.of("com.docker.compose.project", "smh"));
+        Container worker = container("base-authentik-worker-12", 8081, Map.of("com.docker.compose.project", "base"));
+        when(listContainersCmd.exec()).thenReturn(List.of(sonarr, worker));
+
+        assertThat(containerService.getContainers(false, false, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::displayName)
+                .containsExactly("sonarr", "authentik-worker");
+    }
+
+    @Test
+    void shouldKeepReplicaSuffixForCollisionsWithinProject() {
+        Map<String, String> labels = Map.of("com.docker.compose.project", "smh");
+        List<Container> containers = List.of(
+                container("smh-sonarr-1", 8080, labels),
+                container("smh-sonarr-2", 8081, labels),
+                container("smh-radarr-1", 8082, labels));
+        when(listContainersCmd.exec()).thenReturn(containers);
+
+        assertThat(containerService.getContainers(false, false, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::displayName)
+                .containsExactly("sonarr-1", "sonarr-2", "radarr");
+    }
+
+    @Test
+    void shouldKeepSuffixWhenRestoringAnotherReplicaCreatesACollision() {
+        Map<String, String> labels = Map.of("com.docker.compose.project", "smh");
+        List<Container> containers = List.of(
+                container("smh-web-1", 8080, labels),
+                container("smh-web-2", 8081, labels),
+                container("smh-web-1-1", 8082, labels));
+        when(listContainersCmd.exec()).thenReturn(containers);
+
+        assertThat(containerService.getContainers(false, false, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::displayName)
+                .containsExactly("web-1", "web-2", "web-1-1");
+    }
+
+    @Test
+    void shouldAllowSameShortNameInDifferentProjects() {
+        List<Container> containers = List.of(
+                container("smh-sonarr-1", 8080, Map.of("com.docker.compose.project", "smh")),
+                container("other-sonarr-1", 8081, Map.of("com.docker.compose.project", "other")));
+        when(listContainersCmd.exec()).thenReturn(containers);
+
+        assertThat(containerService.getContainers(false, false, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::displayName)
+                .containsExactly("sonarr", "sonarr");
+    }
+
+    @Test
+    void shouldKeepSuffixWhenShortNameCollidesWithUnsuffixedName() {
+        Map<String, String> labels = Map.of("com.docker.compose.project", "smh");
+        List<Container> containers =
+                List.of(container("smh-sonarr", 8080, labels), container("smh-sonarr-1", 8081, labels));
+        when(listContainersCmd.exec()).thenReturn(containers);
+
+        assertThat(containerService.getContainers(false, false, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::displayName)
+                .containsExactly("sonarr", "sonarr-1");
+    }
+
+    @Test
+    void shouldPreserveCustomNamesAndNonnumericSuffixes() {
+        Map<String, String> labels = Map.of("com.docker.compose.project", "smh");
+        List<Container> containers = List.of(
+                container("standalone-1", 8080, Map.of()),
+                container("custom-1", 8081, labels),
+                container("smh-authentik-worker", 8082, labels));
+        when(listContainersCmd.exec()).thenReturn(containers);
+
+        assertThat(containerService.getContainers(false, false, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::displayName)
+                .containsExactly("standalone-1", "custom-1", "authentik-worker");
+    }
+
+    @Test
+    void shouldKeepNamesStableWhenCollidingReplicaIsFilteredOut() {
+        Map<String, String> labels = Map.of("com.docker.compose.project", "smh");
+        Container hidden = container("smh-sonarr-2", null, labels);
+        when(hidden.getState()).thenReturn("exited");
+        Container visible = container("smh-sonarr-1", 8080, labels);
+        when(listContainersCmd.exec()).thenReturn(List.of(visible, hidden));
+
+        assertThat(containerService.getContainers(false, false, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::displayName)
+                .containsExactly("sonarr-1");
+        assertThat(containerService.getContainers(true, true, "localhost"))
+                .extracting(com.roomelephant.porthole.domain.model.Container::displayName)
+                .containsExactly("sonarr-1", "sonarr-2");
+    }
+
+    @Test
     void shouldApplyStoppedFilteringInsideTheChainUsingRequestFlags() {
         Container app = container("stopped", 8080, Map.of());
         when(app.getState()).thenReturn("exited");
