@@ -19,12 +19,11 @@ public class IconComponent {
     }
 
     public @NonNull String resolveIcon(@NonNull String imageName) {
-        String iconName =
-                switch (imageName) {
-                    case String s when s.isBlank() -> DEFAULT_ICON;
-                    case String s when iconMappings.containsKey(s) -> iconMappings.get(s);
-                    default -> sanitizeIconName(imageName);
-                };
+        String iconName = switch (imageName) {
+            case String s when s.isBlank() -> DEFAULT_ICON;
+            case String s when iconMappings.containsKey(s) -> iconMappings.get(s);
+            default -> sanitizeIconName(imageName);
+        };
         return buildDashboardIconsUrl(iconName);
     }
 
