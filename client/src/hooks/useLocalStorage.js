@@ -9,6 +9,14 @@ const parseStoredValue = (stored, defaultValue) => {
   }
 };
 
+const readStoredValue = (key, defaultValue) => {
+  try {
+    return parseStoredValue(localStorage.getItem(key), defaultValue);
+  } catch {
+    return defaultValue;
+  }
+};
+
 /**
  * Custom hook for persisting state in localStorage with cross-tab synchronization.
  * @param {string} key - The localStorage key
@@ -18,13 +26,13 @@ const parseStoredValue = (stored, defaultValue) => {
 export const useLocalStorage = (key, defaultValue) => {
   const [state, setState] = useState(() => ({
     key,
-    value: parseStoredValue(localStorage.getItem(key), defaultValue),
+    value: readStoredValue(key, defaultValue),
   }));
 
   // A renamed container must use its new preference scope before returning a value.
   let current = state;
   if (state.key !== key) {
-    current = { key, value: parseStoredValue(localStorage.getItem(key), defaultValue) };
+    current = { key, value: readStoredValue(key, defaultValue) };
     setState(current);
   }
 
