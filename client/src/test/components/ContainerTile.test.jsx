@@ -91,37 +91,45 @@ describe('ContainerTile', () => {
   });
 
   describe('Status indicator', () => {
-    it('should show running status', () => {
-      const container = createMockContainer({ state: 'running' });
-      renderWithQuery(<ContainerTile container={container} />);
+    it.each([
+      ['running', 'Up 2 minutes (unhealthy)', 'status-stopped'],
+      ['running', 'Up 2 seconds (health: starting)', 'status-warning'],
+      ['running', 'Up 2 minutes (healthy)', 'status-running'],
+      ['running', 'Up 2 hours', 'status-running'],
+      ['running', null, 'status-running'],
+      ['running', undefined, 'status-running'],
+      ['paused', 'Up 2 minutes (healthy) (Paused)', 'status-warning'],
+      ['paused', 'Up 2 hours (Paused)', 'status-warning'],
+      ['restarting', 'Restarting (1) 2 seconds ago', 'status-warning'],
+      ['exited', 'Exited (0) 2 minutes ago', 'status-stopped'],
+    ])('shows %s with status %s as %s', (state, status, expectedClass) => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ state, status })} />);
+      expect(document.querySelector('.status-indicator')).toHaveClass(expectedClass);
+    });
 
+    it('updates color and tooltip as health changes without a lifecycle change', () => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const container = createMockContainer({ status: 'Up 2 minutes (healthy)' });
+      const tile = status => (
+        <QueryClientProvider client={client}>
+          <ContainerTile container={{ ...container, status }} />
+        </QueryClientProvider>
+      );
+      const view = render(tile(container.status));
       const indicator = document.querySelector('.status-indicator');
       expect(indicator).toHaveClass('status-running');
+
+      for (const [status, expectedClass] of [
+        ['Up 3 minutes (unhealthy)', 'status-stopped'],
+        ['Up 3 minutes (health: starting)', 'status-warning'],
+        ['Up 4 minutes (healthy)', 'status-running'],
+      ]) {
+        view.rerender(tile(status));
+        expect(indicator).toHaveClass(expectedClass);
+        expect(indicator).toHaveAttribute('title', status);
+      }
     });
 
-    it('should show stopped status', () => {
-      const container = createMockContainer({ state: 'exited' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-stopped');
-    });
-
-    it('should show warning status for paused', () => {
-      const container = createMockContainer({ state: 'paused' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-warning');
-    });
-
-    it('should show warning status for restarting', () => {
-      const container = createMockContainer({ state: 'restarting' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-warning');
-    });
   });
 
   describe('Keyboard behavior', () => {

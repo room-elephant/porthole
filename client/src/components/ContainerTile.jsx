@@ -10,6 +10,8 @@ import { NO_ENDPOINT_ID } from '../utils/endpoints';
 const arraysEqual = (a, b) => 
     a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
 
+const getHealthStatus = (status) => status?.match(/\((healthy|unhealthy|health: starting)\)/i)?.[1]?.toLowerCase();
+
 function ContainerTile({ container }) {
     const [showConfig, setShowConfig] = useState(false);
     const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.name, container.endpoints);
@@ -23,7 +25,12 @@ function ContainerTile({ container }) {
 
     const getStatusClass = () => {
         const state = container.state?.toLowerCase();
-        if (state === 'running') return 'status-running';
+        if (state === 'running') {
+            const health = getHealthStatus(container.status);
+            if (health === 'unhealthy') return 'status-stopped';
+            if (health === 'health: starting') return 'status-warning';
+            return 'status-running';
+        }
         if (state === 'paused' || state === 'restarting') return 'status-warning';
         return 'status-stopped';
     };
@@ -100,8 +107,7 @@ function ContainerTile({ container }) {
 
 /**
  * Memoized ContainerTile component.
- * Status is intentionally excluded from comparison as it contains uptime
- * which changes constantly but doesn't affect visual rendering.
+ * Ignore uptime-only changes, but refresh when Docker health changes.
  */
 export default memo(ContainerTile, (prevProps, nextProps) => {
     const prev = prevProps.container;
@@ -111,6 +117,7 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
         prev.name === next.name &&
         prev.displayName === next.displayName &&
         prev.state === next.state &&
+        getHealthStatus(prev.status) === getHealthStatus(next.status) &&
         prev.image === next.image &&
         prev.iconUrl === next.iconUrl &&
         prev.hasEndpoints === next.hasEndpoints &&
