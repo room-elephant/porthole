@@ -8,8 +8,13 @@ export const useEndpointSelection = (containerName, endpoints) => {
   const [savedId, selectEndpoint] = useLocalStorage(key, null);
 
   useEffect(() => {
-    if (savedId !== null || localStorage.getItem(key) !== null) return;
-    const legacy = localStorage.getItem(STORAGE_KEYS.PORT_PREF(containerName));
+    let legacy;
+    try {
+      if (savedId !== null || localStorage.getItem(key) !== null) return;
+      legacy = localStorage.getItem(STORAGE_KEYS.PORT_PREF(containerName));
+    } catch {
+      return;
+    }
     if (legacy === null) return;
     let port;
     try {

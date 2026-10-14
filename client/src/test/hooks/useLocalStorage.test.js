@@ -17,6 +17,58 @@ describe('useLocalStorage', () => {
     expect(result.current[0]).toBe('defaultValue');
   });
 
+  it('uses the default and keeps settings in memory when storage reads and writes throw', () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const getItem = localStorage.getItem.getMockImplementation();
+    const setItem = localStorage.setItem.getMockImplementation();
+    const unavailable = () => { throw new DOMException('Storage is blocked', 'SecurityError'); };
+    try {
+      localStorage.getItem.withImplementation(unavailable, () => {
+        localStorage.setItem.withImplementation(unavailable, () => {
+          const { result } = renderHook(() => useLocalStorage('blocked', true));
+          expect(result.current[0]).toBe(true);
+          act(() => result.current[1](false));
+          expect(result.current[0]).toBe(false);
+        });
+      });
+    } finally {
+      localStorage.getItem.mockImplementation(getItem);
+      localStorage.setItem.mockImplementation(setItem);
+      warning.mockRestore();
+    }
+  });
+
+  it('uses the default when accessing localStorage itself throws', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    try {
+      Object.defineProperty(window, 'localStorage', {
+        configurable: true,
+        get: () => { throw new DOMException('Storage is blocked', 'SecurityError'); },
+      });
+      const { result } = renderHook(() => useLocalStorage('blocked', 'default'));
+      expect(result.current[0]).toBe('default');
+    } finally {
+      Object.defineProperty(window, 'localStorage', descriptor);
+    }
+  });
+
+  it('uses the new default when storage becomes unreadable after a key change', () => {
+    localStorage.getItem.mockReturnValue('"old preference"');
+    const { result, rerender } = renderHook(
+      ({ key }) => useLocalStorage(key, 'default'),
+      { initialProps: { key: 'old' } },
+    );
+    expect(result.current[0]).toBe('old preference');
+    try {
+      localStorage.getItem.withImplementation(() => { throw new Error('Storage is blocked'); }, () => {
+        rerender({ key: 'new' });
+        expect(result.current[0]).toBe('default');
+      });
+    } finally {
+      localStorage.getItem.mockReturnValue(null);
+    }
+  });
+
   it('should return stored value from localStorage', () => {
     localStorage.getItem.mockReturnValue('"storedValue"');
     
