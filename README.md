@@ -36,7 +36,7 @@ docker run -d \
   -p 9753:9753 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --name porthole \
-  docker pull ghcr.io/room-elephant/porthole:latest
+  ghcr.io/room-elephant/porthole:latest
 ```
 
 **Note**: Mounting `/var/run/docker.sock` is required for Porthole to see your other containers.
@@ -59,7 +59,7 @@ docker run -d -p 9753:9753 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v $(pwd)/config:/app/config \
   --name porthole \
-  docker pull ghcr.io/room-elephant/porthole:latest
+  ghcr.io/room-elephant/porthole:latest
 ```
 
 See [Configuration Guide](docs/CONFIGURATION.md) for all options.
