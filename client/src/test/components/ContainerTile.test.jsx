@@ -46,6 +46,26 @@ describe('ContainerTile', () => {
     expect(screen.getByText('nginx:latest')).toBeInTheDocument();
   });
 
+  it('renders and lets settings change the launch URL when storage access is blocked', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      Object.defineProperty(window, 'localStorage', {
+        configurable: true,
+        get: () => { throw new DOMException('Storage is blocked', 'SecurityError'); },
+      });
+      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(8080)] })} />);
+      fireEvent.click(screen.getByTitle('Container Settings'));
+      fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:8080/' }));
+      fireEvent.keyDown(document, { key: 'Escape' });
+      fireEvent.click(screen.getByRole('button', { name: /^Open / }));
+      expect(window.open).toHaveBeenCalledWith('http://localhost:8080/', '_blank');
+    } finally {
+      Object.defineProperty(window, 'localStorage', descriptor);
+      warning.mockRestore();
+    }
+  });
+
   it('should render container icon', () => {
     const container = createMockContainer({
       name: 'nginx',

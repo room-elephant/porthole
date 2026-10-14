@@ -47,6 +47,33 @@ describe('useEndpointSelection', () => {
     expect(localStorage.setItem).not.toHaveBeenCalled();
   });
 
+  it('uses automatic endpoint selection when all storage reads are blocked', () => {
+    const getItem = localStorage.getItem.getMockImplementation();
+    try {
+      localStorage.getItem.mockImplementation(() => { throw new DOMException('Storage is blocked', 'SecurityError'); });
+      const { result } = renderHook(() => useEndpointSelection('app', endpoints));
+      expect(result.current.selectedEndpoint).toBe(root);
+      expect(localStorage.setItem).not.toHaveBeenCalled();
+    } finally {
+      localStorage.getItem.mockImplementation(getItem);
+    }
+  });
+
+  it('skips migration when reading the legacy preference throws', () => {
+    const getItem = localStorage.getItem.getMockImplementation();
+    try {
+      localStorage.getItem.mockImplementation(storageKey => {
+        if (storageKey === 'port_pref_app') throw new Error('Storage is blocked');
+        return getItem(storageKey);
+      });
+      const { result } = renderHook(() => useEndpointSelection('app', endpoints));
+      expect(result.current.selectedEndpoint).toBe(root);
+      expect(localStorage.setItem).not.toHaveBeenCalled();
+    } finally {
+      localStorage.getItem.mockImplementation(getItem);
+    }
+  });
+
   it('persists no endpoint across remounts and endpoint changes', () => {
     const { result, unmount } = renderHook(() => useEndpointSelection('app', endpoints));
     act(() => result.current.selectEndpoint('none'));
