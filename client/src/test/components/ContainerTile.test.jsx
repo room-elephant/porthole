@@ -95,9 +95,11 @@ describe('ContainerTile', () => {
       ['running', 'Up 2 minutes (unhealthy)', 'status-stopped'],
       ['running', 'Up 2 seconds (health: starting)', 'status-warning'],
       ['running', 'Up 2 minutes (healthy)', 'status-running'],
+      ['running', 'Up 2 hours', 'status-running'],
       ['running', null, 'status-running'],
       ['running', undefined, 'status-running'],
       ['paused', 'Up 2 minutes (healthy) (Paused)', 'status-warning'],
+      ['paused', 'Up 2 hours (Paused)', 'status-warning'],
       ['restarting', 'Restarting (1) 2 seconds ago', 'status-warning'],
       ['exited', 'Exited (0) 2 minutes ago', 'status-stopped'],
     ])('shows %s with status %s as %s', (state, status, expectedClass) => {
@@ -128,37 +130,6 @@ describe('ContainerTile', () => {
       }
     });
 
-    it('should show running status', () => {
-      const container = createMockContainer({ state: 'running' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-running');
-    });
-
-    it('should show stopped status', () => {
-      const container = createMockContainer({ state: 'exited' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-stopped');
-    });
-
-    it('should show warning status for paused', () => {
-      const container = createMockContainer({ state: 'paused' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-warning');
-    });
-
-    it('should show warning status for restarting', () => {
-      const container = createMockContainer({ state: 'restarting' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-warning');
-    });
   });
 
   describe('Keyboard behavior', () => {
