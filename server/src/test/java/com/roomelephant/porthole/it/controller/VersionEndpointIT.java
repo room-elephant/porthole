@@ -66,12 +66,24 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void retaggedImageWithMissingRemoteRepositoryHasNoUpdate() {
-        stubAuth();
-        stubRegistryTags404("my-local-image");
-        stubManifest404("my-local-image", "1.0");
+        var localReference = com.roomelephant.porthole.domain.model.ImageReference.tryParse(TEST_LOCAL_IMAGE_TAG)
+                .orElseThrow();
+        var digests = localContainer
+                .getDockerClient()
+                .inspectImageCmd(TEST_LOCAL_IMAGE_TAG)
+                .exec()
+                .getRepoDigests();
+        boolean comparable =
+                digests != null && !localReference.matchingDigests(digests).isEmpty();
+        if (comparable) {
+            stubAuth();
+            stubRegistryTags404("my-local-image");
+            stubManifest404("my-local-image", "1.0");
+        }
 
         VersionDTO response = fetchVersion(localContainer.getContainerId());
 
+        if (!comparable) assertThat(wireMockClient().getAllServeEvents()).isEmpty();
         assertThat(response.currentVersion()).isEqualTo("1.0");
         assertThat(response.latestVersion()).isNull();
         assertThat(response.updateAvailable()).isFalse();
