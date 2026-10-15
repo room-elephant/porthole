@@ -17,22 +17,55 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
+    private static final String HUB_IMAGE = "docker.io/library/busybox:1.36.1";
+    private static final String MUTABLE_TAG = "porthole-it-" + java.util.UUID.randomUUID();
+    private static final String HUB_LATEST = "docker.io/library/busybox:" + MUTABLE_TAG;
+    private static final org.testcontainers.containers.GenericContainer<?> hubVersion;
+    private static final org.testcontainers.containers.GenericContainer<?> hubLatest;
+
+    static {
+        hubVersion = new org.testcontainers.containers.GenericContainer<>(HUB_IMAGE)
+                .withCommand("sh", "-c", "echo ready; sleep 3600")
+                .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forLogMessage(".*ready.*", 1));
+        hubVersion.start();
+        hubVersion
+                .getDockerClient()
+                .tagImageCmd(HUB_IMAGE, "docker.io/library/busybox", MUTABLE_TAG)
+                .exec();
+        hubLatest = new org.testcontainers.containers.GenericContainer<>(HUB_LATEST)
+                .withImagePullPolicy(image -> false)
+                .withCommand("sh", "-c", "echo ready; sleep 3600")
+                .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forLogMessage(".*ready.*", 1));
+        hubLatest.start();
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            hubLatest.stop();
+            hubVersion.stop();
+            hubVersion.getDockerClient().removeImageCmd(HUB_LATEST).exec();
+        }));
+    }
+
+    @Test
+    void foreignRegistryNeverContactsDockerHub() {
+        assertThat(fetchVersion(testAppContainer.getContainerId()).updateAvailable())
+                .isFalse();
+        assertThat(wireMockClient().getAllServeEvents()).isEmpty();
+    }
 
     @Test
     void shouldReturnUpdateAvailableWhenNewerVersionExists() {
         stubAuth();
-        stubRegistryTags("pause", "3.9", "3.10");
-        stubManifestDigest("pause", "3.9", "sha256:currentdiggest");
+        stubRegistryTags("busybox", "1.36.1", "1.37.0");
+        stubManifestDigest("busybox", "1.36.1", getLocalDigest(HUB_IMAGE));
 
-        VersionDTO response = fetchVersion(testAppContainer.getContainerId());
+        VersionDTO response = fetchVersion(hubVersion.getContainerId());
 
-        assertThat(response.currentVersion()).isEqualTo("3.9");
-        assertThat(response.latestVersion()).isEqualTo("3.10");
+        assertThat(response.currentVersion()).isEqualTo("1.36.1");
+        assertThat(response.latestVersion()).isEqualTo("1.37.0");
         assertThat(response.updateAvailable()).isTrue();
     }
 
     @Test
-    void shouldReturnNoUpdateForLocalImage() {
+    void retaggedImageWithMissingRemoteRepositoryHasNoUpdate() {
         stubAuth();
         stubRegistryTags404("my-local-image");
         stubManifest404("my-local-image", "1.0");
@@ -56,15 +89,15 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldReturnNoUpdateWhenLatestTagMatchesDigest() {
         stubAuth();
-        String containerId = noPortsContainer.getContainerId();
-        String currentDigest = getLocalDigest(PAUSE_LATEST_IMAGE);
+        String containerId = hubLatest.getContainerId();
+        String currentDigest = getLocalDigest(HUB_LATEST);
 
-        stubRegistryTags("pause", "latest");
-        stubManifestDigest("pause", "latest", currentDigest);
+        stubRegistryTags("busybox", MUTABLE_TAG);
+        stubManifestDigest("busybox", MUTABLE_TAG, currentDigest);
 
         VersionDTO response = fetchVersion(containerId);
 
-        assertThat(response.currentVersion()).isEqualTo("latest");
+        assertThat(response.currentVersion()).isEqualTo(MUTABLE_TAG);
         assertThat(response.latestVersion()).isNull();
         assertThat(response.updateAvailable()).isFalse();
     }
@@ -72,14 +105,14 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldReturnUpdateWhenLatestTagAndDigestIsOlder() {
         stubAuth();
-        String containerId = noPortsContainer.getContainerId();
+        String containerId = hubLatest.getContainerId();
 
-        stubRegistryTags("pause", "latest");
-        stubManifestDigest("pause", "latest", "sha256:newerdigest");
+        stubRegistryTags("busybox", MUTABLE_TAG);
+        stubManifestDigest("busybox", MUTABLE_TAG, "sha256:" + "b".repeat(64));
 
         VersionDTO response = fetchVersion(containerId);
 
-        assertThat(response.currentVersion()).isEqualTo("latest");
+        assertThat(response.currentVersion()).isEqualTo(MUTABLE_TAG);
         assertThat(response.latestVersion()).isNull();
         assertThat(response.updateAvailable()).isTrue();
     }
@@ -87,10 +120,10 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldReturnUpdateWhenLatestTagAndCurrentVersionIsOlder() {
         stubAuth();
-        String containerId = noPortsContainer.getContainerId();
+        String containerId = hubLatest.getContainerId();
 
-        stubRegistryTags("pause", "latest", "3.9");
-        stubManifestDigest("pause", "latest", "sha256:somedifferentdigest");
+        stubRegistryTags("busybox", MUTABLE_TAG, "3.9");
+        stubManifestDigest("busybox", MUTABLE_TAG, "sha256:" + "c".repeat(64));
 
         VersionDTO response = fetchVersion(containerId);
 
@@ -99,7 +132,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
     private String getLocalDigest(String imageName) {
         InspectImageResponse inspect =
-                noPortsContainer.getDockerClient().inspectImageCmd(imageName).exec();
+                hubLatest.getDockerClient().inspectImageCmd(imageName).exec();
         return inspect.getRepoDigests().stream()
                 .findFirst()
                 .map(d -> d.contains("@") ? d.substring(d.indexOf("@") + 1) : d)

@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.domain.util;
 
+import com.roomelephant.porthole.domain.model.ImageReference;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -8,7 +9,6 @@ public final class ImageUtils {
 
     public static final String UNKNOWN_IMAGE_NAME = "Unknown";
     public static final Pattern SEMVER_PATTERN = Pattern.compile("^v?\\d++(\\.\\d++)++$");
-    private static final String LIBRARY = "library/";
     private static final String LATEST = "latest";
 
     private ImageUtils() {}
@@ -18,8 +18,7 @@ public final class ImageUtils {
      * Example: "nginx:1.25" → "1.25", "redis" → "latest"
      */
     public static @NonNull String extractTag(@NonNull String image) {
-        int colonIndex = image.lastIndexOf(":");
-        return colonIndex != -1 ? image.substring(colonIndex + 1) : LATEST;
+        return ImageReference.tryParse(image).map(ImageReference::lookupTag).orElse(LATEST);
     }
 
     /**
@@ -27,18 +26,7 @@ public final class ImageUtils {
      * Example: "my-reg/nginx:latest" → "nginx", "postgres:15" → "postgres"
      */
     public static @NonNull String extractName(@Nullable String image) {
-        if (image == null) {
-            return UNKNOWN_IMAGE_NAME;
-        }
-
-        String name = image;
-        if (name.contains("/")) {
-            name = name.substring(name.lastIndexOf("/") + 1);
-        }
-        if (name.contains(":")) {
-            name = name.substring(0, name.indexOf(":"));
-        }
-        return name;
+        return ImageReference.tryParse(image).map(ImageReference::leafName).orElse(UNKNOWN_IMAGE_NAME);
     }
 
     /**
@@ -47,25 +35,10 @@ public final class ImageUtils {
      * Example: "redis" → "library/redis", "bitnami/redis:7" → "bitnami/redis"
      */
     public static @NonNull String resolveRepository(@NonNull String image) {
-        String repo = image;
-        // Strip tag if present (colon after the last slash)
-        int lastColon = repo.lastIndexOf(':');
-        int lastSlash = repo.lastIndexOf('/');
-        if (lastColon > lastSlash) {
-            repo = repo.substring(0, lastColon);
-        }
-
-        // Strip registry host if present
-        int firstSlash = repo.indexOf('/');
-        if (firstSlash != -1) {
-            String prefix = repo.substring(0, firstSlash);
-            if (prefix.contains(".") || prefix.contains(":") || prefix.equals("localhost")) {
-                repo = repo.substring(firstSlash + 1);
-            }
-        }
-
-        // Add library prefix for official images
-        return repo.contains("/") ? repo : LIBRARY + repo;
+        return ImageReference.tryParse(image)
+                .filter(ImageReference::supportsUpdates)
+                .map(ImageReference::repository)
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported image reference"));
     }
 
     /**

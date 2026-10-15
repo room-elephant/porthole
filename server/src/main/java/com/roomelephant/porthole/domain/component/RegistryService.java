@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
+import com.roomelephant.porthole.domain.model.ImageReference;
 import com.roomelephant.porthole.domain.util.ImageUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,8 +51,10 @@ public class RegistryService {
     }
 
     public @Nullable String getDigest(@NonNull String imageName, String tag) {
+        var reference = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
+        if (reference.isEmpty() || !tag.equals(reference.get().lookupTag())) return null;
         try {
-            String repository = ImageUtils.resolveRepository(imageName);
+            String repository = reference.get().repository();
             String token = getAuthToken(repository);
 
             if (token == null) return null;
@@ -64,6 +67,9 @@ public class RegistryService {
     }
 
     public @Nullable String getLatestVersion(@NonNull String imageName) {
+        if (ImageReference.tryParse(imageName)
+                .filter(ImageReference::supportsUpdates)
+                .isEmpty()) return null;
         try {
             return versionCache.get(imageName, this::fetchLatestVersion);
         } catch (Exception e) {

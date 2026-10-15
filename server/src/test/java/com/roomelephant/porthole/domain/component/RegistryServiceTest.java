@@ -49,9 +49,27 @@ class RegistryServiceTest {
         when(registryProperties.cache()).thenReturn(cache);
         when(cache.ttl()).thenReturn(Duration.ofMinutes(5));
         when(cache.versionMaxSize()).thenReturn(100);
-        when(registryProperties.urls()).thenReturn(urls);
 
         registryService = new RegistryService(restClient, registryProperties);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "ghcr.io/acme/app:latest",
+                "localhost:5000/app",
+                "https://docker.io/nginx",
+                "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            })
+    void unsupportedReferencesNeverContactHub(String image) {
+        var properties = new RegistryProperties(
+                new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(1)),
+                new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
+                new RegistryProperties.Urls("https://registry/v2/", "https://auth/", "https://hub/"));
+        var service = new RegistryService(restClient, properties);
+        assertNull(service.getLatestVersion(image));
+        assertNull(service.getDigest(image, "latest"));
+        verifyNoInteractions(restClient);
     }
 
     @Nested
@@ -60,6 +78,7 @@ class RegistryServiceTest {
 
         @BeforeEach
         void setUpUrls() {
+            when(registryProperties.urls()).thenReturn(urls);
             when(urls.auth()).thenReturn("https://auth/");
         }
 
@@ -117,7 +136,7 @@ class RegistryServiceTest {
             setupGetRequest();
             when(responseSpec.body(String.class)).thenReturn(null);
 
-            String result = registryService.getDigest("bitnami/redis", "7");
+            String result = registryService.getDigest("bitnami/redis:7", "7");
 
             assertNull(result);
         }
@@ -129,6 +148,7 @@ class RegistryServiceTest {
 
         @BeforeEach
         void setUpUrls() {
+            when(registryProperties.urls()).thenReturn(urls);
             when(urls.repositories()).thenReturn("https://repositories/");
         }
 
