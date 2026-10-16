@@ -7,9 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.roomelephant.porthole.controller.mapper.ContainerDTOMapper;
 import com.roomelephant.porthole.domain.model.Container;
 import com.roomelephant.porthole.domain.model.Endpoint;
-import com.roomelephant.porthole.domain.model.VersionDTO;
+import com.roomelephant.porthole.domain.model.VersionInfo;
 import com.roomelephant.porthole.domain.service.ContainerService;
-import com.roomelephant.porthole.domain.service.VersionService;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +32,6 @@ class ContainerControllerTest {
 
     @MockitoBean
     private ContainerService containerService;
-
-    @MockitoBean
-    private VersionService versionService;
 
     @Nested
     @DisplayName("GET /api/containers")
@@ -109,35 +105,27 @@ class ContainerControllerTest {
         }
     }
 
-    @Nested
-    @DisplayName("GET /api/containers/{containerId}/version")
-    class GetVersion {
+    @Test
+    void shouldIncludeCachedVersionInContainersResponse() throws Exception {
+        Container container = createContainer("app");
+        container.setVersion(new VersionInfo("1.0", "2.0", true));
+        when(containerService.getContainers(false, false, "localhost")).thenReturn(List.of(container));
+        mockMvc.perform(get("/api/containers"))
+                .andExpect(jsonPath("$[0].version.currentVersion").value("1.0"))
+                .andExpect(jsonPath("$[0].version.latestVersion").value("2.0"))
+                .andExpect(jsonPath("$[0].version.updateAvailable").value(true));
+    }
 
-        @Test
-        @DisplayName("should return version info")
-        void shouldReturnVersionInfo() throws Exception {
-            VersionDTO version = new VersionDTO("1.0.0", "1.1.0", true);
-            when(versionService.getVersionInfo("container-123")).thenReturn(version);
+    @Test
+    void shouldExposeNullVersionBeforeResolution() throws Exception {
+        when(containerService.getContainers(false, false, "localhost")).thenReturn(List.of(createContainer("app")));
+        mockMvc.perform(get("/api/containers"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"version\":null")));
+    }
 
-            mockMvc.perform(get("/api/containers/container-123/version"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.currentVersion").value("1.0.0"))
-                    .andExpect(jsonPath("$.latestVersion").value("1.1.0"))
-                    .andExpect(jsonPath("$.updateAvailable").value(true));
-
-            verify(versionService).getVersionInfo("container-123");
-        }
-
-        @Test
-        @DisplayName("should handle container with no update available")
-        void shouldHandleContainerWithNoUpdateAvailable() throws Exception {
-            VersionDTO version = new VersionDTO("2.0.0", "2.0.0", false);
-            when(versionService.getVersionInfo("container-456")).thenReturn(version);
-
-            mockMvc.perform(get("/api/containers/container-456/version"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.updateAvailable").value(false));
-        }
+    @Test
+    void shouldRemoveSeparateVersionEndpoint() throws Exception {
+        mockMvc.perform(get("/api/containers/anything/version")).andExpect(status().isNotFound());
     }
 
     @Test

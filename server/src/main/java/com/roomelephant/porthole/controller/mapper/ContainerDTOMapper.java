@@ -21,6 +21,7 @@ public class ContainerDTOMapper {
                 container.iconUrl(),
                 container.project(),
                 container.state(),
-                container.status());
+                container.status(),
+                container.version());
     }
 }

@@ -79,7 +79,7 @@ describe('ContainerSettings', () => {
   it('should render version updates toggle', () => {
     render(<ContainerSettings {...defaultProps} />);
 
-    expect(screen.getByText('Check for updates')).toBeInTheDocument();
+    expect(screen.getByText('Show update notifications')).toBeInTheDocument();
     expect(screen.getByRole('checkbox')).toBeInTheDocument();
   });
 
@@ -132,7 +132,7 @@ describe('ContainerSettings', () => {
     render(<ContainerSettings {...defaultProps} />);
 
     expect(
-      screen.getByText(/When enabled, Porthole will check if newer versions are available/)
+      screen.getByText(/Version checks run in the background/)
     ).toBeInTheDocument();
   });
   it('groups all sources and offers one accessible selection across sections', async () => {

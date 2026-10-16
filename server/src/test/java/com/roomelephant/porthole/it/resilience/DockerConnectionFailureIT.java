@@ -89,14 +89,6 @@ class DockerConnectionFailureIT {
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }
-
-        @Test
-        void shouldReturn502WhenSocketMissingOnVersion() {
-            ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        }
     }
 
     @Nested
@@ -142,14 +134,6 @@ class DockerConnectionFailureIT {
         void shouldReturn502WhenPermissionDeniedOnContainers() {
             ResponseEntity<String> response =
                     restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        }
-
-        @Test
-        void shouldReturn502WhenPermissionDeniedOnVersion() {
-            ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }
@@ -206,14 +190,6 @@ class DockerConnectionFailureIT {
         void shouldReturn502WhenConnectionRefusedOnContainers() {
             ResponseEntity<String> response =
                     restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        }
-
-        @Test
-        void shouldReturn502WhenConnectionRefusedOnVersion() {
-            ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         }

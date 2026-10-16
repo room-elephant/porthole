@@ -29,10 +29,7 @@ describe('constants', () => {
       expect(API.DOCKER_HEALTH).toBe('/actuator/health/docker');
     });
 
-    it('should generate correct container version endpoint', () => {
-      expect(API.CONTAINER_VERSION('abc123')).toBe('/api/containers/abc123/version');
-      expect(API.CONTAINER_VERSION('container-id')).toBe('/api/containers/container-id/version');
-    });
+
   });
 
   describe('ASSETS', () => {

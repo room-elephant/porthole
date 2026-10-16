@@ -4,7 +4,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roomelephant.porthole.domain.model.ImageReference;
-import com.roomelephant.porthole.domain.model.VersionDTO;
+import com.roomelephant.porthole.domain.model.VersionInfo;
 import com.roomelephant.porthole.it.infra.IntegrationTestBase;
 import java.util.List;
 import org.junit.jupiter.api.AfterAll;
@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.springframework.http.HttpStatus;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -24,8 +23,8 @@ class GhcrVersionEndpointIT extends IntegrationTestBase {
     private static final String IMAGE = "ghcr.io/" + REPOSITORY + ":" + TAG;
     private static final String INDEX = "application/vnd.oci.image.index.v1+json";
     private static final String DIFFERENT = "sha256:" + "b".repeat(64);
-    private static GenericContainer<?> fixture;
-    private static GenericContainer<?> pinned;
+    private GenericContainer<?> fixture;
+    private GenericContainer<?> pinned;
     private static String digest;
 
     @BeforeAll
@@ -36,10 +35,12 @@ class GhcrVersionEndpointIT extends IntegrationTestBase {
         List<String> digests = docker.inspectImageCmd(SOURCE).exec().getRepoDigests();
         digest = image.matchingDigests(digests).getFirst();
         docker.tagImageCmd(SOURCE, "ghcr.io/" + REPOSITORY, TAG).exec();
+    }
+
+    @org.junit.jupiter.api.BeforeEach
+    void prepareContainers() {
         fixture = sleeper(IMAGE);
         pinned = sleeper("ghcr.io/" + REPOSITORY + "@" + digest);
-        fixture.start();
-        pinned.start();
     }
 
     private static GenericContainer<?> sleeper(String image) {
@@ -53,8 +54,6 @@ class GhcrVersionEndpointIT extends IntegrationTestBase {
 
     @AfterAll
     static void stopGhcrFixture() {
-        if (pinned != null) pinned.stop();
-        if (fixture != null) fixture.stop();
         DockerClientFactory.instance().client().removeImageCmd(IMAGE).exec();
     }
 
@@ -98,7 +97,9 @@ class GhcrVersionEndpointIT extends IntegrationTestBase {
     @Test
     void pinnedGhcrImageNeverContactsAnyRegistry() {
         assertThat(fetchVersion(pinned).updateAvailable()).isFalse();
-        assertThat(wireMockClient().getAllServeEvents()).isEmpty();
+        assertThat(wireMockClient().getAllServeEvents().stream()
+                        .filter(event -> event.getRequest().getUrl().contains(REPOSITORY)))
+                .isEmpty();
     }
 
     private void auth() {
@@ -116,10 +117,15 @@ class GhcrVersionEndpointIT extends IntegrationTestBase {
                                 .withHeader("Docker-Content-Digest", value)));
     }
 
-    private VersionDTO fetchVersion(GenericContainer<?> container) {
-        var response = fetch("/api/containers/" + container.getContainerId() + "/version", VersionDTO.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        return response.getBody();
+    @org.junit.jupiter.api.AfterEach
+    void stopFixtures() {
+        stopPorthole();
+        pinned.stop();
+        fixture.stop();
+    }
+
+    private VersionInfo fetchVersion(GenericContainer<?> container) {
+        if (!container.isRunning()) container.start();
+        return fetchCachedVersion(container.getContainerId());
     }
 }

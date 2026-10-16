@@ -66,10 +66,10 @@ function ContainerSettings({ containerName, endpoints, selectedEndpointId, check
                         onChange={(e) => onToggleCheckUpdates(e.target.checked)}
                     />
                     <span className="toggle-slider"></span>
-                    <span className="toggle-label">Check for updates</span>
+                    <span className="toggle-label">Show update notifications</span>
                 </label>
                 <p className="settings-description">
-                    When enabled, Porthole will check if newer versions are available for this container.
+                    Version checks run in the background. This setting controls whether update notifications are shown.
                 </p>
             </div>
         </Modal>

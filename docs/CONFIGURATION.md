@@ -37,6 +37,22 @@ docker run -d -p 9753:9753 \
   --name porthole porthole
 ```
 
+### Background Version Checks
+
+Version checks start asynchronously when Porthole is ready and run for all containers, including stopped containers and those without endpoints. Results are held in memory and included in `GET /api/containers` as a nullable `version` object. Requests read cached results immediately; they do not wait for version inspection or registry HTTP calls. A newly discovered container queues a background check if it has no cached result.
+
+```yaml
+porthole:
+  versions:
+    refresh-interval: 1h
+```
+
+Set `PORTHOLE_VERSIONS_REFRESHINTERVAL` to override the interval through the environment. It must be positive. The interval is the delay after a completed background inventory refresh, with one immediate refresh at startup. Up to four containers are checked concurrently, and duplicate checks for the same container are coalesced.
+
+Before a successful check, `version` is `null`. Completed results contain `currentVersion`, `latestVersion`, and `updateAvailable`; either version string may be null when metadata is unavailable. Previous successful results remain visible during refreshes and registry outages, so cached information may be stale. Failed first checks retry no sooner than the configured interval. Deleted containers are removed from the cache after a successful inventory scan; restarting Porthole clears the cache.
+
+The client retrieves updated cached information through its existing 30-second container polling. Its per-container notification preference controls warning visibility; it does not stop server-side checks. The separate `/api/containers/{containerId}/version` endpoint has been removed.
+
 ### Registry Configuration
 
 Porthole checks public images on Docker Hub and GitHub Container Registry (GHCR). Docker Hub accepts familiar names such as `nginx` and explicit `docker.io` references; GHCR requires `ghcr.io/<owner>/<image>`, including nested image paths. Other registries, local image IDs, digest-pinned images, and locally retagged images without matching repository provenance are skipped. Private packages and GitHub source repository/release tags are not supported. No GitHub login or token configuration is required for public GHCR images. Registry URL overrides change the transport destination, not the image registry identity. You can configure timeouts and cache settings:
@@ -45,8 +61,10 @@ Porthole checks public images on Docker Hub and GitHub Container Registry (GHCR)
 |-----------------------------------|---------|---------------------------------------|
 | `REGISTRY_TIMEOUT_CONNECT`        | `5s`    | Connection timeout for registry APIs |
 | `REGISTRY_TIMEOUT_READ`           | `10s`   | Read timeout for registry APIs       |
-| `REGISTRY_CACHE_TTL`              | `1h`    | How long to cache version information |
-| `REGISTRY_CACHE_VERSION_MAX_SIZE` | `100` | Maximum cached version entries   |
+| `REGISTRY_CACHE_TTL`              | `1h`    | TTL for registry catalogue and Docker Hub token caches |
+| `REGISTRY_CACHE_VERSION_MAX_SIZE` | `100` | Maximum cached registry catalogue entries   |
+
+The container refresh interval and `REGISTRY_CACHE_TTL` control separate layers. A refresh can reuse a registry catalogue while its TTL has not elapsed; lower the TTL as well if you need fresher catalogue results more often. Container results themselves do not expire on this TTL.
 
 Docker Hub transport overrides retain the `REGISTRY_URLS_REGISTRY`, `REGISTRY_URLS_AUTH`, and `REGISTRY_URLS_REPOSITORIES` settings. GHCR has independent settings, useful with a trusted transport proxy:
 
@@ -59,7 +77,7 @@ The registry base ends in `/`; the auth prefix ends in `repository:` and receive
 
 Numeric release checks accept tags with at least two dot-separated integer components, optionally prefixed by `v` (for example, `1.2`, `v1.2.3`). Components are compared numerically without integer overflow; missing trailing components count as zero. Suffixes such as `-alpine`, prereleases, and single-number tags are excluded. The highest numeric tag across all major versions is considered; there is no major-version pinning policy. A warning requires a strictly newer comparable version, and this release check only applies when the configured image tag is numeric.
 
-Docker Hub tag enumeration follows JSON `next` links; GHCR uses OCI tag-list `Link` headers. Both follow pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration returns no latest-version result rather than a partial maximum.
+Docker Hub tag enumeration follows JSON `next` links; GHCR uses OCI tag-list `Link` headers. Both follow pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration marks the refresh unsuccessful rather than publishing a partial maximum; previous successful container results remain available.
 
 Mutable tag changes are checked independently of numeric releases. Digests must belong to the same repository, use the same hash algorithm, and represent the same manifest level (image manifest or multi-platform index). Missing or incompatible metadata is inconclusive; index-versus-platform-image differences alone never trigger a warning. The update tooltip says **Image update available**, since a changed tag does not necessarily identify a newer numeric release.
 
@@ -163,13 +181,6 @@ A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traef
 
 Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. An explicit **No endpoint** choice is saved and remains in effect when discovered URLs change. Existing numeric port preferences migrate when their published port still exists and no new endpoint preference has been saved; the old preference remains intact. Preferences synchronize across browser tabs.
 
-### Version Update Checking
+### Version Update Notifications
 
-You can enable or disable version update checking for individual containers. When disabled:
-- No requests are made to check for newer versions
-- The update warning indicator (⚠️) is not shown
-
-This is useful for:
-- Local development images that don't need update checks
-- Containers with private registries that Porthole cannot query
-- Reducing network requests for containers you don't want to update
+Use **Show update notifications** to show or hide a container's update warning (⚠️). The preference is stored in your browser and preserves existing saved settings. Version checks continue on the server regardless of this setting. This is useful for hiding notifications on containers you do not intend to update.

@@ -6,10 +6,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.head;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.http.HttpStatus.OK;
 
 import com.github.dockerjava.api.command.InspectImageResponse;
-import com.roomelephant.porthole.domain.model.VersionDTO;
+import com.roomelephant.porthole.domain.model.VersionInfo;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -48,7 +47,9 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
     void foreignRegistryNeverContactsDockerHub() {
         assertThat(fetchVersion(testAppContainer.getContainerId()).updateAvailable())
                 .isFalse();
-        assertThat(wireMockClient().getAllServeEvents()).isEmpty();
+        assertThat(wireMockClient().getAllServeEvents().stream()
+                        .filter(event -> event.getRequest().getUrl().contains("/library/pause/")))
+                .isEmpty();
     }
 
     @Test
@@ -57,7 +58,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
         stubRegistryTags("busybox", "1.36.1", "1.37.0");
         stubManifestDigest("busybox", "1.36.1", getLocalDigest(HUB_IMAGE));
 
-        VersionDTO response = fetchVersion(hubVersion.getContainerId());
+        VersionInfo response = fetchVersion(hubVersion.getContainerId());
 
         assertThat(response.currentVersion()).isEqualTo("1.36.1");
         assertThat(response.latestVersion()).isEqualTo("1.37.0");
@@ -81,16 +82,19 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
             stubManifest404("my-local-image", "1.0");
         }
 
-        VersionDTO response = fetchVersion(localContainer.getContainerId());
+        VersionInfo response = fetchVersion(localContainer.getContainerId());
 
-        if (!comparable) assertThat(wireMockClient().getAllServeEvents()).isEmpty();
+        if (!comparable)
+            assertThat(wireMockClient().getAllServeEvents().stream()
+                            .filter(event -> event.getRequest().getUrl().contains("/library/my-local-image/")))
+                    .isEmpty();
         assertThat(response.currentVersion()).isEqualTo("1.0");
         assertThat(response.latestVersion()).isNull();
         assertThat(response.updateAvailable()).isFalse();
     }
 
     @Test
-    void shouldReturn404WhenContainerNotFound() {
+    void shouldReturn404ForRemovedVersionEndpoint() {
         String nonExistentId = "non-existent-id";
 
         ResponseEntity<String> response = fetch("/api/containers/" + nonExistentId + "/version");
@@ -107,7 +111,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
         stubRegistryTags("busybox", MUTABLE_TAG);
         stubManifestDigest("busybox", MUTABLE_TAG, currentDigest);
 
-        VersionDTO response = fetchVersion(containerId);
+        VersionInfo response = fetchVersion(containerId);
 
         assertThat(response.currentVersion()).isEqualTo(MUTABLE_TAG);
         assertThat(response.latestVersion()).isNull();
@@ -123,7 +127,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
         stubManifestDigest("busybox", MUTABLE_TAG, "sha256:" + "b".repeat(64));
         stubManifestDigest("busybox", getLocalDigest(HUB_LATEST), getLocalDigest(HUB_LATEST));
 
-        VersionDTO response = fetchVersion(containerId);
+        VersionInfo response = fetchVersion(containerId);
 
         assertThat(response.currentVersion()).isEqualTo(MUTABLE_TAG);
         assertThat(response.latestVersion()).isNull();
@@ -139,7 +143,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
         stubManifestDigest("busybox", MUTABLE_TAG, "sha256:" + "c".repeat(64));
         stubManifestDigest("busybox", getLocalDigest(HUB_LATEST), getLocalDigest(HUB_LATEST));
 
-        VersionDTO response = fetchVersion(containerId);
+        VersionInfo response = fetchVersion(containerId);
 
         assertThat(response.updateAvailable()).isTrue();
     }
@@ -173,13 +177,8 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
                         .willReturn(aResponse().withStatus(404)));
     }
 
-    protected @NotNull VersionDTO fetchVersion(String containerId) {
-        ResponseEntity<VersionDTO> response = fetch("/api/containers/" + containerId + "/version", VersionDTO.class);
-        assertThat(response.getStatusCode()).isEqualTo(OK);
-
-        assertThat(response.getBody()).isNotNull();
-
-        return response.getBody();
+    protected @NotNull VersionInfo fetchVersion(String containerId) {
+        return fetchCachedVersion(containerId);
     }
 
     /**

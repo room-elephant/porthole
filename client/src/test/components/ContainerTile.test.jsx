@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import ContainerTile from '../../components/ContainerTile';
@@ -20,11 +20,9 @@ const renderWithQuery = (ui) => {
     },
   });
 
-  return render(
-    <QueryClientProvider client={queryClient}>
-      {ui}
-    </QueryClientProvider>
-  );
+  return render(ui, {
+    wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+  });
 };
 
 describe('ContainerTile', () => {
@@ -243,39 +241,44 @@ describe('ContainerTile', () => {
   });
 
   describe('Update indicator', () => {
-    it('should show update warning when update available', async () => {
-      api.fetchContainerVersion.mockResolvedValue({
-        updateAvailable: true,
-        latestVersion: '2.0.0',
-      });
-
-      const container = createMockContainer();
-      renderWithQuery(<ContainerTile container={container} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('⚠️')).toBeInTheDocument();
-      });
+    it('shows embedded updates without a version request', () => {
+      const version = { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true };
+      renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
+      expect(screen.getByText('⚠️')).toHaveAttribute('title', 'Image update available');
+      expect(api.fetchContainerVersion).not.toHaveBeenCalled();
     });
 
-    it.each([null, '1.0.0'])('uses truthful wording for a tag change with catalogue version %s', async latestVersion => {
-      api.fetchContainerVersion.mockResolvedValue({ currentVersion: '2.0.0', latestVersion, updateAvailable: true });
-      renderWithQuery(<ContainerTile container={createMockContainer()} />);
-      await waitFor(() => expect(screen.getByText('⚠️')).toHaveAttribute('title', 'Image update available'));
+    it.each([null, '1.0.0'])('uses truthful wording for a tag change with catalogue version %s', latestVersion => {
+      const version = { currentVersion: '2.0.0', latestVersion, updateAvailable: true };
+      renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
+      expect(screen.getByText('⚠️')).toHaveAttribute('title', 'Image update available');
     });
 
-    it('should not show update warning when no update available', async () => {
-      api.fetchContainerVersion.mockResolvedValue({
-        updateAvailable: false,
-      });
-
-      const container = createMockContainer();
-      renderWithQuery(<ContainerTile container={container} />);
-
-      await waitFor(() => {
-        expect(api.fetchContainerVersion).toHaveBeenCalled();
-      });
-
+    it.each([null, { currentVersion: '1.0', latestVersion: '1.0', updateAvailable: false }])('shows no warning or spinner for version %s', version => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
       expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+      expect(screen.queryByTitle('Checking for updates...')).not.toBeInTheDocument();
+      expect(api.fetchContainerVersion).not.toHaveBeenCalled();
+    });
+
+    it('rerenders new embedded results when other container metadata is unchanged', () => {
+      const container = createMockContainer({ version: null });
+      const view = renderWithQuery(<ContainerTile container={container} />);
+      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+      const updated = { ...container, version: { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true } };
+      view.rerender(<ContainerTile container={updated} />);
+      expect(screen.getByText('⚠️')).toBeInTheDocument();
+      view.rerender(<ContainerTile container={{ ...updated, version: { ...updated.version, updateAvailable: false } }} />);
+      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+    });
+
+    it('keeps the stored preference for hiding update notifications', () => {
+      localStorage.setItem('version_check_test-container', 'false');
+      renderWithQuery(<ContainerTile container={createMockContainer({ version: { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true } })} />);
+      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTitle('Container Settings'));
+      fireEvent.click(screen.getByRole('checkbox'));
+      expect(screen.getByText('⚠️')).toBeInTheDocument();
     });
   });
 

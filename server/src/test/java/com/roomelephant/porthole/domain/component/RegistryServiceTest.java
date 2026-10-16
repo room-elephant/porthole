@@ -174,36 +174,30 @@ class RegistryServiceTest {
         }
 
         @Test
-        @DisplayName("should return null when hub request fails")
-        void shouldReturnNullWhenHubRequestFails() {
+        @DisplayName("should propagate hub request failures")
+        void shouldPropagateHubRequestFailure() {
             setupGetRequest();
             when(responseSpec.body(String.class)).thenThrow(new RuntimeException("Network error"));
 
-            String result = registryService.getLatestVersion("nginx");
-
-            assertNull(result);
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
         }
 
         @Test
-        @DisplayName("should return null when response body is null")
-        void shouldReturnNullWhenResponseBodyIsNull() {
+        @DisplayName("should reject missing response bodies")
+        void shouldRejectMissingResponseBody() {
             setupGetRequest();
             when(responseSpec.body(String.class)).thenReturn(null);
 
-            String result = registryService.getLatestVersion("nginx");
-
-            assertNull(result);
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
         }
 
         @Test
-        @DisplayName("should return null when no results in response")
-        void shouldReturnNullWhenNoResultsInResponse() {
+        @DisplayName("should reject missing tag results")
+        void shouldRejectMissingTagResults() {
             setupGetRequest();
             when(responseSpec.body(String.class)).thenReturn("{\"count\": 0}");
 
-            String result = registryService.getLatestVersion("nginx");
-
-            assertNull(result);
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
         }
 
         @Test
@@ -269,7 +263,7 @@ class RegistryServiceTest {
             when(responseSpec.body(String.class))
                     .thenAnswer(invocation ->
                             "{\"results\":[{\"name\":\"9.0\"}],\"next\":\"?page=" + page.incrementAndGet() + "\"}");
-            assertNull(registryService.getLatestVersion("nginx"));
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
             verify(restClient, times(100)).get();
         }
 
@@ -284,7 +278,7 @@ class RegistryServiceTest {
             setupGetRequest();
             when(responseSpec.body(String.class))
                     .thenReturn("{\"results\":[{\"name\":\"9.0\"}],\"next\":\"" + next + "\"}");
-            assertNull(registryService.getLatestVersion("nginx"));
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
             verify(restClient).get();
         }
 
@@ -294,7 +288,7 @@ class RegistryServiceTest {
             when(responseSpec.body(String.class))
                     .thenReturn("{\"results\":[{\"name\":\"9.0\"}],\"next\":\"?page=2\"}")
                     .thenThrow(new RuntimeException("rate limited"));
-            assertNull(registryService.getLatestVersion("nginx"));
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
             verify(restClient, times(2)).get();
         }
 

@@ -1,6 +1,5 @@
 import { useState, memo } from 'react';
-import { Settings, Loader2 } from 'lucide-react';
-import { useContainerVersion } from '../hooks/useContainerVersion';
+import { Settings } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS, ASSETS } from '../constants';
 import { useEndpointSelection } from '../hooks/useEndpointSelection';
@@ -18,10 +17,7 @@ function ContainerTile({ container }) {
     const hasEndpoints = container.hasEndpoints && selectedEndpointId !== NO_ENDPOINT_ID;
     const [checkUpdates, setCheckUpdates] = useLocalStorage(STORAGE_KEYS.VERSION_CHECK(container.name), true);
 
-    const { data: versionInfo, isLoading: versionLoading } = useContainerVersion(
-        container.id,
-        { enabled: checkUpdates }
-    );
+    const versionInfo = container.version;
 
     const getStatusClass = () => {
         const state = container.state?.toLowerCase();
@@ -67,10 +63,7 @@ function ContainerTile({ container }) {
                     <span className="container-info">
                         <span className="container-title" title={container.name}>{container.displayName}</span>
                         <span className="container-image" title={container.image}>
-                            {checkUpdates && versionLoading && (
-                                <Loader2 size={14} className="version-loading" title="Checking for updates..." />
-                            )}
-                            {checkUpdates && !versionLoading && versionInfo?.updateAvailable && (
+                            {checkUpdates && versionInfo?.updateAvailable && (
                                 <span className="update-warning" title="Image update available">
                                     ⚠️
                                 </span>
@@ -121,6 +114,9 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
         prev.image === next.image &&
         prev.iconUrl === next.iconUrl &&
         prev.hasEndpoints === next.hasEndpoints &&
+        prev.version?.currentVersion === next.version?.currentVersion &&
+        prev.version?.latestVersion === next.version?.latestVersion &&
+        prev.version?.updateAvailable === next.version?.updateAvailable &&
         arraysEqual(prev.endpoints, next.endpoints)
     );
 });
