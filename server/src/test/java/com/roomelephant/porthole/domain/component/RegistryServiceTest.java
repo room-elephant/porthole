@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,13 +51,13 @@ class RegistryServiceTest {
         when(cache.ttl()).thenReturn(Duration.ofMinutes(5));
         when(cache.versionMaxSize()).thenReturn(100);
 
-        registryService = new RegistryService(restClient, registryProperties);
+        registryService = new RegistryService(restClient, registryProperties, ghcr());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
             strings = {
-                "ghcr.io/acme/app:latest",
+                "quay.io/acme/app:latest",
                 "localhost:5000/app",
                 "https://docker.io/nginx",
                 "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -66,7 +67,7 @@ class RegistryServiceTest {
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(1)),
                 new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
                 new RegistryProperties.Urls("https://registry/v2/", "https://auth/", "https://hub/"));
-        var service = new RegistryService(restClient, properties);
+        var service = new RegistryService(restClient, properties, ghcr());
         assertNull(service.getLatestVersion(image));
         assertNull(service.getDigest(image, "latest"));
         assertFalse(service.isTagChanged(image, java.util.List.of("sha256:" + "a".repeat(64))));
@@ -337,5 +338,9 @@ class RegistryServiceTest {
         when(restClient.get()).thenReturn(getSpec);
         when(getSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+    }
+
+    private static GhcrProperties ghcr() {
+        return new GhcrProperties("https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
     }
 }

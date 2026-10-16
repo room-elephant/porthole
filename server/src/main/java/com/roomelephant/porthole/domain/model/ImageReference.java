@@ -86,7 +86,8 @@ public record ImageReference(
     }
 
     public boolean supportsUpdates() {
-        return registry.equals("docker.io") && digest == null;
+        return digest == null
+                && (registry.equals("docker.io") || (registry.equals("ghcr.io") && repository.contains("/")));
     }
 
     public List<String> matchingDigests(List<String> repoDigests) {

@@ -34,7 +34,7 @@ public final class ImageUtils {
      */
     public static @NonNull String resolveRepository(@NonNull String image) {
         return ImageReference.tryParse(image)
-                .filter(ImageReference::supportsUpdates)
+                .filter(ref -> ref.supportsUpdates() && ref.registry().equals("docker.io"))
                 .map(ImageReference::repository)
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported image reference"));
     }

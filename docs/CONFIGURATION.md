@@ -39,18 +39,27 @@ docker run -d -p 9753:9753 \
 
 ### Registry Configuration
 
-Porthole queries Docker Hub to check for updates. Only public Docker Hub image references are supported, including familiar names such as `nginx` and explicit `docker.io` references. Other registries, local image IDs, digest-pinned images, and locally retagged images without matching repository provenance are skipped. Registry URL overrides change the transport destination, not the image registry identity. You can configure timeouts and cache settings:
+Porthole checks public images on Docker Hub and GitHub Container Registry (GHCR). Docker Hub accepts familiar names such as `nginx` and explicit `docker.io` references; GHCR requires `ghcr.io/<owner>/<image>`, including nested image paths. Other registries, local image IDs, digest-pinned images, and locally retagged images without matching repository provenance are skipped. Private packages and GitHub source repository/release tags are not supported. No GitHub login or token configuration is required for public GHCR images. Registry URL overrides change the transport destination, not the image registry identity. You can configure timeouts and cache settings:
 
 | Property                          | Default | Description                           |
 |-----------------------------------|---------|---------------------------------------|
-| `REGISTRY_TIMEOUT_CONNECT`        | `5s`    | Connection timeout for Docker Hub API |
-| `REGISTRY_TIMEOUT_READ`           | `10s`   | Read timeout for Docker Hub API       |
+| `REGISTRY_TIMEOUT_CONNECT`        | `5s`    | Connection timeout for registry APIs |
+| `REGISTRY_TIMEOUT_READ`           | `10s`   | Read timeout for registry APIs       |
 | `REGISTRY_CACHE_TTL`              | `1h`    | How long to cache version information |
 | `REGISTRY_CACHE_VERSION_MAX_SIZE` | `100` | Maximum cached version entries   |
 
+Docker Hub transport overrides retain the `REGISTRY_URLS_REGISTRY`, `REGISTRY_URLS_AUTH`, and `REGISTRY_URLS_REPOSITORIES` settings. GHCR has independent settings, useful with a trusted transport proxy:
+
+| Property | Default |
+|---|---|
+| `REGISTRY_GHCR_REGISTRY_URL` | `https://ghcr.io/v2/` |
+| `REGISTRY_GHCR_AUTH_URL` | `https://ghcr.io/token?service=ghcr.io&scope=repository:` |
+
+The registry base ends in `/`; the auth prefix ends in `repository:` and receives the repository name plus `:pull`. Overrides must preserve these API shapes. GHCR uses anonymous pull tokens fetched for each registry operation; Porthole does not read Docker credentials. Complete catalogue results are cached separately by registry and repository. Inaccessible packages, denied requests and rate limits leave checks inconclusive. See [GitHub's Container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
 Numeric release checks accept tags with at least two dot-separated integer components, optionally prefixed by `v` (for example, `1.2`, `v1.2.3`). Components are compared numerically without integer overflow; missing trailing components count as zero. Suffixes such as `-alpine`, prereleases, and single-number tags are excluded. The highest numeric tag across all major versions is considered; there is no major-version pinning policy. A warning requires a strictly newer comparable version, and this release check only applies when the configured image tag is numeric.
 
-Tag enumeration follows pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration returns no latest-version result rather than a partial maximum.
+Docker Hub tag enumeration follows JSON `next` links; GHCR uses OCI tag-list `Link` headers. Both follow pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration returns no latest-version result rather than a partial maximum.
 
 Mutable tag changes are checked independently of numeric releases. Digests must belong to the same repository, use the same hash algorithm, and represent the same manifest level (image manifest or multi-platform index). Missing or incompatible metadata is inconclusive; index-versus-platform-image differences alone never trigger a warning. The update tooltip says **Image update available**, since a changed tag does not necessarily identify a newer numeric release.
 
