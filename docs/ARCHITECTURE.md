@@ -145,6 +145,8 @@ Porthole queries Docker Hub to detect available updates. When resolving image na
 
 - **Official images** (e.g., `redis`, `postgres`) are stored under the `library/` namespace
 - **User/org images** (e.g., `bitnami/redis`) use their namespace directly
+- **Image identity** is parsed before lookup. Registry ports and digest qualifiers are preserved; foreign registries are never rewritten into Docker Hub paths.
+- **Update eligibility** requires a mutable Hub reference and local RepoDigests from the same normalized repository. Explicit digest pins and local image identifiers are skipped.
 
 ```
 redis           → library/redis      (official)

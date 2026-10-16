@@ -5,6 +5,7 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.InspectImageResponse;
 import com.github.dockerjava.api.model.ContainerConfig;
 import com.roomelephant.porthole.domain.component.RegistryService;
+import com.roomelephant.porthole.domain.model.ImageReference;
 import com.roomelephant.porthole.domain.model.VersionDTO;
 import com.roomelephant.porthole.domain.model.exception.DockerUnavailableException;
 import com.roomelephant.porthole.domain.model.exception.NotFoundException;
@@ -55,15 +56,17 @@ public class VersionService {
 
         String currentVersion = getVersionFromContainer(config, imageFull);
 
+        var reference = ImageReference.tryParse(imageFull).filter(ImageReference::supportsUpdates);
+        if (reference.isEmpty()) return new VersionDTO(currentVersion, null, false);
         List<String> repoDigests = getRepoDigests(container.getImageId());
-        boolean isLocalImage = repoDigests == null || repoDigests.isEmpty();
-
-        if (isLocalImage) {
+        List<String> matchingDigests =
+                repoDigests == null ? List.of() : reference.get().matchingDigests(repoDigests);
+        if (matchingDigests.isEmpty()) {
             return new VersionDTO(currentVersion, null, false);
         }
 
         String latestVersion = registryService.getLatestVersion(imageFull);
-        boolean updateAvailable = checkForUpdate(imageFull, currentVersion, latestVersion, repoDigests);
+        boolean updateAvailable = checkForUpdate(imageFull, currentVersion, latestVersion, matchingDigests);
 
         return new VersionDTO(currentVersion, latestVersion, updateAvailable);
     }
@@ -79,7 +82,7 @@ public class VersionService {
         }
     }
 
-    private String getVersionFromContainer(@NonNull ContainerConfig config, @NonNull String imageFull) {
+    private @Nullable String getVersionFromContainer(@NonNull ContainerConfig config, @NonNull String imageFull) {
         String imageName = ImageUtils.extractName(imageFull);
 
         String envVersion = getVersionFromEnvVars(config.getEnv(), imageName);
@@ -92,7 +95,9 @@ public class VersionService {
             return labelVersion;
         }
 
-        return ImageUtils.extractTag(imageFull);
+        return ImageReference.tryParse(imageFull)
+                .map(ref -> ref.tag() != null ? ref.tag() : ref.lookupTag())
+                .orElse(null);
     }
 
     private @Nullable String getVersionFromEnvVars(String @Nullable [] envs, @NonNull String imageName) {
@@ -142,7 +147,7 @@ public class VersionService {
         try {
             String remoteDigest = registryService.getDigest(imageFull, tag);
             if (remoteDigest != null) {
-                boolean match = repoDigests.stream().anyMatch(rd -> rd.contains(remoteDigest));
+                boolean match = repoDigests.stream().anyMatch(rd -> rd.equals(remoteDigest));
                 if (!match) {
                     return true;
                 }

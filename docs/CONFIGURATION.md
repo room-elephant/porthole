@@ -39,7 +39,7 @@ docker run -d -p 9753:9753 \
 
 ### Registry Configuration
 
-Porthole queries Docker Hub to check for updates. You can configure timeouts and cache settings:
+Porthole queries Docker Hub to check for updates. Only public Docker Hub image references are supported, including familiar names such as `nginx` and explicit `docker.io` references. Other registries, local image IDs, digest-pinned images, and locally retagged images without matching repository provenance are skipped. Registry URL overrides change the transport destination, not the image registry identity. You can configure timeouts and cache settings:
 
 | Property                          | Default | Description                           |
 |-----------------------------------|---------|---------------------------------------|

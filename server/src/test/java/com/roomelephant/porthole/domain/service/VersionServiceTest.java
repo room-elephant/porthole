@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("VersionService")
 class VersionServiceTest {
+    private static final String LOCAL_DIGEST = "sha256:" + "a".repeat(64);
 
     @Mock
     private DockerClient dockerClient;
@@ -59,6 +60,37 @@ class VersionServiceTest {
     @Nested
     @DisplayName("getVersionInfo")
     class GetVersionInfo {
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(
+                strings = {
+                    "ghcr.io/acme/app:1.0",
+                    "localhost:5000/app",
+                    "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "nginx:1.25@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                })
+        void unsupportedOrPinnedImagesDoNotQueryRegistry(String image) {
+            setupContainerWithImage(image);
+            assertFalse(versionService.getVersionInfo("container1").updateAvailable());
+            verifyNoInteractions(registryService);
+            verify(dockerClient, never()).inspectImageCmd(anyString());
+        }
+
+        @Test
+        void pinnedReferenceRetainsExplicitTagForDisplay() {
+            setupContainerWithImage("nginx:1.25@" + LOCAL_DIGEST);
+            assertEquals("1.25", versionService.getVersionInfo("container1").currentVersion());
+            verifyNoInteractions(registryService);
+        }
+
+        @Test
+        void unrelatedImageProvenanceDoesNotQueryRegistry() {
+            setupContainerWithImage("nginx:1.25");
+            setupRemoteImage();
+            when(inspectImageResponse.getRepoDigests()).thenReturn(List.of("ghcr.io/acme/nginx@" + LOCAL_DIGEST));
+            assertFalse(versionService.getVersionInfo("container1").updateAvailable());
+            verifyNoInteractions(registryService);
+        }
 
         @Test
         @DisplayName("should throw NotFoundException when container not found")
@@ -211,7 +243,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.25");
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn("sha256:local");
+            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn(LOCAL_DIGEST);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -226,7 +258,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("org.opencontainers.image.version", "1.25.0"));
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn("sha256:local");
+            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn(LOCAL_DIGEST);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -320,7 +352,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:latest", "latest")).thenReturn("sha256:local");
+            when(registryService.getDigest("nginx:latest", "latest")).thenReturn(LOCAL_DIGEST);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -335,7 +367,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("org.opencontainers.image.version", "1.26.0"));
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn("sha256:local");
+            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn(LOCAL_DIGEST);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -350,7 +382,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(new String[] {"OTHER_VAR=value", "PATH=/bin"});
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:latest", "latest")).thenReturn("sha256:local");
+            when(registryService.getDigest("nginx:latest", "latest")).thenReturn(LOCAL_DIGEST);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -369,6 +401,9 @@ class VersionServiceTest {
         when(inspectContainerResponse.getImageId()).thenReturn("sha256:abc123");
         when(dockerClient.inspectImageCmd("sha256:abc123")).thenReturn(inspectImageCmd);
         when(inspectImageCmd.exec()).thenReturn(inspectImageResponse);
-        when(inspectImageResponse.getRepoDigests()).thenReturn(List.of("nginx@sha256:local"));
+        String repository = com.roomelephant.porthole.domain.model.ImageReference.tryParse(containerConfig.getImage())
+                .orElseThrow()
+                .canonicalRepository();
+        when(inspectImageResponse.getRepoDigests()).thenReturn(List.of(repository + "@" + LOCAL_DIGEST));
     }
 }
