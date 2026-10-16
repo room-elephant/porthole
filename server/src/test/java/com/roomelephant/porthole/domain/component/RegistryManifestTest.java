@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import java.time.Duration;
 import java.util.List;
@@ -30,7 +31,7 @@ class RegistryManifestTest {
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 new RegistryProperties.Cache(Duration.ofMinutes(1), 100),
                 new RegistryProperties.Urls(BASE + "v2/", BASE + "auth?scope=repository:", BASE + "catalog/"));
-        service = new RegistryService(builder.build(), props);
+        service = new RegistryService(builder.build(), props, ghcr());
         server.expect(requestTo(BASE + "auth?scope=repository:library/nginx:pull"))
                 .andRespond(withSuccess("{\"token\":\"test\"}", MediaType.APPLICATION_JSON));
     }
@@ -101,5 +102,9 @@ class RegistryManifestTest {
                 .andRespond(withSuccess("", type).header("Docker-Content-Digest", remote));
         assertFalse(service.isTagChanged("nginx:latest", List.of(A)));
         server.verify();
+    }
+
+    private static GhcrProperties ghcr() {
+        return new GhcrProperties("https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
     }
 }

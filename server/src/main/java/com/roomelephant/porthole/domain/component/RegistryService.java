@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.domain.model.ImageReference;
-import com.roomelephant.porthole.domain.util.ImageUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.HashSet;
@@ -37,18 +37,19 @@ public class RegistryService {
     private static final String ACCEPT_HEADER =
             Stream.concat(INDEX_TYPES.stream(), IMAGE_TYPES.stream()).sorted().collect(Collectors.joining(", "));
     private static final String DOCKER_CONTENT_DIGEST = "Docker-Content-Digest";
-    private static final String RESULTS = "results";
-    private static final String NAME = "name";
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final RegistryProperties registryProperties;
+    private final GhcrProperties ghcrProperties;
     private final Cache<String, String> versionCache;
     private final Cache<String, Optional<String>> tokenCache;
 
-    public RegistryService(RestClient restClient, RegistryProperties registryProperties) {
+    public RegistryService(
+            RestClient restClient, RegistryProperties registryProperties, GhcrProperties ghcrProperties) {
         this.restClient = restClient;
         this.registryProperties = registryProperties;
+        this.ghcrProperties = ghcrProperties;
         this.objectMapper = new ObjectMapper();
         this.versionCache = Caffeine.newBuilder()
                 .expireAfterWrite(registryProperties.cache().ttl())
@@ -64,12 +65,11 @@ public class RegistryService {
         var reference = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
         if (reference.isEmpty() || !tag.equals(reference.get().lookupTag())) return null;
         try {
-            String repository = reference.get().repository();
-            String token = getAuthToken(repository);
+            String token = getAuthToken(reference.get());
 
             if (token == null) return null;
 
-            return fetchDigest(tag, repository, token);
+            return requestHead(tag, reference.get(), token).getHeaders().getFirst(DOCKER_CONTENT_DIGEST);
         } catch (Exception e) {
             log.debug("Could not fetch digest for {}:{} - {}", imageName, tag, e.getMessage());
             return null;
@@ -77,29 +77,24 @@ public class RegistryService {
     }
 
     public @Nullable String getLatestVersion(@NonNull String imageName) {
-        if (ImageReference.tryParse(imageName)
-                .filter(ImageReference::supportsUpdates)
-                .isEmpty()) return null;
+        var reference = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
+        if (reference.isEmpty()) return null;
         try {
-            return versionCache.get(ImageUtils.resolveRepository(imageName), this::fetchLatestFromHub);
+            return versionCache.get(reference.get().canonicalRepository(), key -> fetchLatest(reference.get()));
         } catch (Exception e) {
             log.error("Could not fetch tags for {}", imageName, e);
             return null;
         }
     }
 
-    private ResponseEntity<Void> requestHead(String reference, String repository, String token) {
+    private ResponseEntity<Void> requestHead(String reference, ImageReference image, String token) {
         return restClient
                 .head()
-                .uri(registryProperties.urls().registry() + repository + "/manifests/" + reference)
+                .uri(registryBase(image) + image.repository() + "/manifests/" + reference)
                 .header(HttpHeaders.AUTHORIZATION, BEARER + token)
                 .header(HttpHeaders.ACCEPT, ACCEPT_HEADER)
                 .retrieve()
                 .toBodilessEntity();
-    }
-
-    private @Nullable String fetchDigest(String tag, String repository, String token) {
-        return requestHead(tag, repository, token).getHeaders().getFirst(DOCKER_CONTENT_DIGEST);
     }
 
     /** Unknown or incompatible manifest levels are not evidence of an image change. */
@@ -107,10 +102,9 @@ public class RegistryService {
         var image = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
         if (image.isEmpty() || localDigests.isEmpty()) return false;
         try {
-            String repository = image.get().repository();
-            String token = getAuthToken(repository);
+            String token = getAuthToken(image.get());
             if (token == null) return false;
-            var remote = requestHead(image.get().lookupTag(), repository, token);
+            var remote = requestHead(image.get().lookupTag(), image.get(), token);
             String remoteDigest = remote.getHeaders().getFirst(DOCKER_CONTENT_DIGEST);
             int remoteLevel = manifestLevel(remote);
             if (!validDigest(remoteDigest) || remoteLevel == 0 || localDigests.contains(remoteDigest)) return false;
@@ -118,7 +112,7 @@ public class RegistryService {
                 if (!validDigest(digest)
                         || !digest.split(":", 2)[0].equals(remoteDigest.split(":", 2)[0])) continue;
                 try {
-                    var local = requestHead(digest, repository, token);
+                    var local = requestHead(digest, image.get(), token);
                     if (digest.equals(local.getHeaders().getFirst(DOCKER_CONTENT_DIGEST))
                             && manifestLevel(local) == remoteLevel) return true;
                 } catch (Exception e) {
@@ -143,28 +137,50 @@ public class RegistryService {
         return IMAGE_TYPES.contains(mime) ? 1 : 0;
     }
 
-    private @Nullable String getAuthToken(String repository) {
-        return tokenCache.get(repository, this::fetchAuthToken).orElse(null);
+    private @Nullable String getAuthToken(ImageReference image) {
+        // GHCR anonymous pull tokens are short-lived; obtain one per operation.
+        if (isGhcr(image)) return fetchAuthToken(image).orElse(null);
+        return tokenCache
+                .get(image.canonicalRepository(), key -> fetchAuthToken(image))
+                .orElse(null);
     }
 
-    private Optional<String> fetchAuthToken(String repository) {
-        String url = registryProperties.urls().auth() + repository + ":pull";
+    private static boolean isGhcr(ImageReference image) {
+        return image.registry().equals("ghcr.io");
+    }
+
+    private String registryBase(ImageReference image) {
+        return isGhcr(image)
+                ? ghcrProperties.registryUrl()
+                : registryProperties.urls().registry();
+    }
+
+    private Optional<String> fetchAuthToken(ImageReference image) {
+        String auth = isGhcr(image)
+                ? ghcrProperties.authUrl()
+                : registryProperties.urls().auth();
+        String url = auth + image.repository() + ":pull";
         try {
             String responseBody = restClient.get().uri(url).retrieve().body(String.class);
             if (responseBody == null) {
                 return Optional.empty();
             }
             JsonNode response = objectMapper.readTree(responseBody);
-            boolean hasToken = response.has(TOKEN);
-            return hasToken ? Optional.of(response.get(TOKEN).asText()) : Optional.empty();
+            JsonNode token = response.has(TOKEN) ? response.get(TOKEN) : response.path("access_token");
+            return token.isTextual() && !token.asText().isBlank() ? Optional.of(token.asText()) : Optional.empty();
         } catch (Exception e) {
-            log.error("Could not fetch auth token for {} at URL {}", repository, url, e);
+            log.debug("Could not fetch anonymous pull token for {}: {}", image.canonicalRepository(), e.getMessage());
             return Optional.empty();
         }
     }
 
-    private @Nullable String fetchLatestFromHub(String repository) {
-        URI first = URI.create(registryProperties.urls().repositories() + repository + "/tags?page_size=100");
+    private @Nullable String fetchLatest(ImageReference image) {
+        String token = isGhcr(image) ? getAuthToken(image) : null;
+        if (isGhcr(image) && token == null) return null;
+        URI first = URI.create(
+                isGhcr(image)
+                        ? registryBase(image) + image.repository() + "/tags/list?n=100"
+                        : registryProperties.urls().repositories() + image.repository() + "/tags?page_size=100");
         URI next = first;
         var visited = new HashSet<URI>();
         String best = null;
@@ -172,64 +188,35 @@ public class RegistryService {
         long budget = registryProperties.timeout().read().toNanos();
         try {
             for (int page = 0; page < 100; page++) {
-                if (!visited.add(next) || !sameCatalogue(first, next)) return null;
-                String body = restClient.get().uri(next.toString()).retrieve().body(String.class);
-                if (body == null || System.nanoTime() - started > budget) return null;
-                TagPage result = parsePage(body, next);
-                best = higherTag(best, result.best());
+                if (!visited.add(next) || !RegistryTagPage.sameCatalogue(first, next)) return null;
+                RegistryTagPage result = fetchPage(image, next, token);
+                if (System.nanoTime() - started > budget) return null;
+                best = RegistryTagPage.higherTag(best, result.best());
                 if (result.next() == null) return best;
                 next = result.next();
             }
         } catch (HttpClientErrorException.NotFound e) {
             return null;
         } catch (Exception e) {
-            log.debug("Could not enumerate tags for {}: {}", repository, e.getMessage());
+            log.debug("Could not enumerate tags for {}: {}", image.canonicalRepository(), e.getMessage());
         }
         return null;
     }
 
-    private TagPage parsePage(String body, URI current) throws IOException {
-        JsonNode response = objectMapper.readTree(body);
-        if (!response.path(RESULTS).isArray()) throw new IllegalArgumentException("Missing tag results");
-        String best = bestTag(response.get(RESULTS));
-        JsonNode link = response.get("next");
-        if (link == null || link.isNull()) return new TagPage(best, null);
-        if (!link.isTextual() || link.asText().isBlank()) throw new IllegalArgumentException("Invalid next page");
-        String target = link.asText();
-        // URI.resolve treats a query-only reference as a sibling path, losing "tags".
-        URI next = target.startsWith("?")
-                ? URI.create(current.toString().split("\\?", 2)[0] + target)
-                : current.resolve(target);
-        return new TagPage(best, next);
-    }
-
-    private static @Nullable String bestTag(JsonNode results) {
-        String best = null;
-        for (JsonNode result : results) {
-            JsonNode name = result.get(NAME);
-            if (name != null && name.isTextual() && ImageUtils.isSemver(name.asText()))
-                best = higherTag(best, name.asText());
+    private RegistryTagPage fetchPage(ImageReference image, URI current, @Nullable String token) throws IOException {
+        var request = restClient.get().uri(current.toString());
+        if (isGhcr(image)) {
+            var response = request.header(HttpHeaders.AUTHORIZATION, BEARER + token)
+                    .retrieve()
+                    .toEntity(String.class);
+            if (response.getBody() == null) throw new IllegalArgumentException("Missing tag response");
+            return RegistryTagPage.distribution(
+                    objectMapper.readTree(response.getBody()),
+                    response.getHeaders().getOrEmpty(HttpHeaders.LINK),
+                    current);
         }
-        return best;
-    }
-
-    private static @Nullable String higherTag(@Nullable String left, @Nullable String right) {
-        if (left == null) return right;
-        return right != null && compareTags(right, left) > 0 ? right : left;
-    }
-
-    private record TagPage(@Nullable String best, @Nullable URI next) {}
-
-    private static int compareTags(String left, String right) {
-        int comparison = ImageUtils.compareSemVer(left, right);
-        return comparison == 0 ? left.compareTo(right) : comparison;
-    }
-
-    private static boolean sameCatalogue(URI first, URI next) {
-        return first.getScheme().equalsIgnoreCase(next.getScheme())
-                && first.getRawAuthority().equalsIgnoreCase(next.getRawAuthority())
-                && first.getRawPath().equals(next.getRawPath())
-                && next.getFragment() == null
-                && next.getUserInfo() == null;
+        String body = request.retrieve().body(String.class);
+        if (body == null) throw new IllegalArgumentException("Missing tag response");
+        return RegistryTagPage.hub(objectMapper.readTree(body), current);
     }
 }

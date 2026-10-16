@@ -140,15 +140,17 @@ Porthole attempts to detect the current version of each container using multiple
 The image-specific check (step 1) takes priority because containers often have multiple `*_VERSION` env vars (like `GOSU_VERSION`, `PYTHON_VERSION`) that aren't the application version.
 The complete environment is scanned before choosing the generic fallback. Blank values are skipped and surrounding whitespace is stripped at every metadata level.
 
-## Docker Hub Integration
+## Container Registry Integration
 
-Porthole queries Docker Hub to detect available updates. When resolving image names:
+Porthole queries Docker Hub and public GitHub Container Registry packages to detect available updates. `RegistryService` selects transport by the parsed semantic registry; URL overrides never change that identity. When resolving image names:
 
 - **Official images** (e.g., `redis`, `postgres`) are stored under the `library/` namespace
 - **User/org images** (e.g., `bitnami/redis`) use their namespace directly
-- **Image identity** is parsed before lookup. Registry ports and digest qualifiers are preserved; foreign registries are never rewritten into Docker Hub paths.
-- **Update eligibility** requires a mutable Hub reference and local RepoDigests from the same normalized repository. Explicit digest pins and local image identifiers are skipped.
-- **Numeric releases** use arbitrary-precision integer components, optional lowercase `v`, and zero-padding for missing components. Only a strictly greater comparable release triggers a version warning. All catalogue pages must complete within the documented bounds; the maximum is deterministic and cached by normalized repository. See [Registry Configuration](CONFIGURATION.md#registry-configuration) for grammar, policy and limits.
+- **Image identity** is parsed before lookup. Registry ports and digest qualifiers are preserved; GHCR and unsupported registries are never rewritten into Docker Hub paths.
+- **Update eligibility** requires a mutable supported reference and local RepoDigests from the same normalized repository. Explicit digest pins and local image identifiers are skipped.
+- **GHCR images** retain the complete owner/image path. `GhcrProperties` supplies independent registry/auth transports. Anonymous pull tokens authorize both `/v2/<repository>/tags/list?n=100` and manifest HEAD requests; fresh tokens avoid storing expired GHCR credentials. Private-package authentication is outside this feature.
+- **Catalogue pagination** shares `RegistryTagPage` numeric selection and origin/path validation. Hub reads `results[].name` plus JSON `next`; GHCR reads `tags[]` plus `Link: <...>; rel="next"` ([OCI Distribution Specification](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#listing-tags)). Catalogue cache keys include the normalized registry and repository, preventing cross-registry results for identical paths.
+- **Numeric releases** use arbitrary-precision integer components, optional lowercase `v`, and zero-padding for missing components. Only a strictly greater comparable release triggers a version warning. All catalogue pages must complete within the documented bounds; the maximum is deterministic and cached by normalized registry/repository. See [Registry Configuration](CONFIGURATION.md#registry-configuration) for grammar, policy and limits.
 - **Mutable tags** negotiate OCI image/index and Docker v2 image/list media types. Equal exact digests suppress tag-change evidence. For different digests, HEAD requests for local digests establish compatible manifest levels; unavailable local manifests are skipped. An index and its platform child are never treated as comparable. Numeric-release and tag-change evidence are evaluated independently, and either can establish an update.
 
 ```
@@ -246,7 +248,7 @@ Published-port IDs use `published-port:<port>` independently of the request host
 - `domain/model/` — `Container`, `Endpoint`, `ContainerContext`, `VersionDTO`, and domain exceptions
 - `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
 - `config/` — `DockerConfig` (docker-java client bean), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
-- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `DashboardProperties`, `EndpointProperties`
+- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `GhcrProperties`, `DashboardProperties`, `EndpointProperties`
 - `config/nativehints/` — `DockerNativeConfig` (Spring AOT hints for types the agent can't observe)
 
 ## Integration Test Infrastructure

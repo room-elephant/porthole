@@ -63,7 +63,9 @@ class VersionServiceTest {
         @org.junit.jupiter.params.ParameterizedTest
         @org.junit.jupiter.params.provider.ValueSource(
                 strings = {
-                    "ghcr.io/acme/app:1.0",
+                    "quay.io/acme/app:1.0",
+                    "ghcr.io/acme/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "ghcr.io/app",
                     "localhost:5000/app",
                     "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     "nginx:1.25@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -102,6 +104,25 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:1.0")).thenReturn("1.0");
             when(registryService.isTagChanged(eq("nginx:1.0"), anyList())).thenReturn(false);
             assertEquals("1.0", versionService.getVersionInfo("container1").currentVersion());
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource({
+            "ghcr.io/acme/app,true",
+            "docker.io/acme/app,false",
+            "ghcr.io/other/app,false"
+        })
+        void ghcrUpdatesRequireItsOwnRepositoryProvenance(String provenance, boolean eligible) {
+            String image = "ghcr.io/acme/app:1.0";
+            setupContainerWithImage(image);
+            setupRemoteImage();
+            when(inspectImageResponse.getRepoDigests()).thenReturn(List.of(provenance + "@" + LOCAL_DIGEST));
+            if (eligible) {
+                when(registryService.getLatestVersion(image)).thenReturn("2.0");
+                when(registryService.isTagChanged(image, List.of(LOCAL_DIGEST))).thenReturn(false);
+            }
+            assertEquals(eligible, versionService.getVersionInfo("container1").updateAvailable());
+            if (!eligible) verifyNoInteractions(registryService);
         }
 
         @org.junit.jupiter.params.ParameterizedTest
