@@ -138,6 +138,7 @@ Porthole attempts to detect the current version of each container using multiple
 4. **Image tag**: Uses the tag from the image name (e.g., `7.0` from `mongo:7.0`)
 
 The image-specific check (step 1) takes priority because containers often have multiple `*_VERSION` env vars (like `GOSU_VERSION`, `PYTHON_VERSION`) that aren't the application version.
+The complete environment is scanned before choosing the generic fallback. Blank values are skipped and surrounding whitespace is stripped at every metadata level.
 
 ## Docker Hub Integration
 
@@ -147,6 +148,8 @@ Porthole queries Docker Hub to detect available updates. When resolving image na
 - **User/org images** (e.g., `bitnami/redis`) use their namespace directly
 - **Image identity** is parsed before lookup. Registry ports and digest qualifiers are preserved; foreign registries are never rewritten into Docker Hub paths.
 - **Update eligibility** requires a mutable Hub reference and local RepoDigests from the same normalized repository. Explicit digest pins and local image identifiers are skipped.
+- **Numeric releases** use arbitrary-precision integer components, optional lowercase `v`, and zero-padding for missing components. Only a strictly greater comparable release triggers a version warning. All catalogue pages must complete within the documented bounds; the maximum is deterministic and cached by normalized repository. See [Registry Configuration](CONFIGURATION.md#registry-configuration) for grammar, policy and limits.
+- **Mutable tags** negotiate OCI image/index and Docker v2 image/list media types. Equal exact digests suppress tag-change evidence. For different digests, HEAD requests for local digests establish compatible manifest levels; unavailable local manifests are skipped. An index and its platform child are never treated as comparable. Numeric-release and tag-change evidence are evaluated independently, and either can establish an update.
 
 ```
 redis           → library/redis      (official)

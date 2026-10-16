@@ -48,6 +48,12 @@ Porthole queries Docker Hub to check for updates. Only public Docker Hub image r
 | `REGISTRY_CACHE_TTL`              | `1h`    | How long to cache version information |
 | `REGISTRY_CACHE_VERSION_MAX_SIZE` | `100` | Maximum cached version entries   |
 
+Numeric release checks accept tags with at least two dot-separated integer components, optionally prefixed by `v` (for example, `1.2`, `v1.2.3`). Components are compared numerically without integer overflow; missing trailing components count as zero. Suffixes such as `-alpine`, prereleases, and single-number tags are excluded. The highest numeric tag across all major versions is considered; there is no major-version pinning policy. A warning requires a strictly newer comparable version, and this release check only applies when the configured image tag is numeric.
+
+Tag enumeration follows pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration returns no latest-version result rather than a partial maximum.
+
+Mutable tag changes are checked independently of numeric releases. Digests must belong to the same repository, use the same hash algorithm, and represent the same manifest level (image manifest or multi-platform index). Missing or incompatible metadata is inconclusive; index-versus-platform-image differences alone never trigger a warning. The update tooltip says **Image update available**, since a changed tag does not necessarily identify a newer numeric release.
+
 ### Icon Mappings
 
 Porthole uses a smart icon resolution strategy, but sometimes you need manual control. You can configure icon mappings using a YAML file.

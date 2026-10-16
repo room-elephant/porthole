@@ -76,6 +76,50 @@ class VersionServiceTest {
             verify(dockerClient, never()).inspectImageCmd(anyString());
         }
 
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource({
+            "2.0,1.0,false",
+            "v1.0,1.0.0,false",
+            "1.0.0,1.0,false",
+            "release-build,2.0,false",
+            "1.0,2.0,true",
+            "2147483648.0,2.0,false"
+        })
+        void onlyNewerComparableVersionsTriggerWarnings(String current, String latest, boolean expected) {
+            setupContainerWithImage("nginx:1.0");
+            setupRemoteImage();
+            when(containerConfig.getEnv()).thenReturn(new String[] {"NGINX_VERSION=" + current});
+            when(registryService.getLatestVersion("nginx:1.0")).thenReturn(latest);
+            when(registryService.isTagChanged(eq("nginx:1.0"), anyList())).thenReturn(false);
+            assertEquals(expected, versionService.getVersionInfo("container1").updateAvailable());
+        }
+
+        @Test
+        void specificVersionWinsEvenWhenGenericAppearsFirst() {
+            setupContainerWithImage("nginx:1.0");
+            setupRemoteImage();
+            when(containerConfig.getEnv()).thenReturn(new String[] {"VERSION=9.9", "NGINX_VERSION=1.0"});
+            when(registryService.getLatestVersion("nginx:1.0")).thenReturn("1.0");
+            when(registryService.isTagChanged(eq("nginx:1.0"), anyList())).thenReturn(false);
+            assertEquals("1.0", versionService.getVersionInfo("container1").currentVersion());
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource({"'',2.0", "'   ',2.0", "' 3.0 ',3.0"})
+        void blankMetadataFallsThroughAndNonblankMetadataIsTrimmed(String specific, String expected) {
+            setupContainerWithImage("nginx:latest");
+            when(inspectContainerResponse.getImageId()).thenReturn("sha256:local");
+            when(dockerClient.inspectImageCmd("sha256:local")).thenReturn(inspectImageCmd);
+            when(inspectImageCmd.exec()).thenReturn(inspectImageResponse);
+            when(inspectImageResponse.getRepoDigests()).thenReturn(List.of());
+            when(containerConfig.getEnv()).thenReturn(new String[] {"NGINX_VERSION=" + specific, "VERSION=  "});
+            if (specific.isBlank()) {
+                when(containerConfig.getLabels())
+                        .thenReturn(Map.of("org.opencontainers.image.version", "  ", "version", " 2.0 "));
+            }
+            assertEquals(expected, versionService.getVersionInfo("container1").currentVersion());
+        }
+
         @Test
         void pinnedReferenceRetainsExplicitTagForDisplay() {
             setupContainerWithImage("nginx:1.25@" + LOCAL_DIGEST);
@@ -169,7 +213,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("org.opencontainers.image.version", "1.25.0"));
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:latest", "latest")).thenReturn("sha256:remote");
+            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -185,7 +229,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("version", "2.0.0"));
             when(registryService.getLatestVersion("myapp:latest")).thenReturn("2.1.0");
-            when(registryService.getDigest("myapp:latest", "latest")).thenReturn("sha256:remote");
+            when(registryService.isTagChanged(eq("myapp:latest"), anyList())).thenReturn(true);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -199,7 +243,7 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(new String[] {"NGINX_VERSION=1.25.0"});
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:latest", "latest")).thenReturn("sha256:remote");
+            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -213,7 +257,7 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(new String[] {"VERSION=3.0.0"});
             when(registryService.getLatestVersion("myapp:latest")).thenReturn("3.1.0");
-            when(registryService.getDigest("myapp:latest", "latest")).thenReturn("sha256:remote");
+            when(registryService.isTagChanged(eq("myapp:latest"), anyList())).thenReturn(true);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -228,7 +272,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26");
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn("sha256:different");
+            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(true);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -243,7 +287,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.25");
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn(LOCAL_DIGEST);
+            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -258,7 +302,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("org.opencontainers.image.version", "1.25.0"));
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn(LOCAL_DIGEST);
+            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -273,7 +317,8 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn(null);
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenThrow(new RuntimeException("Network error"));
+            when(registryService.isTagChanged(eq("nginx:1.25"), anyList()))
+                    .thenThrow(new RuntimeException("Network error"));
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -322,7 +367,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(new String[] {"NGINX_VERSION=", "VERSION="});
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:latest", "latest")).thenReturn("sha256:remote");
+            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -337,7 +382,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.25");
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn(null);
+            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -352,7 +397,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:latest", "latest")).thenReturn(LOCAL_DIGEST);
+            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(false);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -367,7 +412,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("org.opencontainers.image.version", "1.26.0"));
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:1.25", "1.25")).thenReturn(LOCAL_DIGEST);
+            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 
@@ -382,7 +427,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(new String[] {"OTHER_VAR=value", "PATH=/bin"});
             when(containerConfig.getLabels()).thenReturn(null);
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.getDigest("nginx:latest", "latest")).thenReturn(LOCAL_DIGEST);
+            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(false);
 
             VersionDTO result = versionService.getVersionInfo("container1");
 

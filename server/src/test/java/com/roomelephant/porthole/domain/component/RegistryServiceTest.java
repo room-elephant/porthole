@@ -69,6 +69,7 @@ class RegistryServiceTest {
         var service = new RegistryService(restClient, properties);
         assertNull(service.getLatestVersion(image));
         assertNull(service.getDigest(image, "latest"));
+        assertFalse(service.isTagChanged(image, java.util.List.of("sha256:" + "a".repeat(64))));
         verifyNoInteractions(restClient);
     }
 
@@ -148,6 +149,8 @@ class RegistryServiceTest {
 
         @BeforeEach
         void setUpUrls() {
+            when(registryProperties.timeout())
+                    .thenReturn(new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)));
             when(registryProperties.urls()).thenReturn(urls);
             when(urls.repositories()).thenReturn("https://repositories/");
         }
@@ -242,6 +245,67 @@ class RegistryServiceTest {
             String result = registryService.getLatestVersion("nginx");
 
             assertNull(result);
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(
+                strings = {"https://repositories/library/nginx/tags?page=2", "?page=2", "/library/nginx/tags?page=2"})
+        void readsAllPagesBeforeSelectingTheLatestVersion(String next) {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn(
+                            "{\"results\":[{\"name\":\"1.0\"}],\"next\":\"" + next + "\"}",
+                            "{\"results\":[{\"name\":\"2.0\"}],\"next\":null}");
+            assertEquals("2.0", registryService.getLatestVersion("nginx:1.0"));
+            verify(restClient, times(2)).get();
+            verify(requestHeadersSpec, times(2)).retrieve();
+        }
+
+        @Test
+        void pageLimitDoesNotReturnAPartialMaximum() {
+            setupGetRequest();
+            var page = new java.util.concurrent.atomic.AtomicInteger(1);
+            when(responseSpec.body(String.class))
+                    .thenAnswer(invocation ->
+                            "{\"results\":[{\"name\":\"9.0\"}],\"next\":\"?page=" + page.incrementAndGet() + "\"}");
+            assertNull(registryService.getLatestVersion("nginx"));
+            verify(restClient, times(100)).get();
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(
+                strings = {
+                    "https://evil.example/tags",
+                    "https://repositories/library/other/tags",
+                    "https://repositories/library/nginx/tags?page_size=100"
+                })
+        void incompleteOrUnsafeCatalogueHasNoLatestVersion(String next) {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn("{\"results\":[{\"name\":\"9.0\"}],\"next\":\"" + next + "\"}");
+            assertNull(registryService.getLatestVersion("nginx"));
+            verify(restClient).get();
+        }
+
+        @Test
+        void laterPageFailureDoesNotReturnAPartialMaximum() {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn("{\"results\":[{\"name\":\"9.0\"}],\"next\":\"?page=2\"}")
+                    .thenThrow(new RuntimeException("rate limited"));
+            assertNull(registryService.getLatestVersion("nginx"));
+            verify(restClient, times(2)).get();
+        }
+
+        @Test
+        void ignoresMalformedTagsAndSharesCatalogueAcrossHubAliases() {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn(
+                            "{\"results\":[{}, {\"name\":null},{\"name\":42},{\"name\":\"1.0-alpine\"},{\"name\":\"2147483648.0\"}]}");
+            assertEquals("2147483648.0", registryService.getLatestVersion("nginx:1.0"));
+            assertEquals("2147483648.0", registryService.getLatestVersion("index.docker.io/library/nginx:2.0"));
+            verify(restClient).get();
         }
 
         @Test
