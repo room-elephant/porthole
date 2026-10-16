@@ -80,6 +80,17 @@ class ImageUtilsTest {
     @DisplayName("resolveRepository")
     class ResolveRepository {
 
+        @ParameterizedTest
+        @ValueSource(
+                strings = {
+                    "ghcr.io/acme/app:1.0",
+                    "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "https://docker.io/nginx"
+                })
+        void unsupportedReferencesCannotBecomeHubRepositories(String image) {
+            assertThrows(IllegalArgumentException.class, () -> ImageUtils.resolveRepository(image));
+        }
+
         @Test
         @DisplayName("should add library prefix for official images")
         void shouldAddLibraryPrefixForOfficialImages() {
@@ -127,6 +138,12 @@ class ImageUtilsTest {
     @Nested
     @DisplayName("compareSemVer")
     class CompareSemVer {
+
+        @ParameterizedTest
+        @CsvSource({"latest,1.0", "1.0,1.0-alpine"})
+        void rejectsVersionsOutsideNumericGrammar(String left, String right) {
+            assertThrows(IllegalArgumentException.class, () -> ImageUtils.compareSemVer(left, right));
+        }
 
         @ParameterizedTest
         @CsvSource({

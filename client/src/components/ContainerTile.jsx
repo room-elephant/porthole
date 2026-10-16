@@ -71,7 +71,7 @@ function ContainerTile({ container }) {
                                 <Loader2 size={14} className="version-loading" title="Checking for updates..." />
                             )}
                             {checkUpdates && !versionLoading && versionInfo?.updateAvailable && (
-                                <span className="update-warning" title={`Update available: ${versionInfo.latestVersion}`}>
+                                <span className="update-warning" title="Image update available">
                                     ⚠️
                                 </span>
                             )}

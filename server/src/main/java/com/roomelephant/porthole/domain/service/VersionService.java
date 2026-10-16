@@ -11,6 +11,7 @@ import com.roomelephant.porthole.domain.model.exception.DockerUnavailableExcepti
 import com.roomelephant.porthole.domain.model.exception.NotFoundException;
 import com.roomelephant.porthole.domain.model.exception.UnexpectedException;
 import com.roomelephant.porthole.domain.util.ImageUtils;
+import com.roomelephant.porthole.domain.util.NumericVersion;
 import java.net.SocketException;
 import java.util.List;
 import java.util.Map;
@@ -105,36 +106,28 @@ public class VersionService {
             return null;
         }
 
-        String targetEnv = imageName.toUpperCase().replaceAll("[^A-Z0-9]", "_") + "_VERSION=";
-
+        String targetEnv = imageName.toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9]", "_") + "_VERSION=";
+        String generic = null;
         for (String env : envs) {
             if (env.startsWith(targetEnv)) {
-                String[] parts = env.split("=", 2);
-                if (parts.length > 1 && !parts[1].isEmpty()) {
-                    return parts[1];
-                }
+                String value = nonBlank(env.substring(targetEnv.length()));
+                if (value != null) return value;
             }
-            if (env.startsWith("VERSION=")) {
-                String[] parts = env.split("=", 2);
-                if (parts.length > 1 && !parts[1].isEmpty()) {
-                    return parts[1];
-                }
-            }
+            if (env.startsWith("VERSION=") && generic == null) generic = nonBlank(env.substring("VERSION=".length()));
         }
-        return null;
+        return generic;
+    }
+
+    private @Nullable String nonBlank(@Nullable String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 
     private @Nullable String getVersionFromLabels(@Nullable Map<String, String> labels) {
         if (labels == null) {
             return null;
         }
-        if (labels.containsKey(LABEL_OCI_IMAGE_VERSION)) {
-            return labels.get(LABEL_OCI_IMAGE_VERSION);
-        }
-        if (labels.containsKey(LABEL_IMAGE_VERSION)) {
-            return labels.get(LABEL_IMAGE_VERSION);
-        }
-        return null;
+        String ociVersion = nonBlank(labels.get(LABEL_OCI_IMAGE_VERSION));
+        return ociVersion != null ? ociVersion : nonBlank(labels.get(LABEL_IMAGE_VERSION));
     }
 
     private boolean checkForUpdate(
@@ -145,19 +138,15 @@ public class VersionService {
         String tag = ImageUtils.extractTag(imageFull);
 
         try {
-            String remoteDigest = registryService.getDigest(imageFull, tag);
-            if (remoteDigest != null) {
-                boolean match = repoDigests.stream().anyMatch(rd -> rd.equals(remoteDigest));
-                if (!match) {
-                    return true;
-                }
-            }
+            if (registryService.isTagChanged(imageFull, repoDigests)) return true;
         } catch (Exception e) {
             log.error("Error checking for update: " + imageFull, e);
         }
 
-        if (ImageUtils.isSemver(tag) && currentVersion != null && latestVersion != null) {
-            return !currentVersion.equals(latestVersion);
+        var current = NumericVersion.tryParse(currentVersion);
+        var latest = NumericVersion.tryParse(latestVersion);
+        if (ImageUtils.isSemver(tag) && current.isPresent() && latest.isPresent()) {
+            return latest.get().compareTo(current.get()) > 0;
         }
 
         return false;

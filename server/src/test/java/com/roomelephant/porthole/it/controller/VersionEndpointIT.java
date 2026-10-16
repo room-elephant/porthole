@@ -121,6 +121,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
         stubRegistryTags("busybox", MUTABLE_TAG);
         stubManifestDigest("busybox", MUTABLE_TAG, "sha256:" + "b".repeat(64));
+        stubManifestDigest("busybox", getLocalDigest(HUB_LATEST), getLocalDigest(HUB_LATEST));
 
         VersionDTO response = fetchVersion(containerId);
 
@@ -136,6 +137,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
         stubRegistryTags("busybox", MUTABLE_TAG, "3.9");
         stubManifestDigest("busybox", MUTABLE_TAG, "sha256:" + "c".repeat(64));
+        stubManifestDigest("busybox", getLocalDigest(HUB_LATEST), getLocalDigest(HUB_LATEST));
 
         VersionDTO response = fetchVersion(containerId);
 

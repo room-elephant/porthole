@@ -257,6 +257,12 @@ describe('ContainerTile', () => {
       });
     });
 
+    it.each([null, '1.0.0'])('uses truthful wording for a tag change with catalogue version %s', async latestVersion => {
+      api.fetchContainerVersion.mockResolvedValue({ currentVersion: '2.0.0', latestVersion, updateAvailable: true });
+      renderWithQuery(<ContainerTile container={createMockContainer()} />);
+      await waitFor(() => expect(screen.getByText('⚠️')).toHaveAttribute('title', 'Image update available'));
+    });
+
     it('should not show update warning when no update available', async () => {
       api.fetchContainerVersion.mockResolvedValue({
         updateAvailable: false,
