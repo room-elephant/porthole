@@ -760,7 +760,7 @@ h1 {
   transition: background 0.2s;
 }
 
-.settings-btn-primary:hover {
+.settings-btn-primary:hover:not(:disabled) {
   background: #2563eb;
 }
 
@@ -783,3 +783,12 @@ h1 {
 .source-section .project-title { font-size: 1.05rem; overflow-wrap: anywhere; }
 .source-section .empty-state { padding: 2rem 1rem; }
 .source-section .empty-state h3 { margin: .75rem 0; }
+
+.settings-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.version-refresh-error {
+  color: #f87171;
+}

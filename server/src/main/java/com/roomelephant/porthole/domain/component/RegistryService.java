@@ -74,6 +74,10 @@ public class RegistryService {
         }
     }
 
+    public void invalidateVersionCache() {
+        versionCache.invalidateAll();
+    }
+
     public @Nullable String getLatestVersion(@NonNull String imageName) {
         var reference = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
         if (reference.isEmpty()) return null;

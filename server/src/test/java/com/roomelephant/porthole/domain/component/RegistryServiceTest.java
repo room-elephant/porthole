@@ -157,6 +157,17 @@ class RegistryServiceTest {
         }
 
         @Test
+        void invalidationFetchesNewTagsBeforeCacheExpiry() {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn("{\"results\":[{\"name\":\"2.0\"}]}", "{\"results\":[{\"name\":\"3.0\"}]}");
+            assertEquals("2.0", registryService.getLatestVersion("nginx"));
+            assertEquals("2.0", registryService.getLatestVersion("nginx"));
+            registryService.invalidateVersionCache();
+            assertEquals("3.0", registryService.getLatestVersion("nginx"));
+        }
+
+        @Test
         @DisplayName("should return null when hub returns 404")
         void shouldReturnNullWhenHubReturns404() {
             setupGetRequest();

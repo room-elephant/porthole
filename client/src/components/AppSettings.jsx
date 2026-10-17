@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { refreshVersions } from '../api';
 import { Loader2 } from 'lucide-react';
 import Modal from './Modal';
 
@@ -9,6 +11,17 @@ function AppSettings({
     onClose,
     sources = []
 }) {
+    const [refreshState, setRefreshState] = useState('idle');
+    const checkVersions = async () => {
+        if (refreshState === 'pending') return;
+        setRefreshState('pending');
+        try {
+            await refreshVersions();
+            setRefreshState('started');
+        } catch {
+            setRefreshState('error');
+        }
+    };
     const statusLabel = status => ({UP:'Connected',DOWN:'Unavailable',ERROR:'Error',CHECKING:'Checking...'}[status] || 'Unknown');
     return (
         <Modal title="Settings" onClose={onClose} className="app-settings-modal">
@@ -43,6 +56,16 @@ function AppSettings({
                     <span className="toggle-slider"></span>
                     <span className="toggle-label">Show containers without endpoints</span>
                 </label>
+            </div>
+            <div className="settings-section with-divider">
+                <h4 className="settings-section-title">Version updates</h4>
+                <p className="settings-description">Check all containers for updates now. Results appear automatically when ready.</p>
+                <button type="button" className="settings-btn-primary" onClick={checkVersions} disabled={refreshState === 'pending'}>
+                    {refreshState === 'pending' && <Loader2 size={16} className="status-spinner" aria-hidden="true" />}
+                    {refreshState === 'pending' ? 'Starting check…' : 'Check versions now'}
+                </button>
+                {refreshState === 'started' && <p className="settings-description" role="status">Version check started.</p>}
+                {refreshState === 'error' && <p className="settings-description version-refresh-error" role="alert">Could not start version check. Please try again.</p>}
             </div>
         </Modal>
     );

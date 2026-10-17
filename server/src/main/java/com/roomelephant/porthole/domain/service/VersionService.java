@@ -33,6 +33,10 @@ public class VersionService {
         this.registryService = registryService;
     }
 
+    public void invalidateRegistryCache() {
+        registryService.invalidateVersionCache();
+    }
+
     public @NonNull VersionInfo getVersionInfo(com.roomelephant.porthole.domain.model.ContainerKey key) {
         String containerId = key.containerId();
         DockerClient dockerClient = sources.require(key.sourceId()).client();

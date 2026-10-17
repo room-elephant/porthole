@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import AppSettings from '../../components/AppSettings';
+import { refreshVersions } from '../../api';
+
+vi.mock('../../api', () => ({ refreshVersions: vi.fn() }));
 
 describe('AppSettings', () => {
   const defaultProps = {
@@ -14,6 +17,28 @@ describe('AppSettings', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('starts a version check and prevents duplicate clicks while sending', async () => {
+    let resolve;
+    refreshVersions.mockReturnValue(new Promise(done => { resolve = done; }));
+    render(<AppSettings {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Check versions now' }));
+    expect(screen.getByRole('button', { name: 'Starting check…' })).toBeDisabled();
+    expect(refreshVersions).toHaveBeenCalledTimes(1);
+    await act(async () => resolve());
+    expect(screen.getByRole('status')).toHaveTextContent('Version check started');
+    expect(screen.getByRole('button', { name: 'Check versions now' })).toBeEnabled();
+  });
+
+  it('shows a retryable error when starting the check fails', async () => {
+    refreshVersions.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
+    render(<AppSettings {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Check versions now' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not start version check');
+    fireEvent.click(screen.getByRole('button', { name: 'Check versions now' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Version check started');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('should render Settings title', () => {

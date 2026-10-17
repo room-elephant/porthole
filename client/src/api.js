@@ -28,3 +28,7 @@ export const fetchDockerHealth = async ({ signal } = {}) => {
   const { data } = await api.get(API.DOCKER_HEALTH, { signal });
   return data;
 };
+
+export const refreshVersions = async () => {
+  await api.post(API.VERSION_REFRESH);
+};

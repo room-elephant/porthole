@@ -2,6 +2,7 @@ package com.roomelephant.porthole.controller;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.roomelephant.porthole.controller.mapper.ContainerDTOMapper;
@@ -32,6 +33,17 @@ class ContainerControllerTest {
 
     @MockitoBean
     private ContainerService containerService;
+
+    @MockitoBean
+    private com.roomelephant.porthole.domain.service.VersionRefreshService versions;
+
+    @Test
+    void acceptsManualVersionRefresh() throws Exception {
+        mockMvc.perform(post("/api/versions/refresh"))
+                .andExpect(status().isAccepted())
+                .andExpect(content().string(""));
+        verify(versions).forceRefresh();
+    }
 
     @Nested
     @DisplayName("GET /api/containers")
