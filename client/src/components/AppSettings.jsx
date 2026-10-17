@@ -64,7 +64,7 @@ function AppSettings({
                     {refreshState === 'pending' && <Loader2 size={16} className="status-spinner" aria-hidden="true" />}
                     {refreshState === 'pending' ? 'Starting check…' : 'Check versions now'}
                 </button>
-                {refreshState === 'started' && <p className="settings-description" role="status">Version check started.</p>}
+                {refreshState === 'started' && <output className="settings-description">Version check started.</output>}
                 {refreshState === 'error' && <p className="settings-description version-refresh-error" role="alert">Could not start version check. Please try again.</p>}
             </div>
         </Modal>
