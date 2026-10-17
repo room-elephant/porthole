@@ -7,9 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.roomelephant.porthole.controller.mapper.ContainerDTOMapper;
 import com.roomelephant.porthole.domain.model.Container;
 import com.roomelephant.porthole.domain.model.Endpoint;
-import com.roomelephant.porthole.domain.model.VersionDTO;
+import com.roomelephant.porthole.domain.model.VersionInfo;
 import com.roomelephant.porthole.domain.service.ContainerService;
-import com.roomelephant.porthole.domain.service.VersionService;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -34,9 +33,6 @@ class ContainerControllerTest {
     @MockitoBean
     private ContainerService containerService;
 
-    @MockitoBean
-    private VersionService versionService;
-
     @Nested
     @DisplayName("GET /api/containers")
     class GetContainers {
@@ -48,13 +44,13 @@ class ContainerControllerTest {
             Container dto2 = createContainer("container2");
             List<Container> containerDTOs = List.of(dto1, dto2);
 
-            when(containerService.getContainers(false, false, "localhost")).thenReturn(containerDTOs);
+            when(containerService.getContainers(false, false, "localhost")).thenReturn(inventory(containerDTOs));
 
             mockMvc.perform(get("/api/containers"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(2))
-                    .andExpect(jsonPath("$[0].name").value("container1"))
-                    .andExpect(jsonPath("$[1].name").value("container2"));
+                    .andExpect(jsonPath("$.containers.length()").value(2))
+                    .andExpect(jsonPath("$.containers[0].name").value("container1"))
+                    .andExpect(jsonPath("$.containers[1].name").value("container2"));
 
             verify(containerService).getContainers(false, false, "localhost");
         }
@@ -65,11 +61,12 @@ class ContainerControllerTest {
             Container dtoWithPort = createContainer("c1");
             Container dtoNoPort = createContainer("c2", Collections.emptySet());
 
-            when(containerService.getContainers(true, false, "localhost")).thenReturn(List.of(dtoWithPort, dtoNoPort));
+            when(containerService.getContainers(true, false, "localhost"))
+                    .thenReturn(inventory(List.of(dtoWithPort, dtoNoPort)));
 
             mockMvc.perform(get("/api/containers").param("includeWithoutEndpoints", "true"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(2));
+                    .andExpect(jsonPath("$.containers.length()").value(2));
 
             verify(containerService).getContainers(true, false, "localhost");
         }
@@ -77,7 +74,8 @@ class ContainerControllerTest {
         @Test
         @DisplayName("should pass includeStopped parameter")
         void shouldPassIncludeStoppedParameter() throws Exception {
-            when(containerService.getContainers(false, true, "localhost")).thenReturn(Collections.emptyList());
+            when(containerService.getContainers(false, true, "localhost"))
+                    .thenReturn(inventory(Collections.emptyList()));
 
             mockMvc.perform(get("/api/containers").param("includeStopped", "true"))
                     .andExpect(status().isOk());
@@ -88,7 +86,8 @@ class ContainerControllerTest {
         @Test
         @DisplayName("should pass both parameters")
         void shouldPassBothParameters() throws Exception {
-            when(containerService.getContainers(true, true, "localhost")).thenReturn(Collections.emptyList());
+            when(containerService.getContainers(true, true, "localhost"))
+                    .thenReturn(inventory(Collections.emptyList()));
 
             mockMvc.perform(get("/api/containers")
                             .param("includeWithoutEndpoints", "true")
@@ -101,88 +100,94 @@ class ContainerControllerTest {
         @Test
         @DisplayName("should return empty array when no containers")
         void shouldReturnEmptyArrayWhenNoContainers() throws Exception {
-            when(containerService.getContainers(false, false, "localhost")).thenReturn(Collections.emptyList());
+            when(containerService.getContainers(false, false, "localhost"))
+                    .thenReturn(inventory(Collections.emptyList()));
 
             mockMvc.perform(get("/api/containers"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(0));
-        }
-    }
-
-    @Nested
-    @DisplayName("GET /api/containers/{containerId}/version")
-    class GetVersion {
-
-        @Test
-        @DisplayName("should return version info")
-        void shouldReturnVersionInfo() throws Exception {
-            VersionDTO version = new VersionDTO("1.0.0", "1.1.0", true);
-            when(versionService.getVersionInfo("container-123")).thenReturn(version);
-
-            mockMvc.perform(get("/api/containers/container-123/version"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.currentVersion").value("1.0.0"))
-                    .andExpect(jsonPath("$.latestVersion").value("1.1.0"))
-                    .andExpect(jsonPath("$.updateAvailable").value(true));
-
-            verify(versionService).getVersionInfo("container-123");
-        }
-
-        @Test
-        @DisplayName("should handle container with no update available")
-        void shouldHandleContainerWithNoUpdateAvailable() throws Exception {
-            VersionDTO version = new VersionDTO("2.0.0", "2.0.0", false);
-            when(versionService.getVersionInfo("container-456")).thenReturn(version);
-
-            mockMvc.perform(get("/api/containers/container-456/version"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.updateAvailable").value(false));
+                    .andExpect(jsonPath("$.containers.length()").value(0));
         }
     }
 
     @Test
-    void shouldSerializeEndpointContractOnly() throws Exception {
-        when(containerService.getContainers(false, false, "localhost")).thenReturn(List.of(createContainer("app")));
+    void shouldIncludeCachedVersionInContainersResponse() throws Exception {
+        Container container = createContainer("app");
+        container.setVersion(new VersionInfo("1.0", "2.0", true));
+        when(containerService.getContainers(false, false, "localhost")).thenReturn(inventory(List.of(container)));
         mockMvc.perform(get("/api/containers"))
-                .andExpect(jsonPath("$[0].endpoints[0].id").value("published-port:80"))
-                .andExpect(jsonPath("$[0].endpoints[0].source").value("published-port"))
-                .andExpect(jsonPath("$[0].endpoints[0].url").value("http://localhost/"))
-                .andExpect(jsonPath("$[0].hasEndpoints").value(true))
-                .andExpect(jsonPath("$[0].exposedPorts").doesNotExist())
-                .andExpect(jsonPath("$[0].hasPublicPorts").doesNotExist())
-                .andExpect(jsonPath("$[0].labels").doesNotExist())
-                .andExpect(jsonPath("$[0].publishedPorts").doesNotExist())
-                .andExpect(jsonPath("$[0].urlCandidates").doesNotExist())
-                .andExpect(jsonPath("$[0].endpoints[0].port").doesNotExist());
+                .andExpect(jsonPath("$.containers[0].version.currentVersion").value("1.0"))
+                .andExpect(jsonPath("$.containers[0].version.latestVersion").value("2.0"))
+                .andExpect(jsonPath("$.containers[0].version.updateAvailable").value(true));
+    }
+
+    @Test
+    void shouldExposeNullVersionBeforeResolution() throws Exception {
+        when(containerService.getContainers(false, false, "localhost"))
+                .thenReturn(inventory(List.of(createContainer("app"))));
+        mockMvc.perform(get("/api/containers"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"version\":null")));
+    }
+
+    @Test
+    void shouldRemoveSeparateVersionEndpoint() throws Exception {
+        mockMvc.perform(get("/api/containers/anything/version")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldSerializeEndpointContractOnly() throws Exception {
+        when(containerService.getContainers(false, false, "localhost"))
+                .thenReturn(inventory(List.of(createContainer("app"))));
+        mockMvc.perform(get("/api/containers"))
+                .andExpect(jsonPath("$.containers[0].sourceId").value("local"))
+                .andExpect(jsonPath("$.sources[0].status").value("UP"))
+                .andExpect(jsonPath("$.containers[0].endpoints[0].id").value("published-port:80"))
+                .andExpect(jsonPath("$.containers[0].endpoints[0].source").value("published-port"))
+                .andExpect(jsonPath("$.containers[0].endpoints[0].url").value("http://localhost/"))
+                .andExpect(jsonPath("$.containers[0].hasEndpoints").value(true))
+                .andExpect(jsonPath("$.containers[0].exposedPorts").doesNotExist())
+                .andExpect(jsonPath("$.containers[0].hasPublicPorts").doesNotExist())
+                .andExpect(jsonPath("$.containers[0].labels").doesNotExist())
+                .andExpect(jsonPath("$.containers[0].publishedPorts").doesNotExist())
+                .andExpect(jsonPath("$.containers[0].urlCandidates").doesNotExist())
+                .andExpect(jsonPath("$.containers[0].endpoints[0].port").doesNotExist());
     }
 
     @Test
     void shouldPassEachRequestHostnameToService() throws Exception {
         when(containerService.getContainers(eq(false), eq(false), anyString())).thenAnswer(call -> {
             String hostname = call.getArgument(2, String.class);
-            return List.of(createContainer(
+            return inventory(List.of(createContainer(
                     "app",
-                    List.of(new Endpoint("published-port:51413", "published-port", "http://" + hostname + ":51413/"))));
+                    List.of(new Endpoint(
+                            "published-port:51413", "published-port", "http://" + hostname + ":51413/")))));
         });
         for (String hostname : List.of("192.168.50.6", "other.example.com")) {
             mockMvc.perform(get("http://" + hostname + ":9753/api/containers")
                             .header("X-Forwarded-Host", "ignored.example.com"))
-                    .andExpect(jsonPath("$[0].endpoints[0].url").value("http://" + hostname + ":51413/"))
-                    .andExpect(jsonPath("$[0].endpoints[0].id").value("published-port:51413"));
+                    .andExpect(jsonPath("$.containers[0].endpoints[0].url").value("http://" + hostname + ":51413/"))
+                    .andExpect(jsonPath("$.containers[0].endpoints[0].id").value("published-port:51413"));
         }
     }
 
     @Test
     void shouldNotAliasOldQueryParameter() throws Exception {
-        when(containerService.getContainers(false, false, "localhost")).thenReturn(List.of());
+        when(containerService.getContainers(false, false, "localhost")).thenReturn(inventory(List.of()));
         mockMvc.perform(get("/api/containers").param("includeWithoutPorts", "true"))
                 .andExpect(status().isOk());
         verify(containerService).getContainers(false, false, "localhost");
     }
 
+    private com.roomelephant.porthole.domain.model.ContainerInventory inventory(List<Container> containers) {
+        return new com.roomelephant.porthole.domain.model.ContainerInventory(
+                List.of(new com.roomelephant.porthole.domain.model.SourceState(
+                        "local", "Local", com.roomelephant.porthole.domain.model.SourceStatus.UP, null)),
+                containers);
+    }
+
     private Container createContainer(String name, List<Endpoint> endpoints) {
         return new Container(
                 name + "-id",
+                "local",
                 name,
                 name,
                 "nginx:latest",
@@ -202,6 +207,7 @@ class ContainerControllerTest {
     private Container createContainer(String name, Set<Integer> ports) {
         return new Container(
                 name + "-id",
+                "local",
                 name,
                 name,
                 "nginx:latest",

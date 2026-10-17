@@ -16,6 +16,7 @@ class ContainerTest {
         List<Endpoint> initial = new ArrayList<>(List.of(original));
         Container container = new Container(
                 "id",
+                "local",
                 "app",
                 "app",
                 "app:latest",

@@ -30,7 +30,7 @@ class ContainerEnrichmentTest {
                 new AnnotationConfigApplicationContext(ChainConfiguration.class)) {
             Container raw = container("running", Set.of(8080), Map.of("custom.metadata", "retained"));
             Container enriched = context.getBean(ContainerEnrichment.class)
-                    .enrich(raw, new ContainerContext("192.168.50.6", false, false))
+                    .enrich(raw, new ContainerContext("local", "192.168.50.6", null, false, false))
                     .orElseThrow();
             assertThat(enriched.urlCandidates())
                     .containsExactly(
@@ -49,7 +49,7 @@ class ContainerEnrichmentTest {
                 new AnnotationConfigApplicationContext(ChainConfiguration.class)) {
             Container raw = container(state, Set.of(8080), Map.of());
             assertThat(context.getBean(ContainerEnrichment.class)
-                            .enrich(raw, new ContainerContext("localhost", true, false)))
+                            .enrich(raw, new ContainerContext("local", "localhost", null, true, false)))
                     .isEmpty();
         }
     }
@@ -60,7 +60,8 @@ class ContainerEnrichmentTest {
     void shouldKeepActiveOrUnknownStateContainers(String state) {
         ContainerStateFilter filter = new ContainerStateFilter();
         assertThat(filter.enrich(
-                        container(state, Set.of(8080), Map.of()), new ContainerContext("localhost", false, false)))
+                        container(state, Set.of(8080), Map.of()),
+                        new ContainerContext("local", "localhost", null, false, false)))
                 .isPresent();
     }
 
@@ -70,7 +71,7 @@ class ContainerEnrichmentTest {
                 new AnnotationConfigApplicationContext(ChainConfiguration.class)) {
             Container raw = container("exited", Set.of(8080), Map.of());
             assertThat(context.getBean(ContainerEnrichment.class)
-                            .enrich(raw, new ContainerContext("localhost", false, true)))
+                            .enrich(raw, new ContainerContext("local", "localhost", null, false, true)))
                     .isPresent();
         }
     }
@@ -82,7 +83,7 @@ class ContainerEnrichmentTest {
             Container raw =
                     container("running", Set.of(), Map.of("traefik.http.routers.app.rule", "Host(`app.example.com`)"));
             Container enriched = context.getBean(ContainerEnrichment.class)
-                    .enrich(raw, new ContainerContext("localhost", false, false))
+                    .enrich(raw, new ContainerContext("local", "localhost", null, false, false))
                     .orElseThrow();
             assertThat(enriched.urlCandidates())
                     .extracting(Endpoint::url)
@@ -97,7 +98,7 @@ class ContainerEnrichmentTest {
             assertThat(context.getBean(ContainerEnrichment.class)
                             .enrich(
                                     container("running", Set.of(), Map.of()),
-                                    new ContainerContext("localhost", false, false)))
+                                    new ContainerContext("local", "localhost", null, false, false)))
                     .isEmpty();
         }
     }
@@ -106,14 +107,16 @@ class ContainerEnrichmentTest {
     void shouldIncludeContainersWithoutUrlsWhenRequested() {
         ContainerEnrichment chain = new ContainerEnrichment(List.of(new EndpointAvailabilityFilter()));
         assertThat(chain.enrich(
-                        container("running", Set.of(), Map.of()), new ContainerContext("localhost", true, false)))
+                        container("running", Set.of(), Map.of()),
+                        new ContainerContext("local", "localhost", null, true, false)))
                 .isPresent();
     }
 
     @Test
     void shouldReturnTheContainerWhenThereAreNoHandlers() {
         Container raw = container("running", Set.of(), Map.of());
-        assertThat(new ContainerEnrichment(List.of()).enrich(raw, new ContainerContext("localhost", false, false)))
+        assertThat(new ContainerEnrichment(List.of())
+                        .enrich(raw, new ContainerContext("local", "localhost", null, false, false)))
                 .containsSame(raw);
     }
 
@@ -125,7 +128,9 @@ class ContainerEnrichmentTest {
             return Optional.of(container);
         };
         Container enriched = new ContainerEnrichment(List.of(noChange, next))
-                .enrich(container("running", Set.of(), Map.of()), new ContainerContext("app.example.com", false, false))
+                .enrich(
+                        container("running", Set.of(), Map.of()),
+                        new ContainerContext("local", "app.example.com", null, false, false))
                 .orElseThrow();
         assertThat(enriched.urlCandidates()).containsExactly(new Endpoint("next", "next", "https://app.example.com/"));
     }
@@ -139,12 +144,13 @@ class ContainerEnrichmentTest {
         assertThat(new ContainerEnrichment(List.of(reject, later))
                         .enrich(
                                 container("running", Set.of(), Map.of()),
-                                new ContainerContext("localhost", false, false)))
+                                new ContainerContext("local", "localhost", null, false, false)))
                 .isEmpty();
     }
 
     private Container container(String state, Set<Integer> ports, Map<String, String> labels) {
-        return new Container("id", "app", "app", "app:latest", ports, labels, List.of(), "icon", null, state, "Up");
+        return new Container(
+                "id", "local", "app", "app", "app:latest", ports, labels, List.of(), "icon", null, state, "Up");
     }
 
     @Configuration(proxyBeanMethods = false)

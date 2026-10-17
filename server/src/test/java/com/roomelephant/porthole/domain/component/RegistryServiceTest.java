@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,9 +50,28 @@ class RegistryServiceTest {
         when(registryProperties.cache()).thenReturn(cache);
         when(cache.ttl()).thenReturn(Duration.ofMinutes(5));
         when(cache.versionMaxSize()).thenReturn(100);
-        when(registryProperties.urls()).thenReturn(urls);
 
-        registryService = new RegistryService(restClient, registryProperties);
+        registryService = new RegistryService(restClient, registryProperties, ghcr());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "quay.io/acme/app:latest",
+                "localhost:5000/app",
+                "https://docker.io/nginx",
+                "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            })
+    void unsupportedReferencesNeverContactHub(String image) {
+        var properties = new RegistryProperties(
+                new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(1)),
+                new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
+                new RegistryProperties.Urls("https://registry/v2/", "https://auth/", "https://hub/"));
+        var service = new RegistryService(restClient, properties, ghcr());
+        assertNull(service.getLatestVersion(image));
+        assertNull(service.getDigest(image, "latest"));
+        assertFalse(service.isTagChanged(image, java.util.List.of("sha256:" + "a".repeat(64))));
+        verifyNoInteractions(restClient);
     }
 
     @Nested
@@ -60,6 +80,7 @@ class RegistryServiceTest {
 
         @BeforeEach
         void setUpUrls() {
+            when(registryProperties.urls()).thenReturn(urls);
             when(urls.auth()).thenReturn("https://auth/");
         }
 
@@ -117,7 +138,7 @@ class RegistryServiceTest {
             setupGetRequest();
             when(responseSpec.body(String.class)).thenReturn(null);
 
-            String result = registryService.getDigest("bitnami/redis", "7");
+            String result = registryService.getDigest("bitnami/redis:7", "7");
 
             assertNull(result);
         }
@@ -129,6 +150,9 @@ class RegistryServiceTest {
 
         @BeforeEach
         void setUpUrls() {
+            when(registryProperties.timeout())
+                    .thenReturn(new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)));
+            when(registryProperties.urls()).thenReturn(urls);
             when(urls.repositories()).thenReturn("https://repositories/");
         }
 
@@ -150,36 +174,30 @@ class RegistryServiceTest {
         }
 
         @Test
-        @DisplayName("should return null when hub request fails")
-        void shouldReturnNullWhenHubRequestFails() {
+        @DisplayName("should propagate hub request failures")
+        void shouldPropagateHubRequestFailure() {
             setupGetRequest();
             when(responseSpec.body(String.class)).thenThrow(new RuntimeException("Network error"));
 
-            String result = registryService.getLatestVersion("nginx");
-
-            assertNull(result);
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
         }
 
         @Test
-        @DisplayName("should return null when response body is null")
-        void shouldReturnNullWhenResponseBodyIsNull() {
+        @DisplayName("should reject missing response bodies")
+        void shouldRejectMissingResponseBody() {
             setupGetRequest();
             when(responseSpec.body(String.class)).thenReturn(null);
 
-            String result = registryService.getLatestVersion("nginx");
-
-            assertNull(result);
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
         }
 
         @Test
-        @DisplayName("should return null when no results in response")
-        void shouldReturnNullWhenNoResultsInResponse() {
+        @DisplayName("should reject missing tag results")
+        void shouldRejectMissingTagResults() {
             setupGetRequest();
             when(responseSpec.body(String.class)).thenReturn("{\"count\": 0}");
 
-            String result = registryService.getLatestVersion("nginx");
-
-            assertNull(result);
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
         }
 
         @Test
@@ -224,6 +242,67 @@ class RegistryServiceTest {
             assertNull(result);
         }
 
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(
+                strings = {"https://repositories/library/nginx/tags?page=2", "?page=2", "/library/nginx/tags?page=2"})
+        void readsAllPagesBeforeSelectingTheLatestVersion(String next) {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn(
+                            "{\"results\":[{\"name\":\"1.0\"}],\"next\":\"" + next + "\"}",
+                            "{\"results\":[{\"name\":\"2.0\"}],\"next\":null}");
+            assertEquals("2.0", registryService.getLatestVersion("nginx:1.0"));
+            verify(restClient, times(2)).get();
+            verify(requestHeadersSpec, times(2)).retrieve();
+        }
+
+        @Test
+        void pageLimitDoesNotReturnAPartialMaximum() {
+            setupGetRequest();
+            var page = new java.util.concurrent.atomic.AtomicInteger(1);
+            when(responseSpec.body(String.class))
+                    .thenAnswer(invocation ->
+                            "{\"results\":[{\"name\":\"9.0\"}],\"next\":\"?page=" + page.incrementAndGet() + "\"}");
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
+            verify(restClient, times(100)).get();
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(
+                strings = {
+                    "https://evil.example/tags",
+                    "https://repositories/library/other/tags",
+                    "https://repositories/library/nginx/tags?page_size=100"
+                })
+        void incompleteOrUnsafeCatalogueHasNoLatestVersion(String next) {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn("{\"results\":[{\"name\":\"9.0\"}],\"next\":\"" + next + "\"}");
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
+            verify(restClient).get();
+        }
+
+        @Test
+        void laterPageFailureDoesNotReturnAPartialMaximum() {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn("{\"results\":[{\"name\":\"9.0\"}],\"next\":\"?page=2\"}")
+                    .thenThrow(new RuntimeException("rate limited"));
+            assertThrows(RuntimeException.class, () -> registryService.getLatestVersion("nginx"));
+            verify(restClient, times(2)).get();
+        }
+
+        @Test
+        void ignoresMalformedTagsAndSharesCatalogueAcrossHubAliases() {
+            setupGetRequest();
+            when(responseSpec.body(String.class))
+                    .thenReturn(
+                            "{\"results\":[{}, {\"name\":null},{\"name\":42},{\"name\":\"1.0-alpine\"},{\"name\":\"2147483648.0\"}]}");
+            assertEquals("2147483648.0", registryService.getLatestVersion("nginx:1.0"));
+            assertEquals("2147483648.0", registryService.getLatestVersion("index.docker.io/library/nginx:2.0"));
+            verify(restClient).get();
+        }
+
         @Test
         @DisplayName("should cache version results")
         void shouldCacheVersionResults() {
@@ -253,5 +332,9 @@ class RegistryServiceTest {
         when(restClient.get()).thenReturn(getSpec);
         when(getSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+    }
+
+    private static GhcrProperties ghcr() {
+        return new GhcrProperties("https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
     }
 }

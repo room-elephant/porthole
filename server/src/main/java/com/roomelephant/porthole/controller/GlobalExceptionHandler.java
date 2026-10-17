@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 @Slf4j
@@ -50,6 +51,11 @@ public class GlobalExceptionHandler {
         problem.setTitle("Bad Request");
         problem.setType(URI.create("about:blank"));
         return problem;
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleMissingResource(NoResourceFoundException ex) {
+        return ex.getBody();
     }
 
     @ExceptionHandler(Exception.class)

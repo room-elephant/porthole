@@ -79,23 +79,16 @@ class DockerConnectionFailureIT {
             HealthResponse health = response.getBody();
             assertThat(health).isNotNull();
             assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details()).containsEntry("Error connecting to docker", "No such file or directory");
+            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
         }
 
         @Test
-        void shouldReturn502WhenSocketMissingOnContainers() {
+        void shouldReturnSourceDownWhenSocketMissingOnContainers() {
             ResponseEntity<String> response =
                     restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        }
-
-        @Test
-        void shouldReturn502WhenSocketMissingOnVersion() {
-            ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"containers\":[]");
         }
     }
 
@@ -135,23 +128,16 @@ class DockerConnectionFailureIT {
             HealthResponse health = response.getBody();
             assertThat(health).isNotNull();
             assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details()).containsEntry("Error connecting to docker", "Permission denied");
+            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
         }
 
         @Test
-        void shouldReturn502WhenPermissionDeniedOnContainers() {
+        void shouldReturnSourceDownWhenPermissionDeniedOnContainers() {
             ResponseEntity<String> response =
                     restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        }
-
-        @Test
-        void shouldReturn502WhenPermissionDeniedOnVersion() {
-            ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"containers\":[]");
         }
     }
 
@@ -199,23 +185,16 @@ class DockerConnectionFailureIT {
             HealthResponse health = response.getBody();
             assertThat(health).isNotNull();
             assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details()).containsKey("Error connecting to docker");
+            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
         }
 
         @Test
-        void shouldReturn502WhenConnectionRefusedOnContainers() {
+        void shouldReturnSourceDownWhenConnectionRefusedOnContainers() {
             ResponseEntity<String> response =
                     restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        }
-
-        @Test
-        void shouldReturn502WhenConnectionRefusedOnVersion() {
-            ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers/random-id/version", String.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"containers\":[]");
         }
     }
 

@@ -18,16 +18,17 @@ class PublishedPortEndpointProviderTest {
     void shouldBuildCompletePublishedPortUrl() {
         assertThat(provider.discover(
                         EndpointFixtures.container(Set.of(51413), Map.of()),
-                        new ContainerContext("192.168.50.6", false, false)))
+                        new ContainerContext("local", "192.168.50.6", null, false, false)))
                 .containsExactly(new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/"));
     }
 
     @Test
     void shouldPreservePortIdAcrossHostnames() {
         Container container = EndpointFixtures.container(Set.of(51413), Map.of());
-        Endpoint first = provider.discover(container, new ContainerContext("192.168.50.6", false, false))
+        Endpoint first = provider.discover(container, new ContainerContext("local", "192.168.50.6", null, false, false))
                 .getFirst();
-        Endpoint second = provider.discover(container, new ContainerContext("docker.example.com", false, false))
+        Endpoint second = provider.discover(
+                        container, new ContainerContext("local", "docker.example.com", null, false, false))
                 .getFirst();
         assertThat(second.id()).isEqualTo("published-port:51413");
         assertThat(first.url()).isEqualTo("http://192.168.50.6:51413/");
@@ -38,7 +39,7 @@ class PublishedPortEndpointProviderTest {
     void shouldReturnNoCandidatesWithoutPublishedPorts() {
         assertThat(provider.discover(
                         EndpointFixtures.container(Set.of(), Map.of()),
-                        new ContainerContext("localhost", false, false)))
+                        new ContainerContext("local", "localhost", null, false, false)))
                 .isEmpty();
     }
 }

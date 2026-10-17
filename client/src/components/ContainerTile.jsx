@@ -1,8 +1,7 @@
 import { useState, memo } from 'react';
-import { Settings, Loader2 } from 'lucide-react';
-import { useContainerVersion } from '../hooks/useContainerVersion';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import { STORAGE_KEYS, ASSETS } from '../constants';
+import { Settings } from 'lucide-react';
+import { useVersionPreference } from '../hooks/useVersionPreference';
+import { ASSETS } from '../constants';
 import { useEndpointSelection } from '../hooks/useEndpointSelection';
 import ContainerSettings from './ContainerSettings';
 import { NO_ENDPOINT_ID } from '../utils/endpoints';
@@ -10,20 +9,24 @@ import { NO_ENDPOINT_ID } from '../utils/endpoints';
 const arraysEqual = (a, b) => 
     a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
 
-function ContainerTile({ container }) {
-    const [showConfig, setShowConfig] = useState(false);
-    const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.name, container.endpoints);
-    const hasEndpoints = container.hasEndpoints && selectedEndpointId !== NO_ENDPOINT_ID;
-    const [checkUpdates, setCheckUpdates] = useLocalStorage(STORAGE_KEYS.VERSION_CHECK(container.name), true);
+const getHealthStatus = (status) => status?.match(/\((healthy|unhealthy|health: starting)\)/i)?.[1]?.toLowerCase();
 
-    const { data: versionInfo, isLoading: versionLoading } = useContainerVersion(
-        container.id,
-        { enabled: checkUpdates }
-    );
+function ContainerTile({ container, allowLegacyMigration = false }) {
+    const [showConfig, setShowConfig] = useState(false);
+    const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.sourceId, container.name, container.endpoints, {migrateLegacy: allowLegacyMigration});
+    const hasEndpoints = container.hasEndpoints && selectedEndpointId !== NO_ENDPOINT_ID;
+    const [checkUpdates, setCheckUpdates] = useVersionPreference(container.sourceId, container.name, allowLegacyMigration);
+
+    const versionInfo = container.version;
 
     const getStatusClass = () => {
         const state = container.state?.toLowerCase();
-        if (state === 'running') return 'status-running';
+        if (state === 'running') {
+            const health = getHealthStatus(container.status);
+            if (health === 'unhealthy') return 'status-stopped';
+            if (health === 'health: starting') return 'status-warning';
+            return 'status-running';
+        }
         if (state === 'paused' || state === 'restarting') return 'status-warning';
         return 'status-stopped';
     };
@@ -60,11 +63,8 @@ function ContainerTile({ container }) {
                     <span className="container-info">
                         <span className="container-title" title={container.name}>{container.displayName}</span>
                         <span className="container-image" title={container.image}>
-                            {checkUpdates && versionLoading && (
-                                <Loader2 size={14} className="version-loading" title="Checking for updates..." />
-                            )}
-                            {checkUpdates && !versionLoading && versionInfo?.updateAvailable && (
-                                <span className="update-warning" title={`Update available: ${versionInfo.latestVersion}`}>
+                            {checkUpdates && versionInfo?.updateAvailable && (
+                                <span className="update-warning" title="Image update available">
                                     ⚠️
                                 </span>
                             )}
@@ -100,20 +100,25 @@ function ContainerTile({ container }) {
 
 /**
  * Memoized ContainerTile component.
- * Status is intentionally excluded from comparison as it contains uptime
- * which changes constantly but doesn't affect visual rendering.
+ * Ignore uptime-only changes, but refresh when Docker health changes.
  */
 export default memo(ContainerTile, (prevProps, nextProps) => {
     const prev = prevProps.container;
     const next = nextProps.container;
     return (
         prev.id === next.id &&
+        prev.sourceId === next.sourceId &&
+        prevProps.allowLegacyMigration === nextProps.allowLegacyMigration &&
         prev.name === next.name &&
         prev.displayName === next.displayName &&
         prev.state === next.state &&
+        getHealthStatus(prev.status) === getHealthStatus(next.status) &&
         prev.image === next.image &&
         prev.iconUrl === next.iconUrl &&
         prev.hasEndpoints === next.hasEndpoints &&
+        prev.version?.currentVersion === next.version?.currentVersion &&
+        prev.version?.latestVersion === next.version?.latestVersion &&
+        prev.version?.updateAvailable === next.version?.updateAvailable &&
         arraysEqual(prev.endpoints, next.endpoints)
     );
 });

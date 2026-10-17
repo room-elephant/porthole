@@ -19,10 +19,15 @@ spring:
 
 # Docker configuration
 porthole:
+  versions:
+    refresh-interval: 1h
   docker:
-    host: unix:///var/run/docker.sock
-    connection-timeout: 5s
-    response-timeout: 60s
+    connections:
+      - id: local
+        name: Local
+        host: unix:///var/run/docker.sock
+        connection-timeout: 5s
+        response-timeout: 60s
 
 # Icon configuration
 dashboard:
@@ -39,6 +44,9 @@ registry:
   cache:
     ttl: 1h
     version-max-size: 100
+  ghcr:
+    registry-url: "https://ghcr.io/v2/"
+    auth-url: "https://ghcr.io/token?service=ghcr.io&scope=repository:"
   urls:
     registry: "https://registry-1.docker.io/v2/"
     auth: "https://auth.docker.io/token?service=registry.docker.io&scope=repository:"
