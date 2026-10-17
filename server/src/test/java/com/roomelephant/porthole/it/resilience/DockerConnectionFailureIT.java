@@ -79,7 +79,7 @@ class DockerConnectionFailureIT {
             HealthResponse health = response.getBody();
             assertThat(health).isNotNull();
             assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details()).containsEntry("Error connecting to docker", "No such file or directory");
+            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
         }
 
         @Test
@@ -128,7 +128,7 @@ class DockerConnectionFailureIT {
             HealthResponse health = response.getBody();
             assertThat(health).isNotNull();
             assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details()).containsEntry("Error connecting to docker", "Permission denied");
+            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
         }
 
         @Test

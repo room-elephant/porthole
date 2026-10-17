@@ -14,7 +14,7 @@ class DockerHealthIT extends IntegrationTestBase {
         ResponseEntity<String> response = fetch("/actuator/health/docker");
 
         assertThat(response.getStatusCode().value()).isEqualTo(OK.value());
-        assertThat(response.getBody()).contains("{\"status\":\"UP\"}");
+        assertThat(response.getBody()).contains("\"status\":\"UP\"", "\"sources\"");
     }
 
     @Test
@@ -23,6 +23,6 @@ class DockerHealthIT extends IntegrationTestBase {
 
         assertThat(response.getStatusCode().value()).isEqualTo(OK.value());
         assertThat(response.getBody()).contains("\"status\":\"UP\"}");
-        assertThat(response.getBody()).contains("\"docker\":{\"status\":\"UP\"}");
+        assertThat(response.getBody()).contains("\"docker\":{\"status\":\"UP\"", "\"sources\"");
     }
 }

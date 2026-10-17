@@ -64,9 +64,4 @@ public class DockerConfig {
             throw e;
         }
     }
-    // Transitional bean removed when all consumers select their source explicitly.
-    @Bean(destroyMethod = "")
-    public DockerClient dockerClient(DockerSourceRegistry sources) {
-        return sources.sources().getFirst().client();
-    }
 }
