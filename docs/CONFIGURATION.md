@@ -2,15 +2,82 @@
 
 [← Back to README](../README.md)
 
-## Docker Host
+## Docker Connections
 
-By default, Porthole connects to Docker via `unix:///var/run/docker.sock`. You can override this using an environment variable:
+Porthole connects to every entry in `porthole.docker.connections` and groups their
+containers by host, then Docker Compose project. The default is one source named
+`Local` using `unix:///var/run/docker.sock`.
 
-```bash
-docker run -d -p 9753:9753 \
-  -e DOCKER_HOST=tcp://localhost:2375 \
-  --name porthole porthole
+Mount an application configuration with a connection list to use several sources:
+
+```yaml
+porthole:
+  docker:
+    connections:
+      - id: walker
+        name: Walker
+        host: unix:///var/run/docker.sock
+        published-host: 192.168.50.6
+        connection-timeout: 5s
+        response-timeout: 60s
+      - id: mike
+        name: Mike
+        host: unix:///remote/mike.sock
+        published-host: 192.168.50.5
+        connection-timeout: 5s
+        response-timeout: 60s
 ```
+
+The second socket is an example of an endpoint already made available to the
+Porthole process. Porthole does not create remote connections through SSH itself;
+provision remote access separately when deploying. Unix socket paths must exist
+inside the Porthole container and be accessible to its runtime user. The existing
+entrypoint only adjusts group membership for `/var/run/docker.sock`; permissions
+for other mounted sockets must be provisioned externally.
+
+A configured list replaces the packaged default. IDs must be unique and match
+`[a-z0-9][a-z0-9_-]*`; names must be nonblank. IDs identify sources in the API,
+version caches, and browser preferences, so keep them stable when renaming hosts.
+Changing a source ID creates a new preference scope. Entries support absolute
+`unix:///path/to/socket` and `tcp://hostname:port` URIs through the existing Docker
+transport; `ssh://` is not a supported application URI. This feature adds no
+per-source TLS certificate or credential settings.
+
+Each entry defaults to a `5s` connection timeout and `60s` response timeout, even
+when omitted from an external list. Timeouts must be positive. With several
+sources, every entry must set `published-host` to the hostname/IP clients should
+use for direct port links. It must omit scheme, port, and path. For one source,
+the existing global `porthole.endpoints.published-host` remains a fallback, followed
+by the incoming request hostname. Traefik-discovered URLs retain their own hosts.
+
+Restart Porthole after changing connections. An unavailable source does not stop
+the application from starting: its host section reports the failure and retries
+on the next 30-second dashboard poll. Empty lists and invalid entries fail
+startup, rather than silently falling back to the local daemon.
+
+### Environment variables and migration
+
+The former singular `porthole.docker.host`, `connection-timeout`, and
+`response-timeout` settings have been replaced by list entries. Remove the old
+keys: they are rejected as unbound configuration. For example:
+
+| Former setting | New first-source setting |
+| --- | --- |
+| `PORTHOLE_DOCKER_HOST` | `PORTHOLE_DOCKER_CONNECTIONS_0_HOST` |
+| `PORTHOLE_DOCKER_CONNECTIONTIMEOUT` | `PORTHOLE_DOCKER_CONNECTIONS_0_CONNECTIONTIMEOUT` |
+| `PORTHOLE_DOCKER_RESPONSETIMEOUT` | `PORTHOLE_DOCKER_CONNECTIONS_0_RESPONSETIMEOUT` |
+
+Also set `PORTHOLE_DOCKER_CONNECTIONS_0_ID` and
+`PORTHOLE_DOCKER_CONNECTIONS_0_NAME`. Additional entries use indexes `1`, `2`, and
+so on; set `PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST` and the corresponding
+property on every other entry when configuring several sources. Supply every
+entry's required fields; higher-priority lists replace lower-priority defaults.
+Do not rely on `DOCKER_HOST` to configure application sources.
+
+Browser endpoint choices and update-warning preferences are scoped by source ID
+and container name. Existing name-only choices migrate only when exactly one
+source is configured and no scoped value exists. With several sources, the old
+keys remain untouched and each host starts with independent defaults.
 
 ## Configuration Files
 
@@ -18,7 +85,7 @@ The Docker image includes template configuration files in `/app/config/`:
 
 | File              | Purpose                                                                 |
 |-------------------|-------------------------------------------------------------------------|
-| `application.yml` | Main application settings (Docker host, registry timeouts, icon CDN)    |
+| `application.yml` | Main application settings (Docker connections, registry timeouts, icon CDN)    |
 | `icons.yml`       | Custom icon mappings                                                    |
 
 You can mount your own files to override these templates. You can either mount the entire directory or individual files:
@@ -49,7 +116,7 @@ porthole:
 
 Set `PORTHOLE_VERSIONS_REFRESHINTERVAL` to override the interval through the environment. It must be positive. The interval is the delay after a completed background inventory refresh, with one immediate refresh at startup. Up to four containers are checked concurrently, and duplicate checks for the same container are coalesced.
 
-Before a successful check, `version` is `null`. Completed results contain `currentVersion`, `latestVersion`, and `updateAvailable`; either version string may be null when metadata is unavailable. Previous successful results remain visible during refreshes and registry outages, so cached information may be stale. Failed first checks retry no sooner than the configured interval. Deleted containers are removed from the cache after a successful inventory scan; restarting Porthole clears the cache.
+Before a successful check, `version` is `null`. Completed results contain `currentVersion`, `latestVersion`, and `updateAvailable`; either version string may be null when metadata is unavailable. Previous successful results remain visible during refreshes and registry outages, so cached information may be stale. Failed first checks retry no sooner than the configured interval. Version results are keyed by `(sourceId, containerId)`, so the same image or container ID on different hosts retains independent installed-version and update results. Docker container and image inspection uses the owning source. Registry release catalogues remain shared by normalized registry/repository. Each source scans independently; a failed source scan keeps its cached results and cannot prune another source. Deleted containers are removed from that source’s cache after its successful inventory scan; restarting Porthole clears the cache.
 
 The client retrieves updated cached information through its existing 30-second container polling. Its per-container notification preference controls warning visibility; it does not stop server-side checks. The separate `/api/containers/{containerId}/version` endpoint has been removed.
 
@@ -139,7 +206,7 @@ Porthole lists containers with at least one discovered endpoint by default. **Sh
 
 Published-port URLs use HTTP and the hostname from the incoming Porthole request. For example, accessing `http://192.168.50.6:9753/` produces `http://192.168.50.6:51413/` for a container publishing port 51413. Port 80 uses the standard `http://192.168.50.6/` form. IPv6 addresses are bracketed correctly.
 
-Use an override when Porthole's browser hostname differs from the Docker host that publishes the ports, including remote Docker hosts or reverse-proxy deployments:
+For a single source, use the global override when Porthole's browser hostname differs from the Docker host that publishes the ports, including reverse-proxy deployments. For multiple sources, configure each connection's `published-host` as described above:
 
 ```yaml
 porthole:

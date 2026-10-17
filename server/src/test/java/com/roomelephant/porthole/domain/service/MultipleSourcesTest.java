@@ -32,6 +32,16 @@ class MultipleSourcesTest {
     }
 
     @Test
+    void closedInventoryRejectsRequests() {
+        var service = new ContainerService(
+                new DockerSourceRegistry(List.of(source("walker", client("walker"), Duration.ofSeconds(1)))),
+                new ContainerMapper(mock(IconComponent.class)),
+                new ContainerEnrichment(List.of()));
+        service.close();
+        assertThatThrownBy(() -> service.getContainers(true, true, "proxy")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void oneRequestFetchesEverySourceAndKeepsMatchingIdsSeparate() {
         var registry = new DockerSourceRegistry(List.of(
                 source("walker", client("walker"), Duration.ofSeconds(1)),

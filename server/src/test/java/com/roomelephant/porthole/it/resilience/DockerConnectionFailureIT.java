@@ -185,7 +185,7 @@ class DockerConnectionFailureIT {
             HealthResponse health = response.getBody();
             assertThat(health).isNotNull();
             assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details()).containsKey("Error connecting to docker");
+            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
         }
 
         @Test

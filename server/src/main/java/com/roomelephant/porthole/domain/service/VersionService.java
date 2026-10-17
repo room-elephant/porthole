@@ -12,7 +12,6 @@ import com.roomelephant.porthole.domain.model.exception.NotFoundException;
 import com.roomelephant.porthole.domain.model.exception.UnexpectedException;
 import com.roomelephant.porthole.domain.util.ImageUtils;
 import com.roomelephant.porthole.domain.util.NumericVersion;
-import java.net.SocketException;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.NonNull;
@@ -145,6 +144,6 @@ public class VersionService {
     }
 
     private boolean isDockerConnectionError(RuntimeException e) {
-        return e.getCause() instanceof SocketException;
+        return com.roomelephant.porthole.domain.util.DockerFailures.isTransportFailure(e);
     }
 }

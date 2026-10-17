@@ -10,7 +10,7 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "porthole.docker", ignoreUnknownFields = false)
 @Validated
 @RegisterReflectionForBinding({DockerProperties.class, DockerConnectionProperties.class})
-public record DockerProperties(@NotEmpty @Valid List<DockerConnectionProperties> connections) {
+public record DockerProperties(@NotEmpty List<@Valid DockerConnectionProperties> connections) {
     public DockerProperties {
         connections = connections == null ? List.of() : List.copyOf(connections);
     }

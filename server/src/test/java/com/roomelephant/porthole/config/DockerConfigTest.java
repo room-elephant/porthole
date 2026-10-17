@@ -17,6 +17,36 @@ class DockerConfigTest {
     }
 
     @Test
+    void registryRejectsEmptyDuplicateAndUnknownSources() {
+        assertThatThrownBy(() -> new DockerSourceRegistry(List.of())).isInstanceOf(IllegalArgumentException.class);
+        var client = mock(DockerClient.class);
+        var source = new com.roomelephant.porthole.domain.model.DockerSource(
+                "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), client);
+        assertThatThrownBy(() -> new DockerSourceRegistry(List.of(source, source)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new DockerSourceRegistry(List.of(source)).require("missing"))
+                .hasMessageContaining("missing");
+    }
+
+    @Test
+    void closingRetainsSuppressedFailuresFromAllSources() throws Exception {
+        var a = mock(DockerClient.class);
+        var b = mock(DockerClient.class);
+        doThrow(new java.io.IOException("first")).when(a).close();
+        doThrow(new java.io.IOException("second")).when(b).close();
+        var sources = new DockerSourceRegistry(List.of(
+                new com.roomelephant.porthole.domain.model.DockerSource(
+                        "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), a),
+                new com.roomelephant.porthole.domain.model.DockerSource(
+                        "b", "B", null, Duration.ofSeconds(5), Duration.ofSeconds(60), b)));
+        assertThatThrownBy(sources::close)
+                .hasMessage("first")
+                .satisfies(e -> assertThat(e.getSuppressed())
+                        .extracting(Throwable::getMessage)
+                        .containsExactly("second"));
+    }
+
+    @Test
     void doesNotPingDuringStartupAndClosesEveryClient() throws Exception {
         var a = mock(DockerClient.class);
         var b = mock(DockerClient.class);
