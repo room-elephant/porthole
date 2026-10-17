@@ -19,6 +19,8 @@ spring:
 
 # Docker configuration
 porthole:
+  versions:
+    refresh-interval: 1h
   docker:
     host: unix:///var/run/docker.sock
     connection-timeout: 5s

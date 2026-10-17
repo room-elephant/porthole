@@ -297,14 +297,6 @@ h1 {
     cursor: help;
 }
 
-.version-loading {
-    display: inline-block;
-    margin-right: 0.25rem;
-    vertical-align: middle;
-    color: #64748b;
-    animation: spin 1s linear infinite;
-}
-
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }

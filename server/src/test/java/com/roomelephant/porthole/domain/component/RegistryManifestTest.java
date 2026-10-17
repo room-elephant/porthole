@@ -104,6 +104,22 @@ class RegistryManifestTest {
         server.verify();
     }
 
+    @org.junit.jupiter.api.Test
+    void registryOutageIsNotACompletedNoUpdateCheck() {
+        server.expect(requestTo(BASE + "v2/library/nginx/manifests/latest")).andRespond(withServerError());
+        assertThrows(RuntimeException.class, () -> service.isTagChanged("nginx:latest", List.of(A)));
+        server.verify();
+    }
+
+    @org.junit.jupiter.api.Test
+    void missingAuthenticationEndpointIsAFailedCheckRatherThanMissingManifest() {
+        server.reset();
+        server.expect(requestTo(BASE + "auth?scope=repository:library/nginx:pull"))
+                .andRespond(withResourceNotFound());
+        assertThrows(RuntimeException.class, () -> service.isTagChanged("nginx:latest", List.of(A)));
+        server.verify();
+    }
+
     private static GhcrProperties ghcr() {
         return new GhcrProperties("https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
     }

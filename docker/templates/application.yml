@@ -1,3 +1,8 @@
+# Background version checks
+porthole:
+  versions:
+    refresh-interval: 1h
+
 # Icon configuration
 dashboard:
   icons:

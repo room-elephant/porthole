@@ -168,12 +168,15 @@ This is required because the Docker Registry API expects the full path:
 | Endpoint                                | Method | Description                                                                                 |
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
 | `/api/containers`                       | GET    | Returns all containers. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
-| `/api/containers/{containerId}/version` | GET    | Returns version info for a container (current version, latest version, update availability) |
 | `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
 
 ### Container Endpoint Contract
 
-`GET /api/containers` returns `endpoints` and `hasEndpoints` alongside existing container metadata. Each endpoint has exactly these fields:
+`GET /api/containers` returns `endpoints`, `hasEndpoints`, and a nullable `version` alongside existing container metadata. The separate per-container version endpoint has been removed. A populated `version` contains `currentVersion`, `latestVersion`, and `updateAvailable`; version strings may be null. The whole value is null before the first successful background resolution. Each request reads the in-memory cache without registry HTTP calls or version-specific Docker inspection.
+
+`VersionRefreshService` starts an asynchronous inventory scan at application readiness, resolves containers through `VersionService` using four workers, then repeats after `porthole.versions.refresh-interval` (default `1h`). Scans include all Docker containers independently of dashboard filters. Cache misses queue a deduplicated background check. Successful results are published individually, failed checks retain previous results, and failed first checks wait the configured interval before retrying. A successful inventory prunes deleted IDs while identity/revision guards prevent late work from resurrecting removed entries. Managed executors stop with the application. Registry catalogue/token TTLs remain separate from the container-result cache, which does not expire by time.
+
+Each endpoint has exactly these fields:
 
 ```json
 {
@@ -198,6 +201,7 @@ The production handlers run in this order:
 1. `ContainerStateFilter` (`@Order(0)`) rejects stopped containers unless `includeStopped` is enabled.
 2. `UrlCandidateEnricher` (`@Order(100)`) discovers URL candidates through the registered endpoint providers.
 3. `EndpointAvailabilityFilter` (`@Order(200)`) rejects containers without URL candidates unless `includeWithoutEndpoints` is enabled. This filter runs after discovery so label-only services remain discoverable.
+4. `VersionEnricher` (`@Order(300)`) attaches cached version information and queues a background check for an eligible cache miss without waiting for resolution.
 
 To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` under `domain/component/enrichment/` and declare its order with `@Order` (for example, `@Order(300)` to run after the existing handlers). Spring includes it automatically without changes to the service or chain.
 
@@ -242,13 +246,13 @@ Published-port IDs use `published-port:<port>` independently of the request host
 `server/src/main/java/com/roomelephant/porthole/`:
 
 - `controller/` — REST endpoints (`ContainerController`), `GlobalExceptionHandler`, API records in `model/`, and API mapping in `mapper/`
-- `domain/service/` — `ContainerService` (retrieves, maps, and applies the filtering/enrichment chain to domain containers), `VersionService` (version + update detection)
+- `domain/service/` — `ContainerService` (retrieves, maps, and applies the filtering/enrichment chain to domain containers), `VersionService` (version + update detection), `VersionRefreshService` (background scheduling and result cache)
 - `domain/component/` — `ContainerEnrichment` (ordered enrichment chain), `enrichment/` handlers, `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
 - `domain/mapper/` — `ContainerMapper` maps docker-java types to internal containers
-- `domain/model/` — `Container`, `Endpoint`, `ContainerContext`, `VersionDTO`, and domain exceptions
+- `domain/model/` — `Container`, `Endpoint`, `ContainerContext`, `VersionInfo`, and domain exceptions
 - `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
 - `config/` — `DockerConfig` (docker-java client bean), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
-- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `GhcrProperties`, `DashboardProperties`, `EndpointProperties`
+- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `GhcrProperties`, `DashboardProperties`, `EndpointProperties`, `VersionProperties`
 - `config/nativehints/` — `DockerNativeConfig` (Spring AOT hints for types the agent can't observe)
 
 ## Integration Test Infrastructure
@@ -256,7 +260,7 @@ Published-port IDs use `published-port:<port>` independently of the request host
 `server/src/test/java/.../it/`:
 
 - `PortholeContainer` — Testcontainers wrapper that launches the application image; supports optional native-image agent attachment for hint generation
-- `IntegrationTestBase` — base class wiring WireMock (Docker Hub mock) and shared Porthole container
+- `IntegrationTestBase` — per-test WireMock and Porthole lifecycles; the app starts after stubbing, and background work stops before registry verification and teardown. Low-priority inventory stubs cover unrelated host containers while test-specific stubs retain strict usage checks
 - `ContainerAwareIntegrationTestBase` — extends base to also start real Docker containers for end-to-end scenarios
 - Tests in `controller/`, `health/`, and `resilience/` extend these bases
 

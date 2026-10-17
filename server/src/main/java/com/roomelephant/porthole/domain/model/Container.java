@@ -15,6 +15,7 @@ public final class Container {
     private final Set<Integer> publishedPorts;
     private final Map<String, String> labels;
     private List<Endpoint> urlCandidates;
+    private @Nullable VersionInfo version;
     private final String iconUrl;
     private final @Nullable String project;
     private final @Nullable String state;
@@ -71,6 +72,14 @@ public final class Container {
 
     public List<Endpoint> urlCandidates() {
         return urlCandidates;
+    }
+
+    public @Nullable VersionInfo version() {
+        return version;
+    }
+
+    public void setVersion(@Nullable VersionInfo version) {
+        this.version = version;
     }
 
     public String iconUrl() {

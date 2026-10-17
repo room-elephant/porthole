@@ -124,7 +124,7 @@ class GhcrRegistryTest {
         server.expect(requestTo(TAGS))
                 .andRespond(withSuccess("{\"tags\":[\"9.0\"]}", MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.LINK, link));
-        assertNull(service.getLatestVersion(IMAGE));
+        assertThrows(RuntimeException.class, () -> service.getLatestVersion(IMAGE));
         server.verify();
     }
 
@@ -137,14 +137,14 @@ class GhcrRegistryTest {
                         .header(HttpHeaders.LINK, "<?n=100&last=9.0>; rel=next"));
         server.expect(requestTo("https://ghcr.io/v2/acme/app/tags/list?n=100&last=9.0"))
                 .andRespond(withStatus(HttpStatus.valueOf(status)));
-        assertNull(service.getLatestVersion(IMAGE));
+        assertThrows(RuntimeException.class, () -> service.getLatestVersion(IMAGE));
         server.verify();
     }
 
     @Test
     void deniedAnonymousAccessIsInconclusive() {
         server.expect(requestTo(TOKEN)).andRespond(withStatus(HttpStatus.FORBIDDEN));
-        assertNull(service.getLatestVersion(IMAGE));
+        assertThrows(RuntimeException.class, () -> service.getLatestVersion(IMAGE));
         server.verify();
     }
 
@@ -153,7 +153,8 @@ class GhcrRegistryTest {
     void malformedOrEmptyTagListsDoNotSupplyAVersion(String body) {
         auth("token", "ghcr-token");
         server.expect(requestTo(TAGS)).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
-        assertNull(service.getLatestVersion(IMAGE));
+        if (body.equals("{\"tags\":[]}")) assertNull(service.getLatestVersion(IMAGE));
+        else assertThrows(RuntimeException.class, () -> service.getLatestVersion(IMAGE));
         server.verify();
     }
 

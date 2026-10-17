@@ -2,15 +2,12 @@ package com.roomelephant.porthole.controller;
 
 import com.roomelephant.porthole.controller.mapper.ContainerDTOMapper;
 import com.roomelephant.porthole.controller.model.ContainerDTO;
-import com.roomelephant.porthole.domain.model.VersionDTO;
 import com.roomelephant.porthole.domain.service.ContainerService;
-import com.roomelephant.porthole.domain.service.VersionService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,13 +20,10 @@ public class ContainerController {
 
     private final ContainerService containerService;
     private final ContainerDTOMapper containerDTOMapper;
-    private final VersionService versionService;
 
-    public ContainerController(
-            ContainerService containerService, VersionService versionService, ContainerDTOMapper containerDTOMapper) {
+    public ContainerController(ContainerService containerService, ContainerDTOMapper containerDTOMapper) {
         this.containerService = containerService;
         this.containerDTOMapper = containerDTOMapper;
-        this.versionService = versionService;
     }
 
     @GetMapping("/containers")
@@ -40,10 +34,5 @@ public class ContainerController {
         return containerService.getContainers(includeWithoutEndpoints, includeStopped, request.getServerName()).stream()
                 .map(containerDTOMapper::toDTO)
                 .toList();
-    }
-
-    @GetMapping("/containers/{containerId}/version")
-    public VersionDTO getVersion(@PathVariable String containerId) {
-        return versionService.getVersionInfo(containerId);
     }
 }

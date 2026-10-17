@@ -10,7 +10,7 @@ import com.github.dockerjava.api.command.InspectImageCmd;
 import com.github.dockerjava.api.command.InspectImageResponse;
 import com.github.dockerjava.api.model.ContainerConfig;
 import com.roomelephant.porthole.domain.component.RegistryService;
-import com.roomelephant.porthole.domain.model.VersionDTO;
+import com.roomelephant.porthole.domain.model.VersionInfo;
 import com.roomelephant.porthole.domain.model.exception.NotFoundException;
 import com.roomelephant.porthole.domain.model.exception.UnexpectedException;
 import java.util.Collections;
@@ -180,13 +180,13 @@ class VersionServiceTest {
         }
 
         @Test
-        @DisplayName("should return empty VersionDTO when container config is null")
-        void shouldReturnEmptyVersionDTOWhenContainerConfigIsNull() {
+        @DisplayName("should return empty VersionInfo when container config is null")
+        void shouldReturnEmptyVersionInfoWhenContainerConfigIsNull() {
             when(dockerClient.inspectContainerCmd("container1")).thenReturn(inspectContainerCmd);
             when(inspectContainerCmd.exec()).thenReturn(inspectContainerResponse);
             when(inspectContainerResponse.getConfig()).thenReturn(null);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertNull(result.currentVersion());
             assertNull(result.latestVersion());
@@ -194,14 +194,14 @@ class VersionServiceTest {
         }
 
         @Test
-        @DisplayName("should return empty VersionDTO when image is null")
-        void shouldReturnEmptyVersionDTOWhenImageIsNull() {
+        @DisplayName("should return empty VersionInfo when image is null")
+        void shouldReturnEmptyVersionInfoWhenImageIsNull() {
             when(dockerClient.inspectContainerCmd("container1")).thenReturn(inspectContainerCmd);
             when(inspectContainerCmd.exec()).thenReturn(inspectContainerResponse);
             when(inspectContainerResponse.getConfig()).thenReturn(containerConfig);
             when(containerConfig.getImage()).thenReturn(null);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertNull(result.currentVersion());
             assertNull(result.latestVersion());
@@ -219,7 +219,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertEquals("1.25", result.currentVersion());
             assertNull(result.latestVersion());
@@ -236,7 +236,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
             when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertEquals("1.25.0", result.currentVersion());
             assertEquals("1.26.0", result.latestVersion());
@@ -252,7 +252,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("myapp:latest")).thenReturn("2.1.0");
             when(registryService.isTagChanged(eq("myapp:latest"), anyList())).thenReturn(true);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertEquals("2.0.0", result.currentVersion());
         }
@@ -266,7 +266,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
             when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertEquals("1.25.0", result.currentVersion());
         }
@@ -280,7 +280,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("myapp:latest")).thenReturn("3.1.0");
             when(registryService.isTagChanged(eq("myapp:latest"), anyList())).thenReturn(true);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertEquals("3.0.0", result.currentVersion());
         }
@@ -295,7 +295,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26");
             when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(true);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertTrue(result.updateAvailable());
         }
@@ -310,7 +310,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.25");
             when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertFalse(result.updateAvailable());
         }
@@ -325,14 +325,14 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26.0");
             when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertTrue(result.updateAvailable());
         }
 
         @Test
-        @DisplayName("should handle registry service errors gracefully")
-        void shouldHandleRegistryServiceErrorsGracefully() {
+        @DisplayName("should propagate registry service errors")
+        void shouldPropagateRegistryServiceErrors() {
             setupContainerWithImage("nginx:1.25");
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
@@ -341,10 +341,7 @@ class VersionServiceTest {
             when(registryService.isTagChanged(eq("nginx:1.25"), anyList()))
                     .thenThrow(new RuntimeException("Network error"));
 
-            VersionDTO result = versionService.getVersionInfo("container1");
-
-            assertNotNull(result);
-            assertFalse(result.updateAvailable());
+            assertThrows(RuntimeException.class, () -> versionService.getVersionInfo("container1"));
         }
 
         @Test
@@ -358,14 +355,14 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertFalse(result.updateAvailable());
         }
 
         @Test
-        @DisplayName("should handle inspectImage exception")
-        void shouldHandleInspectImageException() {
+        @DisplayName("should propagate inspectImage failures")
+        void shouldPropagateInspectImageFailure() {
             setupContainerWithImage("nginx:1.25");
             when(inspectContainerResponse.getImageId()).thenReturn("sha256:abc123");
             when(dockerClient.inspectImageCmd("sha256:abc123")).thenReturn(inspectImageCmd);
@@ -373,11 +370,7 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
-
-            assertEquals("1.25", result.currentVersion());
-            assertNull(result.latestVersion());
-            assertFalse(result.updateAvailable());
+            assertThrows(RuntimeException.class, () -> versionService.getVersionInfo("container1"));
         }
 
         @Test
@@ -390,7 +383,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
             when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertEquals("latest", result.currentVersion());
         }
@@ -405,7 +398,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.25");
             when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertFalse(result.updateAvailable());
         }
@@ -420,7 +413,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
             when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(false);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertFalse(result.updateAvailable());
         }
@@ -435,7 +428,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26.0");
             when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertFalse(result.updateAvailable());
         }
@@ -450,7 +443,7 @@ class VersionServiceTest {
             when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
             when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(false);
 
-            VersionDTO result = versionService.getVersionInfo("container1");
+            VersionInfo result = versionService.getVersionInfo("container1");
 
             assertEquals("latest", result.currentVersion());
         }

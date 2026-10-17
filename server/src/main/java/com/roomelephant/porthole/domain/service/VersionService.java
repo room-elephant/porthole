@@ -6,7 +6,7 @@ import com.github.dockerjava.api.command.InspectImageResponse;
 import com.github.dockerjava.api.model.ContainerConfig;
 import com.roomelephant.porthole.domain.component.RegistryService;
 import com.roomelephant.porthole.domain.model.ImageReference;
-import com.roomelephant.porthole.domain.model.VersionDTO;
+import com.roomelephant.porthole.domain.model.VersionInfo;
 import com.roomelephant.porthole.domain.model.exception.DockerUnavailableException;
 import com.roomelephant.porthole.domain.model.exception.NotFoundException;
 import com.roomelephant.porthole.domain.model.exception.UnexpectedException;
@@ -15,12 +15,10 @@ import com.roomelephant.porthole.domain.util.NumericVersion;
 import java.net.SocketException;
 import java.util.List;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
-@Slf4j
 @Service
 public class VersionService {
 
@@ -35,7 +33,7 @@ public class VersionService {
         this.registryService = registryService;
     }
 
-    public @NonNull VersionDTO getVersionInfo(@NonNull String containerId) {
+    public @NonNull VersionInfo getVersionInfo(@NonNull String containerId) {
         InspectContainerResponse container;
         try {
             container = dockerClient.inspectContainerCmd(containerId).exec();
@@ -50,7 +48,7 @@ public class VersionService {
 
         ContainerConfig config = container.getConfig();
         if (config == null || config.getImage() == null) {
-            return new VersionDTO(null, null, false);
+            return new VersionInfo(null, null, false);
         }
 
         String imageFull = config.getImage();
@@ -58,29 +56,24 @@ public class VersionService {
         String currentVersion = getVersionFromContainer(config, imageFull);
 
         var reference = ImageReference.tryParse(imageFull).filter(ImageReference::supportsUpdates);
-        if (reference.isEmpty()) return new VersionDTO(currentVersion, null, false);
+        if (reference.isEmpty()) return new VersionInfo(currentVersion, null, false);
         List<String> repoDigests = getRepoDigests(container.getImageId());
         List<String> matchingDigests =
                 repoDigests == null ? List.of() : reference.get().matchingDigests(repoDigests);
         if (matchingDigests.isEmpty()) {
-            return new VersionDTO(currentVersion, null, false);
+            return new VersionInfo(currentVersion, null, false);
         }
 
         String latestVersion = registryService.getLatestVersion(imageFull);
         boolean updateAvailable = checkForUpdate(imageFull, currentVersion, latestVersion, matchingDigests);
 
-        return new VersionDTO(currentVersion, latestVersion, updateAvailable);
+        return new VersionInfo(currentVersion, latestVersion, updateAvailable);
     }
 
     private @Nullable List<String> getRepoDigests(@NonNull String imageId) {
-        try {
-            InspectImageResponse inspectImage =
-                    dockerClient.inspectImageCmd(imageId).exec();
-            return inspectImage.getRepoDigests();
-        } catch (Exception e) {
-            log.error("Failed to inspect image: " + imageId, e);
-            return null;
-        }
+        InspectImageResponse inspectImage =
+                dockerClient.inspectImageCmd(imageId).exec();
+        return inspectImage.getRepoDigests();
     }
 
     private @Nullable String getVersionFromContainer(@NonNull ContainerConfig config, @NonNull String imageFull) {
@@ -137,11 +130,7 @@ public class VersionService {
             @NonNull List<String> repoDigests) {
         String tag = ImageUtils.extractTag(imageFull);
 
-        try {
-            if (registryService.isTagChanged(imageFull, repoDigests)) return true;
-        } catch (Exception e) {
-            log.error("Error checking for update: " + imageFull, e);
-        }
+        if (registryService.isTagChanged(imageFull, repoDigests)) return true;
 
         var current = NumericVersion.tryParse(currentVersion);
         var latest = NumericVersion.tryParse(latestVersion);
