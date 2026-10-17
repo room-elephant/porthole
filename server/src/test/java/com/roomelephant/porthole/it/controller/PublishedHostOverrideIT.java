@@ -15,8 +15,12 @@ class PublishedHostOverrideIT extends ContainerAwareIntegrationTestBase {
     void shouldUseConfiguredPublishedHost() {
         try (PortholeContainer app = porthole.withEnv("PORTHOLE_ENDPOINTS_PUBLISHEDHOST", "docker.example.com")) {
             app.start();
-            ContainerDTO[] containers =
-                    new RestTemplate().getForObject(app.baseUrl() + "/api/containers", ContainerDTO[].class);
+            ContainerDTO[] containers = new RestTemplate()
+                    .getForObject(
+                            app.baseUrl() + "/api/containers",
+                            com.roomelephant.porthole.controller.model.ContainerInventoryDTO.class)
+                    .containers()
+                    .toArray(ContainerDTO[]::new);
             ContainerDTO container = Arrays.stream(containers)
                     .filter(candidate -> candidate.name().equals(TEST_APP_CONTAINER_NAME))
                     .findFirst()

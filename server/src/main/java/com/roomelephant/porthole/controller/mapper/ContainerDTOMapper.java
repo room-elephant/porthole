@@ -9,6 +9,16 @@ import org.springframework.stereotype.Component;
 @Component
 @NullMarked
 public class ContainerDTOMapper {
+    public com.roomelephant.porthole.controller.model.ContainerInventoryDTO toDTO(
+            com.roomelephant.porthole.domain.model.ContainerInventory inventory) {
+        return new com.roomelephant.porthole.controller.model.ContainerInventoryDTO(
+                inventory.sources().stream()
+                        .map(s -> new com.roomelephant.porthole.controller.model.SourceDTO(
+                                s.id(), s.name(), s.status(), s.error()))
+                        .toList(),
+                inventory.containers().stream().map(this::toDTO).toList());
+    }
+
     public ContainerDTO toDTO(Container container) {
         return new ContainerDTO(
                 container.id(),
