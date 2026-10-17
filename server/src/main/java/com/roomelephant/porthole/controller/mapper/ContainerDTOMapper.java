@@ -12,6 +12,7 @@ public class ContainerDTOMapper {
     public ContainerDTO toDTO(Container container) {
         return new ContainerDTO(
                 container.id(),
+                container.sourceId(),
                 container.name(),
                 container.displayName(),
                 container.image(),

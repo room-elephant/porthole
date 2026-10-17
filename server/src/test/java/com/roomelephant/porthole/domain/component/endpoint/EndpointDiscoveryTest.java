@@ -31,7 +31,7 @@ class EndpointDiscoveryTest {
                                             Map.of(
                                                     "traefik.http.routers.app.rule", "Host(`app.example.com`)",
                                                     "traefik.http.routers.app.tls", "true")),
-                                    new ContainerContext("192.168.50.6", false, false)))
+                                    new ContainerContext("local", "192.168.50.6", null, false, false)))
                     .containsExactly(
                             new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/"),
                             new Endpoint("traefik:https://app.example.com/", "traefik", "https://app.example.com/"));
@@ -53,7 +53,7 @@ class EndpointDiscoveryTest {
                                 proxy,
                                 new PublishedPortEndpointProvider(
                                         new PublishedHostResolver(new EndpointProperties(null)))))
-                        .discover(container, new ContainerContext("localhost", false, false)))
+                        .discover(container, new ContainerContext("local", "localhost", null, false, false)))
                 .extracting(Endpoint::url)
                 .containsExactly("https://app.example.com/", "https://app.example.com/z/");
     }

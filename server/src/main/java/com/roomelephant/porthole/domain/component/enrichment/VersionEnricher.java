@@ -20,7 +20,8 @@ public class VersionEnricher implements ContainerEnricher {
 
     @Override
     public Optional<Container> enrich(Container container, ContainerContext context) {
-        container.setVersion(versions.getCachedVersionAndRefresh(container.id()));
+        container.setVersion(versions.getCachedVersionAndRefresh(
+                new com.roomelephant.porthole.domain.model.ContainerKey(container.sourceId(), container.id())));
         return Optional.of(container);
     }
 }

@@ -171,6 +171,7 @@ class ContainerControllerTest {
     private Container createContainer(String name, List<Endpoint> endpoints) {
         return new Container(
                 name + "-id",
+                "local",
                 name,
                 name,
                 "nginx:latest",
@@ -190,6 +191,7 @@ class ContainerControllerTest {
     private Container createContainer(String name, Set<Integer> ports) {
         return new Container(
                 name + "-id",
+                "local",
                 name,
                 name,
                 "nginx:latest",

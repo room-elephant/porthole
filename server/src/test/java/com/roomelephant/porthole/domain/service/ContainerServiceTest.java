@@ -266,7 +266,7 @@ class ContainerServiceTest {
                 new PublishedPortEndpointProvider(new PublishedHostResolver(new EndpointProperties(publishedHost))),
                 new TraefikEndpointProvider(new TraefikRuleParser())));
         return new ContainerService(
-                dockerClient,
+                com.roomelephant.porthole.DockerTestSources.of(dockerClient),
                 new ContainerMapper(icon),
                 new ContainerEnrichment(List.of(
                         new ContainerStateFilter(),

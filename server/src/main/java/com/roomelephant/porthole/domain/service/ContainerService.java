@@ -1,6 +1,5 @@
 package com.roomelephant.porthole.domain.service;
 
-import com.github.dockerjava.api.DockerClient;
 import com.roomelephant.porthole.domain.component.ContainerEnrichment;
 import com.roomelephant.porthole.domain.mapper.ContainerMapper;
 import com.roomelephant.porthole.domain.model.Container;
@@ -20,20 +19,25 @@ import org.springframework.stereotype.Service;
 @NullMarked
 public class ContainerService {
 
-    private final DockerClient dockerClient;
+    private final com.roomelephant.porthole.domain.component.DockerSourceRegistry sources;
     private final ContainerMapper containerMapper;
     private final ContainerEnrichment containerEnrichment;
 
     public ContainerService(
-            DockerClient dockerClient, ContainerMapper containerMapper, ContainerEnrichment containerEnrichment) {
-        this.dockerClient = dockerClient;
+            com.roomelephant.porthole.domain.component.DockerSourceRegistry sources,
+            ContainerMapper containerMapper,
+            ContainerEnrichment containerEnrichment) {
+        this.sources = sources;
         this.containerMapper = containerMapper;
         this.containerEnrichment = containerEnrichment;
     }
 
     public @NonNull List<Container> getContainers(
             boolean includeWithoutEndpoints, boolean includeStopped, String requestHostname) {
-        ContainerContext context = new ContainerContext(requestHostname, includeWithoutEndpoints, includeStopped);
+        var source = sources.sources().getFirst();
+        var dockerClient = source.client();
+        ContainerContext context = new ContainerContext(
+                source.id(), requestHostname, source.publishedHost(), includeWithoutEndpoints, includeStopped);
         List<com.github.dockerjava.api.model.Container> containers;
         try {
             containers = dockerClient.listContainersCmd().withShowAll(true).exec();
@@ -44,7 +48,7 @@ public class ContainerService {
             throw new UnexpectedException(e);
         }
 
-        return containerMapper.toModels(containers).stream()
+        return containerMapper.toModels(containers, source.id()).stream()
                 .map(container -> containerEnrichment.enrich(container, context))
                 .flatMap(Optional::stream)
                 .toList();

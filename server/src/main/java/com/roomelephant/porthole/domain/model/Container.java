@@ -9,6 +9,7 @@ import org.jspecify.annotations.Nullable;
 @NullMarked
 public final class Container {
     private final String id;
+    private final String sourceId;
     private final String name;
     private final String displayName;
     private final String image;
@@ -23,6 +24,7 @@ public final class Container {
 
     public Container(
             String id,
+            String sourceId,
             String name,
             String displayName,
             String image,
@@ -34,6 +36,7 @@ public final class Container {
             @Nullable String state,
             @Nullable String status) {
         this.id = id;
+        this.sourceId = sourceId;
         this.name = name;
         this.displayName = displayName;
         this.image = image;
@@ -44,6 +47,10 @@ public final class Container {
         this.project = project;
         this.state = state;
         this.status = status;
+    }
+
+    public String sourceId() {
+        return sourceId;
     }
 
     public String id() {
