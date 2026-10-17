@@ -14,7 +14,7 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 
 class MultipleSourcesTest {
-    private DockerClient client(String id) {
+    private DockerClient client() {
         var client = mock(DockerClient.class);
         var list = mock(ListContainersCmd.class);
         when(client.listContainersCmd()).thenReturn(list);
@@ -34,7 +34,7 @@ class MultipleSourcesTest {
     @Test
     void closedInventoryRejectsRequests() {
         var service = new ContainerService(
-                new DockerSourceRegistry(List.of(source("walker", client("walker"), Duration.ofSeconds(1)))),
+                new DockerSourceRegistry(List.of(source("walker", client(), Duration.ofSeconds(1)))),
                 new ContainerMapper(mock(IconComponent.class)),
                 new ContainerEnrichment(List.of()));
         service.close();
@@ -44,8 +44,7 @@ class MultipleSourcesTest {
     @Test
     void oneRequestFetchesEverySourceAndKeepsMatchingIdsSeparate() {
         var registry = new DockerSourceRegistry(List.of(
-                source("walker", client("walker"), Duration.ofSeconds(1)),
-                source("mike", client("mike"), Duration.ofSeconds(1))));
+                source("walker", client(), Duration.ofSeconds(1)), source("mike", client(), Duration.ofSeconds(1))));
         try (var service = new ContainerService(
                 registry,
                 new ContainerMapper(mock(IconComponent.class, i -> "icon")),
@@ -61,8 +60,8 @@ class MultipleSourcesTest {
 
     @Test
     void slowOrFailedSourceCannotDiscardHealthyResults() throws Exception {
-        var a = client("walker");
-        var b = client("mike");
+        var a = client();
+        var b = client();
         when(b.listContainersCmd().withShowAll(true).exec()).thenAnswer(i -> {
             Thread.sleep(5000);
             return List.of();
@@ -85,7 +84,7 @@ class MultipleSourcesTest {
 
     @Test
     void allSourceFailuresAreReportedInsteadOfAnEmptySuccess() {
-        var client = client("walker");
+        var client = client();
         when(client.listContainersCmd().withShowAll(true).exec())
                 .thenThrow(new RuntimeException(new java.net.SocketException("secret socket path")));
         try (var service = new ContainerService(

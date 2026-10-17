@@ -21,6 +21,31 @@ describe('source sections', () => {
   expect(screen.getByRole('heading',{name:'__proto__'})).toBeInTheDocument();
   expect(within(screen.getByRole('region',{name:'Walker'})).getAllByTitle('Container Settings')).toHaveLength(3);
  });
+ it.each([
+  [false, false, 'No running containers with endpoints.', 'Show stopped containers', 'Show containers without endpoints'],
+  [true, false, 'No running containers found.', 'Show stopped containers', null],
+  [false, true, 'No containers with endpoints found.', 'Show containers without endpoints', null],
+  [true, true, 'Docker is running but no containers exist.', 'Start some containers', null],
+ ])('describes an empty inventory with showAll=%s and showStopped=%s', (showAll, showStopped, description, suggestion, alternative) => {
+  renderWithQuery(<SourceSection source={source} containers={[]} showAll={showAll} showStopped={showStopped} allowLegacyMigration={false}/>);
+  const message = screen.getByText(text => text.startsWith(description));
+  expect(message).toHaveTextContent(suggestion);
+  if (alternative) expect(message).toHaveTextContent(alternative);
+ });
+ it('renders an error source without stale containers', () => {
+  renderWithQuery(<SourceSection source={{...source,status:'ERROR',error:'Could not retrieve containers'}} containers={[createMockContainer()]} showAll={false} showStopped={false} allowLegacyMigration={false}/>);
+  expect(screen.getByRole('alert')).toHaveTextContent('Could not load containers');
+  expect(screen.getByRole('region', {name:'Walker'})).toHaveTextContent('Error');
+  expect(screen.queryByText('Test Container')).not.toBeInTheDocument();
+ });
+ it('lists standalone containers first and project names alphabetically', () => {
+  const containers = [createMockContainer({id:'z',project:'zebra'}), createMockContainer({id:'a',project:'alpha'}), createMockContainer({id:'s',project:null})];
+  renderWithQuery(<SourceSection source={source} containers={containers} showAll={true} showStopped={true} allowLegacyMigration={false}/>);
+  const region = screen.getByRole('region', {name:'Walker'});
+  expect(within(region).getAllByRole('heading', {level:3}).map(heading => heading.textContent)).toEqual(['alpha','zebra']);
+  expect(region.querySelector('.container-grid').closest('.project-section')).toBeNull();
+  expect(region).toHaveTextContent('3 containers');
+ });
  it('keeps endpoint preferences separate for matching container names on different sources', () => {
   const endpoints=[{id:'published-port:80',source:'published-port',url:'http://example.com/'},{id:'traefik:test',source:'traefik',url:'https://example.com/'}];
   const {result}=renderHook(() => ({walker:useEndpointSelection('walker','same',endpoints),mike:useEndpointSelection('mike','same',endpoints)}));
