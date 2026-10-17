@@ -52,7 +52,9 @@ class DockerConfigTest {
         var b = mock(DockerClient.class);
         var config =
                 new DockerConfig(
-                        new DockerProperties(List.of(connection("a"), connection("b"))), new EndpointProperties(null)) {
+                        new DockerProperties(List.of(connection("a"), connection("b"))),
+                        new EndpointProperties(null),
+                        new org.springframework.mock.env.MockEnvironment()) {
                     @Override
                     DockerClient createClient(DockerConnectionProperties p) {
                         return p.id().equals("a") ? a : b;
@@ -72,7 +74,9 @@ class DockerConfigTest {
         var client = mock(DockerClient.class);
         var config =
                 new DockerConfig(
-                        new DockerProperties(List.of(connection("a"), connection("b"))), new EndpointProperties(null)) {
+                        new DockerProperties(List.of(connection("a"), connection("b"))),
+                        new EndpointProperties(null),
+                        new org.springframework.mock.env.MockEnvironment()) {
                     @Override
                     DockerClient createClient(DockerConnectionProperties p) {
                         if (p.id().equals("b")) throw new IllegalStateException("failed");

@@ -8,14 +8,26 @@ import com.roomelephant.porthole.config.properties.*;
 import com.roomelephant.porthole.domain.component.DockerSourceRegistry;
 import com.roomelephant.porthole.domain.model.DockerSource;
 import java.util.ArrayList;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.*;
+import org.springframework.core.env.Environment;
 
 @Configuration
 public class DockerConfig {
     private final DockerProperties properties;
     private final EndpointProperties endpoints;
 
-    public DockerConfig(DockerProperties properties, EndpointProperties endpoints) {
+    public DockerConfig(DockerProperties properties, EndpointProperties endpoints, Environment environment) {
+        // Strict binding excludes real environment/system-property sources from unknown-key checks.
+        var binder = Binder.get(environment);
+        for (String key : new String[] {"host", "connection-timeout", "response-timeout"}) {
+            String legacy = "porthole.docker." + key;
+            if (binder.bind(legacy, String.class).isBound()) {
+                throw new IllegalArgumentException(
+                        "Legacy setting " + legacy
+                                + " is no longer supported; migrate to porthole.docker.connections with id, name and host per connection");
+            }
+        }
         this.properties = properties;
         this.endpoints = endpoints;
     }

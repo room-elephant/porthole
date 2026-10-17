@@ -2,12 +2,17 @@ package com.roomelephant.porthole.config.properties;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.roomelephant.porthole.config.DockerConfig;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
 
 class DockerPropertiesTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner().withUserConfiguration(Config.class);
@@ -92,7 +97,100 @@ class DockerPropertiesTest {
                 });
     }
 
+    private ApplicationContextRunner layered(String yaml) {
+        return runner.withUserConfiguration(DockerConfig.class).withInitializer(c -> {
+            var loader = new YamlPropertySourceLoader();
+            try {
+                for (var source : loader.load("packaged", new ClassPathResource("application.yml")))
+                    c.getEnvironment().getPropertySources().addLast(source);
+                for (var source : loader.load(
+                        "mounted", new ByteArrayResource(yaml.getBytes(java.nio.charset.StandardCharsets.UTF_8))))
+                    c.getEnvironment().getPropertySources().addFirst(source);
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+    }
+
+    @Test
+    void realLegacyEnvironmentAndSystemPropertiesFailWithMigrationGuidance() {
+        for (String key : new String[] {"host", "connection-timeout", "response-timeout"}) {
+            String value = key.equals("host") ? "unix:///old.sock" : "3s";
+            String envKey = "PORTHOLE_DOCKER_" + key.replace("-", "").toUpperCase(java.util.Locale.ROOT);
+            layered("{}")
+                    .withInitializer(c -> c.getEnvironment()
+                            .getPropertySources()
+                            .replace(
+                                    "systemEnvironment",
+                                    new SystemEnvironmentPropertySource("systemEnvironment", Map.of(envKey, value))))
+                    .run(c -> assertThat(c)
+                            .hasFailed()
+                            .getFailure()
+                            .hasStackTraceContaining("porthole.docker.connections"));
+            layered("{}")
+                    .withInitializer(c -> c.getEnvironment()
+                            .getPropertySources()
+                            .replace(
+                                    "systemProperties",
+                                    new MapPropertySource("systemProperties", Map.of("porthole.docker." + key, value))))
+                    .run(c -> assertThat(c)
+                            .hasFailed()
+                            .getFailure()
+                            .hasStackTraceContaining("porthole.docker.connections"));
+        }
+    }
+
+    @Test
+    void mountedListReplacesPackagedConnectionEntirely() {
+        layered("""
+                porthole.docker.connections:
+                  - id: mike
+                    name: Mike
+                    host: tcp://192.168.50.5:2375
+                """).run(c -> {
+            assertThat(c).hasNotFailed();
+            var connections = c.getBean(DockerProperties.class).connections();
+            assertThat(connections).hasSize(1);
+            assertThat(connections.getFirst().id()).isEqualTo("mike");
+            assertThat(connections.getFirst().host()).isEqualTo("tcp://192.168.50.5:2375");
+        });
+    }
+
+    @Test
+    void incompleteOrMalformedMountedListCannotInheritPackagedFields() {
+        for (String yaml : new String[] {
+            "porthole.docker.connections: []",
+            "porthole.docker.connections: [{id: mike, name: Mike}]",
+            "porthole.docker.connections: [{id: mike, host: 'unix:///mike.sock'}]",
+            "porthole.docker.connections: [{name: Mike, host: 'unix:///mike.sock'}]",
+            "porthole.docker.connections: [{id: mike, name: Mike, host: 'unix:///mike.sock', response-timeout: invalid}]"
+        }) layered(yaml).run(c -> assertThat(c).hasFailed());
+    }
+
+    @Test
+    void indexedEnvironmentListReplacesPackagedDefaults() {
+        layered("{}")
+                .withInitializer(c -> c.getEnvironment()
+                        .getPropertySources()
+                        .replace(
+                                "systemEnvironment",
+                                new SystemEnvironmentPropertySource(
+                                        "systemEnvironment",
+                                        Map.of(
+                                                "PORTHOLE_DOCKER_CONNECTIONS_0_ID", "mike",
+                                                "PORTHOLE_DOCKER_CONNECTIONS_0_NAME", "Mike",
+                                                "PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "unix:///mike.sock",
+                                                "PORTHOLE_DOCKER_CONNECTIONS_0_RESPONSETIMEOUT", "9s"))))
+                .run(c -> {
+                    assertThat(c).hasNotFailed();
+                    var connections = c.getBean(DockerProperties.class).connections();
+                    assertThat(connections).hasSize(1);
+                    assertThat(connections.getFirst().id()).isEqualTo("mike");
+                    assertThat(connections.getFirst().responseTimeout()).isEqualTo(java.time.Duration.ofSeconds(9));
+                });
+    }
+
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties(DockerProperties.class)
+    @EnableConfigurationProperties({DockerProperties.class, EndpointProperties.class})
     static class Config {}
 }
