@@ -13,11 +13,10 @@ import org.springframework.stereotype.Component;
 public class ContainerStateFilter implements ContainerEnricher {
     @Override
     public Optional<Container> enrich(Container container, ContainerContext context) {
-        boolean stopped =
-                switch (container.state()) {
-                    case "created", "exited", "dead", "removing" -> true;
-                    case null, default -> false;
-                };
+        boolean stopped = switch (container.state()) {
+            case "created", "exited", "dead", "removing" -> true;
+            case null, default -> false;
+        };
         return context.includeStopped() || !stopped ? Optional.of(container) : Optional.empty();
     }
 }

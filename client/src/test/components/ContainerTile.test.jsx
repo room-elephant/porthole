@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import ContainerTile from '../../components/ContainerTile';
@@ -20,11 +20,9 @@ const renderWithQuery = (ui) => {
     },
   });
 
-  return render(
-    <QueryClientProvider client={queryClient}>
-      {ui}
-    </QueryClientProvider>
-  );
+  return render(ui, {
+    wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+  });
 };
 
 describe('ContainerTile', () => {
@@ -91,37 +89,45 @@ describe('ContainerTile', () => {
   });
 
   describe('Status indicator', () => {
-    it('should show running status', () => {
-      const container = createMockContainer({ state: 'running' });
-      renderWithQuery(<ContainerTile container={container} />);
+    it.each([
+      ['running', 'Up 2 minutes (unhealthy)', 'status-stopped'],
+      ['running', 'Up 2 seconds (health: starting)', 'status-warning'],
+      ['running', 'Up 2 minutes (healthy)', 'status-running'],
+      ['running', 'Up 2 hours', 'status-running'],
+      ['running', null, 'status-running'],
+      ['running', undefined, 'status-running'],
+      ['paused', 'Up 2 minutes (healthy) (Paused)', 'status-warning'],
+      ['paused', 'Up 2 hours (Paused)', 'status-warning'],
+      ['restarting', 'Restarting (1) 2 seconds ago', 'status-warning'],
+      ['exited', 'Exited (0) 2 minutes ago', 'status-stopped'],
+    ])('shows %s with status %s as %s', (state, status, expectedClass) => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ state, status })} />);
+      expect(document.querySelector('.status-indicator')).toHaveClass(expectedClass);
+    });
 
+    it('updates color and tooltip as health changes without a lifecycle change', () => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const container = createMockContainer({ status: 'Up 2 minutes (healthy)' });
+      const tile = status => (
+        <QueryClientProvider client={client}>
+          <ContainerTile container={{ ...container, status }} />
+        </QueryClientProvider>
+      );
+      const view = render(tile(container.status));
       const indicator = document.querySelector('.status-indicator');
       expect(indicator).toHaveClass('status-running');
+
+      for (const [status, expectedClass] of [
+        ['Up 3 minutes (unhealthy)', 'status-stopped'],
+        ['Up 3 minutes (health: starting)', 'status-warning'],
+        ['Up 4 minutes (healthy)', 'status-running'],
+      ]) {
+        view.rerender(tile(status));
+        expect(indicator).toHaveClass(expectedClass);
+        expect(indicator).toHaveAttribute('title', status);
+      }
     });
 
-    it('should show stopped status', () => {
-      const container = createMockContainer({ state: 'exited' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-stopped');
-    });
-
-    it('should show warning status for paused', () => {
-      const container = createMockContainer({ state: 'paused' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-warning');
-    });
-
-    it('should show warning status for restarting', () => {
-      const container = createMockContainer({ state: 'restarting' });
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-warning');
-    });
   });
 
   describe('Keyboard behavior', () => {
@@ -235,33 +241,44 @@ describe('ContainerTile', () => {
   });
 
   describe('Update indicator', () => {
-    it('should show update warning when update available', async () => {
-      api.fetchContainerVersion.mockResolvedValue({
-        updateAvailable: true,
-        latestVersion: '2.0.0',
-      });
-
-      const container = createMockContainer();
-      renderWithQuery(<ContainerTile container={container} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('⚠️')).toBeInTheDocument();
-      });
+    it('shows embedded updates without a version request', () => {
+      const version = { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true };
+      renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
+      expect(screen.getByText('⚠️')).toHaveAttribute('title', 'Image update available');
+      expect(api.fetchContainerVersion).not.toHaveBeenCalled();
     });
 
-    it('should not show update warning when no update available', async () => {
-      api.fetchContainerVersion.mockResolvedValue({
-        updateAvailable: false,
-      });
+    it.each([null, '1.0.0'])('uses truthful wording for a tag change with catalogue version %s', latestVersion => {
+      const version = { currentVersion: '2.0.0', latestVersion, updateAvailable: true };
+      renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
+      expect(screen.getByText('⚠️')).toHaveAttribute('title', 'Image update available');
+    });
 
-      const container = createMockContainer();
-      renderWithQuery(<ContainerTile container={container} />);
-
-      await waitFor(() => {
-        expect(api.fetchContainerVersion).toHaveBeenCalled();
-      });
-
+    it.each([null, { currentVersion: '1.0', latestVersion: '1.0', updateAvailable: false }])('shows no warning or spinner for version %s', version => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
       expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+      expect(screen.queryByTitle('Checking for updates...')).not.toBeInTheDocument();
+      expect(api.fetchContainerVersion).not.toHaveBeenCalled();
+    });
+
+    it('rerenders new embedded results when other container metadata is unchanged', () => {
+      const container = createMockContainer({ version: null });
+      const view = renderWithQuery(<ContainerTile container={container} />);
+      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+      const updated = { ...container, version: { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true } };
+      view.rerender(<ContainerTile container={updated} />);
+      expect(screen.getByText('⚠️')).toBeInTheDocument();
+      view.rerender(<ContainerTile container={{ ...updated, version: { ...updated.version, updateAvailable: false } }} />);
+      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+    });
+
+    it('keeps the stored preference for hiding update notifications', () => {
+      localStorage.setItem( 'version_check_v2_["local","test-container"]' , 'false');
+      renderWithQuery(<ContainerTile container={createMockContainer({ version: { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true } })} />);
+      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTitle('Container Settings'));
+      fireEvent.click(screen.getByRole('checkbox'));
+      expect(screen.getByText('⚠️')).toBeInTheDocument();
     });
   });
 
@@ -277,7 +294,7 @@ describe('ContainerTile', () => {
       expect(launch).toBeDisabled();
       expect(card).toHaveClass('disabled');
       expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
-      expect(localStorage.getItem('endpoint_pref_test-container')).toBe('"none"');
+      expect(localStorage.getItem( 'endpoint_pref_v2_["local","test-container"]' )).toBe('"none"');
       await user.keyboard('{Escape}');
       await user.click(launch);
       expect(window.open).not.toHaveBeenCalled();
@@ -285,7 +302,7 @@ describe('ContainerTile', () => {
       await user.click(screen.getByTitle('Container Settings'));
       expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
       await user.click(screen.getByRole('checkbox'));
-      expect(localStorage.getItem('version_check_test-container')).toBe('false');
+      expect(localStorage.getItem( 'version_check_v2_["local","test-container"]' )).toBe('false');
       await user.click(screen.getByRole('radio', { name: 'http://localhost:53/' }));
       expect(launch).toBeEnabled();
       expect(card).not.toHaveClass('disabled');
@@ -295,7 +312,7 @@ describe('ContainerTile', () => {
     });
 
     it('skips a tile with a saved no endpoint choice while keeping settings accessible', async () => {
-      localStorage.setItem('endpoint_pref_test-container', '"none"');
+      localStorage.setItem( 'endpoint_pref_v2_["local","test-container"]' , '"none"');
       const user = userEvent.setup();
       renderWithQuery(<ContainerTile container={createMockContainer()} />);
       expect(screen.getByRole('button', { name: /^Open / })).toBeDisabled();
@@ -355,15 +372,15 @@ describe('ContainerTile', () => {
     renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [], hasEndpoints: false })} />);
     fireEvent.click(screen.getByTitle('Container Settings'));
     fireEvent.click(screen.getByRole('checkbox'));
-    expect(localStorage.getItem('version_check_test-container')).toBe('false');
+    expect(localStorage.getItem( 'version_check_v2_["local","test-container"]' )).toBe('false');
     expect(window.open).not.toHaveBeenCalled();
   });
 
   it('launches the new name preference after a rename with the same Docker ID', () => {
     const root = { id: 'proxy', source: 'traefik', url: 'https://app.example.com/' };
     const container = createMockContainer({ endpoints: [publishedEndpoint(8080), root] });
-    localStorage.setItem('endpoint_pref_test-container', JSON.stringify('published-port:8080'));
-    localStorage.setItem('endpoint_pref_renamed', JSON.stringify(root.id));
+    localStorage.setItem( 'endpoint_pref_v2_["local","test-container"]' , JSON.stringify('published-port:8080'));
+    localStorage.setItem( 'endpoint_pref_v2_["local","renamed"]' , JSON.stringify(root.id));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
     view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed' }} /></QueryClientProvider>);

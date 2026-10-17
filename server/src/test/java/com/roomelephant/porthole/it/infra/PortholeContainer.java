@@ -26,7 +26,9 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
     private PortholeContainer(int wireMockPort, String socketPath) {
         super(IMAGE_TAG);
         withExposedPorts(PORTHOLE_PORT);
-        withEnv("PORTHOLE_DOCKER_HOST", "unix://" + socketPath);
+        withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_ID", "local");
+        withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_NAME", "Local");
+        withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "unix://" + socketPath);
         applyRegistryEnv(this, wireMockPort);
         recordingNativeHints = applyNativeAgentIfEnabled();
         if (recordingNativeHints) recordingContainers.add(this);
@@ -74,6 +76,8 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
                 .withEnv("REGISTRY_URLS_REGISTRY", base + "/v2/")
                 .withEnv("REGISTRY_URLS_AUTH", base + "/auth?service=registry.docker.io&scope=repository:")
                 .withEnv("REGISTRY_URLS_REPOSITORIES", base + "/v2/repositories/")
+                .withEnv("REGISTRY_GHCR_REGISTRY_URL", base + "/ghcr/v2/")
+                .withEnv("REGISTRY_GHCR_AUTH_URL", base + "/ghcr/token?service=ghcr.io&scope=repository:")
                 .withEnv("REGISTRY_CACHE_TTL", "1ms")
                 .withEnv("REGISTRY_CACHE_VERSION_MAX_SIZE", "1");
     }

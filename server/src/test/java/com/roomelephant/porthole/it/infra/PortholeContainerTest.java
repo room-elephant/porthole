@@ -49,7 +49,7 @@ class PortholeContainerTest {
             GenericContainer<?> app = PortholeContainer.withCustomSocket("/tmp/missing.sock", 1234);
             assertThat(app.getEnvMap().get("JAVA_TOOL_OPTIONS")).contains("native-image-agent");
             assertThat(app.getBinds()).hasSize(1);
-            assertThat(app.getEnvMap()).containsEntry("PORTHOLE_DOCKER_HOST", "unix:///tmp/missing.sock");
+            assertThat(app.getEnvMap()).containsEntry("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "unix:///tmp/missing.sock");
         } finally {
             restoreProperty(previous);
         }

@@ -15,6 +15,7 @@ class ContainerDTOTest {
     void shouldReturnTrueForHasEndpointsWhenPortsArePresent() {
         ContainerDTO dto = new ContainerDTO(
                 "container-id",
+                "local",
                 "my-container",
                 "my-container",
                 "nginx:latest",
@@ -22,7 +23,8 @@ class ContainerDTOTest {
                 "https://example.com/nginx.png",
                 "my-project",
                 "running",
-                "Up 2 hours");
+                "Up 2 hours",
+                null);
 
         assertTrue(dto.hasEndpoints());
     }
@@ -32,6 +34,7 @@ class ContainerDTOTest {
     void shouldReturnFalseForHasEndpointsWhenPortsListIsEmpty() {
         ContainerDTO dto = new ContainerDTO(
                 "container-id",
+                "local",
                 "my-container",
                 "my-container",
                 "nginx:latest",
@@ -39,7 +42,8 @@ class ContainerDTOTest {
                 "https://example.com/nginx.png",
                 "my-project",
                 "running",
-                "Up 2 hours");
+                "Up 2 hours",
+                null);
 
         assertFalse(dto.hasEndpoints());
     }
@@ -49,6 +53,7 @@ class ContainerDTOTest {
     void shouldCorrectlyExposeAllRecordComponents() {
         ContainerDTO dto = new ContainerDTO(
                 "abc123",
+                "local",
                 "test-container",
                 "test",
                 "redis:7",
@@ -56,7 +61,8 @@ class ContainerDTOTest {
                 "https://example.com/redis.png",
                 "test-project",
                 "running",
-                "Up 1 hour");
+                "Up 1 hour",
+                null);
 
         assertEquals("abc123", dto.id());
         assertEquals("test-container", dto.name());

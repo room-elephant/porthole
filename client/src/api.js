@@ -18,13 +18,9 @@ api.interceptors.response.use(
 export const fetchContainers = async ({ showAll, showStopped, signal }) => {
   const { data } = await api.get(API.CONTAINERS, {
     params: { includeWithoutEndpoints: showAll, includeStopped: showStopped },
+    timeout: 0,
     signal,
   });
-  return data;
-};
-
-export const fetchContainerVersion = async ({ containerId, signal }) => {
-  const { data } = await api.get(API.CONTAINER_VERSION(containerId), { signal });
   return data;
 };
 

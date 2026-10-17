@@ -1,15 +1,17 @@
 package com.roomelephant.porthole.controller.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.roomelephant.porthole.domain.model.VersionInfo;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 
 @NullMarked
-@RegisterReflectionForBinding({ContainerDTO.class, EndpointDTO.class})
+@RegisterReflectionForBinding({ContainerDTO.class, EndpointDTO.class, VersionInfo.class})
 public record ContainerDTO(
         String id,
+        String sourceId,
         String name,
         String displayName,
         String image,
@@ -17,7 +19,8 @@ public record ContainerDTO(
         String iconUrl,
         @Nullable String project,
         @Nullable String state,
-        @Nullable String status) {
+        @Nullable String status,
+        @Nullable VersionInfo version) {
     public ContainerDTO {
         endpoints = List.copyOf(endpoints);
     }

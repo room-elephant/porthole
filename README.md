@@ -14,8 +14,8 @@ It resolves container icons automatically
 
 - 🕵️‍♂️ **Auto-Discovery**: Lists running containers with published-port or Traefik endpoints, including services without published ports.
 - 🎨 **Automated Icons**: Maps container image names to icons using [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons).
-- 🔄 **Update Detection**: Checks Docker Hub for newer image versions and digest changes.
-- 📦 **Compose Grouping**: Groups containers by Docker Compose project.
+- 🔄 **Update Detection**: Checks Docker Hub and public GitHub Container Registry images for newer versions and digest changes.
+- 🖥️ **Multiple Docker Hosts**: Fetches configured Docker connections together and separates hosts and Compose projects in the dashboard.
 - ⚙️ **Per-Container Settings**: Choose a service URL and configure update checking for each container.
 - 🚦 **Status Indicators**: Shows container health with color-coded semaphore (green/yellow/red).
 - 🐳 **Docker Native**: Runs as a single, lightweight Docker container.
@@ -25,7 +25,7 @@ It resolves container icons automatically
 
 Porthole discovers full URLs from Docker published ports and literal Traefik HTTP router labels. Clicking a tile prefers Traefik; when several Traefik URLs exist, a unique root route wins. Ambiguous choices open settings. A saved URL choice takes precedence and is remembered by endpoint ID.
 
-The gear icon groups candidates under **Traefik URLs**, **Published Ports**, and any additional provider sections. Published ports use the hostname through which you accessed Porthole; configure `PORTHOLE_ENDPOINTS_PUBLISHEDHOST` when the Docker host uses a different address. See [endpoint configuration and rule support](docs/CONFIGURATION.md#endpoint-discovery).
+The gear icon groups candidates under **Traefik URLs**, **Published Ports**, and any additional provider sections. Published ports use each connection’s `published-host`; single-source deployments can fall back to `PORTHOLE_ENDPOINTS_PUBLISHEDHOST` or the hostname through which you accessed Porthole. See [endpoint configuration and rule support](docs/CONFIGURATION.md#endpoint-discovery).
 
 ## Quick Start
 
@@ -39,7 +39,7 @@ docker run -d \
   ghcr.io/room-elephant/porthole:latest
 ```
 
-**Note**: Mounting `/var/run/docker.sock` is required for Porthole to see your other containers.
+**Note**: The default source requires mounting `/var/run/docker.sock`. To use other or multiple already-reachable Docker endpoints, configure a [connection list](docs/CONFIGURATION.md#docker-connections).
 
 Open [http://localhost:9753](http://localhost:9753) to view your dashboard.
 

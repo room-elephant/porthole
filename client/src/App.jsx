@@ -1,125 +1,47 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Settings, Package, AlertTriangle } from 'lucide-react';
-import ContainerTile from './components/ContainerTile';
+import { useState, useMemo } from 'react';
+import { Settings } from 'lucide-react';
 import SkeletonTile from './components/SkeletonTile';
+import SourceSection from './components/SourceSection';
 import AppSettings from './components/AppSettings';
 import { useContainers } from './hooks/useContainers';
-import { useDockerHealth } from './hooks/useDockerHealth';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { STORAGE_KEYS } from './constants';
-import { groupByProject } from './utils/containers';
+import { groupBySource } from './utils/containers';
 
-const isBadGateway = (error) => error?.response?.status === 502;
+const EMPTY = { sources: [], containers: [] };
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
-  const {
-    data: containers = [],
-    isLoading,
-    error: containersError,
-    refetch: refetchContainers
-  } = useContainers({ showAll, showStopped });
+  const { data = EMPTY, isLoading, error } = useContainers({ showAll, showStopped });
+  const grouped = useMemo(() => groupBySource(data.containers), [data.containers]);
 
-  const shouldCheckHealth = isBadGateway(containersError) || (containers.length === 0 && !isLoading && !containersError) || showSettings;
-
-  const { data: dockerHealth, isLoading: isDockerHealthLoading, isError: dockerHealthError } = useDockerHealth({
-    enabled: shouldCheckHealth,
-    pollInterval: shouldCheckHealth ? 5000 : null
-  });
-
-  const isDockerDown = dockerHealth?.status === 'DOWN' || !!dockerHealthError || isBadGateway(containersError);
-
-  useEffect(() => {
-    if (dockerHealth?.status === 'UP') {
-      refetchContainers();
-    }
-  }, [dockerHealth?.status, refetchContainers]);
-
-  const dockerStatus = isDockerHealthLoading ? 'CHECKING' : (dockerHealth?.status || 'UNKNOWN');
-
-  const { groupedContainers, standaloneContainers, projectNames } = useMemo(() => {
-    const groups = groupByProject(containers);
-    return {
-      groupedContainers: groups,
-      standaloneContainers: groups[null] || [],
-      projectNames: Object.keys(groups)
-        .filter(key => key !== 'null' && key !== null)
-        .sort(),
-    };
-  }, [containers]);
-
-  const renderContent = () => {
-    if (isLoading) {
-      return (
-        <div className="container-grid">
-          {[...Array(6)].map((_, i) => (
-            <SkeletonTile key={i} />
-          ))}
-        </div>
-      );
-    }
-
-    if (containersError && !isBadGateway(containersError)) {
-      return (
-        <div className="error-message">
-          Failed to fetch containers. Ensure the server is running.
-        </div>
-      );
-    }
-
-    if (isDockerDown || isBadGateway(containersError)) {
-      return (
-        <div className="empty-state warning">
-          <AlertTriangle size={64} strokeWidth={1} />
-          <h2>Docker unavailable</h2>
-          <p>Could not connect to Docker. Waiting for Docker to become available...</p>
-        </div>
-      );
-    }
-
-    if (containers.length === 0) {
-      return (
-        <div className="empty-state">
-          <Package size={64} strokeWidth={1} />
-          <h2>No containers found</h2>
-          <p>
-            {!showAll && !showStopped
-              ? 'No running containers with endpoints. Try enabling "Show stopped containers" or "Show containers without endpoints" in settings.'
-              : !showStopped
-              ? 'No containers with endpoints found. Try enabling "Show stopped containers" in settings.'
-              : !showAll
-              ? 'No running containers found. Try enabling "Show containers without endpoints" in settings.'
-              : 'Docker is running but no containers exist. Start some containers to see them here.'}
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <>
-        {standaloneContainers.length > 0 && (
-          <div className="container-grid">
-            {standaloneContainers.map(container => (
-              <ContainerTile key={container.id} container={container} />
-            ))}
-          </div>
-        )}
-
-        {projectNames.map(projectName => (
-          <div key={projectName} className="project-section">
-            <h2 className="project-title">{projectName}</h2>
-            <div className="container-grid">
-              {groupedContainers[projectName].map(container => (
-                <ContainerTile key={container.id} container={container} />
-              ))}
-            </div>
-          </div>
-        ))}
-      </>
+  let inventory;
+  if (isLoading) {
+    inventory = (
+      <div className="container-grid">
+        {Array.from({ length: 6 }, (_, index) => <SkeletonTile key={index} />)}
+      </div>
     );
-  };
+  } else if (error) {
+    inventory = (
+      <div className="error-message" role="alert">
+        Failed to fetch containers. Ensure the server is running.
+      </div>
+    );
+  } else {
+    inventory = data.sources.map(source => (
+      <SourceSection
+        key={source.id}
+        source={source}
+        containers={grouped.get(source.id) || []}
+        showAll={showAll}
+        showStopped={showStopped}
+        allowLegacyMigration={data.sources.length === 1}
+      />
+    ));
+  }
 
   return (
     <div>
@@ -132,10 +54,8 @@ function App() {
             </button>
           </div>
         </header>
-
-        {renderContent()}
+        {inventory}
       </div>
-
       {showSettings && (
         <AppSettings
           showStopped={showStopped}
@@ -143,7 +63,7 @@ function App() {
           onToggleShowStopped={setShowStopped}
           onToggleShowAll={setShowAll}
           onClose={() => setShowSettings(false)}
-          dockerStatus={dockerStatus}
+          sources={error ? [] : data.sources}
         />
       )}
     </div>

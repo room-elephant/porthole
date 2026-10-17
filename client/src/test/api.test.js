@@ -18,7 +18,7 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchContainerVersion, fetchDockerHealth } = await import('../api');
+const { fetchContainers, fetchDockerHealth } = await import('../api');
 
 describe('api', () => {
   beforeEach(() => {
@@ -34,6 +34,7 @@ describe('api', () => {
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
         params: { includeWithoutEndpoints: false, includeStopped: false },
+        timeout: 0,
         signal: undefined,
       });
       expect(result).toEqual(mockData);
@@ -47,6 +48,7 @@ describe('api', () => {
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
         params: { includeWithoutEndpoints: true, includeStopped: true },
+        timeout: 0,
         signal: undefined,
       });
       expect(result).toEqual(mockData);
@@ -61,6 +63,7 @@ describe('api', () => {
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
         params: { includeWithoutEndpoints: false, includeStopped: false },
+        timeout: 0,
         signal: controller.signal,
       });
     });
@@ -70,32 +73,6 @@ describe('api', () => {
       mockGet.mockRejectedValue(error);
 
       await expect(fetchContainers({ showAll: false, showStopped: false })).rejects.toThrow('Network error');
-    });
-  });
-
-  describe('fetchContainerVersion', () => {
-    it('fetches version for a container', async () => {
-      const mockData = { hasUpdate: true, currentVersion: '1.0', latestVersion: '2.0' };
-      mockGet.mockResolvedValue({ data: mockData });
-
-      const result = await fetchContainerVersion({ containerId: 'container-123' });
-
-      expect(mockGet).toHaveBeenCalledWith('/api/containers/container-123/version', {
-        signal: undefined,
-      });
-      expect(result).toEqual(mockData);
-    });
-
-    it('passes abort signal when provided', async () => {
-      const mockData = { hasUpdate: false };
-      const controller = new AbortController();
-      mockGet.mockResolvedValue({ data: mockData });
-
-      await fetchContainerVersion({ containerId: 'container-123', signal: controller.signal });
-
-      expect(mockGet).toHaveBeenCalledWith('/api/containers/container-123/version', {
-        signal: controller.signal,
-      });
     });
   });
 

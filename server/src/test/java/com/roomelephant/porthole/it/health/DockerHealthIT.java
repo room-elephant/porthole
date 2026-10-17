@@ -14,15 +14,25 @@ class DockerHealthIT extends IntegrationTestBase {
         ResponseEntity<String> response = fetch("/actuator/health/docker");
 
         assertThat(response.getStatusCode().value()).isEqualTo(OK.value());
-        assertThat(response.getBody()).contains("{\"status\":\"UP\"}");
+        assertThat(response.getBody()).contains("\"status\":\"UP\"", "\"sources\"");
     }
 
     @Test
-    void shouldReturnUpWhenDockerIsReachable() {
+    void shouldReturnUpWhenDockerIsReachable() throws Exception {
         ResponseEntity<String> response = fetch("/actuator/health");
 
         assertThat(response.getStatusCode().value()).isEqualTo(OK.value());
         assertThat(response.getBody()).contains("\"status\":\"UP\"}");
-        assertThat(response.getBody()).contains("\"docker\":{\"status\":\"UP\"}");
+        var body = new tools.jackson.databind.json.JsonMapper().readTree(response.getBody());
+        assertThat(body.path("components").path("docker").path("status").asText())
+                .isEqualTo("UP");
+        assertThat(body.path("components")
+                        .path("docker")
+                        .path("details")
+                        .path("sources")
+                        .path("local")
+                        .path("status")
+                        .asText())
+                .isEqualTo("UP");
     }
 }

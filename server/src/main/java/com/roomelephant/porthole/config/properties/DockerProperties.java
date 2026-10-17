@@ -1,21 +1,31 @@
 package com.roomelephant.porthole.config.properties;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import java.time.Duration;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.util.List;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-@ConfigurationProperties(prefix = "porthole.docker")
+@ConfigurationProperties(prefix = "porthole.docker", ignoreUnknownFields = false)
 @Validated
-@RegisterReflectionForBinding(DockerProperties.class)
-public record DockerProperties(
-        @NotBlank(message = "Docker host must be configured")
-        String host,
+@RegisterReflectionForBinding({DockerProperties.class, DockerConnectionProperties.class})
+public record DockerProperties(@NotEmpty List<@Valid DockerConnectionProperties> connections) {
+    public DockerProperties {
+        connections = connections == null ? List.of() : List.copyOf(connections);
+    }
 
-        @NotNull(message = "Connection timeout must be configured")
-        Duration connectionTimeout,
+    @AssertTrue(message = "Docker source IDs must be unique")
+    public boolean isIdsUnique() {
+        return connections.stream()
+                        .map(DockerConnectionProperties::id)
+                        .distinct()
+                        .count()
+                == connections.size();
+    }
 
-        @NotNull(message = "Response timeout must be configured")
-        Duration responseTimeout) {}
+    @AssertTrue(message = "Every connection requires published-host when multiple Docker sources are configured")
+    public boolean isPublishedHostsConfigured() {
+        return connections.size() < 2 || connections.stream().allMatch(c -> c.publishedHost() != null);
+    }
+}

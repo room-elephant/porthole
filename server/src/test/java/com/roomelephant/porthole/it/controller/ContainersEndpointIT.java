@@ -214,7 +214,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
     void shouldSerializeOnlyEndpointContract() throws Exception {
         JsonNode body = new JsonMapper().readTree(fetch("/api/containers").getBody());
         boolean found = false;
-        for (JsonNode container : body) {
+        for (JsonNode container : body.path("containers")) {
             assertThat(container.has("exposedPorts")).isFalse();
             assertThat(container.has("hasPublicPorts")).isFalse();
             assertThat(container.has("labels")).isFalse();
