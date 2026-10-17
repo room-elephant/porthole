@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Create mock axios instance before importing api
 const mockGet = vi.fn();
+const mockPost = vi.fn();
 const mockAxiosInstance = {
   get: mockGet,
+  post: mockPost,
   interceptors: {
     response: {
       use: vi.fn(),
@@ -18,11 +20,17 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchDockerHealth } = await import('../api');
+const { fetchContainers, fetchDockerHealth, refreshVersions } = await import('../api');
 
 describe('api', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('posts a manual version refresh', async () => {
+    mockPost.mockResolvedValue({ status: 202 });
+    await refreshVersions();
+    expect(mockPost).toHaveBeenCalledWith('/api/versions/refresh');
   });
 
   describe('fetchContainers', () => {

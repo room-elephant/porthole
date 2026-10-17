@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,7 +38,9 @@ public class VersionRefreshService implements AutoCloseable {
     private final Clock clock;
     private final ExecutorService workers;
     private final ScheduledExecutorService scheduler;
+    private final ExecutorService coordinators;
     private final Map<ContainerKey, Entry> entries = new HashMap<>();
+    private final Set<String> forcedScans = new HashSet<>();
     private long revision;
     private boolean started;
     private boolean closed;
@@ -55,7 +58,8 @@ public class VersionRefreshService implements AutoCloseable {
                         4, Thread.ofVirtual().name("version-check-", 0).factory()),
                 Executors.newScheduledThreadPool(
                         sources.sources().size(),
-                        Thread.ofPlatform().daemon().name("version-refresh").factory()));
+                        Thread.ofPlatform().daemon().name("version-refresh").factory()),
+                Executors.newVirtualThreadPerTaskExecutor());
     }
 
     VersionRefreshService(
@@ -64,13 +68,15 @@ public class VersionRefreshService implements AutoCloseable {
             VersionProperties properties,
             Clock clock,
             ExecutorService workers,
-            ScheduledExecutorService scheduler) {
+            ScheduledExecutorService scheduler,
+            ExecutorService coordinators) {
         this.sources = sources;
         this.versionService = versionService;
         this.properties = properties;
         this.clock = clock;
         this.workers = workers;
         this.scheduler = scheduler;
+        this.coordinators = coordinators;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -93,15 +99,49 @@ public class VersionRefreshService implements AutoCloseable {
         return entry.value;
     }
 
-    /** Called on the coordinator, never by HTTP handlers. Completion includes all checks in this scan. */
+    /** Queues an immediate scan without doing Docker or registry I/O on the HTTP thread. */
+    public synchronized void forceRefresh() {
+        if (closed) throw new RejectedExecutionException("Version refresh service is closed");
+        var pending = sources.sources().stream()
+                .map(source -> source.id())
+                .filter(id -> !forcedScans.contains(id))
+                .toList();
+        if (pending.isEmpty()) return;
+        forcedScans.addAll(pending);
+        try {
+            var invalidation = CompletableFuture.runAsync(versionService::invalidateRegistryCache, coordinators);
+            for (String id : pending) {
+                invalidation
+                        .thenComposeAsync(_ -> refreshSource(id, true), coordinators)
+                        .whenComplete((_, failure) -> {
+                            if (failure != null)
+                                log.warn("Could not force version refresh for source {}: {}", id, failure.getMessage());
+                            completeForcedScan(id);
+                        });
+            }
+        } catch (RejectedExecutionException e) {
+            forcedScans.removeAll(pending);
+            throw e;
+        }
+    }
+
+    private synchronized void completeForcedScan(String sourceId) {
+        forcedScans.remove(sourceId);
+    }
+
+    /** Called on a coordinator, never by HTTP handlers. Completion includes all checks in this scan. */
     CompletableFuture<Void> refreshSource(String sourceId) {
+        return refreshSource(sourceId, false);
+    }
+
+    private CompletableFuture<Void> refreshSource(String sourceId, boolean force) {
         CompletableFuture<Void> scan;
         long scanRevision;
         synchronized (this) {
             if (closed) return CompletableFuture.completedFuture(null);
-            if (currentScans.containsKey(sourceId)) return currentScans.get(sourceId);
+            if (!force && currentScans.containsKey(sourceId)) return currentScans.get(sourceId);
             scan = new CompletableFuture<>();
-            currentScans.put(sourceId, scan);
+            if (!force) currentScans.put(sourceId, scan);
             scanRevision = ++revision;
         }
         try {
@@ -120,7 +160,9 @@ public class VersionRefreshService implements AutoCloseable {
                         var id = new ContainerKey(sourceId, dockerId);
                         present.add(id);
                         Entry entry = entries.computeIfAbsent(id, _ -> new Entry());
-                        checks.add(submitIfDue(id, entry));
+                        // A concurrent older inventory must not prune a newer scan's discoveries.
+                        entry.observedRevision = Math.max(entry.observedRevision, scanRevision);
+                        checks.add(submitIfDue(id, entry, force));
                     }
                     entries.entrySet()
                             .removeIf(item -> item.getKey().sourceId().equals(sourceId)
@@ -144,8 +186,12 @@ public class VersionRefreshService implements AutoCloseable {
 
     // Callers hold this monitor only for state transitions and task submission, never remote I/O.
     private CompletableFuture<Void> submitIfDue(ContainerKey id, Entry entry) {
+        return submitIfDue(id, entry, false);
+    }
+
+    private CompletableFuture<Void> submitIfDue(ContainerKey id, Entry entry, boolean force) {
         if (entry.inFlight != null) return entry.inFlight;
-        if (entry.retryAt != null && clock.instant().isBefore(entry.retryAt))
+        if (!force && entry.retryAt != null && clock.instant().isBefore(entry.retryAt))
             return CompletableFuture.completedFuture(null);
         var check = new CompletableFuture<Void>();
         entry.inFlight = check;
@@ -189,6 +235,7 @@ public class VersionRefreshService implements AutoCloseable {
         if (closed) return;
         closed = true;
         scheduler.shutdownNow();
+        coordinators.shutdownNow();
         workers.shutdownNow();
         for (Entry entry : entries.values()) {
             if (entry.inFlight != null) entry.inFlight.complete(null);
@@ -196,6 +243,7 @@ public class VersionRefreshService implements AutoCloseable {
         entries.clear();
         for (var scan : currentScans.values()) scan.complete(null);
         currentScans.clear();
+        forcedScans.clear();
     }
 
     private static final class Entry {

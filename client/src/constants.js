@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
 
 export const API = {
   CONTAINERS: '/api/containers',
+  VERSION_REFRESH: '/api/versions/refresh',
   DOCKER_HEALTH: '/actuator/health/docker',
 };
 

@@ -85,6 +85,9 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
         startPorthole();
         try {
             assertThat(entered.await(20, TimeUnit.SECONDS)).isTrue();
+            var response = new org.springframework.web.client.RestTemplate()
+                    .postForEntity(porthole.baseUrl() + "/api/versions/refresh", null, String.class);
+            assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.ACCEPTED);
             ContainerDTO container = listedFixture();
             assertThat(container.version()).isNull();
             assertThat(completed.getCount()).isEqualTo(1);
@@ -93,6 +96,22 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
         }
         assertThat(fetchCachedVersion(fixture.getContainerId()).updateAvailable())
                 .isTrue();
+    }
+
+    @Test
+    void manualRefreshBypassesIntervalAndRegistryCache() {
+        porthole.withEnv("PORTHOLE_VERSIONS_REFRESHINTERVAL", "1h")
+                .withEnv("REGISTRY_CACHE_TTL", "1h")
+                .withEnv("REGISTRY_CACHE_VERSION_MAX_SIZE", "1000");
+        assertThat(fetchCachedVersion(fixture.getContainerId()).latestVersion()).isEqualTo("2.0");
+        wireMockClient()
+                .stubFor(get(urlEqualTo(TAGS)).atPriority(1).willReturn(okJson("{\"results\":[{\"name\":\"3.0\"}]}")));
+        var response = new org.springframework.web.client.RestTemplate()
+                .postForEntity(porthole.baseUrl() + "/api/versions/refresh", null, String.class);
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.ACCEPTED);
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() ->
+                        assertThat(listedFixture().version().latestVersion()).isEqualTo("3.0"));
     }
 
     @Test

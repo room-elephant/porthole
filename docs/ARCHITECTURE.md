@@ -227,6 +227,15 @@ never waits for registry HTTP or version inspection. Shared registry catalogue
 caches remain keyed by normalized registry/repository; installed version/digest
 comparisons and final update decisions remain specific to the container/source.
 
+`POST /api/versions/refresh` returns `202 Accepted` and queues immediate version
+checks across all configured Docker sources. It bypasses the refresh interval and
+invalidates the shared registry version catalogue cache in the background; pending
+manual scans and active container checks are reused. Existing results remain visible
+while checks run, and updated results are available through `GET /api/containers`. The **Version updates** section in
+Porthole settings provides a **Check versions now** button with request progress,
+confirmation, and retryable error feedback. The dashboard's regular polling picks
+up completed checks.
+
 `/actuator/health/docker` probes sources concurrently with a one-second common
 deadline and exposes per-source status in `details.sources`. At most one ping per
 source is in flight, including pings that exceed a health request's deadline.
