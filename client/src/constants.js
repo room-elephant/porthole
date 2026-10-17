@@ -1,9 +1,9 @@
 export const STORAGE_KEYS = {
   SHOW_ALL: 'porthole_showAll',
   SHOW_STOPPED: 'porthole_showStopped',
-  ENDPOINT_PREF: (name) => `endpoint_pref_${name}`,
+  ENDPOINT_PREF: (sourceId, name) => `endpoint_pref_v2_${JSON.stringify([sourceId, name])}`,
   PORT_PREF: (name) => `port_pref_${name}`,
-  VERSION_CHECK: (name) => `version_check_${name}`,
+  VERSION_CHECK: (sourceId, name) => `version_check_v2_${JSON.stringify([sourceId, name])}`,
 };
 
 export const API = {

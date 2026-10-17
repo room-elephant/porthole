@@ -34,6 +34,7 @@ describe('api', () => {
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
         params: { includeWithoutEndpoints: false, includeStopped: false },
+        timeout: 0,
         signal: undefined,
       });
       expect(result).toEqual(mockData);
@@ -47,6 +48,7 @@ describe('api', () => {
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
         params: { includeWithoutEndpoints: true, includeStopped: true },
+        timeout: 0,
         signal: undefined,
       });
       expect(result).toEqual(mockData);
@@ -61,6 +63,7 @@ describe('api', () => {
 
       expect(mockGet).toHaveBeenCalledWith('/api/containers', {
         params: { includeWithoutEndpoints: false, includeStopped: false },
+        timeout: 0,
         signal: controller.signal,
       });
     });

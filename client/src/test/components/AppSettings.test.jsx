@@ -9,7 +9,7 @@ describe('AppSettings', () => {
     onToggleShowStopped: vi.fn(),
     onToggleShowAll: vi.fn(),
     onClose: vi.fn(),
-    dockerStatus: 'UP',
+    sources: [{id:'local',name:'Local',status:'UP'}],
   };
 
   beforeEach(() => {
@@ -23,33 +23,33 @@ describe('AppSettings', () => {
 
   describe('Docker Status', () => {
     it('should show Connected when status is UP', () => {
-      render(<AppSettings {...defaultProps} dockerStatus="UP" />);
-      expect(screen.getByText('Docker: Connected')).toBeInTheDocument();
+      render(<AppSettings {...defaultProps} sources={[{id:'local',name:'Local',status:'UP'}]} />);
+      expect(screen.getByText('Local: Connected')).toBeInTheDocument();
     });
 
     it('should show Unavailable when status is DOWN', () => {
-      render(<AppSettings {...defaultProps} dockerStatus="DOWN" />);
-      expect(screen.getByText('Docker: Unavailable')).toBeInTheDocument();
+      render(<AppSettings {...defaultProps} sources={[{id:'local',name:'Local',status:'DOWN'}]} />);
+      expect(screen.getByText('Local: Unavailable')).toBeInTheDocument();
     });
 
     it('should show Checking... when status is CHECKING', () => {
-      render(<AppSettings {...defaultProps} dockerStatus="CHECKING" />);
-      expect(screen.getByText('Docker: Checking...')).toBeInTheDocument();
+      render(<AppSettings {...defaultProps} sources={[{id:'local',name:'Local',status:'CHECKING'}]} />);
+      expect(screen.getByText('Local: Checking...')).toBeInTheDocument();
     });
 
     it('should show Unknown for unknown status', () => {
-      render(<AppSettings {...defaultProps} dockerStatus="UNKNOWN" />);
-      expect(screen.getByText('Docker: Unknown')).toBeInTheDocument();
+      render(<AppSettings {...defaultProps} sources={[{id:'local',name:'Local',status:'UNKNOWN'}]} />);
+      expect(screen.getByText('Local: Unknown')).toBeInTheDocument();
     });
 
     it('should show status indicator with correct class for UP', () => {
-      render(<AppSettings {...defaultProps} dockerStatus="UP" />);
+      render(<AppSettings {...defaultProps} sources={[{id:'local',name:'Local',status:'UP'}]} />);
       const indicator = document.querySelector('.status-indicator');
       expect(indicator).toHaveClass('status-running');
     });
 
     it('should show status indicator with correct class for DOWN', () => {
-      render(<AppSettings {...defaultProps} dockerStatus="DOWN" />);
+      render(<AppSettings {...defaultProps} sources={[{id:'local',name:'Local',status:'DOWN'}]} />);
       const indicator = document.querySelector('.status-indicator');
       expect(indicator).toHaveClass('status-stopped');
     });
