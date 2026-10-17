@@ -16,7 +16,11 @@ public final class ImageUtils {
      * Example: "nginx:1.25" → "1.25", "redis" → "latest"
      */
     public static @NonNull String extractTag(@NonNull String image) {
-        return ImageReference.tryParse(image).map(ImageReference::lookupTag).orElse(LATEST);
+        var reference = ImageReference.tryParse(image);
+        if (reference.isEmpty()) return LATEST;
+        String tag = reference.get().lookupTag();
+        if (tag == null) return LATEST;
+        return tag;
     }
 
     /**

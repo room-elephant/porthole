@@ -232,10 +232,10 @@ class ContainerMapperTest {
                         "custom.metadata", "retained"),
                 model.labels());
         assertTrue(model.urlCandidates().isEmpty());
-        assertThrows(UnsupportedOperationException.class, () -> model.labels().clear());
-        assertThrows(
-                UnsupportedOperationException.class,
-                () -> model.publishedPorts().clear());
+        var immutableLabels = model.labels();
+        assertThrows(UnsupportedOperationException.class, immutableLabels::clear);
+        var immutablePorts = model.publishedPorts();
+        assertThrows(UnsupportedOperationException.class, immutablePorts::clear);
     }
 
     @Test

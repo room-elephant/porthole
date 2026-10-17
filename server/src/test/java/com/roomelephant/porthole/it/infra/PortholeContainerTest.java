@@ -19,9 +19,8 @@ class PortholeContainerTest {
         String previous = System.getProperty("native.agent.output.dir");
         System.setProperty("native.agent.output.dir", recordings.toString());
         Path existingLock = Files.writeString(recordings.resolve(".lock"), "owned by another agent");
-        try {
-            PortholeContainer first = new PortholeContainer(1234);
-            PortholeContainer second = new PortholeContainer(1234);
+        try (PortholeContainer first = new PortholeContainer(1234);
+                PortholeContainer second = new PortholeContainer(1234)) {
             String firstDirectory = first.getBinds().stream()
                     .filter(bind -> bind.getVolume().getPath().equals("/tmp/native-hints"))
                     .findFirst()
@@ -45,8 +44,7 @@ class PortholeContainerTest {
     void shouldRecordCustomSocketApplicationsToo() {
         String previous = System.getProperty("native.agent.output.dir");
         System.setProperty("native.agent.output.dir", recordings.toString());
-        try {
-            GenericContainer<?> app = PortholeContainer.withCustomSocket("/tmp/missing.sock", 1234);
+        try (GenericContainer<?> app = PortholeContainer.withCustomSocket("/tmp/missing.sock", 1234)) {
             assertThat(app.getEnvMap().get("JAVA_TOOL_OPTIONS")).contains("native-image-agent");
             assertThat(app.getBinds()).hasSize(1);
             assertThat(app.getEnvMap()).containsEntry("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "unix:///tmp/missing.sock");

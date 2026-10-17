@@ -194,10 +194,9 @@ class VersionServiceTest {
             when(inspectContainerCmd.exec())
                     .thenThrow(new com.github.dockerjava.api.exception.NotFoundException("Not found"));
 
-            NotFoundException exception = assertThrows(
-                    NotFoundException.class,
-                    () -> versionService.getVersionInfo(
-                            new com.roomelephant.porthole.domain.model.ContainerKey("local", "unknown")));
+            var key = new com.roomelephant.porthole.domain.model.ContainerKey("local", "unknown");
+            NotFoundException exception =
+                    assertThrows(NotFoundException.class, () -> versionService.getVersionInfo(key));
 
             assertEquals("unknown", exception.getContainerId());
         }
@@ -208,10 +207,8 @@ class VersionServiceTest {
             when(dockerClient.inspectContainerCmd("container1")).thenReturn(inspectContainerCmd);
             when(inspectContainerCmd.exec()).thenThrow(new RuntimeException("Docker error"));
 
-            assertThrows(
-                    UnexpectedException.class,
-                    () -> versionService.getVersionInfo(
-                            new com.roomelephant.porthole.domain.model.ContainerKey("local", "container1")));
+            var key = new com.roomelephant.porthole.domain.model.ContainerKey("local", "container1");
+            assertThrows(UnexpectedException.class, () -> versionService.getVersionInfo(key));
         }
 
         @Test
@@ -386,10 +383,8 @@ class VersionServiceTest {
             when(registryService.isTagChanged(eq("nginx:1.25"), anyList()))
                     .thenThrow(new RuntimeException("Network error"));
 
-            assertThrows(
-                    RuntimeException.class,
-                    () -> versionService.getVersionInfo(
-                            new com.roomelephant.porthole.domain.model.ContainerKey("local", "container1")));
+            var key = new com.roomelephant.porthole.domain.model.ContainerKey("local", "container1");
+            assertThrows(RuntimeException.class, () -> versionService.getVersionInfo(key));
         }
 
         @Test
@@ -419,10 +414,8 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
 
-            assertThrows(
-                    RuntimeException.class,
-                    () -> versionService.getVersionInfo(
-                            new com.roomelephant.porthole.domain.model.ContainerKey("local", "container1")));
+            var key = new com.roomelephant.porthole.domain.model.ContainerKey("local", "container1");
+            assertThrows(RuntimeException.class, () -> versionService.getVersionInfo(key));
         }
 
         @Test
@@ -442,19 +435,20 @@ class VersionServiceTest {
         }
 
         @Test
-        @DisplayName("should not detect update when remote digest is null")
-        void shouldNotDetectUpdateWhenRemoteDigestIsNull() {
+        @DisplayName("should not detect update without registry version metadata")
+        void shouldNotDetectUpdateWithoutRegistryVersionMetadata() {
             setupContainerWithImage("nginx:1.25");
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
-            when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.25");
+            when(registryService.getLatestVersion("nginx:1.25")).thenReturn(null);
             when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
 
             VersionInfo result = versionService.getVersionInfo(
                     new com.roomelephant.porthole.domain.model.ContainerKey("local", "container1"));
 
             assertFalse(result.updateAvailable());
+            assertNull(result.latestVersion());
         }
 
         @Test

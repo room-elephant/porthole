@@ -14,7 +14,8 @@ public class PublishedHostResolver {
     }
 
     public String resolve(com.roomelephant.porthole.domain.model.ContainerContext context) {
-        return context.publishedHost() == null ? resolve(context.host()) : context.publishedHost();
+        String publishedHost = context.publishedHost();
+        return publishedHost == null ? resolve(context.host()) : publishedHost;
     }
 
     public String resolve(String requestHostname) {

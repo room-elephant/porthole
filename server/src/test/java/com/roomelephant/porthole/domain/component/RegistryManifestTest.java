@@ -107,7 +107,8 @@ class RegistryManifestTest {
     @org.junit.jupiter.api.Test
     void registryOutageIsNotACompletedNoUpdateCheck() {
         server.expect(requestTo(BASE + "v2/library/nginx/manifests/latest")).andRespond(withServerError());
-        assertThrows(RuntimeException.class, () -> service.isTagChanged("nginx:latest", List.of(A)));
+        var digests = List.of(A);
+        assertThrows(RuntimeException.class, () -> service.isTagChanged("nginx:latest", digests));
         server.verify();
     }
 
@@ -116,7 +117,8 @@ class RegistryManifestTest {
         server.reset();
         server.expect(requestTo(BASE + "auth?scope=repository:library/nginx:pull"))
                 .andRespond(withResourceNotFound());
-        assertThrows(RuntimeException.class, () -> service.isTagChanged("nginx:latest", List.of(A)));
+        var digests = List.of(A);
+        assertThrows(RuntimeException.class, () -> service.isTagChanged("nginx:latest", digests));
         server.verify();
     }
 

@@ -42,7 +42,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
                     try {
                         if (!release.await(30, TimeUnit.SECONDS))
                             throw new IllegalStateException("Test did not release registry response");
-                    } catch (InterruptedException e) {
+                    } catch (InterruptedException _) {
                         Thread.currentThread().interrupt();
                     }
                 }

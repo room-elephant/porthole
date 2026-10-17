@@ -83,7 +83,7 @@ public final class NativeHintsMerger {
                     output.resolve(METADATA),
                     StandardCopyOption.ATOMIC_MOVE,
                     StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException e) {
+        } catch (AtomicMoveNotSupportedException _) {
             Files.move(staged, output.resolve(METADATA), StandardCopyOption.REPLACE_EXISTING);
         }
         System.out.println("Merged native hints from " + inputs.size() + " application instances into " + output);

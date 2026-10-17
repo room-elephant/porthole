@@ -18,14 +18,16 @@ class DockerConfigTest {
 
     @Test
     void registryRejectsEmptyDuplicateAndUnknownSources() {
-        assertThatThrownBy(() -> new DockerSourceRegistry(List.of())).isInstanceOf(IllegalArgumentException.class);
+        List<com.roomelephant.porthole.domain.model.DockerSource> emptySources = List.of();
+        assertThatThrownBy(() -> new DockerSourceRegistry(emptySources)).isInstanceOf(IllegalArgumentException.class);
         var client = mock(DockerClient.class);
         var source = new com.roomelephant.porthole.domain.model.DockerSource(
                 "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), client);
-        assertThatThrownBy(() -> new DockerSourceRegistry(List.of(source, source)))
+        var duplicateSources = List.of(source, source);
+        assertThatThrownBy(() -> new DockerSourceRegistry(duplicateSources))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new DockerSourceRegistry(List.of(source)).require("missing"))
-                .hasMessageContaining("missing");
+        var registry = new DockerSourceRegistry(List.of(source));
+        assertThatThrownBy(() -> registry.require("missing")).hasMessageContaining("missing");
     }
 
     @Test

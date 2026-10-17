@@ -1,6 +1,5 @@
 package com.roomelephant.porthole.domain.util;
 
-import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.TimeoutException;

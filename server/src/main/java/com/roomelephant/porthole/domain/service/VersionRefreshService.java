@@ -3,6 +3,7 @@ package com.roomelephant.porthole.domain.service;
 import com.roomelephant.porthole.config.properties.VersionProperties;
 import com.roomelephant.porthole.domain.component.DockerSourceRegistry;
 import com.roomelephant.porthole.domain.model.ContainerKey;
+import com.roomelephant.porthole.domain.model.DockerSource;
 import com.roomelephant.porthole.domain.model.VersionInfo;
 import com.roomelephant.porthole.domain.model.exception.NotFoundException;
 import jakarta.annotation.PreDestroy;
@@ -103,7 +104,7 @@ public class VersionRefreshService implements AutoCloseable {
     public synchronized void forceRefresh() {
         if (closed) throw new RejectedExecutionException("Version refresh service is closed");
         var pending = sources.sources().stream()
-                .map(source -> source.id())
+                .map(DockerSource::id)
                 .filter(id -> !forcedScans.contains(id))
                 .toList();
         if (pending.isEmpty()) return;
@@ -197,7 +198,7 @@ public class VersionRefreshService implements AutoCloseable {
         entry.inFlight = check;
         try {
             workers.execute(() -> resolve(id, entry, check));
-        } catch (RejectedExecutionException e) {
+        } catch (RejectedExecutionException _) {
             entry.inFlight = null;
             entry.retryAt = clock.instant().plus(properties.refreshInterval());
             check.complete(null);
@@ -214,7 +215,7 @@ public class VersionRefreshService implements AutoCloseable {
             synchronized (this) {
                 if (!closed && entries.get(id) == entry) entry.value = result;
             }
-        } catch (NotFoundException e) {
+        } catch (NotFoundException _) {
             synchronized (this) {
                 entries.remove(id, entry);
             }

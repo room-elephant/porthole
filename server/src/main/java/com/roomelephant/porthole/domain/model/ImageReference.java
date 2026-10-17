@@ -16,11 +16,12 @@ public record ImageReference(
         String repository,
         @Nullable String tag,
         @Nullable String digest) {
-    private static final Set<String> HUB = Set.of("docker.io", "index.docker.io", "registry-1.docker.io");
-    private static final String COMPONENT = "[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*";
-    private static final Pattern REPOSITORY = Pattern.compile(COMPONENT + "(?:/" + COMPONENT + ")*");
-    private static final Pattern TAG = Pattern.compile("[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}");
-    private static final Pattern DIGEST = Pattern.compile("(?:sha256:[a-f0-9]{64}|sha512:[a-f0-9]{128})");
+    private static final String DOCKER_HUB = "docker.io";
+    private static final Set<String> HUB = Set.of(DOCKER_HUB, "index.docker.io", "registry-1.docker.io");
+    private static final String COMPONENT = "[a-z0-9]++(?:(?:\\.|_{1,2}|-++)[a-z0-9]++)*+";
+    private static final Pattern REPOSITORY_PATTERN = Pattern.compile(COMPONENT + "(?:/" + COMPONENT + ")*+");
+    private static final Pattern TAG_PATTERN = Pattern.compile("\\w[\\w.-]{0,127}");
+    private static final Pattern DIGEST_PATTERN = Pattern.compile("(?:sha256:[a-f0-9]{64}|sha512:[a-f0-9]{128})");
 
     public static Optional<ImageReference> tryParse(@Nullable String input) {
         if (input == null
@@ -30,33 +31,40 @@ public record ImageReference(
             return Optional.empty();
         }
         String[] parts = input.split("@", -1);
-        if (parts.length > 2 || (parts.length == 2 && !DIGEST.matcher(parts[1]).matches())) return Optional.empty();
+        if (parts.length > 2
+                || (parts.length == 2 && !DIGEST_PATTERN.matcher(parts[1]).matches())) return Optional.empty();
         String name = parts[0];
         String digest = parts.length == 2 ? parts[1] : null;
         String tag = null;
         int colon = name.lastIndexOf(':');
         if (colon > name.lastIndexOf('/')) {
             tag = name.substring(colon + 1);
-            if (!TAG.matcher(tag).matches()) return Optional.empty();
+            if (!TAG_PATTERN.matcher(tag).matches()) return Optional.empty();
             name = name.substring(0, colon);
         }
-        String registry = "docker.io";
+        return resolveName(name, tag, digest);
+    }
+
+    private static Optional<ImageReference> resolveName(String name, @Nullable String tag, @Nullable String digest) {
+        String registry = DOCKER_HUB;
         int slash = name.indexOf('/');
-        if (slash >= 0) {
+        if (slash >= 0 && isRegistryPrefix(name.substring(0, slash))) {
             String prefix = name.substring(0, slash);
-            if (prefix.equals("localhost")
-                    || prefix.contains(".")
-                    || prefix.contains(":")
-                    || !prefix.equals(prefix.toLowerCase(Locale.ROOT))) {
-                if (!validAuthority(prefix)) return Optional.empty();
-                registry = prefix.toLowerCase(Locale.ROOT);
-                name = name.substring(slash + 1);
-            }
+            if (!validAuthority(prefix)) return Optional.empty();
+            registry = prefix.toLowerCase(Locale.ROOT);
+            name = name.substring(slash + 1);
         }
-        if (HUB.contains(registry)) registry = "docker.io";
-        if (registry.equals("docker.io") && !name.contains("/")) name = "library/" + name;
-        if (name.length() > 255 || !REPOSITORY.matcher(name).matches()) return Optional.empty();
+        if (HUB.contains(registry)) registry = DOCKER_HUB;
+        if (registry.equals(DOCKER_HUB) && !name.contains("/")) name = "library/" + name;
+        if (name.length() > 255 || !REPOSITORY_PATTERN.matcher(name).matches()) return Optional.empty();
         return Optional.of(new ImageReference(registry, name, tag, digest));
+    }
+
+    private static boolean isRegistryPrefix(String prefix) {
+        return prefix.equals("localhost")
+                || prefix.contains(".")
+                || prefix.contains(":")
+                || !prefix.equals(prefix.toLowerCase(Locale.ROOT));
     }
 
     private static boolean validAuthority(String authority) {
@@ -68,7 +76,7 @@ public record ImageReference(
                     && uri.getRawFragment() == null
                     && uri.getRawPath().isEmpty()
                     && (uri.getPort() == -1 || (uri.getPort() > 0 && uri.getPort() <= 65535));
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return false;
         }
     }
@@ -82,12 +90,13 @@ public record ImageReference(
     }
 
     public @Nullable String lookupTag() {
-        return digest != null ? null : tag == null ? "latest" : tag;
+        if (digest != null) return null;
+        return tag == null ? "latest" : tag;
     }
 
     public boolean supportsUpdates() {
         return digest == null
-                && (registry.equals("docker.io") || (registry.equals("ghcr.io") && repository.contains("/")));
+                && (registry.equals(DOCKER_HUB) || (registry.equals("ghcr.io") && repository.contains("/")));
     }
 
     public List<String> matchingDigests(List<String> repoDigests) {

@@ -107,18 +107,22 @@ public class RegistryService {
             for (String digest : localDigests) {
                 if (!validDigest(digest)
                         || !digest.split(":", 2)[0].equals(remoteDigest.split(":", 2)[0])) continue;
-                try {
-                    var local = requestHead(digest, image.get(), token);
-                    if (digest.equals(local.getHeaders().getFirst(DOCKER_CONTENT_DIGEST))
-                            && manifestLevel(local) == remoteLevel) return true;
-                } catch (HttpClientErrorException.NotFound e) {
-                    // A manifest removed by the registry supplies no comparison evidence.
-                }
+                if (hasManifestAtLevel(digest, image.get(), token, remoteLevel)) return true;
             }
-        } catch (HttpClientErrorException.NotFound e) {
+        } catch (HttpClientErrorException.NotFound _) {
             // Missing remote metadata is not evidence of a changed image.
         }
         return false;
+    }
+
+    private boolean hasManifestAtLevel(String digest, ImageReference image, String token, int level) {
+        try {
+            var local = requestHead(digest, image, token);
+            return digest.equals(local.getHeaders().getFirst(DOCKER_CONTENT_DIGEST)) && manifestLevel(local) == level;
+        } catch (HttpClientErrorException.NotFound _) {
+            // A manifest removed by the registry supplies no comparison evidence.
+            return false;
+        }
     }
 
     private static boolean validDigest(@Nullable String digest) {
@@ -191,8 +195,9 @@ public class RegistryService {
                     throw new IllegalStateException("Registry catalogue exceeded the read budget");
                 }
                 best = RegistryTagPage.higherTag(best, result.best());
-                if (result.next() == null) return best;
-                next = result.next();
+                URI following = result.next();
+                if (following == null) return best;
+                next = following;
             }
         } catch (HttpClientErrorException.NotFound e) {
             if (next.equals(first)) return null;

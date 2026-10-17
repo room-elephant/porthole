@@ -47,9 +47,9 @@ public class DockerHealthIndicator implements HealthIndicator, AutoCloseable {
             boolean up = false;
             try {
                 up = entry.getValue().get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
-            } catch (ExecutionException | TimeoutException | CancellationException e) {
+            } catch (ExecutionException | TimeoutException | CancellationException _) {
                 /* Report only a public connectivity outcome. */
             }
             anyUp |= up;
@@ -72,7 +72,7 @@ public class DockerHealthIndicator implements HealthIndicator, AutoCloseable {
         try {
             source.client().pingCmd().exec();
             return true;
-        } catch (RuntimeException e) {
+        } catch (RuntimeException _) {
             return false;
         }
     }

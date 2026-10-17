@@ -13,14 +13,22 @@ public final class Container {
     private final String name;
     private final String displayName;
     private final String image;
-    private final Set<Integer> publishedPorts;
-    private final Map<String, String> labels;
+    private final Details details;
     private List<Endpoint> urlCandidates;
     private @Nullable VersionInfo version;
-    private final String iconUrl;
-    private final @Nullable String project;
-    private final @Nullable String state;
-    private final @Nullable String status;
+
+    public record Details(
+            Set<Integer> publishedPorts,
+            Map<String, String> labels,
+            String iconUrl,
+            @Nullable String project,
+            @Nullable String state,
+            @Nullable String status) {
+        public Details {
+            publishedPorts = Set.copyOf(publishedPorts);
+            labels = Map.copyOf(labels);
+        }
+    }
 
     public Container(
             String id,
@@ -28,25 +36,15 @@ public final class Container {
             String name,
             String displayName,
             String image,
-            Set<Integer> publishedPorts,
-            Map<String, String> labels,
-            List<Endpoint> urlCandidates,
-            String iconUrl,
-            @Nullable String project,
-            @Nullable String state,
-            @Nullable String status) {
+            Details details,
+            List<Endpoint> urlCandidates) {
         this.id = id;
         this.sourceId = sourceId;
         this.name = name;
         this.displayName = displayName;
         this.image = image;
-        this.publishedPorts = Set.copyOf(publishedPorts);
-        this.labels = Map.copyOf(labels);
+        this.details = details;
         this.urlCandidates = List.copyOf(urlCandidates);
-        this.iconUrl = iconUrl;
-        this.project = project;
-        this.state = state;
-        this.status = status;
     }
 
     public String sourceId() {
@@ -70,11 +68,11 @@ public final class Container {
     }
 
     public Set<Integer> publishedPorts() {
-        return publishedPorts;
+        return details.publishedPorts();
     }
 
     public Map<String, String> labels() {
-        return labels;
+        return details.labels();
     }
 
     public List<Endpoint> urlCandidates() {
@@ -90,19 +88,19 @@ public final class Container {
     }
 
     public String iconUrl() {
-        return iconUrl;
+        return details.iconUrl();
     }
 
     public @Nullable String project() {
-        return project;
+        return details.project();
     }
 
     public @Nullable String state() {
-        return state;
+        return details.state();
     }
 
     public @Nullable String status() {
-        return status;
+        return details.status();
     }
 
     public void setUrlCandidates(List<Endpoint> candidates) {

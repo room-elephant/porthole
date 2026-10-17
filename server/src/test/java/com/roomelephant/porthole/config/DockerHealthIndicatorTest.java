@@ -28,7 +28,7 @@ class DockerHealthIndicatorTest {
         try (var health =
                 new DockerHealthIndicator(new DockerSourceRegistry(List.of(source("a", a), source("b", b))))) {
             var result = health.health();
-            assertThat(result.getStatus().toString()).isEqualTo("UP");
+            assertThat(result.getStatus()).hasToString("UP");
             assertThat(result.getDetails().toString())
                     .contains("sources", "DOWN")
                     .doesNotContain("secret.sock");
@@ -40,12 +40,12 @@ class DockerHealthIndicatorTest {
         var client = mock(DockerClient.class);
         when(client.pingCmd()).thenThrow(new RuntimeException("secret"));
         try (var health = new DockerHealthIndicator(new DockerSourceRegistry(List.of(source("a", client))))) {
-            assertThat(health.health().getStatus().toString()).isEqualTo("DOWN");
+            assertThat(health.health().getStatus()).hasToString("DOWN");
         }
     }
 
     @Test
-    void repeatedRequestsReuseOneSlowProbeAndRemainBounded() throws Exception {
+    void repeatedRequestsReuseOneSlowProbeAndRemainBounded() {
         var client = mock(DockerClient.class);
         var ping = mock(PingCmd.class);
         when(client.pingCmd()).thenReturn(ping);

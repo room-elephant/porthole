@@ -64,7 +64,8 @@ public abstract class IntegrationTestBase {
         if (porthole == null || !porthole.isRunning()) return;
         try {
             Files.writeString(Path.of("target/porthole-" + getClass().getSimpleName() + ".log"), porthole.getLogs());
-        } catch (Exception ignored) {
+        } catch (Exception _) {
+            // Log collection is best effort; cleanup must still stop the application.
         }
         porthole.stop();
     }

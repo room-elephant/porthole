@@ -14,6 +14,9 @@ class ImageReferenceTest {
     @ParameterizedTest
     @CsvSource({
         "nginx,docker.io/library/nginx,latest,true",
+        "a_b,docker.io/library/a_b,latest,true",
+        "a__b,docker.io/library/a__b,latest,true",
+        "a---b,docker.io/library/a---b,latest,true",
         "docker.io/nginx:1.25,docker.io/library/nginx,1.25,true",
         "index.docker.io/nginx,docker.io/library/nginx,latest,true",
         "registry-1.docker.io/library/nginx,docker.io/library/nginx,latest,true",
@@ -57,6 +60,10 @@ class ImageReferenceTest {
                 "user/UPPER",
                 "host:bad/app",
                 "user//app",
+                "a___b",
+                "a_",
+                "a-",
+                "a.",
                 "user/app/"
             })
     void rejectsMalformedReferences(String value) {
