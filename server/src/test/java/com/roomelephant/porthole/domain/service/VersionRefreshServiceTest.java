@@ -225,14 +225,17 @@ class VersionRefreshServiceTest {
             now = now.plus(duration);
         }
 
+        @Override
         public Instant instant() {
             return now;
         }
 
+        @Override
         public ZoneId getZone() {
             return ZoneOffset.UTC;
         }
 
+        @Override
         public Clock withZone(ZoneId zone) {
             return this;
         }
@@ -242,6 +245,7 @@ class VersionRefreshServiceTest {
         final Queue<Runnable> tasks = new ArrayDeque<>();
         boolean shutdown;
 
+        @Override
         public void execute(Runnable task) {
             if (shutdown) throw new RejectedExecutionException();
             tasks.add(task);
@@ -251,10 +255,12 @@ class VersionRefreshServiceTest {
             while (!tasks.isEmpty()) tasks.remove().run();
         }
 
+        @Override
         public void shutdown() {
             shutdown = true;
         }
 
+        @Override
         public List<Runnable> shutdownNow() {
             shutdown = true;
             var pending = List.copyOf(tasks);
@@ -262,14 +268,17 @@ class VersionRefreshServiceTest {
             return pending;
         }
 
+        @Override
         public boolean isShutdown() {
             return shutdown;
         }
 
+        @Override
         public boolean isTerminated() {
             return shutdown;
         }
 
+        @Override
         public boolean awaitTermination(long timeout, TimeUnit unit) {
             return shutdown;
         }

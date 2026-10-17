@@ -29,10 +29,12 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
     @Override
     protected WireMockConfiguration registryConfiguration() {
         return super.registryConfiguration().extensions(new ServeEventListener() {
+            @Override
             public String getName() {
                 return "version-check-gate";
             }
 
+            @Override
             public void afterMatch(ServeEvent event, Parameters parameters) {
                 if (!event.getRequest().getUrl().equals(TAGS)) return;
                 entered.countDown();
@@ -46,6 +48,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
                 }
             }
 
+            @Override
             public void afterComplete(ServeEvent event, Parameters parameters) {
                 if (event.getRequest().getUrl().equals(TAGS)) completed.countDown();
             }
