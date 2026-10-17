@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Modal from '../../components/Modal';
+import userEvent from '@testing-library/user-event';
 
 describe('Modal', () => {
   const defaultProps = {
@@ -20,7 +21,7 @@ describe('Modal', () => {
     const onClose = vi.fn();
     render(<Modal {...defaultProps} onClose={onClose} />);
 
-    const overlay = document.querySelector('.modal-overlay');
+    const overlay = screen.getByRole('button', { name: 'Close dialog' });
     fireEvent.click(overlay);
 
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -48,8 +49,43 @@ describe('Modal', () => {
     render(<Modal {...defaultProps} />);
 
     const dialog = screen.getByRole('dialog');
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(dialog).toHaveAttribute('open');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(dialog).toHaveAttribute('aria-labelledby', 'modal-title');
+  });
+
+  it('allows keyboard dismissal through the backdrop button', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<Modal {...defaultProps} onClose={onClose} />);
+
+    screen.getByRole('button', { name: 'Close dialog' }).focus();
+    await user.keyboard('{Enter}');
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles the native dialog cancel event', () => {
+    const onClose = vi.fn();
+    render(<Modal {...defaultProps} onClose={onClose} />);
+
+    fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores focus to the opener when dismissed', () => {
+    const opener = document.createElement('button');
+    document.body.append(opener);
+    opener.focus();
+    const { unmount } = render(<Modal {...defaultProps} />);
+    expect(opener).not.toHaveFocus();
+
+    unmount();
+
+    expect(opener).toHaveFocus();
+    opener.remove();
   });
 
   it('should apply custom className', () => {

@@ -23,7 +23,7 @@ public final class EndpointUrls {
             URI uri = new URI("http", null, host, -1, "/", null, null);
             String expectedHost = host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
             return uri.getHost() != null && uri.getHost().equalsIgnoreCase(expectedHost);
-        } catch (URISyntaxException | IllegalArgumentException e) {
+        } catch (URISyntaxException | IllegalArgumentException _) {
             return false;
         }
     }

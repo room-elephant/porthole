@@ -2,6 +2,7 @@ package com.roomelephant.porthole.domain.component.endpoint;
 
 import com.roomelephant.porthole.domain.util.EndpointUrls;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -15,30 +16,10 @@ public class TraefikRuleParser {
     private record Matcher(String name, String value) {}
 
     public Optional<Route> parse(String rule) {
-        Input input = new Input(rule);
-        ArrayList<Matcher> matchers = new ArrayList<Matcher>();
-        boolean expectTerm = true;
-        int groups = 0;
-        while (!input.end()) {
-            if (expectTerm) {
-                if (input.take("(")) {
-                    groups++;
-                    continue;
-                }
-                Optional<Matcher> matcher = input.matcher();
-                if (matcher.isEmpty() || matchers.size() == 2) return Optional.empty();
-                matchers.add(matcher.get());
-                expectTerm = false;
-            } else if (input.take(")")) {
-                if (groups == 0) return Optional.empty();
-                groups--;
-            } else if (input.take("&&")) {
-                expectTerm = true;
-            } else {
-                return Optional.empty();
-            }
-        }
-        if (expectTerm || groups != 0) return Optional.empty();
+        return new Input(rule).matchers().flatMap(this::route);
+    }
+
+    private Optional<Route> route(List<Matcher> matchers) {
         @Nullable String host = null;
         @Nullable String path = null;
         for (Matcher matcher : matchers) {
@@ -53,15 +34,56 @@ public class TraefikRuleParser {
                 path = matcher.value();
             }
         }
-        return host == null ? Optional.empty() : Optional.of(new Route(host, path == null ? "/" : path));
+        if (host == null) return Optional.empty();
+        return Optional.of(new Route(host, path == null ? "/" : path));
     }
 
     private static final class Input {
         private final String text;
         private int position;
+        private int groups;
+        private boolean expectTerm = true;
+        private final ArrayList<Matcher> matchers = new ArrayList<>();
 
         private Input(String text) {
             this.text = text;
+        }
+
+        private Optional<List<Matcher>> matchers() {
+            while (!end()) {
+                if (expectTerm) {
+                    if (!term()) return Optional.empty();
+                } else if (!operator()) {
+                    return Optional.empty();
+                }
+            }
+            if (expectTerm || groups != 0) return Optional.empty();
+            return Optional.of(matchers);
+        }
+
+        private boolean term() {
+            if (take("(")) {
+                groups++;
+                return true;
+            }
+            Optional<Matcher> matcher = matcher();
+            if (matcher.isEmpty() || matchers.size() == 2) return false;
+            matchers.add(matcher.get());
+            expectTerm = false;
+            return true;
+        }
+
+        private boolean operator() {
+            if (take(")")) {
+                if (groups == 0) return false;
+                groups--;
+                return true;
+            }
+            if (take("&&")) {
+                expectTerm = true;
+                return true;
+            }
+            return false;
         }
 
         private void whitespace() {
@@ -97,6 +119,10 @@ public class TraefikRuleParser {
             if (position == text.length()) return Optional.empty();
             char quote = text.charAt(position++);
             if (quote != 96 && quote != '"') return Optional.empty();
+            return quotedLiteral(quote);
+        }
+
+        private Optional<String> quotedLiteral(char quote) {
             StringBuilder result = new StringBuilder();
             while (position < text.length()) {
                 char character = text.charAt(position++);

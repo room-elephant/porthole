@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 @NullMarked
 @Slf4j
 public final class TraefikEndpointProvider implements EndpointProvider {
+    private static final String RULE_SUFFIX = ".rule";
     private static final String ROUTER_PREFIX = "traefik.http.routers.";
     private final TraefikRuleParser parser;
 
@@ -35,9 +36,9 @@ public final class TraefikEndpointProvider implements EndpointProvider {
         ArrayList<Endpoint> endpoints = new ArrayList<Endpoint>();
         labels.forEach((key, rule) -> {
             if (!key.startsWith(ROUTER_PREFIX)
-                    || !key.endsWith(".rule")
-                    || key.length() <= ROUTER_PREFIX.length() + ".rule".length()) return;
-            String router = key.substring(0, key.length() - ".rule".length());
+                    || !key.endsWith(RULE_SUFFIX)
+                    || key.length() <= ROUTER_PREFIX.length() + RULE_SUFFIX.length()) return;
+            String router = key.substring(0, key.length() - RULE_SUFFIX.length());
             Optional<Route> route = parser.parse(rule);
             if (route.isEmpty()) {
                 log.debug("Skipping unsupported router {} on container {}", router, container.name());

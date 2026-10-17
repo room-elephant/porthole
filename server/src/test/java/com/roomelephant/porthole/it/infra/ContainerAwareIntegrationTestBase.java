@@ -51,7 +51,8 @@ public abstract class ContainerAwareIntegrationTestBase extends IntegrationTestB
         // Uses raw docker-java because GenericContainer.stop() also removes the container
         try {
             dc.removeContainerCmd(TEST_STOPPED_CONTAINER_NAME).withForce(true).exec();
-        } catch (Exception ignored) {
+        } catch (Exception _) {
+            // A previous stopped fixture may not exist; create the fresh fixture below.
         }
         dc.createContainerCmd(PAUSE_IMAGE)
                 .withName(TEST_STOPPED_CONTAINER_NAME)

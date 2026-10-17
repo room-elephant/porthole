@@ -6,18 +6,12 @@ import java.util.List;
 import org.jspecify.annotations.NullMarked;
 
 @NullMarked
-public final class DockerSourceRegistry implements AutoCloseable {
-    private final List<DockerSource> sources;
-
-    public DockerSourceRegistry(List<DockerSource> sources) {
+public record DockerSourceRegistry(List<DockerSource> sources) implements AutoCloseable {
+    public DockerSourceRegistry {
         if (sources.isEmpty()
                 || sources.stream().map(DockerSource::id).distinct().count() != sources.size())
             throw new IllegalArgumentException("Docker sources must be nonempty and have unique IDs");
-        this.sources = List.copyOf(sources);
-    }
-
-    public List<DockerSource> sources() {
-        return sources;
+        sources = List.copyOf(sources);
     }
 
     public DockerSource require(String id) {

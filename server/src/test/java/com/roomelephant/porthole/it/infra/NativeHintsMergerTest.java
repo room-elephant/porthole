@@ -52,7 +52,8 @@ class NativeHintsMergerTest {
         Path app = Files.createDirectory(recordings.resolve("app-active"));
         Files.writeString(app.resolve("reachability-metadata.json"), "{}");
         Path lock = Files.writeString(app.resolve(".lock"), "active");
-        assertThatThrownBy(() -> NativeHintsMerger.merge(recordings, temporary.resolve("output")))
+        Path output = temporary.resolve("output");
+        assertThatThrownBy(() -> NativeHintsMerger.merge(recordings, output))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Still recording");
         assertThat(Files.readString(lock)).isEqualTo("active");
@@ -61,7 +62,8 @@ class NativeHintsMergerTest {
     @Test
     void shouldRefuseToPublishWhenThereAreNoRecordings() throws Exception {
         Path recordings = Files.createDirectory(temporary.resolve("recordings"));
-        assertThatThrownBy(() -> NativeHintsMerger.merge(recordings, temporary.resolve("output")))
+        Path output = temporary.resolve("output");
+        assertThatThrownBy(() -> NativeHintsMerger.merge(recordings, output))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No native hint recordings");
     }

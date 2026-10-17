@@ -45,6 +45,16 @@ class ContainerControllerTest {
         verify(versions).forceRefresh();
     }
 
+    @Test
+    void doesNotAllowCrossOriginRefreshPreflight() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options(
+                                "/api/versions/refresh")
+                        .header("Origin", "https://untrusted.example")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+        verifyNoInteractions(versions);
+    }
+
     @Nested
     @DisplayName("GET /api/containers")
     class GetContainers {
@@ -203,13 +213,9 @@ class ContainerControllerTest {
                 name,
                 name,
                 "nginx:latest",
-                Set.of(),
-                Map.of("secret", "internal-only"),
-                endpoints,
-                "icon",
-                "test-project",
-                "running",
-                "Up");
+                new Container.Details(
+                        Set.of(), Map.of("secret", "internal-only"), "icon", "test-project", "running", "Up"),
+                endpoints);
     }
 
     private Container createContainer(String name) {
@@ -223,14 +229,15 @@ class ContainerControllerTest {
                 name,
                 name,
                 "nginx:latest",
-                ports,
-                Map.of("secret", "internal-only"),
+                new Container.Details(
+                        ports,
+                        Map.of("secret", "internal-only"),
+                        "https://example.com/nginx.png",
+                        "test-project",
+                        "running",
+                        "Up 1 hour"),
                 ports.stream()
                         .map(port -> new Endpoint("published-port:" + port, "published-port", "http://localhost/"))
-                        .toList(),
-                "https://example.com/nginx.png",
-                "test-project",
-                "running",
-                "Up 1 hour");
+                        .toList());
     }
 }

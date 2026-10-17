@@ -16,6 +16,18 @@ class ImageUtilsTest {
     @DisplayName("extractTag")
     class ExtractTag {
 
+        @ParameterizedTest
+        @ValueSource(strings = {"nginx@", "nginx:1.25@"})
+        void pinnedImagesUseTheFallbackTag(String prefix) {
+            assertEquals("latest", ImageUtils.extractTag(prefix + "sha256:" + "a".repeat(64)));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"", "nginx:", "https://docker.io/nginx"})
+        void malformedImagesUseTheFallbackTag(String image) {
+            assertEquals("latest", ImageUtils.extractTag(image));
+        }
+
         @Test
         @DisplayName("should extract tag from image with tag")
         void shouldExtractTagFromImageWithTag() {

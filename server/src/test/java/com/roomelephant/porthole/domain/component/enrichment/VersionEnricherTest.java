@@ -18,7 +18,13 @@ class VersionEnricherTest {
 
     private Container container() {
         return new Container(
-                "a", "local", "app", "app", "nginx:1.0", Set.of(), Map.of(), List.of(), "icon", null, "running", "Up");
+                "a",
+                "local",
+                "app",
+                "app",
+                "nginx:1.0",
+                new Container.Details(Set.of(), Map.of(), "icon", null, "running", "Up"),
+                List.of());
     }
 
     @Test

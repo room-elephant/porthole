@@ -59,11 +59,12 @@ class MultipleSourcesTest {
     }
 
     @Test
-    void slowOrFailedSourceCannotDiscardHealthyResults() throws Exception {
+    void slowOrFailedSourceCannotDiscardHealthyResults() {
         var a = client();
         var b = client();
+        var release = new CountDownLatch(1);
         when(b.listContainersCmd().withShowAll(true).exec()).thenAnswer(i -> {
-            Thread.sleep(5000);
+            release.await();
             return List.of();
         });
         var registry = new DockerSourceRegistry(
@@ -79,6 +80,8 @@ class MultipleSourcesTest {
                     .extracting(SourceState::status)
                     .containsExactly(SourceStatus.DOWN, SourceStatus.UP);
             assertThat(result.sources().getFirst().error()).doesNotContain("sock");
+        } finally {
+            release.countDown();
         }
     }
 

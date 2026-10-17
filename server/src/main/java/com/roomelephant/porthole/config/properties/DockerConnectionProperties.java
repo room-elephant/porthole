@@ -38,7 +38,7 @@ public record DockerConnectionProperties(
                             && (uri.getPath() == null || uri.getPath().isEmpty());
                 default -> false;
             };
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return false;
         }
     }

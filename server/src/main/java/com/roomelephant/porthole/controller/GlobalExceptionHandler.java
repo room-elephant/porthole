@@ -14,13 +14,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+    private static final URI ABOUT_BLANK = URI.create("about:blank");
 
     @ExceptionHandler(DockerUnavailableException.class)
     public ProblemDetail handleDockerUnavailable(DockerUnavailableException ex) {
         log.error("Docker is not reachable", ex);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, "Docker is not reachable");
         problem.setTitle("Bad Gateway");
-        problem.setType(URI.create("about:blank"));
+        problem.setType(ABOUT_BLANK);
         return problem;
     }
 
@@ -30,7 +31,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Container not found: " + ex.getContainerId());
         problem.setTitle("Not Found");
-        problem.setType(URI.create("about:blank"));
+        problem.setType(ABOUT_BLANK);
         return problem;
     }
 
@@ -40,7 +41,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to inspect container");
         problem.setTitle("Internal Server Error");
-        problem.setType(URI.create("about:blank"));
+        problem.setType(ABOUT_BLANK);
         return problem;
     }
 
@@ -49,7 +50,7 @@ public class GlobalExceptionHandler {
         log.warn("Bad request: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
         problem.setTitle("Bad Request");
-        problem.setType(URI.create("about:blank"));
+        problem.setType(ABOUT_BLANK);
         return problem;
     }
 
@@ -64,7 +65,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
         problem.setTitle("Internal Server Error");
-        problem.setType(URI.create("about:blank"));
+        problem.setType(ABOUT_BLANK);
         return problem;
     }
 }

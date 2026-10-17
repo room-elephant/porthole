@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 public class ContainerMapper {
 
     private static final String LABEL_PROJECT = "com.docker.compose.project";
-    private static final Pattern REPLICA_SUFFIX = Pattern.compile("-[0-9]+$");
+    private static final Pattern REPLICA_SUFFIX = Pattern.compile("-\\d+$");
 
     private final IconComponent iconComponent;
 
@@ -79,13 +79,8 @@ public class ContainerMapper {
                 name,
                 displayName,
                 imageFull,
-                ports,
-                labels,
-                List.of(),
-                iconUrl,
-                project,
-                state,
-                status);
+                new Container.Details(ports, labels, iconUrl, project, state, status),
+                List.of());
     }
 
     private @NonNull String getName(String @Nullable [] names) {

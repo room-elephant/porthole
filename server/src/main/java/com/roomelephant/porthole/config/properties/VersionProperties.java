@@ -14,6 +14,6 @@ public record VersionProperties(Duration refreshInterval) {
             throw new IllegalArgumentException("Version refresh interval must be positive");
         }
         // Scheduling requires a duration representable in nanoseconds.
-        refreshInterval.toNanos();
+        refreshInterval = Duration.ofNanos(refreshInterval.toNanos());
     }
 }

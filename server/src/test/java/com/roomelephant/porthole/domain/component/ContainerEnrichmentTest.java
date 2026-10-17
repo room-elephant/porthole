@@ -150,7 +150,13 @@ class ContainerEnrichmentTest {
 
     private Container container(String state, Set<Integer> ports, Map<String, String> labels) {
         return new Container(
-                "id", "local", "app", "app", "app:latest", ports, labels, List.of(), "icon", null, state, "Up");
+                "id",
+                "local",
+                "app",
+                "app",
+                "app:latest",
+                new Container.Details(ports, labels, "icon", null, state, "Up"),
+                List.of());
     }
 
     @Configuration(proxyBeanMethods = false)

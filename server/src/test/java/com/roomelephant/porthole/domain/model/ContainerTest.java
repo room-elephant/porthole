@@ -20,13 +20,9 @@ class ContainerTest {
                 "app",
                 "app",
                 "app:latest",
-                Set.of(8080),
-                Map.of("custom.metadata", "retained"),
-                initial,
-                "icon",
-                null,
-                "running",
-                "Up");
+                new Container.Details(
+                        Set.of(8080), Map.of("custom.metadata", "retained"), "icon", null, "running", "Up"),
+                initial);
         initial.clear();
         assertThat(container.urlCandidates()).containsExactly(original);
         List<Endpoint> beforeEnrichment = container.urlCandidates();
@@ -40,6 +36,7 @@ class ContainerTest {
         assertThat(beforeEnrichment).containsExactly(original);
         assertThat(container.labels()).containsEntry("custom.metadata", "retained");
         assertThat(container.publishedPorts()).containsExactly(8080);
-        assertThatThrownBy(() -> container.urlCandidates().clear()).isInstanceOf(UnsupportedOperationException.class);
+        var immutableCandidates = container.urlCandidates();
+        assertThatThrownBy(immutableCandidates::clear).isInstanceOf(UnsupportedOperationException.class);
     }
 }
