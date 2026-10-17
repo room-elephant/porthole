@@ -5,9 +5,10 @@ LABEL org.opencontainers.image.description="Centralized dashboard for running Do
 LABEL org.opencontainers.image.source=https://github.com/Room-Elephant/porthole
 LABEL org.opencontainers.image.licenses=MIT
 
-RUN apt-get update && apt-get install -y wget gosu && rm -rf /var/lib/apt/lists/*
-
-RUN groupadd -g 65532 nonroot && \
+RUN apt-get update && \
+    apt-get install -y wget gosu && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd -g 65532 nonroot && \
     useradd -u 65532 -g nonroot -s /bin/false nonroot
 
 WORKDIR /app
