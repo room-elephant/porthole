@@ -15,6 +15,7 @@ class ContainerDTOTest {
     void shouldReturnTrueForHasEndpointsWhenPortsArePresent() {
         ContainerDTO dto = new ContainerDTO(
                 "container-id",
+                "local",
                 "my-container",
                 "my-container",
                 "nginx:latest",
@@ -33,6 +34,7 @@ class ContainerDTOTest {
     void shouldReturnFalseForHasEndpointsWhenPortsListIsEmpty() {
         ContainerDTO dto = new ContainerDTO(
                 "container-id",
+                "local",
                 "my-container",
                 "my-container",
                 "nginx:latest",
@@ -51,6 +53,7 @@ class ContainerDTOTest {
     void shouldCorrectlyExposeAllRecordComponents() {
         ContainerDTO dto = new ContainerDTO(
                 "abc123",
+                "local",
                 "test-container",
                 "test",
                 "redis:7",

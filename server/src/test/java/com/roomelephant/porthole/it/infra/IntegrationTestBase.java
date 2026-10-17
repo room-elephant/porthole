@@ -101,6 +101,15 @@ public abstract class IntegrationTestBase {
 
     protected <T> @NotNull ResponseEntity<T> fetch(String url, Class<T> responseType) {
         startPorthole();
+        if (responseType == ContainerDTO[].class) {
+            var response = restTemplate.getForEntity(
+                    porthole.baseUrl() + url, com.roomelephant.porthole.controller.model.ContainerInventoryDTO.class);
+            @SuppressWarnings("unchecked")
+            T containers = (T) java.util.Objects.requireNonNull(response.getBody())
+                    .containers()
+                    .toArray(ContainerDTO[]::new);
+            return new ResponseEntity<>(containers, response.getHeaders(), response.getStatusCode());
+        }
         return restTemplate.getForEntity(porthole.baseUrl() + url, responseType);
     }
 

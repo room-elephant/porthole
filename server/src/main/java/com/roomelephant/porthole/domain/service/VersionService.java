@@ -12,7 +12,6 @@ import com.roomelephant.porthole.domain.model.exception.NotFoundException;
 import com.roomelephant.porthole.domain.model.exception.UnexpectedException;
 import com.roomelephant.porthole.domain.util.ImageUtils;
 import com.roomelephant.porthole.domain.util.NumericVersion;
-import java.net.SocketException;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.NonNull;
@@ -25,15 +24,18 @@ public class VersionService {
     private static final String LABEL_OCI_IMAGE_VERSION = "org.opencontainers.image.version";
     private static final String LABEL_IMAGE_VERSION = "version";
 
-    private final DockerClient dockerClient;
+    private final com.roomelephant.porthole.domain.component.DockerSourceRegistry sources;
     private final RegistryService registryService;
 
-    public VersionService(DockerClient dockerClient, RegistryService registryService) {
-        this.dockerClient = dockerClient;
+    public VersionService(
+            com.roomelephant.porthole.domain.component.DockerSourceRegistry sources, RegistryService registryService) {
+        this.sources = sources;
         this.registryService = registryService;
     }
 
-    public @NonNull VersionInfo getVersionInfo(@NonNull String containerId) {
+    public @NonNull VersionInfo getVersionInfo(com.roomelephant.porthole.domain.model.ContainerKey key) {
+        String containerId = key.containerId();
+        DockerClient dockerClient = sources.require(key.sourceId()).client();
         InspectContainerResponse container;
         try {
             container = dockerClient.inspectContainerCmd(containerId).exec();
@@ -57,7 +59,7 @@ public class VersionService {
 
         var reference = ImageReference.tryParse(imageFull).filter(ImageReference::supportsUpdates);
         if (reference.isEmpty()) return new VersionInfo(currentVersion, null, false);
-        List<String> repoDigests = getRepoDigests(container.getImageId());
+        List<String> repoDigests = getRepoDigests(dockerClient, container.getImageId());
         List<String> matchingDigests =
                 repoDigests == null ? List.of() : reference.get().matchingDigests(repoDigests);
         if (matchingDigests.isEmpty()) {
@@ -70,7 +72,7 @@ public class VersionService {
         return new VersionInfo(currentVersion, latestVersion, updateAvailable);
     }
 
-    private @Nullable List<String> getRepoDigests(@NonNull String imageId) {
+    private @Nullable List<String> getRepoDigests(DockerClient dockerClient, @NonNull String imageId) {
         InspectImageResponse inspectImage =
                 dockerClient.inspectImageCmd(imageId).exec();
         return inspectImage.getRepoDigests();
@@ -142,6 +144,6 @@ public class VersionService {
     }
 
     private boolean isDockerConnectionError(RuntimeException e) {
-        return e.getCause() instanceof SocketException;
+        return com.roomelephant.porthole.domain.util.DockerFailures.isTransportFailure(e);
     }
 }

@@ -22,9 +22,12 @@ porthole:
   versions:
     refresh-interval: 1h
   docker:
-    host: unix:///var/run/docker.sock
-    connection-timeout: 5s
-    response-timeout: 60s
+    connections:
+      - id: local
+        name: Local
+        host: unix:///var/run/docker.sock
+        connection-timeout: 5s
+        response-timeout: 60s
 
 # Icon configuration
 dashboard:

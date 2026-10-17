@@ -13,6 +13,10 @@ public class PublishedHostResolver {
         this.properties = properties;
     }
 
+    public String resolve(com.roomelephant.porthole.domain.model.ContainerContext context) {
+        return context.publishedHost() == null ? resolve(context.host()) : context.publishedHost();
+    }
+
     public String resolve(String requestHostname) {
         String override = properties.publishedHost();
         return override == null ? requestHostname : override;

@@ -1,7 +1,8 @@
 package com.roomelephant.porthole.domain.service;
 
-import com.github.dockerjava.api.DockerClient;
 import com.roomelephant.porthole.config.properties.VersionProperties;
+import com.roomelephant.porthole.domain.component.DockerSourceRegistry;
+import com.roomelephant.porthole.domain.model.ContainerKey;
 import com.roomelephant.porthole.domain.model.VersionInfo;
 import com.roomelephant.porthole.domain.model.exception.NotFoundException;
 import jakarta.annotation.PreDestroy;
@@ -30,40 +31,41 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @NullMarked
 public class VersionRefreshService implements AutoCloseable {
-    private final DockerClient dockerClient;
+    private final DockerSourceRegistry sources;
     private final VersionService versionService;
     private final VersionProperties properties;
     private final Clock clock;
     private final ExecutorService workers;
     private final ScheduledExecutorService scheduler;
-    private final Map<String, Entry> entries = new HashMap<>();
+    private final Map<ContainerKey, Entry> entries = new HashMap<>();
     private long revision;
     private boolean started;
     private boolean closed;
-    private @Nullable CompletableFuture<Void> currentScan;
+    private final Map<String, CompletableFuture<Void>> currentScans = new HashMap<>();
 
     @Autowired
     public VersionRefreshService(
-            DockerClient dockerClient, VersionService versionService, VersionProperties properties) {
+            DockerSourceRegistry sources, VersionService versionService, VersionProperties properties) {
         this(
-                dockerClient,
+                sources,
                 versionService,
                 properties,
                 Clock.systemUTC(),
                 Executors.newFixedThreadPool(
                         4, Thread.ofVirtual().name("version-check-", 0).factory()),
-                Executors.newSingleThreadScheduledExecutor(
+                Executors.newScheduledThreadPool(
+                        sources.sources().size(),
                         Thread.ofPlatform().daemon().name("version-refresh").factory()));
     }
 
     VersionRefreshService(
-            DockerClient dockerClient,
+            DockerSourceRegistry sources,
             VersionService versionService,
             VersionProperties properties,
             Clock clock,
             ExecutorService workers,
             ScheduledExecutorService scheduler) {
-        this.dockerClient = dockerClient;
+        this.sources = sources;
         this.versionService = versionService;
         this.properties = properties;
         this.clock = clock;
@@ -75,11 +77,15 @@ public class VersionRefreshService implements AutoCloseable {
     public synchronized void start() {
         if (started || closed) return;
         started = true;
-        scheduler.scheduleWithFixedDelay(
-                () -> refreshAll().join(), 0, properties.refreshInterval().toNanos(), TimeUnit.NANOSECONDS);
+        for (var source : sources.sources())
+            scheduler.scheduleWithFixedDelay(
+                    () -> refreshSource(source.id()).join(),
+                    0,
+                    properties.refreshInterval().toNanos(),
+                    TimeUnit.NANOSECONDS);
     }
 
-    public synchronized @Nullable VersionInfo getCachedVersionAndRefresh(String containerId) {
+    public synchronized @Nullable VersionInfo getCachedVersionAndRefresh(ContainerKey containerId) {
         if (closed) return null;
         Entry entry = entries.computeIfAbsent(containerId, _ -> new Entry());
         entry.observedRevision = ++revision;
@@ -88,50 +94,56 @@ public class VersionRefreshService implements AutoCloseable {
     }
 
     /** Called on the coordinator, never by HTTP handlers. Completion includes all checks in this scan. */
-    CompletableFuture<Void> refreshAll() {
+    CompletableFuture<Void> refreshSource(String sourceId) {
         CompletableFuture<Void> scan;
         long scanRevision;
         synchronized (this) {
             if (closed) return CompletableFuture.completedFuture(null);
-            if (currentScan != null) return currentScan;
+            if (currentScans.containsKey(sourceId)) return currentScans.get(sourceId);
             scan = new CompletableFuture<>();
-            currentScan = scan;
+            currentScans.put(sourceId, scan);
             scanRevision = ++revision;
         }
         try {
-            var containers = dockerClient.listContainersCmd().withShowAll(true).exec();
+            var containers = sources.require(sourceId)
+                    .client()
+                    .listContainersCmd()
+                    .withShowAll(true)
+                    .exec();
             var checks = new ArrayList<CompletableFuture<Void>>();
             synchronized (this) {
                 if (!closed) {
-                    var present = new HashSet<String>();
+                    var present = new HashSet<ContainerKey>();
                     for (var container : containers) {
-                        String id = container.getId();
-                        if (id == null) continue;
+                        String dockerId = container.getId();
+                        if (dockerId == null) continue;
+                        var id = new ContainerKey(sourceId, dockerId);
                         present.add(id);
                         Entry entry = entries.computeIfAbsent(id, _ -> new Entry());
                         checks.add(submitIfDue(id, entry));
                     }
                     entries.entrySet()
-                            .removeIf(item -> !present.contains(item.getKey())
+                            .removeIf(item -> item.getKey().sourceId().equals(sourceId)
+                                    && !present.contains(item.getKey())
                                     && item.getValue().observedRevision < scanRevision);
                 }
             }
             CompletableFuture.allOf(checks.toArray(CompletableFuture[]::new))
-                    .whenComplete((_, _) -> completeScan(scan));
+                    .whenComplete((_, _) -> completeScan(sourceId, scan));
         } catch (Exception e) {
             log.warn("Could not refresh container version inventory: {}", e.getMessage());
-            completeScan(scan);
+            completeScan(sourceId, scan);
         }
         return scan;
     }
 
-    private synchronized void completeScan(CompletableFuture<Void> scan) {
-        if (currentScan == scan) currentScan = null;
+    private synchronized void completeScan(String sourceId, CompletableFuture<Void> scan) {
+        currentScans.remove(sourceId, scan);
         scan.complete(null);
     }
 
     // Callers hold this monitor only for state transitions and task submission, never remote I/O.
-    private CompletableFuture<Void> submitIfDue(String id, Entry entry) {
+    private CompletableFuture<Void> submitIfDue(ContainerKey id, Entry entry) {
         if (entry.inFlight != null) return entry.inFlight;
         if (entry.retryAt != null && clock.instant().isBefore(entry.retryAt))
             return CompletableFuture.completedFuture(null);
@@ -147,7 +159,7 @@ public class VersionRefreshService implements AutoCloseable {
         return check;
     }
 
-    private void resolve(String id, Entry entry, CompletableFuture<Void> check) {
+    private void resolve(ContainerKey id, Entry entry, CompletableFuture<Void> check) {
         try {
             synchronized (this) {
                 if (closed || entries.get(id) != entry) return;
@@ -182,7 +194,8 @@ public class VersionRefreshService implements AutoCloseable {
             if (entry.inFlight != null) entry.inFlight.complete(null);
         }
         entries.clear();
-        if (currentScan != null) currentScan.complete(null);
+        for (var scan : currentScans.values()) scan.complete(null);
+        currentScans.clear();
     }
 
     private static final class Entry {

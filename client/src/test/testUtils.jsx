@@ -48,6 +48,7 @@ export const renderWithQuery = (ui, options = {}) => {
  */
 export const createMockContainer = (overrides = {}) => ({
   id: 'container-1',
+  sourceId: 'local',
   name: 'test-container',
   displayName: 'Test Container',
   image: 'test-image:latest',

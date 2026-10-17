@@ -167,14 +167,71 @@ This is required because the Docker Registry API expects the full path:
 
 | Endpoint                                | Method | Description                                                                                 |
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
-| `/api/containers`                       | GET    | Returns all containers. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
+| `/api/containers`                       | GET    | Returns source outcomes and containers from every configured connection. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
 | `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
 
 ### Container Endpoint Contract
 
-`GET /api/containers` returns `endpoints`, `hasEndpoints`, and a nullable `version` alongside existing container metadata. The separate per-container version endpoint has been removed. A populated `version` contains `currentVersion`, `latestVersion`, and `updateAvailable`; version strings may be null. The whole value is null before the first successful background resolution. Each request reads the in-memory cache without registry HTTP calls or version-specific Docker inspection.
+`GET /api/containers` queries all configured Docker connections concurrently and
+returns a `sources` array and a flat `containers` array:
 
-`VersionRefreshService` starts an asynchronous inventory scan at application readiness, resolves containers through `VersionService` using four workers, then repeats after `porthole.versions.refresh-interval` (default `1h`). Scans include all Docker containers independently of dashboard filters. Cache misses queue a deduplicated background check. Successful results are published individually, failed checks retain previous results, and failed first checks wait the configured interval before retrying. A successful inventory prunes deleted IDs while identity/revision guards prevent late work from resurrecting removed entries. Managed executors stop with the application. Registry catalogue/token TTLs remain separate from the container-result cache, which does not expire by time.
+```json
+{
+  "sources": [
+    { "id": "walker", "name": "Walker", "status": "UP", "error": null },
+    { "id": "mike", "name": "Mike", "status": "DOWN", "error": "Docker is not reachable" }
+  ],
+  "containers": [
+    { "id": "docker-id", "sourceId": "walker", "name": "app", "displayName": "app", "image": "nginx:latest", "endpoints": [], "hasEndpoints": false, "iconUrl": "docker.webp", "project": null, "state": "running", "status": "Up", "version": null }
+  ]
+}
+```
+
+The existing `includeWithoutEndpoints` and `includeStopped` flags apply to all
+sources. There is no per-source container endpoint or source-selection parameter.
+Source order follows configuration. Each container has a required `sourceId` in
+both its domain model and API DTO; Docker IDs remain unchanged. Host sections and
+Compose groups use source identity before project identity.
+
+A source with a successful list is `UP`, including an empty list. Transport
+failures/deadlines are `DOWN`; other per-source processing errors are `ERROR`.
+Failed sources contribute no containers. Completed inventories return 200 even
+when all sources failed; global request/orchestration errors remain 5xx. This
+replaces the former bare-array response and source-wide 502 failure. Diagnostic
+causes stay in server logs rather than public source errors.
+
+A source attempt is bounded by its connection timeout plus response timeout;
+parallel attempts bound aggregate latency by the largest budget, rather than
+the sum. The browser cancels through its request signal and overrides its normal
+ten-second Axios timeout for this server-bounded request. A slow source can delay
+the aggregate snapshot until its deadline. The frontend polls one aggregate
+request every 30 seconds, replaces failed-source containers with an error state,
+and does not use actuator health to suppress otherwise usable results.
+
+`DockerSourceRegistry` owns each client's lifecycle. Mapping and enrichment receive
+a source-specific `ContainerContext` containing request host, effective published
+host, source ID, and the existing flags. Display-name collision detection operates
+on each source's complete inventory before filtering. The frontend namespaces
+React keys and stored endpoint/update preferences by source.
+
+Each container retains `endpoints`, `hasEndpoints`, and nullable `version` with
+`currentVersion`, `latestVersion`, and `updateAvailable`. `VersionRefreshService`
+starts a scan per source asynchronously on readiness and repeats after the source's
+completed scan plus `porthole.versions.refresh-interval` (default `1h`). Four shared
+workers inspect containers/images through their owning Docker client. Results,
+retry state, in-flight work, and revision guards use `(sourceId, containerId)`.
+Only a successful source scan prunes that source's missing containers; one source
+failure cannot erase another's results. Successful results remain cached while
+refreshing; eligible misses queue deduplicated background work. HTTP enrichment
+never waits for registry HTTP or version inspection. Shared registry catalogue
+caches remain keyed by normalized registry/repository; installed version/digest
+comparisons and final update decisions remain specific to the container/source.
+
+`/actuator/health/docker` probes sources concurrently with a one-second common
+deadline and exposes per-source status in `details.sources`. At most one ping per
+source is in flight, including pings that exceed a health request's deadline.
+Top-level health is UP when any source answers and DOWN when none do; failed or
+unfinished sources are DOWN in the details. Managed executors stop on shutdown.
 
 Each endpoint has exactly these fields:
 
@@ -205,9 +262,9 @@ The production handlers run in this order:
 
 To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` under `domain/component/enrichment/` and declare its order with `@Order` (for example, `@Order(300)` to run after the existing handlers). Spring includes it automatically without changes to the service or chain.
 
-The controller extracts the request server name and passes that plain hostname and the query flags to the service. The service builds an immutable `ContainerContext` containing the raw request host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to apply the configured hostname override without changing the shared request context. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
+The controller extracts the request server name and passes that plain hostname and the query flags to the service. The service builds an immutable `ContainerContext` per source containing its ID, effective published host, raw request host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to apply the configured hostname override without changing the shared request context. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
 
-The service returns domain containers. `ContainerController` maps these through `controller/mapper/ContainerDTOMapper` into `controller/model/ContainerDTO` and `EndpointDTO`. The API exposes domain URL candidates as `endpoints`, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
+The service returns a domain `ContainerInventory` containing source outcomes and domain containers. `ContainerController` maps these through `controller/mapper/ContainerDTOMapper` into `controller/model/ContainerDTO` and `EndpointDTO`. The API exposes domain URL candidates as `endpoints`, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
 
 `EndpointProvider` is a sealed interface permitting `PublishedPortEndpointProvider` and `TraefikEndpointProvider`, both final Spring components. To add a provider, implement the interface in a final `@Component` in the same package and add that class to its `permits` clause. `EndpointDiscovery` constructor-injects `List<EndpointProvider>`, so every permitted provider bean participates automatically without changing discovery or adding a runtime registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
 
@@ -251,7 +308,7 @@ Published-port IDs use `published-port:<port>` independently of the request host
 - `domain/mapper/` — `ContainerMapper` maps docker-java types to internal containers
 - `domain/model/` — `Container`, `Endpoint`, `ContainerContext`, `VersionInfo`, and domain exceptions
 - `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
-- `config/` — `DockerConfig` (docker-java client bean), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
+- `config/` — `DockerConfig` (managed Docker source registry/client construction), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
 - `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `GhcrProperties`, `DashboardProperties`, `EndpointProperties`, `VersionProperties`
 - `config/nativehints/` — `DockerNativeConfig` (Spring AOT hints for types the agent can't observe)
 

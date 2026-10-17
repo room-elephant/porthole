@@ -11,6 +11,7 @@ import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 @RegisterReflectionForBinding({ContainerDTO.class, EndpointDTO.class, VersionInfo.class})
 public record ContainerDTO(
         String id,
+        String sourceId,
         String name,
         String displayName,
         String image,

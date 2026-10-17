@@ -273,7 +273,7 @@ describe('ContainerTile', () => {
     });
 
     it('keeps the stored preference for hiding update notifications', () => {
-      localStorage.setItem('version_check_test-container', 'false');
+      localStorage.setItem( 'version_check_v2_["local","test-container"]' , 'false');
       renderWithQuery(<ContainerTile container={createMockContainer({ version: { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true } })} />);
       expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
       fireEvent.click(screen.getByTitle('Container Settings'));
@@ -294,7 +294,7 @@ describe('ContainerTile', () => {
       expect(launch).toBeDisabled();
       expect(card).toHaveClass('disabled');
       expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
-      expect(localStorage.getItem('endpoint_pref_test-container')).toBe('"none"');
+      expect(localStorage.getItem( 'endpoint_pref_v2_["local","test-container"]' )).toBe('"none"');
       await user.keyboard('{Escape}');
       await user.click(launch);
       expect(window.open).not.toHaveBeenCalled();
@@ -302,7 +302,7 @@ describe('ContainerTile', () => {
       await user.click(screen.getByTitle('Container Settings'));
       expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
       await user.click(screen.getByRole('checkbox'));
-      expect(localStorage.getItem('version_check_test-container')).toBe('false');
+      expect(localStorage.getItem( 'version_check_v2_["local","test-container"]' )).toBe('false');
       await user.click(screen.getByRole('radio', { name: 'http://localhost:53/' }));
       expect(launch).toBeEnabled();
       expect(card).not.toHaveClass('disabled');
@@ -312,7 +312,7 @@ describe('ContainerTile', () => {
     });
 
     it('skips a tile with a saved no endpoint choice while keeping settings accessible', async () => {
-      localStorage.setItem('endpoint_pref_test-container', '"none"');
+      localStorage.setItem( 'endpoint_pref_v2_["local","test-container"]' , '"none"');
       const user = userEvent.setup();
       renderWithQuery(<ContainerTile container={createMockContainer()} />);
       expect(screen.getByRole('button', { name: /^Open / })).toBeDisabled();
@@ -372,15 +372,15 @@ describe('ContainerTile', () => {
     renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [], hasEndpoints: false })} />);
     fireEvent.click(screen.getByTitle('Container Settings'));
     fireEvent.click(screen.getByRole('checkbox'));
-    expect(localStorage.getItem('version_check_test-container')).toBe('false');
+    expect(localStorage.getItem( 'version_check_v2_["local","test-container"]' )).toBe('false');
     expect(window.open).not.toHaveBeenCalled();
   });
 
   it('launches the new name preference after a rename with the same Docker ID', () => {
     const root = { id: 'proxy', source: 'traefik', url: 'https://app.example.com/' };
     const container = createMockContainer({ endpoints: [publishedEndpoint(8080), root] });
-    localStorage.setItem('endpoint_pref_test-container', JSON.stringify('published-port:8080'));
-    localStorage.setItem('endpoint_pref_renamed', JSON.stringify(root.id));
+    localStorage.setItem( 'endpoint_pref_v2_["local","test-container"]' , JSON.stringify('published-port:8080'));
+    localStorage.setItem( 'endpoint_pref_v2_["local","renamed"]' , JSON.stringify(root.id));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
     view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed' }} /></QueryClientProvider>);

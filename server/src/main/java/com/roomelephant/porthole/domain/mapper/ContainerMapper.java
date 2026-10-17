@@ -33,11 +33,11 @@ public class ContainerMapper {
         this.iconComponent = iconComponent;
     }
 
-    public Container toModel(com.github.dockerjava.api.model.Container container) {
-        return toModel(container, Set.of());
+    public Container toModel(com.github.dockerjava.api.model.Container container, String sourceId) {
+        return toModel(container, sourceId, Set.of());
     }
 
-    public List<Container> toModels(List<com.github.dockerjava.api.model.Container> containers) {
+    public List<Container> toModels(List<com.github.dockerjava.api.model.Container> containers, String sourceId) {
         Set<DisplayNameKey> collisions = new HashSet<>();
         boolean changed;
         do {
@@ -55,11 +55,12 @@ public class ContainerMapper {
                     .collect(Collectors.toSet()));
         } while (changed);
         return containers.stream()
-                .map(container -> toModel(container, collisions))
+                .map(container -> toModel(container, sourceId, collisions))
                 .toList();
     }
 
-    private Container toModel(com.github.dockerjava.api.model.Container container, Set<DisplayNameKey> collisions) {
+    private Container toModel(
+            com.github.dockerjava.api.model.Container container, String sourceId, Set<DisplayNameKey> collisions) {
         String name = getName(container.getNames());
         String imageFull = container.getImage();
         Set<Integer> ports = getPorts(container.getPorts());
@@ -74,6 +75,7 @@ public class ContainerMapper {
 
         return new Container(
                 container.getId(),
+                sourceId,
                 name,
                 displayName,
                 imageFull,

@@ -1,7 +1,7 @@
 import { useState, memo } from 'react';
 import { Settings } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import { STORAGE_KEYS, ASSETS } from '../constants';
+import { useVersionPreference } from '../hooks/useVersionPreference';
+import { ASSETS } from '../constants';
 import { useEndpointSelection } from '../hooks/useEndpointSelection';
 import ContainerSettings from './ContainerSettings';
 import { NO_ENDPOINT_ID } from '../utils/endpoints';
@@ -11,11 +11,11 @@ const arraysEqual = (a, b) =>
 
 const getHealthStatus = (status) => status?.match(/\((healthy|unhealthy|health: starting)\)/i)?.[1]?.toLowerCase();
 
-function ContainerTile({ container }) {
+function ContainerTile({ container, allowLegacyMigration = false }) {
     const [showConfig, setShowConfig] = useState(false);
-    const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.name, container.endpoints);
+    const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.sourceId, container.name, container.endpoints, {migrateLegacy: allowLegacyMigration});
     const hasEndpoints = container.hasEndpoints && selectedEndpointId !== NO_ENDPOINT_ID;
-    const [checkUpdates, setCheckUpdates] = useLocalStorage(STORAGE_KEYS.VERSION_CHECK(container.name), true);
+    const [checkUpdates, setCheckUpdates] = useVersionPreference(container.sourceId, container.name, allowLegacyMigration);
 
     const versionInfo = container.version;
 
@@ -107,6 +107,8 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
     const next = nextProps.container;
     return (
         prev.id === next.id &&
+        prev.sourceId === next.sourceId &&
+        prevProps.allowLegacyMigration === nextProps.allowLegacyMigration &&
         prev.name === next.name &&
         prev.displayName === next.displayName &&
         prev.state === next.state &&

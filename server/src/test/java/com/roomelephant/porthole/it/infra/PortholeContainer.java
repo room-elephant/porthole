@@ -26,7 +26,9 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
     private PortholeContainer(int wireMockPort, String socketPath) {
         super(IMAGE_TAG);
         withExposedPorts(PORTHOLE_PORT);
-        withEnv("PORTHOLE_DOCKER_HOST", "unix://" + socketPath);
+        withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_ID", "local");
+        withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_NAME", "Local");
+        withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "unix://" + socketPath);
         applyRegistryEnv(this, wireMockPort);
         recordingNativeHints = applyNativeAgentIfEnabled();
         if (recordingNativeHints) recordingContainers.add(this);
