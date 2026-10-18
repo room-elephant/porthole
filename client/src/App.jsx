@@ -45,7 +45,7 @@ function App() {
 
   return (
     <div>
-      <div className="app-container">
+      <div className="page app-container">
         <header className="app-header">
           <div className="header-title">
             <h1>Porthole</h1>

@@ -13,6 +13,6 @@ export const API = {
 };
 
 export const ASSETS = {
-  PORTHOLE_ICON: 'porthole.webp',
+  PORTHOLE_ICON: 'porthole-mark.svg',
   FALLBACK_ICON: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp/docker.webp',
 };
