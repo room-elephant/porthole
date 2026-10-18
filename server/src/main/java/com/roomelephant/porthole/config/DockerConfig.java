@@ -5,8 +5,8 @@ import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import com.roomelephant.porthole.config.properties.*;
-import com.roomelephant.porthole.domain.component.DockerSourceRegistry;
-import com.roomelephant.porthole.domain.model.DockerSource;
+import com.roomelephant.porthole.outbound.docker.DockerConnection;
+import com.roomelephant.porthole.outbound.docker.DockerSourceRegistry;
 import java.util.ArrayList;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.*;
@@ -34,12 +34,12 @@ public class DockerConfig {
 
     @Bean
     public DockerSourceRegistry dockerSources() {
-        var sources = new ArrayList<DockerSource>();
+        var sources = new ArrayList<DockerConnection>();
         try {
             for (var p : properties.connections()) {
                 String published = p.publishedHost();
                 if (published == null && properties.connections().size() == 1) published = endpoints.publishedHost();
-                sources.add(new DockerSource(
+                sources.add(new DockerConnection(
                         p.id(), p.name(), published, p.connectionTimeout(), p.responseTimeout(), createClient(p)));
             }
             return new DockerSourceRegistry(sources);
@@ -52,6 +52,12 @@ public class DockerConfig {
                 }
             throw e;
         }
+    }
+
+    @Bean
+    public com.roomelephant.porthole.core.port.outbound.DockerOperations dockerOperations(
+            DockerSourceRegistry sources) {
+        return new com.roomelephant.porthole.outbound.docker.DockerJavaOperations(sources);
     }
 
     DockerClient createClient(DockerConnectionProperties p) {

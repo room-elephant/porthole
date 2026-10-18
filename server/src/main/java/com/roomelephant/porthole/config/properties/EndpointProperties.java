@@ -1,6 +1,6 @@
 package com.roomelephant.porthole.config.properties;
 
-import com.roomelephant.porthole.domain.util.EndpointUrls;
+import com.roomelephant.porthole.core.enrichment.endpoint.EndpointUrls;
 import jakarta.validation.constraints.AssertTrue;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;

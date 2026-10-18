@@ -142,7 +142,7 @@ The complete environment is scanned before choosing the generic fallback. Blank 
 
 ## Container Registry Integration
 
-Porthole queries Docker Hub and public GitHub Container Registry packages to detect available updates. `RegistryService` selects transport by the parsed semantic registry; URL overrides never change that identity. When resolving image names:
+Porthole queries Docker Hub and public GitHub Container Registry packages to detect available updates. `HttpRegistryOperations` implements the core `RegistryOperations` port and selects transport by the parsed semantic registry; URL overrides never change that identity. When resolving image names:
 
 - **Official images** (e.g., `redis`, `postgres`) are stored under the `library/` namespace
 - **User/org images** (e.g., `bitnami/redis`) use their namespace directly
@@ -209,7 +209,7 @@ request every 30 seconds, replaces failed-source containers with an error state,
 and does not use actuator health to suppress otherwise usable results.
 
 `DockerSourceRegistry` owns each client's lifecycle. Mapping and enrichment receive
-a source-specific `ContainerContext` containing request host, effective published
+a source-specific `EnrichmentContext` containing request host, effective published
 host, source ID, and the existing flags. Display-name collision detection operates
 on each source's complete inventory before filtering. The frontend namespaces
 React keys and stored endpoint/update preferences by source.
@@ -258,9 +258,9 @@ For names matching `<project>-<name>`, `displayName` removes the project prefix 
 
 ### Endpoint Provider Extension
 
-`ContainerService` retrieves all docker-java containers and maps them through `ContainerMapper` into domain `Container` objects. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
+`ContainerService` calls the core-owned `DockerOperations` port. Its outbound `DockerJavaOperations` implementation maps docker-java responses into `ContainerSnapshot` records; `ContainerPresentation` and `DisplayNameResolver` then assemble core `Container` objects using the complete source list. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
 
-The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the container and the request-specific `ContainerContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler; enrichment handlers update the same container instance, and filters retain it without changing it. An empty chain retains the input, and handler failures propagate to the existing exception handling.
+The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the container and the request-specific `EnrichmentContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler; enrichment handlers update the same container instance, and filters retain it without changing it. An empty chain retains the input, and handler failures propagate to the existing exception handling.
 
 The production handlers run in this order:
 
@@ -269,11 +269,11 @@ The production handlers run in this order:
 3. `EndpointAvailabilityFilter` (`@Order(200)`) rejects containers without URL candidates unless `includeWithoutEndpoints` is enabled. This filter runs after discovery so label-only services remain discoverable.
 4. `VersionEnricher` (`@Order(300)`) attaches cached version information and queues a background check for an eligible cache miss without waiting for resolution.
 
-To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` under `domain/component/enrichment/` and declare its order with `@Order` (for example, `@Order(300)` to run after the existing handlers). Spring includes it automatically without changes to the service or chain.
+To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` in its own concern package under `core/enrichment/` and declare its order with `@Order` (for example, `@Order(400)` to run after the existing handlers). Spring includes it automatically without changes to the service or chain.
 
-The controller extracts the request server name and passes that plain hostname and the query flags to the service. The service builds an immutable `ContainerContext` per source containing its ID, effective published host, raw request host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to apply the configured hostname override without changing the shared request context. Servlet request handling remains in `controller/`; domain components receive no servlet objects and retain no request state.
+The controller extracts the request server name and passes a core `ContainerQuery` containing that hostname and the query flags through the `GetContainers` inbound port. The service builds an immutable `EnrichmentContext` per source containing its ID, effective published host, raw request host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to apply the configured hostname override without changing the shared request context. Servlet request handling remains in `inbound/web/`; core components receive no servlet objects and retain no request state.
 
-The service returns a domain `ContainerInventory` containing source outcomes and domain containers. `ContainerController` maps these through `controller/mapper/ContainerDTOMapper` into `controller/model/ContainerDTO` and `EndpointDTO`. The API exposes domain URL candidates as `endpoints`, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
+The service returns a domain `ContainerInventory` containing source outcomes and domain containers. `ContainerController` maps these through `inbound/web/mapper/ContainerDTOMapper` into `inbound/web/dto/ContainerDTO` and `EndpointDTO`. The API exposes domain URL candidates as `endpoints`, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
 
 `EndpointProvider` is a sealed interface permitting `PublishedPortEndpointProvider` and `TraefikEndpointProvider`, both final Spring components. To add a provider, implement the interface in a final `@Component` in the same package and add that class to its `permits` clause. `EndpointDiscovery` constructor-injects `List<EndpointProvider>`, so every permitted provider bean participates automatically without changing discovery or adding a runtime registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
 
@@ -284,7 +284,7 @@ For example, after adding `MyProxyEndpointProvider` to the interface's `permits`
 @NullMarked
 public final class MyProxyEndpointProvider implements EndpointProvider {
     @Override
-    public List<Endpoint> discover(Container container, ContainerContext context) {
+    public List<Endpoint> discover(Container container, EnrichmentContext context) {
         String host = container.labels().get("myproxy.host");
         if (host == null || !EndpointUrls.isValidHost(host)) return List.of();
         String url = EndpointUrls.routeUrl("https", host, "/");
@@ -293,7 +293,7 @@ public final class MyProxyEndpointProvider implements EndpointProvider {
 }
 ```
 
-Place implementations in `domain/component/endpoint/`; shared input/output records live in `domain/model/` and URL helpers in `domain/util/`. Endpoint configuration lives in `config/properties/EndpointProperties`. New reflectively accessed types require Spring AOT binding hints; generated reachability metadata must not be edited by hand.
+Place implementations and URL helpers in `core/enrichment/endpoint/`; shared endpoint values live in `core/model/`. Each enrichment handler owns a concern package: `state`, `endpoint`, `endpointavailability`, or `version`. Bound endpoint configuration lives in `config/properties/EndpointProperties`; `CoreConfig` supplies a plain core `EndpointSettings` value. New reflectively accessed types require Spring AOT binding hints; generated reachability metadata must not be edited by hand.
 
 Published-port IDs use `published-port:<port>` independently of the request hostname. Traefik IDs use `traefik:<normalized-url>`. The client opens the API URL directly, resolves saved IDs before Traefik defaults, and keeps automatic defaults out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
 
@@ -311,15 +311,40 @@ Published-port IDs use `published-port:<port>` independently of the request host
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `controller/` — REST endpoints (`ContainerController`), `GlobalExceptionHandler`, API records in `model/`, and API mapping in `mapper/`
-- `domain/service/` — `ContainerService` (retrieves, maps, and applies the filtering/enrichment chain to domain containers), `VersionService` (version + update detection), `VersionRefreshService` (background scheduling and result cache)
-- `domain/component/` — `ContainerEnrichment` (ordered enrichment chain), `enrichment/` handlers, `IconComponent` (icon resolution), `RegistryService` (Docker Hub queries), and `endpoint/` providers/discovery
-- `domain/mapper/` — `ContainerMapper` maps docker-java types to internal containers
-- `domain/model/` — `Container`, `Endpoint`, `ContainerContext`, `VersionInfo`, and domain exceptions
-- `domain/util/` — `ImageUtils` (image name parsing, Docker Hub namespace normalization)
-- `config/` — `DockerConfig` (managed Docker source registry/client construction), `IconConfig` (loads icons.yml), `RestClientConfig`, `DockerHealthIndicator`
-- `config/properties/` — `@ConfigurationProperties` beans: `DockerProperties`, `RegistryProperties`, `GhcrProperties`, `DashboardProperties`, `EndpointProperties`, `VersionProperties`
-- `config/nativehints/` — `DockerNativeConfig` (Spring AOT hints for types the agent can't observe)
+- `core/port/inbound/` — `GetContainers` and `RefreshVersions`, called by inbound adapters and implemented by core services.
+- `core/port/outbound/` — `DockerOperations` and `RegistryOperations`, implemented by outbound integrations.
+- `core/service/` — `ContainerService`, which coordinates source requests, deadlines, presentation, and enrichment.
+- `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `endpoint/`, `endpointavailability/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
+- `core/version/` — version resolution, installed-version detection, update policy, numeric-version comparison, and background refresh coordination/cache state.
+- `core/model/` — application-owned container/source metadata, outcomes, queries, image references, version values, and exceptions. Ports never expose SDK objects or client handles.
+- `core/presentation/` — `ContainerPresentation`, `DisplayNameResolver`, and icon resolution in `icon/`.
+- `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`.
+- `inbound/health/` — actuator Docker health probes backed by the Docker port, preserving the shared deadline and per-source in-flight deduplication.
+- `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
+- `outbound/registry/` — Docker Hub/GHCR HTTP, anonymous authentication, catalogue pagination, manifest evidence, and Caffeine response caching.
+- `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
+- `config/properties/` — existing `@ConfigurationProperties` beans and validation; property names and defaults are unchanged.
+- `config/nativehints/` — Spring AOT hints for library types the agent cannot observe.
+
+### Dependency boundaries
+
+Core owns the interfaces and values at its boundaries. Controllers call inbound
+ports; Docker and registry integrations implement outbound ports. Configuration
+wires the implementations. Core does not import adapters, configuration-property
+beans, Docker SDK classes, servlet types, or HTTP clients. Spring component and
+lifecycle annotations remain allowed in core.
+
+```text
+inbound ──→ core ←── outbound
+              ↑
+            config wires implementations
+```
+
+Version enrichment only reads cached results and queues background work. Registry
+HTTP and Docker inspection stay off the inventory request path. Refresh state,
+revision guards, deduplication, and pruning retain one coordinator's ownership.
+`ArchitectureTest` checks dependency direction and port signatures, while behavior
+tests cover pipeline composition, source failures, and refresh races.
 
 ## Integration Test Infrastructure
 
@@ -331,3 +356,17 @@ Published-port IDs use `published-port:<port>` independently of the request host
 - Tests in `controller/`, `health/`, and `resilience/` extend these bases
 
 See [server test commands](../server/README.md#test) for component-test requirements and runtime selection.
+
+### Architecture migration test policy
+
+Keep every file under `server/src/test/java/com/roomelephant/porthole/it` unchanged
+during structural migrations. Those tests exercise packaged application behavior
+against JVM and native images. Unit tests outside that directory follow the new
+production packages and test adapter translation and core behavior separately.
+
+The existing ITs import wire records and image-reference helpers using their old
+package names. Test-only compatibility fixtures under `controller/model/` and
+`domain/model/`, outside the protected `it` directory, preserve those imports and
+JSON shapes. The image-reference helper delegates to the canonical core parser.
+These fixtures are not packaged in the production application. Production HTTP
+DTOs live exclusively in `inbound/web/dto/`.

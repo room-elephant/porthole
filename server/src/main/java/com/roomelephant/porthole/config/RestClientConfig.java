@@ -17,6 +17,14 @@ public class RestClientConfig {
     }
 
     @Bean
+    public com.roomelephant.porthole.core.port.outbound.RegistryOperations registryOperations(
+            RestClient client,
+            RegistryProperties properties,
+            com.roomelephant.porthole.config.properties.GhcrProperties ghcr) {
+        return new com.roomelephant.porthole.outbound.registry.HttpRegistryOperations(client, properties, ghcr);
+    }
+
+    @Bean
     public RestClient restClient() {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(registryProperties.timeout().connect())
