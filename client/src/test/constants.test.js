@@ -8,6 +8,12 @@ describe('scoped preference keys', () => {
  });
 });
 
+describe('groupBy key', () => {
+ it('uses the porthole_groupBy storage key', () => {
+  expect(STORAGE_KEYS.GROUP_BY).toBe('porthole_groupBy');
+ });
+});
+
 describe('assets', () => {
  it('uses the porthole mark for in-app icons', () => {
   expect(ASSETS.PORTHOLE_ICON).toBe('porthole-mark.svg');
