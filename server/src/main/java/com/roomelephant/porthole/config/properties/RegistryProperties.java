@@ -8,7 +8,7 @@ import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-@ConfigurationProperties(prefix = "registry")
+@ConfigurationProperties(prefix = "porthole.registry")
 @Validated
 @RegisterReflectionForBinding(RegistryProperties.class)
 public record RegistryProperties(

@@ -73,13 +73,15 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
         String base = "http://host.docker.internal:" + wireMockPort;
         container
                 .withExtraHost("host.docker.internal", "host-gateway")
-                .withEnv("REGISTRY_URLS_REGISTRY", base + "/v2/")
-                .withEnv("REGISTRY_URLS_AUTH", base + "/auth?service=registry.docker.io&scope=repository:")
-                .withEnv("REGISTRY_URLS_REPOSITORIES", base + "/v2/repositories/")
-                .withEnv("REGISTRY_GHCR_REGISTRY_URL", base + "/ghcr/v2/")
-                .withEnv("REGISTRY_GHCR_AUTH_URL", base + "/ghcr/token?service=ghcr.io&scope=repository:")
-                .withEnv("REGISTRY_CACHE_TTL", "1ms")
-                .withEnv("REGISTRY_CACHE_VERSION_MAX_SIZE", "1");
+                .withEnv("PORTHOLE_REGISTRY_DOCKERHUB_REGISTRYURL", base + "/v2/")
+                .withEnv(
+                        "PORTHOLE_REGISTRY_DOCKERHUB_AUTHURL",
+                        base + "/auth?service=registry.docker.io&scope=repository:")
+                .withEnv("PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL", base + "/v2/repositories/")
+                .withEnv("PORTHOLE_REGISTRY_GHCR_REGISTRYURL", base + "/ghcr/v2/")
+                .withEnv("PORTHOLE_REGISTRY_GHCR_AUTHURL", base + "/ghcr/token?service=ghcr.io&scope=repository:")
+                .withEnv("PORTHOLE_REGISTRY_CACHE_TTL", "1ms")
+                .withEnv("PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE", "1");
     }
 
     private boolean applyNativeAgentIfEnabled() {

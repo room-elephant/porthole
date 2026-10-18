@@ -40,9 +40,9 @@ class RegistryPropertiesTest {
     @Test
     void bindsNewDockerHubPropertyNames() {
         runner.withPropertyValues(
-                        "registry.dockerhub.registry-url=https://new-registry/",
-                        "registry.dockerhub.auth-url=https://new-auth/",
-                        "registry.dockerhub.repositories-url=https://new-catalogue/")
+                        "porthole.registry.dockerhub.registry-url=https://new-registry/",
+                        "porthole.registry.dockerhub.auth-url=https://new-auth/",
+                        "porthole.registry.dockerhub.repositories-url=https://new-catalogue/")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     var hub = context.getBean(RegistryProperties.class).dockerhub();
@@ -70,7 +70,7 @@ class RegistryPropertiesTest {
     @Test
     void newPropertiesWinPerSettingAndUnspecifiedSettingsUseLegacyFallbacks() {
         runner.withPropertyValues(
-                        "registry.dockerhub.registry-url=https://new-registry/",
+                        "porthole.registry.dockerhub.registry-url=https://new-registry/",
                         "registry.urls.registry=https://old-registry/",
                         "registry.urls.auth=https://old-auth/",
                         "registry.urls.repositories=https://old-catalogue/")
@@ -86,11 +86,11 @@ class RegistryPropertiesTest {
     @Test
     void bindsNewDockerHubEnvironmentVariables() {
         environment(Map.of(
-                        "REGISTRY_DOCKERHUB_REGISTRY_URL",
+                        "PORTHOLE_REGISTRY_DOCKERHUB_REGISTRYURL",
                         "https://new-registry/",
-                        "REGISTRY_DOCKERHUB_AUTH_URL",
+                        "PORTHOLE_REGISTRY_DOCKERHUB_AUTHURL",
                         "https://new-auth/",
-                        "REGISTRY_DOCKERHUB_REPOSITORIES_URL",
+                        "PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL",
                         "https://new-catalogue/"))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
@@ -122,15 +122,15 @@ class RegistryPropertiesTest {
     @Test
     void newEnvironmentOverridesLegacyEnvironment() {
         environment(Map.of(
-                        "REGISTRY_DOCKERHUB_REGISTRY_URL",
+                        "PORTHOLE_REGISTRY_DOCKERHUB_REGISTRYURL",
                         "https://new-registry/",
                         "REGISTRY_URLS_REGISTRY",
                         "https://old-registry/",
-                        "REGISTRY_DOCKERHUB_AUTH_URL",
+                        "PORTHOLE_REGISTRY_DOCKERHUB_AUTHURL",
                         "https://new-auth/",
                         "REGISTRY_URLS_AUTH",
                         "https://old-auth/",
-                        "REGISTRY_DOCKERHUB_REPOSITORIES_URL",
+                        "PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL",
                         "https://new-catalogue/",
                         "REGISTRY_URLS_REPOSITORIES",
                         "https://old-catalogue/"))
@@ -143,13 +143,62 @@ class RegistryPropertiesTest {
                 });
     }
 
+    @Test
+    void bindsNamespacedRegistryAndIconProperties() {
+        runner.withPropertyValues(
+                        "porthole.registry.timeout.connect=2s",
+                        "porthole.registry.timeout.read=3s",
+                        "porthole.registry.cache.ttl=2h",
+                        "porthole.registry.cache.version-max-size=250",
+                        "porthole.registry.ghcr.registry-url=https://custom-ghcr/",
+                        "porthole.registry.ghcr.auth-url=https://custom-ghcr-auth/",
+                        "porthole.dashboard.icons.path=/custom/icons.yml",
+                        "porthole.dashboard.icons.url=https://custom-icons/",
+                        "porthole.dashboard.icons.extension=.svg")
+                .run(context -> assertNamespacedOverrides(
+                        context.getBean(RegistryProperties.class),
+                        context.getBean(GhcrProperties.class),
+                        context.getBean(DashboardProperties.class)));
+    }
+
+    @Test
+    void bindsNamespacedRegistryAndIconEnvironmentVariables() {
+        environment(Map.of(
+                        "PORTHOLE_REGISTRY_TIMEOUT_CONNECT", "2s",
+                        "PORTHOLE_REGISTRY_TIMEOUT_READ", "3s",
+                        "PORTHOLE_REGISTRY_CACHE_TTL", "2h",
+                        "PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE", "250",
+                        "PORTHOLE_REGISTRY_GHCR_REGISTRYURL", "https://custom-ghcr/",
+                        "PORTHOLE_REGISTRY_GHCR_AUTHURL", "https://custom-ghcr-auth/",
+                        "PORTHOLE_DASHBOARD_ICONS_PATH", "/custom/icons.yml",
+                        "PORTHOLE_DASHBOARD_ICONS_URL", "https://custom-icons/",
+                        "PORTHOLE_DASHBOARD_ICONS_EXTENSION", ".svg"))
+                .run(context -> assertNamespacedOverrides(
+                        context.getBean(RegistryProperties.class),
+                        context.getBean(GhcrProperties.class),
+                        context.getBean(DashboardProperties.class)));
+    }
+
+    private void assertNamespacedOverrides(
+            RegistryProperties registry, GhcrProperties ghcr, DashboardProperties dashboard) {
+        assertThat(registry.timeout().connect()).isEqualTo(java.time.Duration.ofSeconds(2));
+        assertThat(registry.timeout().read()).isEqualTo(java.time.Duration.ofSeconds(3));
+        assertThat(registry.cache().ttl()).isEqualTo(java.time.Duration.ofHours(2));
+        assertThat(registry.cache().versionMaxSize()).isEqualTo(250);
+        assertThat(ghcr.registryUrl()).isEqualTo("https://custom-ghcr/");
+        assertThat(ghcr.authUrl()).isEqualTo("https://custom-ghcr-auth/");
+        assertThat(dashboard.icons().path()).isEqualTo("/custom/icons.yml");
+        assertThat(dashboard.icons().url()).isEqualTo("https://custom-icons/");
+        assertThat(dashboard.icons().extension()).isEqualTo(".svg");
+    }
+
     private ApplicationContextRunner environment(Map<String, Object> values) {
         return runner.withInitializer(context -> context.getEnvironment()
                 .getPropertySources()
-                .addFirst(new SystemEnvironmentPropertySource("test-env", values)));
+                .addFirst(new SystemEnvironmentPropertySource("systemEnvironment", values)));
     }
 
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties(RegistryProperties.class)
+    @EnableConfigurationProperties({RegistryProperties.class, GhcrProperties.class, DashboardProperties.class})
     static class Config {}
 }

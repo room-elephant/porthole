@@ -80,6 +80,10 @@ keys remain untouched and each host starts with independent defaults.
 
 ## Configuration Files
 
+Application settings share the `porthole` namespace: `porthole.docker`, `porthole.versions`, `porthole.dashboard`, and `porthole.registry`. Spring's `server`, `spring`, and `management` settings keep their standard namespaces.
+
+When upgrading an existing configuration, move the former top-level `dashboard` and `registry` sections under `porthole` and prefix their environment variables with `PORTHOLE_`. For compound property names, Spring's canonical environment form removes hyphens: for example, `porthole.registry.cache.version-max-size` becomes `PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE`. The legacy Docker Hub `registry.urls.*` aliases remain supported as described below.
+
 The Docker image includes template configuration files in `/app/config/`:
 
 | File              | Purpose                                                                 |
@@ -125,30 +129,30 @@ Porthole checks public images on Docker Hub and GitHub Container Registry (GHCR)
 
 | Property                          | Default | Description                           |
 |-----------------------------------|---------|---------------------------------------|
-| `REGISTRY_TIMEOUT_CONNECT`        | `5s`    | Connection timeout for registry APIs |
-| `REGISTRY_TIMEOUT_READ`           | `10s`   | Read timeout for registry APIs       |
-| `REGISTRY_CACHE_TTL`              | `1h`    | TTL for registry catalogue and Docker Hub token caches |
-| `REGISTRY_CACHE_VERSION_MAX_SIZE` | `100` | Maximum cached registry catalogue entries   |
+| `PORTHOLE_REGISTRY_TIMEOUT_CONNECT`        | `5s`    | Connection timeout for registry APIs |
+| `PORTHOLE_REGISTRY_TIMEOUT_READ`           | `10s`   | Read timeout for registry APIs       |
+| `PORTHOLE_REGISTRY_CACHE_TTL`              | `1h`    | TTL for registry catalogue and Docker Hub token caches |
+| `PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE` | `100` | Maximum cached registry catalogue entries   |
 
-The container refresh interval and `REGISTRY_CACHE_TTL` control separate layers. A refresh can reuse a registry catalogue while its TTL has not elapsed; lower the TTL as well if you need fresher catalogue results more often. Container results themselves do not expire on this TTL.
+The container refresh interval and `PORTHOLE_REGISTRY_CACHE_TTL` control separate layers. A refresh can reuse a registry catalogue while its TTL has not elapsed; lower the TTL as well if you need fresher catalogue results more often. Container results themselves do not expire on this TTL.
 
 Docker Hub and GHCR have independent transport settings, useful with a trusted transport proxy:
 
 | Property | Default |
 |---|---|
-| `REGISTRY_DOCKERHUB_REGISTRY_URL` | `https://registry-1.docker.io/v2/` |
-| `REGISTRY_DOCKERHUB_AUTH_URL` | `https://auth.docker.io/token?service=registry.docker.io&scope=repository:` |
-| `REGISTRY_DOCKERHUB_REPOSITORIES_URL` | `https://hub.docker.com/v2/repositories/` |
-| `REGISTRY_GHCR_REGISTRY_URL` | `https://ghcr.io/v2/` |
-| `REGISTRY_GHCR_AUTH_URL` | `https://ghcr.io/token?service=ghcr.io&scope=repository:` |
+| `PORTHOLE_REGISTRY_DOCKERHUB_REGISTRYURL` | `https://registry-1.docker.io/v2/` |
+| `PORTHOLE_REGISTRY_DOCKERHUB_AUTHURL` | `https://auth.docker.io/token?service=registry.docker.io&scope=repository:` |
+| `PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL` | `https://hub.docker.com/v2/repositories/` |
+| `PORTHOLE_REGISTRY_GHCR_REGISTRYURL` | `https://ghcr.io/v2/` |
+| `PORTHOLE_REGISTRY_GHCR_AUTHURL` | `https://ghcr.io/token?service=ghcr.io&scope=repository:` |
 
-In YAML, Docker Hub settings live under `registry.dockerhub` with `registry-url`, `auth-url`, and `repositories-url`, matching GHCR's `registry.ghcr` naming. The legacy `registry.urls.registry`, `registry.urls.auth`, and `registry.urls.repositories` properties (and their `REGISTRY_URLS_*` environment variables) remain supported as per-setting fallbacks. A configured `registry.dockerhub.*` value takes precedence over its legacy alias; omitted settings retain their defaults or legacy overrides.
+In YAML, Docker Hub settings live under `porthole.registry.dockerhub` with `registry-url`, `auth-url`, and `repositories-url`, matching GHCR's `porthole.registry.ghcr` naming. The legacy `registry.urls.registry`, `registry.urls.auth`, and `registry.urls.repositories` properties (and their `REGISTRY_URLS_*` environment variables) remain supported as per-setting fallbacks. A configured `porthole.registry.dockerhub.*` value takes precedence over its legacy alias; omitted settings retain their defaults or legacy overrides.
 
 The registry base ends in `/`; the auth prefix ends in `repository:` and receives the repository name plus `:pull`. Overrides must preserve these API shapes. GHCR uses anonymous pull tokens fetched for each registry operation; Porthole does not read Docker credentials. Complete catalogue results are cached separately by registry and repository. Inaccessible packages, denied requests and rate limits leave checks inconclusive. See [GitHub's Container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
 Numeric release checks accept tags with at least two dot-separated integer components, optionally prefixed by `v` (for example, `1.2`, `v1.2.3`). Components are compared numerically without integer overflow; missing trailing components count as zero. Suffixes such as `-alpine`, prereleases, and single-number tags are excluded. The highest numeric tag across all major versions is considered; there is no major-version pinning policy. A warning requires a strictly newer comparable version, and this release check only applies when the configured image tag is numeric.
 
-Docker Hub tag enumeration follows JSON `next` links; GHCR uses OCI tag-list `Link` headers. Both follow pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration marks the refresh unsuccessful rather than publishing a partial maximum; previous successful container results remain available.
+Docker Hub tag enumeration follows JSON `next` links; GHCR uses OCI tag-list `Link` headers. Both follow pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `PORTHOLE_REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration marks the refresh unsuccessful rather than publishing a partial maximum; previous successful container results remain available.
 
 Mutable tag changes are checked independently of numeric releases. Digests must belong to the same repository, use the same hash algorithm, and represent the same manifest level (image manifest or multi-platform index). Missing or incompatible metadata is inconclusive; index-versus-platform-image differences alone never trigger a warning. The update tooltip says **Image update available**, since a changed tag does not necessarily identify a newer numeric release.
 
@@ -162,8 +166,8 @@ By default, icons are fetched from Dashboard Icons CDN. You can customize the so
 
 | Property                          | Default                                                         | Description                           |
 |-----------------------------------|-----------------------------------------------------------------|---------------------------------------|
-| `DASHBOARD_ICONS_URL`             | `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp`  | Base URL for icons                    |
-| `DASHBOARD_ICONS_EXTENSION`       | `.webp`                                                         | File extension                        |
+| `PORTHOLE_DASHBOARD_ICONS_URL`             | `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp`  | Base URL for icons                    |
+| `PORTHOLE_DASHBOARD_ICONS_EXTENSION`       | `.webp`                                                         | File extension                        |
 
 #### Icon Resolution Logic
 

@@ -44,7 +44,7 @@ class MultipleDockerSourcesIT {
         app = new PortholeContainer(registry.port());
         connection(0, "walker", walker.port(), "192.168.50.6");
         connection(1, "mike", mike.port(), "192.168.50.5");
-        app.withEnv("REGISTRY_CACHE_TTL", "1h");
+        app.withEnv("PORTHOLE_REGISTRY_CACHE_TTL", "1h");
         app.start();
     }
 

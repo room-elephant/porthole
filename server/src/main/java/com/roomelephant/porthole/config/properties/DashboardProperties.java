@@ -7,7 +7,7 @@ import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-@ConfigurationProperties(prefix = "dashboard")
+@ConfigurationProperties(prefix = "porthole.dashboard")
 @Validated
 @RegisterReflectionForBinding(DashboardProperties.class)
 public record DashboardProperties(

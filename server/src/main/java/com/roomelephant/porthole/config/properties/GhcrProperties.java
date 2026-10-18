@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /** Transport overrides do not change the semantic ghcr.io image identity. */
-@ConfigurationProperties(prefix = "registry.ghcr")
+@ConfigurationProperties(prefix = "porthole.registry.ghcr")
 @Validated
 @RegisterReflectionForBinding(GhcrProperties.class)
 public record GhcrProperties(
