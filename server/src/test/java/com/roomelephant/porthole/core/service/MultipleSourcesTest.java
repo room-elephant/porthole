@@ -7,15 +7,24 @@ import com.github.dockerjava.api.*;
 import com.github.dockerjava.api.command.*;
 import com.roomelephant.porthole.core.enrichment.*;
 import com.roomelephant.porthole.core.model.*;
+import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import com.roomelephant.porthole.core.presentation.*;
 import com.roomelephant.porthole.core.presentation.icon.*;
 import com.roomelephant.porthole.outbound.docker.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class MultipleSourcesTest {
+    private final List<DockerDiscoveryService> discoveries = new ArrayList<>();
+
+    @AfterEach
+    void closeDiscoveries() {
+        discoveries.forEach(DockerDiscoveryService::close);
+    }
+
     private DockerClient client() {
         var client = mock(DockerClient.class);
         var list = mock(ListContainersCmd.class);
@@ -34,14 +43,20 @@ class MultipleSourcesTest {
                 id, id, "192.168.50." + (id.equals("walker") ? "6" : "5"), timeout, timeout, client);
     }
 
+    private ContainerService service(DockerOperations operations, ContainerEnrichment enrichment) {
+        var discovery = new DockerDiscoveryService(operations);
+        discoveries.add(discovery);
+        return new ContainerService(
+                discovery, new ContainerPresentation(mock(IconResolver.class, i -> "icon")), enrichment);
+    }
+
     @Test
-    void closedInventoryRejectsRequests() {
-        var service = new ContainerService(
+    void closedDiscoveryRejectsInventoryRequests() {
+        var service = service(
                 new DockerJavaOperations(
                         new DockerSourceRegistry(List.of(source("walker", client(), Duration.ofSeconds(1))))),
-                new ContainerPresentation(mock(IconResolver.class)),
                 new ContainerEnrichment(List.of()));
-        service.close();
+        discoveries.getFirst().close();
         var query = new ContainerQuery(true, true, "proxy");
         assertThatThrownBy(() -> service.getContainers(query)).isInstanceOf(IllegalStateException.class);
     }
@@ -50,18 +65,11 @@ class MultipleSourcesTest {
     void oneRequestFetchesEverySourceAndKeepsMatchingIdsSeparate() {
         var registry = new DockerJavaOperations(new DockerSourceRegistry(List.of(
                 source("walker", client(), Duration.ofSeconds(1)), source("mike", client(), Duration.ofSeconds(1)))));
-        try (var service = new ContainerService(
-                registry,
-                new ContainerPresentation(mock(IconResolver.class, i -> "icon")),
-                new ContainerEnrichment(List.of()))) {
-            var result =
-                    service.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true, "proxy"));
-            assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker", "mike");
-            assertThat(result.containers()).extracting(Container::id).containsExactly("same-id", "same-id");
-            assertThat(result.sources())
-                    .extracting(SourceState::status)
-                    .containsExactly(SourceStatus.UP, SourceStatus.UP);
-        }
+        var service = service(registry, new ContainerEnrichment(List.of()));
+        var result = service.getContainers(new ContainerQuery(true, true, "proxy"));
+        assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker", "mike");
+        assertThat(result.containers()).extracting(Container::id).containsExactly("same-id", "same-id");
+        assertThat(result.sources()).extracting(SourceState::status).containsExactly(SourceStatus.UP, SourceStatus.UP);
     }
 
     @Test
@@ -75,14 +83,10 @@ class MultipleSourcesTest {
         });
         var registry = new DockerJavaOperations(new DockerSourceRegistry(
                 List.of(source("mike", b, Duration.ofMillis(50)), source("walker", a, Duration.ofSeconds(1)))));
-        try (var service = new ContainerService(
-                registry,
-                new ContainerPresentation(mock(IconResolver.class, i -> "icon")),
-                new ContainerEnrichment(List.of()))) {
+        var service = service(registry, new ContainerEnrichment(List.of()));
+        try {
             var result = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
-                    Duration.ofSeconds(2),
-                    () -> service.getContainers(
-                            new com.roomelephant.porthole.core.model.ContainerQuery(true, true, "proxy")));
+                    Duration.ofSeconds(2), () -> service.getContainers(new ContainerQuery(true, true, "proxy")));
             assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker");
             assertThat(result.sources())
                     .extracting(SourceState::status)
@@ -94,20 +98,70 @@ class MultipleSourcesTest {
     }
 
     @Test
+    void dockerDeadlineDoesNotCancelEnrichment() throws Exception {
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        ContainerEnricher slowEnricher = (container, context) -> {
+            entered.countDown();
+            try {
+                if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Enrichment was not released");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
+            }
+            return Optional.of(container);
+        };
+        var service = service(
+                new DockerJavaOperations(
+                        new DockerSourceRegistry(List.of(source("walker", client(), Duration.ofMillis(100))))),
+                new ContainerEnrichment(List.of(slowEnricher)));
+        try (var caller = Executors.newVirtualThreadPerTaskExecutor()) {
+            var response = caller.submit(() -> service.getContainers(new ContainerQuery(true, true, "proxy")));
+            try {
+                assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
+                assertThatThrownBy(() -> response.get(500, TimeUnit.MILLISECONDS))
+                        .isInstanceOf(TimeoutException.class);
+                release.countDown();
+                var result = response.get(2, TimeUnit.SECONDS);
+                assertThat(result.sources()).extracting(SourceState::status).containsExactly(SourceStatus.UP);
+                assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker");
+            } finally {
+                release.countDown();
+            }
+        }
+    }
+
+    @Test
     void allSourceFailuresAreReportedInsteadOfAnEmptySuccess() {
         var client = client();
         when(client.listContainersCmd().withShowAll(true).exec())
                 .thenThrow(new RuntimeException(new java.net.SocketException("secret socket path")));
-        try (var service = new ContainerService(
+        var service = service(
                 new DockerJavaOperations(
                         new DockerSourceRegistry(List.of(source("walker", client, Duration.ofSeconds(1))))),
-                new ContainerPresentation(mock(IconResolver.class)),
-                new ContainerEnrichment(List.of()))) {
-            var result =
-                    service.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true, "proxy"));
-            assertThat(result.containers()).isEmpty();
-            assertThat(result.sources().getFirst().status()).isEqualTo(SourceStatus.DOWN);
-            assertThat(result.sources().getFirst().error()).isEqualTo("Docker is not reachable");
-        }
+                new ContainerEnrichment(List.of()));
+        var result = service.getContainers(new ContainerQuery(true, true, "proxy"));
+        assertThat(result.containers()).isEmpty();
+        assertThat(result.sources().getFirst().status()).isEqualTo(SourceStatus.DOWN);
+        assertThat(result.sources().getFirst().error()).isEqualTo("Docker is not reachable");
+    }
+
+    @Test
+    void enrichmentFailureDoesNotDiscardOtherSourcesOrReportDockerAsDown() {
+        var registry = new DockerJavaOperations(new DockerSourceRegistry(List.of(
+                source("walker", client(), Duration.ofSeconds(1)), source("mike", client(), Duration.ofSeconds(1)))));
+        ContainerEnricher failingEnricher = (container, context) -> {
+            if (container.sourceId().equals("walker"))
+                throw new com.roomelephant.porthole.core.model.exception.DockerUnavailableException(
+                        new java.net.SocketException("private details"));
+            return Optional.of(container);
+        };
+        var service = service(registry, new ContainerEnrichment(List.of(failingEnricher)));
+        var result = service.getContainers(new ContainerQuery(true, true, "proxy"));
+        assertThat(result.sources())
+                .extracting(SourceState::status)
+                .containsExactly(SourceStatus.ERROR, SourceStatus.UP);
+        assertThat(result.sources().getFirst().error()).doesNotContain("private");
+        assertThat(result.containers()).extracting(Container::sourceId).containsExactly("mike");
     }
 }

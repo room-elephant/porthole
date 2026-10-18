@@ -3,11 +3,8 @@ package com.roomelephant.porthole.core.service;
 import com.roomelephant.porthole.core.enrichment.*;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.inbound.GetContainers;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import com.roomelephant.porthole.core.presentation.ContainerPresentation;
-import jakarta.annotation.PreDestroy;
 import java.util.*;
-import java.util.concurrent.*;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Service;
@@ -15,91 +12,49 @@ import org.springframework.stereotype.Service;
 @Service
 @Slf4j
 @NullMarked
-public class ContainerService implements GetContainers, AutoCloseable {
-    private final DockerOperations sources;
+public class ContainerService implements GetContainers {
+    private final DockerDiscoveryService discovery;
     private final ContainerPresentation mapper;
     private final ContainerEnrichment enrichment;
-    private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
-    private final ScheduledExecutorService deadlines = Executors.newSingleThreadScheduledExecutor(
-            Thread.ofPlatform().daemon().name("inventory-deadlines").factory());
-    private final Set<CompletableFuture<Result>> pending = ConcurrentHashMap.newKeySet();
-    private volatile boolean closed;
 
-    public ContainerService(DockerOperations sources, ContainerPresentation mapper, ContainerEnrichment enrichment) {
-        this.sources = sources;
+    public ContainerService(
+            DockerDiscoveryService discovery, ContainerPresentation mapper, ContainerEnrichment enrichment) {
+        this.discovery = discovery;
         this.mapper = mapper;
         this.enrichment = enrichment;
     }
 
     @Override
     public ContainerInventory getContainers(ContainerQuery query) {
-        if (closed) throw new IllegalStateException("Container inventory is closed");
-        List<CompletableFuture<Result>> futures = sources.sources().stream()
-                .map(s -> submit(
-                        s,
-                        new EnrichmentContext(
-                                s.id(),
-                                query.requestHostname(),
-                                s.publishedHost(),
-                                query.includeWithoutEndpoints(),
-                                query.includeStopped())))
+        List<Result> results = discovery.discover().stream()
+                .map(result -> present(result, query))
                 .toList();
-        List<Result> results = futures.stream().map(CompletableFuture::join).toList();
         return new ContainerInventory(
                 results.stream().map(Result::source).toList(),
                 results.stream().flatMap(r -> r.containers().stream()).toList());
     }
 
-    private CompletableFuture<Result> submit(DockerSource source, EnrichmentContext context) {
-        CompletableFuture<Result> result = new CompletableFuture<>();
-        pending.add(result);
+    private Result present(DockerDiscoveryResult result, ContainerQuery query) {
+        if (result.state().status() != SourceStatus.UP) return new Result(result.state(), List.of());
+        DockerSource source = result.source();
         try {
-            Future<Boolean> task = workers.submit(() -> result.complete(fetch(source, context)));
-            ScheduledFuture<?> deadline = deadlines.schedule(
-                    () -> {
-                        if (result.complete(failure(source, SourceStatus.DOWN, "Docker request timed out")))
-                            task.cancel(true);
-                    },
-                    source.connectionTimeout().plus(source.responseTimeout()).toNanos(),
-                    TimeUnit.NANOSECONDS);
-            result.whenComplete((r, e) -> {
-                deadline.cancel(false);
-                pending.remove(result);
-            });
-        } catch (RuntimeException e) {
-            pending.remove(result);
-            result.completeExceptionally(e);
-        }
-        return result;
-    }
-
-    private Result fetch(DockerSource source, EnrichmentContext context) {
-        try {
-            List<ContainerSnapshot> raw = sources.listContainers(source.id());
-            List<Container> containers = mapper.toModels(raw, source.id()).stream()
+            EnrichmentContext context = new EnrichmentContext(
+                    source.id(),
+                    query.requestHostname(),
+                    source.publishedHost(),
+                    query.includeWithoutEndpoints(),
+                    query.includeStopped());
+            List<Container> containers = mapper.toModels(result.containers(), source.id()).stream()
                     .map(c -> enrichment.enrich(c, context))
                     .flatMap(Optional::stream)
                     .toList();
-            return new Result(new SourceState(source.id(), source.name(), SourceStatus.UP, null), containers);
+            return new Result(result.state(), containers);
         } catch (RuntimeException e) {
-            log.warn("Could not list containers from Docker source {}", source.id(), e);
-            return e instanceof com.roomelephant.porthole.core.model.exception.DockerUnavailableException
-                    ? failure(source, SourceStatus.DOWN, "Docker is not reachable")
-                    : failure(source, SourceStatus.ERROR, "Could not retrieve containers");
+            log.warn("Could not prepare containers from Docker source {}", source.id(), e);
+            return new Result(
+                    new SourceState(source.id(), source.name(), SourceStatus.ERROR, "Could not retrieve containers"),
+                    List.of());
         }
-    }
-
-    private Result failure(DockerSource source, SourceStatus status, String message) {
-        return new Result(new SourceState(source.id(), source.name(), status, message), List.of());
-    }
-
-    @PreDestroy
-    @Override
-    public void close() {
-        closed = true;
-        pending.forEach(f -> f.completeExceptionally(new IllegalStateException("Container inventory is closed")));
-        deadlines.shutdownNow();
-        workers.shutdownNow();
     }
 
     private record Result(SourceState source, List<Container> containers) {}

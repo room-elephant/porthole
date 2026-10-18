@@ -17,9 +17,11 @@ import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.presentation.ContainerPresentation;
 import com.roomelephant.porthole.core.presentation.icon.IconResolver;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +37,12 @@ class ContainerServiceTest {
     private ListContainersCmd listContainersCmd;
 
     private ContainerService containerService;
+    private final List<DockerDiscoveryService> discoveries = new ArrayList<>();
+
+    @AfterEach
+    void closeDiscoveries() {
+        discoveries.forEach(DockerDiscoveryService::close);
+    }
 
     @BeforeEach
     void setUp() {
@@ -318,7 +326,7 @@ class ContainerServiceTest {
                 new PublishedPortEndpointProvider(new PublishedHostResolver()),
                 new TraefikEndpointProvider(new TraefikRuleParser())));
         return new ContainerService(
-                new com.roomelephant.porthole.outbound.docker.DockerJavaOperations(
+                discovery(new com.roomelephant.porthole.outbound.docker.DockerJavaOperations(
                         new com.roomelephant.porthole.outbound.docker.DockerSourceRegistry(
                                 List.of(new com.roomelephant.porthole.outbound.docker.DockerConnection(
                                         "local",
@@ -326,12 +334,18 @@ class ContainerServiceTest {
                                         publishedHost,
                                         java.time.Duration.ofSeconds(5),
                                         java.time.Duration.ofSeconds(60),
-                                        dockerClient)))),
+                                        dockerClient))))),
                 new ContainerPresentation(icon),
                 new ContainerEnrichment(List.of(
                         new ContainerStateFilter(),
                         new UrlCandidateEnricher(discovery),
                         new EndpointAvailabilityFilter())));
+    }
+
+    private DockerDiscoveryService discovery(com.roomelephant.porthole.core.port.outbound.DockerOperations operations) {
+        var discovery = new DockerDiscoveryService(operations);
+        discoveries.add(discovery);
+        return discovery;
     }
 
     private Container container(String name, Integer publicPort, Map<String, String> labels) {

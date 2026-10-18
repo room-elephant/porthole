@@ -44,7 +44,9 @@ transport; `ssh://` is not a supported application URI. This feature adds no
 per-source TLS certificate or credential settings.
 
 Each entry defaults to a `5s` connection timeout and `60s` response timeout, even
-when omitted from an external list. Timeouts must be positive. With several
+when omitted from an external list. Timeouts must be positive. Their sum bounds
+Docker container retrieval for that source; presentation and enrichment run outside
+that deadline. With several
 sources, every entry must set `published-host` to the hostname/IP clients should
 use for direct port links. It must omit scheme, port, and path. For one source,
 the incoming request hostname is used when `published-host` is omitted. Traefik-discovered URLs retain their own hosts.

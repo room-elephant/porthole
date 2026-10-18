@@ -198,12 +198,13 @@ Failed sources contribute no containers. Completed inventories return 200 even
 when all sources failed; global request/orchestration errors remain 5xx. Diagnostic
 causes stay in server logs rather than public source errors.
 
-A source attempt is bounded by its connection timeout plus response timeout;
-parallel attempts bound aggregate latency by the largest budget, rather than
-the sum. The browser cancels through its request signal and overrides its normal
-ten-second Axios timeout for this server-bounded request. A slow source can delay
-the aggregate snapshot until its deadline. The frontend polls one aggregate
-request every 30 seconds, replaces failed-source containers with an error state,
+Each Docker retrieval is bounded by its connection timeout plus response timeout.
+`DockerDiscoveryService` retrieves sources concurrently, so the Docker retrieval
+phase is bounded by the largest budget rather than the sum. Presentation and
+enrichment run afterward and are outside the Docker deadline. The browser cancels
+through its request signal and overrides its normal ten-second Axios timeout for
+this aggregate request. A slow Docker source can delay discovery until its deadline.
+The frontend polls one aggregate request every 30 seconds, replaces failed-source containers with an error state,
 and does not use actuator health to suppress otherwise usable results.
 
 `DockerSourceRegistry` owns each client's lifecycle. Mapping and enrichment receive
@@ -256,7 +257,7 @@ For names matching `<project>-<name>`, `displayName` removes the project prefix 
 
 ### Endpoint Provider Extension
 
-`ContainerService` calls the core-owned `DockerOperations` port. Its outbound `DockerJavaOperations` implementation maps docker-java responses into `ContainerSnapshot` records; `ContainerPresentation` and `DisplayNameResolver` then assemble core `Container` objects using the complete source list. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
+`DockerDiscoveryService` calls the core-owned `DockerOperations` port and returns per-source snapshots and retrieval status in `DockerDiscoveryResult`. Its outbound `DockerJavaOperations` implementation maps docker-java responses into `ContainerSnapshot` records. `ContainerService` uses those discovery results with `ContainerPresentation` and `DisplayNameResolver` to assemble core `Container` objects using each complete source list, then runs request-specific enrichment. Presentation and enrichment failures produce a source `ERROR` without discarding other sources. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
 
 The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the container and the request-specific `EnrichmentContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler; enrichment handlers update the same container instance, and filters retain it without changing it. An empty chain retains the input, and handler failures propagate to the existing exception handling.
 
@@ -311,7 +312,7 @@ Published-port IDs use `published-port:<port>` independently of the request host
 
 - `core/port/inbound/` — `GetContainers`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
 - `core/port/outbound/` — `DockerOperations` and `RegistryOperations`, implemented by outbound integrations.
-- `core/service/` — `ContainerService` coordinates source requests, deadlines, presentation, and enrichment. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
+- `core/service/` — `ContainerService` coordinates presentation, enrichment, and response assembly. `DockerDiscoveryService` owns concurrent Docker retrieval, per-source deadlines, cancellation, and retrieval failure translation. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `endpoint/`, `endpointavailability/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
 - `core/enrichment/version/` — `VersionEnricher` attaches cached version results to containers.
 - `core/enrichment/version/refresh/` — `VersionRefreshService` owns background scheduling, refresh coordination, retries, and cache state; `VersionRefreshSettings` supplies its interval.
