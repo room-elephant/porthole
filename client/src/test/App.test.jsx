@@ -136,9 +136,24 @@ describe('App', () => {
     query({ sources: [walker, { ...mike, status: 'DOWN' }], containers: [] });
     renderWithQuery(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(screen.getByText('Walker: Connected')).toBeInTheDocument();
-    expect(screen.getByText('Mike: Unavailable')).toBeInTheDocument();
+    const rows = document.querySelectorAll('.host-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('Connected');
+    expect(rows[1]).toHaveTextContent('Unreachable');
     fireEvent.click(screen.getByLabelText('Show stopped containers'));
     expect(useContainers).toHaveBeenLastCalledWith({ showAll: false, showStopped: true });
+  });
+
+  it('re-groups the page when Stack is chosen in settings', () => {
+    query({ sources: [walker, mike], containers: [
+      createMockContainer({ id: 'a', sourceId: 'walker', project: 'shared', displayName: 'Walker app' }),
+      createMockContainer({ id: 'b', sourceId: 'mike', project: 'shared', displayName: 'Mike app' }),
+    ] });
+    renderWithQuery(<App />);
+    expect(screen.getByRole('region', { name: 'Walker' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stack' }));
+    expect(screen.getByRole('region', { name: 'shared' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Walker' })).not.toBeInTheDocument();
   });
 });

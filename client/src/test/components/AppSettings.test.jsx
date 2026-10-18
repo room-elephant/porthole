@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import AppSettings from '../../components/AppSettings';
 import { refreshVersions } from '../../api';
 
@@ -46,31 +46,59 @@ describe('AppSettings', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
-  describe('Docker Status', () => {
-    it.each([
-      ['UP', 'Connected'],
-      ['DOWN', 'Unavailable'],
-      ['ERROR', 'Error'],
-      ['CHECKING', 'Checking...'],
-      ['UNKNOWN', 'Unknown'],
-    ])('shows %s as %s', (status, label) => {
-      render(<AppSettings {...defaultProps} sources={[{ id: 'local', name: 'Local', status }]} />);
-      expect(screen.getByText(`Local: ${label}`)).toBeInTheDocument();
+  describe('Hosts', () => {
+    const hosts = [
+      { id: 'walker', name: 'Walker', status: 'UP' },
+      { id: 'mike', name: 'Mike', status: 'DOWN' },
+    ];
+
+    it('lists hosts with container counts and status', () => {
+      render(<AppSettings {...defaultProps} sources={hosts} counts={{ walker: 3 }} />);
+      const rows = document.querySelectorAll('.host-row');
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toHaveTextContent('Walker');
+      expect(rows[0]).toHaveTextContent('3 containers');
+      expect(rows[0]).toHaveTextContent('Connected');
+      expect(rows[1]).toHaveTextContent('Mike');
+      expect(rows[1]).toHaveTextContent('0 containers');
+      expect(screen.getByText('Unreachable')).toBeInTheDocument();
     });
 
     it.each([
-      ['UP', 'status-running'],
-      ['DOWN', 'status-stopped'],
-    ])('uses the correct indicator for %s', (status, indicatorClass) => {
-      render(<AppSettings {...defaultProps} sources={[{ id: 'local', name: 'Local', status }]} />);
-      expect(document.querySelector('.status-indicator')).toHaveClass(indicatorClass);
+      ['UP', 'Connected'],
+      ['DOWN', 'Unreachable'],
+      ['ERROR', 'Error'],
+      ['CHECKING', 'Checking…'],
+    ])('shows %s as %s', (status, label) => {
+      render(<AppSettings {...defaultProps} sources={[{ id: 'local', name: 'Local', status }]} counts={{}} />);
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
+
+    it('keeps the unknown connection row when there are no sources', () => {
+      render(<AppSettings {...defaultProps} sources={[]} />);
+      expect(screen.getByText('Connections: Unknown')).toBeInTheDocument();
+    });
+  });
+
+  describe('Group containers by', () => {
+    it('switches grouping with a pressed segmented control', () => {
+      const onGroupByChange = vi.fn();
+      render(<AppSettings {...defaultProps} groupBy="host-stack" onGroupByChange={onGroupByChange} />);
+      const group = screen.getByRole('group', { name: 'Group containers by' });
+      expect(within(group).getByRole('button', { name: 'Host › Stack' })).toHaveAttribute('aria-pressed', 'true');
+      expect(within(group).getByRole('button', { name: 'Host' })).toHaveAttribute('aria-pressed', 'false');
+      fireEvent.click(within(group).getByRole('button', { name: 'Stack' }));
+      expect(onGroupByChange).toHaveBeenCalledWith('stack');
+      fireEvent.click(within(group).getByRole('button', { name: 'Host' }));
+      expect(onGroupByChange).toHaveBeenCalledWith('host');
     });
   });
 
   describe('Show Stopped Containers Toggle', () => {
     it('should render toggle', () => {
       render(<AppSettings {...defaultProps} />);
-      expect(screen.getByText('Show stopped containers')).toBeInTheDocument();
+      expect(screen.getByLabelText('Show stopped containers')).toBeInTheDocument();
+      expect(screen.getByText('Shown with a dashed outline.')).toBeInTheDocument();
     });
 
     it('should be unchecked when showStopped is false', () => {
@@ -101,9 +129,10 @@ describe('AppSettings', () => {
   });
 
   describe('Show Containers Without Ports Toggle', () => {
-    it('should render toggle', () => {
+    it('renames the no-endpoint toggle', () => {
       render(<AppSettings {...defaultProps} />);
-      expect(screen.getByText('Show containers without endpoints')).toBeInTheDocument();
+      expect(screen.getByLabelText('Show containers without a web UI')).toBeInTheDocument();
+      expect(screen.queryByText('Show containers without endpoints')).not.toBeInTheDocument();
     });
 
     it('should be unchecked when showAll is false', () => {
