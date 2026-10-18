@@ -1274,9 +1274,23 @@
           "parameterTypes": []
         },
         {
-          "name": "registryOperations",
+          "name": "dockerHubClient",
           "parameterTypes": [
             "org.springframework.web.client.RestClient",
+            "com.roomelephant.porthole.config.properties.RegistryProperties"
+          ]
+        },
+        {
+          "name": "ghcrClient",
+          "parameterTypes": [
+            "org.springframework.web.client.RestClient",
+            "com.roomelephant.porthole.config.properties.RegistryProperties"
+          ]
+        },
+        {
+          "name": "registryOperations",
+          "parameterTypes": [
+            "java.util.List",
             "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
         },
@@ -1659,6 +1673,9 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.core.port.inbound.CheckDockerAvailability"
+    },
+    {
       "type": "com.roomelephant.porthole.core.port.inbound.GetContainers"
     },
     {
@@ -1714,6 +1731,21 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.core.service.DockerAvailabilityService",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.outbound.DockerOperations"
+          ]
+        },
+        {
+          "name": "close",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.core.version.VersionRefreshService",
       "methods": [
         {
@@ -1755,12 +1787,8 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "com.roomelephant.porthole.core.port.outbound.DockerOperations"
+            "com.roomelephant.porthole.core.port.inbound.CheckDockerAvailability"
           ]
-        },
-        {
-          "name": "close",
-          "parameterTypes": []
         }
       ]
     },
@@ -1940,7 +1968,16 @@
       "type": "com.roomelephant.porthole.outbound.docker.DockerSourceRegistry"
     },
     {
-      "type": "com.roomelephant.porthole.outbound.registry.HttpRegistryOperations"
+      "type": "com.roomelephant.porthole.outbound.registry.RegistryClient"
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.registry.RegistryOperationsAdapter"
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.registry.dockerhub.DockerHubClient"
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.registry.ghcr.GhcrClient"
     },
     {
       "type": "com.sun.crypto.provider.AESCipher$General",
@@ -8447,6 +8484,9 @@
       "glob": "com/roomelephant/porthole/core/enrichment/version/VersionEnricher.class"
     },
     {
+      "glob": "com/roomelephant/porthole/core/port/inbound/CheckDockerAvailability.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/core/port/inbound/GetContainers.class"
     },
     {
@@ -8463,6 +8503,9 @@
     },
     {
       "glob": "com/roomelephant/porthole/core/service/ContainerService.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/service/DockerAvailabilityService.class"
     },
     {
       "glob": "com/roomelephant/porthole/core/version/VersionRefreshService$Entry.class"
