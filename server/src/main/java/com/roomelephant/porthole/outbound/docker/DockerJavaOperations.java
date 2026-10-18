@@ -20,11 +20,6 @@ public final class DockerJavaOperations implements DockerOperations {
         return sources.sources().stream().map(this::descriptor).toList();
     }
 
-    @Override
-    public DockerSource requireSource(String id) {
-        return descriptor(sources.require(id));
-    }
-
     private DockerSource descriptor(DockerConnection s) {
         return new DockerSource(s.id(), s.name(), s.publishedHost(), s.connectionTimeout(), s.responseTimeout());
     }
