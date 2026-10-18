@@ -5,8 +5,8 @@ import SourceSection from './components/SourceSection';
 import AppSettings from './components/AppSettings';
 import { useContainers } from './hooks/useContainers';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { STORAGE_KEYS } from './constants';
-import { groupBySource } from './utils/containers';
+import { STORAGE_KEYS, GROUP_BY } from './constants';
+import { buildSections } from './utils/containers';
 
 const EMPTY = { sources: [], containers: [] };
 
@@ -15,7 +15,10 @@ function App() {
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
   const { data = EMPTY, isLoading, error } = useContainers({ showAll, showStopped });
-  const grouped = useMemo(() => groupBySource(data.containers), [data.containers]);
+  const sections = useMemo(
+    () => buildSections({ sources: data.sources, containers: data.containers, groupBy: GROUP_BY.HOST_STACK }),
+    [data.sources, data.containers]);
+  const sourcesById = useMemo(() => Object.fromEntries(data.sources.map(source => [source.id, source])), [data.sources]);
 
   let inventory;
   if (isLoading) {
@@ -31,11 +34,11 @@ function App() {
       </div>
     );
   } else {
-    inventory = data.sources.map(source => (
+    inventory = sections.map(section => (
       <SourceSection
-        key={source.id}
-        source={source}
-        containers={grouped.get(source.id) || []}
+        key={section.id}
+        section={section}
+        sourcesById={sourcesById}
         showAll={showAll}
         showStopped={showStopped}
         allowLegacyMigration={data.sources.length === 1}

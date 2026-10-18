@@ -1,3 +1,5 @@
+import { STORAGE_KEYS } from '../constants';
+
 export const NO_ENDPOINT_ID = 'none';
 
 export const resolveEndpointSelection = (endpoints, savedId) => {
@@ -45,4 +47,15 @@ export const groupEndpointsBySource = (endpoints) => {
   });
   return [...groups].sort(([a], [b]) => sourceOrder(a) - sourceOrder(b) || a.localeCompare(b))
     .map(([source, candidates]) => ({ source, title: sourceTitle(source), endpoints: candidates }));
+};
+
+/** True when the container has no web UI: no endpoints, or "No web UI" chosen in its settings. */
+export const isHeadless = (container) => {
+  if (!container.hasEndpoints) return true;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.ENDPOINT_PREF(container.sourceId, container.name));
+    return stored !== null && JSON.parse(stored) === NO_ENDPOINT_ID;
+  } catch {
+    return false;
+  }
 };
