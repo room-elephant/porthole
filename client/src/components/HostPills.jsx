@@ -2,7 +2,7 @@ export default function HostPills({ sources, counts, selected, onSelect }) {
   if (sources.length === 0) return null;
   const total = sources.reduce((sum, source) => sum + (counts[source.id] ?? 0), 0);
   return (
-    <div className="host-pills" role="group" aria-label="Show host">
+    <fieldset className="host-pills" aria-label="Show host">
       <button type="button" className="pill" aria-pressed={selected === 'all'} onClick={() => onSelect('all')}>
         All <span className="pill-count">{total}</span>
       </button>
@@ -22,6 +22,6 @@ export default function HostPills({ sources, counts, selected, onSelect }) {
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }

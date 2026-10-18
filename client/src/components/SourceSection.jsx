@@ -94,7 +94,7 @@ function Group({ group, section, sourcesById, allowLegacyMigration }) {
     slot?.querySelector('.chip, .tile-menu')?.focus();
   });
 
-  const headlessOf = container => (frozen && frozen.key === keyOf(container) ? frozen.headless : isHeadless(container));
+  const headlessOf = container => (frozen?.key === keyOf(container) ? frozen.headless : isHeadless(container));
   const withUi = group.containers.filter(container => !headlessOf(container));
   const headless = group.containers.filter(headlessOf);
   if (group.containers.length === 0) return null;

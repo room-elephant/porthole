@@ -73,6 +73,7 @@ function ImageCard({ container }) {
 
 function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates }) {
     const selectionName = useId();
+    const updateToggleId = useId();
     const endpoints = groupEndpointsBySource(container.endpoints).flatMap(group => group.endpoints);
     const effectiveEndpointId = endpoints.length === 0 ? NO_ENDPOINT_ID : selectedEndpointId;
     const subtitle = [container.name, sourceName].filter(Boolean).join(' · ') + (container.project ? ` / ${container.project}` : '');
@@ -112,18 +113,20 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
             <div className="settings-section">
                 <h3 className="settings-heading">Image</h3>
                 <ImageCard container={container} />
-                <label className="update-toggle">
+                <div className="update-toggle">
                     <span className="update-toggle-text">
-                        <span className="update-toggle-label">Show update badge</span>
-                        <span className="endpoint-helper">Checks keep running either way; this only hides the badge.</span>
+                        <label htmlFor={updateToggleId} className="update-toggle-label">Show update badge</label>
+                        <span id={`${updateToggleId}-help`} className="endpoint-helper">Checks keep running either way; this only hides the badge.</span>
                     </span>
                     <input
+                        id={updateToggleId}
                         type="checkbox"
                         checked={checkUpdates}
+                        aria-describedby={`${updateToggleId}-help`}
                         onChange={(e) => onToggleCheckUpdates(e.target.checked)}
                     />
-                    <span className="toggle-slider"></span>
-                </label>
+                    <span className="toggle-slider" aria-hidden="true"></span>
+                </div>
             </div>
         </Modal>
     );

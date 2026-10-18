@@ -143,7 +143,7 @@ describe('ContainerTile', () => {
       renderWithQuery(<ContainerTile container={createMockContainer({ status: 'Up 2 minutes (unhealthy)', version: update })} />);
       expect(screen.getByText('Unhealthy')).toBeInTheDocument();
       expect(screen.queryByText('Update')).not.toBeInTheDocument();
-      expect(screen.queryByTitle('Update available')).toBeInTheDocument();
+      expect(screen.getByTitle('Update available')).toBeInTheDocument();
     });
   });
 

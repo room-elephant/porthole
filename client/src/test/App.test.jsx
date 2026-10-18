@@ -19,6 +19,7 @@ describe('App', () => {
     renderWithQuery(<App />);
     expect(document.querySelectorAll('.skeleton-tile')).toHaveLength(6);
     expect(screen.getByRole('status')).toHaveTextContent('Connecting…');
+    expect(screen.getByRole('status').tagName).toBe('OUTPUT');
     expect(screen.getByText('Porthole')).toHaveClass('wordmark');
   });
 
@@ -130,6 +131,7 @@ describe('App', () => {
     view.rerender(<App />);
     expect(screen.getByRole('region', { name: 'Walker' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Show host' })).getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('group', { name: 'Show host' }).tagName).toBe('FIELDSET');
   });
 
   it('filters by query and shows no-results with clear and include-stopped', () => {

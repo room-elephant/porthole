@@ -5,7 +5,7 @@ import { ASSETS } from '../constants';
 export default function ContainerIcon({ container, status, showUpdate = false, size = 40 }) {
   const src = container.name.includes('porthole') ? ASSETS.PORTHOLE_ICON : container.iconUrl;
   return (
-    <span className="container-icon" style={{ width: size, height: size }}>
+    <span className="container-icon" style={{ '--icon-size': `${size}px` }}>
       <img
         src={src}
         alt=""

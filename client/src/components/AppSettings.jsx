@@ -32,7 +32,9 @@ function ToggleSetting({ label, help, checked, onChange }) {
 function HostRow({ source, count }) {
     const checking = source.status === 'CHECKING';
     const up = source.status === 'UP';
-    const statusClass = checking ? 'host-status--checking' : up ? '' : 'host-status--bad';
+    let statusClass = '';
+    if (checking) statusClass = 'host-status--checking';
+    else if (!up) statusClass = 'host-status--bad';
     return (
         <div className="host-row">
             {checking ? <Loader2 size={14} className="status-spinner" aria-hidden="true" /> : <span className={`host-dot${up ? '' : ' host-dot--bad'}`} />}
@@ -79,13 +81,13 @@ function AppSettings({
                 <h3 className="settings-heading-sm">Layout</h3>
                 <div className="segmented-field">
                     <span>Group containers by</span>
-                    <div role="group" aria-label="Group containers by" className="segmented">
+                    <fieldset aria-label="Group containers by" className="segmented">
                         {GROUP_OPTIONS.map(option => (
                             <button key={option.value} type="button" aria-pressed={groupBy === option.value} onClick={() => onGroupByChange(option.value)}>
                                 {option.label}
                             </button>
                         ))}
-                    </div>
+                    </fieldset>
                 </div>
             </section>
 

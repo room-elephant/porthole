@@ -90,6 +90,7 @@ describe('AppSettings', () => {
       const onGroupByChange = vi.fn();
       render(<AppSettings {...defaultProps} groupBy="host-stack" onGroupByChange={onGroupByChange} />);
       const group = screen.getByRole('group', { name: 'Group containers by' });
+      expect(group.tagName).toBe('FIELDSET');
       expect(within(group).getByRole('button', { name: 'Host › Stack' })).toHaveAttribute('aria-pressed', 'true');
       expect(within(group).getByRole('button', { name: 'Host' })).toHaveAttribute('aria-pressed', 'false');
       fireEvent.click(within(group).getByRole('button', { name: 'Stack' }));

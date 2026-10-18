@@ -16,7 +16,7 @@ const isOffline = source => source.status === 'DOWN' || source.status === 'ERROR
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [query, setQuery] = useState('');
-  const [selectedHost, setHostFilter] = useState('all');
+  const [selectedHost, setSelectedHost] = useState('all');
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
   const [storedGroupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
@@ -41,7 +41,7 @@ function App() {
         <div className="tile-grid">
           {Array.from({ length: 6 }, (_, index) => <SkeletonTile key={index} />)}
         </div>
-        <p className="loading-status" role="status">Connecting…</p>
+        <output className="loading-status">Connecting…</output>
       </>
     );
   } else if (error) {
@@ -92,7 +92,7 @@ function App() {
         sources={error ? [] : data.sources}
         counts={counts}
         hostFilter={hostFilter}
-        onHostFilterChange={setHostFilter}
+        onHostFilterChange={setSelectedHost}
         onOpenSettings={() => setShowSettings(true)}
       />
       <main className="page">

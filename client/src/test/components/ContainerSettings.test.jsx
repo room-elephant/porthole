@@ -83,8 +83,9 @@ describe('ContainerSettings', () => {
   it('should render version updates toggle', () => {
     render(<ContainerSettings {...defaultProps} />);
 
-    expect(screen.getByText('Show update badge')).toBeInTheDocument();
-    expect(screen.getByRole('checkbox')).toBeInTheDocument();
+    const toggle = screen.getByRole('checkbox', { name: 'Show update badge' });
+    expect(toggle).toHaveAccessibleName('Show update badge');
+    expect(toggle).toHaveAccessibleDescription('Checks keep running either way; this only hides the badge.');
   });
 
   it('should have toggle checked when checkUpdates is true', () => {

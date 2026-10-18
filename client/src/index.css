@@ -182,7 +182,9 @@ body {
   scrollbar-width: thin;
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-  padding-right: 24px;
+  margin: 0;
+  border: none;
+  padding: 0 24px 0 0;
 }
 
 .pill {
@@ -485,6 +487,8 @@ input:checked + .toggle-slider::before {
   position: relative;
   flex: 0 0 auto;
   display: block;
+  width: var(--icon-size, 40px);
+  height: var(--icon-size, 40px);
 }
 
 .container-icon img {
@@ -1050,6 +1054,8 @@ input:checked + .toggle-slider::before {
 
 .segmented {
   align-self: flex-start;
+  min-width: 0;
+  margin: 0;
   display: inline-flex;
   gap: 2px;
   padding: 3px;
@@ -1198,6 +1204,7 @@ input:checked + .toggle-slider::before {
 }
 
 .loading-status {
+  display: block;
   margin: 16px 0 0;
   font-size: 13px;
   color: var(--text-muted);
@@ -1626,8 +1633,8 @@ input:checked + .toggle-slider::before {
   }
 
   .tile .container-icon {
-    width: 36px !important;
-    height: 36px !important;
+    width: 36px;
+    height: 36px;
   }
 
   /* Bottom sheet */
