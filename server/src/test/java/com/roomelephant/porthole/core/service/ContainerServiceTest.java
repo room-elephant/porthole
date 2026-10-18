@@ -10,7 +10,6 @@ import com.github.dockerjava.api.model.ContainerPort;
 import com.roomelephant.porthole.core.enrichment.ContainerEnrichment;
 import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.endpoint.EndpointDiscovery;
-import com.roomelephant.porthole.core.enrichment.endpoint.EndpointSettings;
 import com.roomelephant.porthole.core.enrichment.endpoint.UrlCandidateEnricher;
 import com.roomelephant.porthole.core.enrichment.endpointavailability.EndpointAvailabilityFilter;
 import com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter;
@@ -316,10 +315,18 @@ class ContainerServiceTest {
     private ContainerService service(String publishedHost) {
         IconResolver icon = mock(IconResolver.class, invocation -> "icon");
         EndpointDiscovery discovery = new EndpointDiscovery(List.of(
-                new PublishedPortEndpointProvider(new PublishedHostResolver(new EndpointSettings(publishedHost))),
+                new PublishedPortEndpointProvider(new PublishedHostResolver()),
                 new TraefikEndpointProvider(new TraefikRuleParser())));
         return new ContainerService(
-                com.roomelephant.porthole.DockerTestSources.operationsOf(dockerClient),
+                new com.roomelephant.porthole.outbound.docker.DockerJavaOperations(
+                        new com.roomelephant.porthole.outbound.docker.DockerSourceRegistry(
+                                List.of(new com.roomelephant.porthole.outbound.docker.DockerConnection(
+                                        "local",
+                                        "Local",
+                                        publishedHost,
+                                        java.time.Duration.ofSeconds(5),
+                                        java.time.Duration.ofSeconds(60),
+                                        dockerClient)))),
                 new ContainerPresentation(icon),
                 new ContainerEnrichment(List.of(
                         new ContainerStateFilter(),

@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.*;
 import com.roomelephant.porthole.config.DockerConfig;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -15,6 +17,27 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 
 class DockerPropertiesTest {
+    @ParameterizedTest
+    @ValueSource(strings = {"http://192.168.50.6", "host:9753", "host/path", "", "host?query", "user@host", "${HOST}"})
+    void rejectsInvalidConnectionPublishedHosts(String host) {
+        source().withPropertyValues("porthole.docker.connections[0].published-host=" + host)
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"docker.example.com", "192.168.50.6", "2001:db8::6", "[2001:db8::6]"})
+    void acceptsValidConnectionPublishedHosts(String host) {
+        source().withPropertyValues("porthole.docker.connections[0].published-host=" + host)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(DockerProperties.class)
+                                    .connections()
+                                    .getFirst()
+                                    .publishedHost())
+                            .isEqualTo(host);
+                });
+    }
+
     private final ApplicationContextRunner runner = new ApplicationContextRunner().withUserConfiguration(Config.class);
 
     private ApplicationContextRunner source() {
@@ -191,6 +214,6 @@ class DockerPropertiesTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties({DockerProperties.class, EndpointProperties.class})
+    @EnableConfigurationProperties(DockerProperties.class)
     static class Config {}
 }

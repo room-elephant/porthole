@@ -13,7 +13,8 @@ import org.springframework.web.client.RestTemplate;
 class PublishedHostOverrideIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldUseConfiguredPublishedHost() {
-        try (PortholeContainer app = porthole.withEnv("PORTHOLE_ENDPOINTS_PUBLISHEDHOST", "docker.example.com")) {
+        try (PortholeContainer app =
+                porthole.withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST", "docker.example.com")) {
             app.start();
             ContainerDTO[] containers = new RestTemplate()
                     .getForObject(

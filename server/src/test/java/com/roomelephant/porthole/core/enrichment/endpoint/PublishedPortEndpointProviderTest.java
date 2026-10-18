@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class PublishedPortEndpointProviderTest {
     private final PublishedPortEndpointProvider provider =
-            new PublishedPortEndpointProvider(new PublishedHostResolver(new EndpointSettings(null)));
+            new PublishedPortEndpointProvider(new PublishedHostResolver());
 
     @Test
     void shouldBuildCompletePublishedPortUrl() {

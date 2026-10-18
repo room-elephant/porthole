@@ -1217,12 +1217,6 @@
           "parameterTypes": []
         },
         {
-          "name": "endpointSettings",
-          "parameterTypes": [
-            "com.roomelephant.porthole.config.properties.EndpointProperties"
-          ]
-        },
-        {
           "name": "iconSettings",
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.DashboardProperties"
@@ -1269,7 +1263,6 @@
           "name": "<init>",
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.DockerProperties",
-            "com.roomelephant.porthole.config.properties.EndpointProperties",
             "org.springframework.core.env.Environment"
           ]
         },
@@ -1548,21 +1541,6 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.config.properties.EndpointProperties",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String"
-          ]
-        },
-        {
-          "name": "isPublishedHostValid",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
       "type": "com.roomelephant.porthole.config.properties.GhcrProperties",
       "fields": [
         {
@@ -1710,16 +1688,11 @@
       "type": "com.roomelephant.porthole.core.enrichment.endpoint.EndpointProvider"
     },
     {
-      "type": "com.roomelephant.porthole.core.enrichment.endpoint.EndpointSettings"
-    },
-    {
       "type": "com.roomelephant.porthole.core.enrichment.endpoint.PublishedHostResolver",
       "methods": [
         {
           "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.core.enrichment.endpoint.EndpointSettings"
-          ]
+          "parameterTypes": []
         }
       ]
     },
@@ -9492,6 +9465,9 @@
     },
     {
       "glob": "public/api/containers/non-existent-id/version"
+    },
+    {
+      "glob": "public/index.html"
     },
     {
       "glob": "resources/api/containers/non-existent-id/version"

@@ -26,6 +26,7 @@ porthole:
       - id: local
         name: Local
         host: unix:///var/run/docker.sock
+        published-host: 127.0.0.1
         connection-timeout: 5s
         response-timeout: 60s
 

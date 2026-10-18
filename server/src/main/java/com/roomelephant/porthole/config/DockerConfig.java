@@ -15,9 +15,8 @@ import org.springframework.core.env.Environment;
 @Configuration
 public class DockerConfig {
     private final DockerProperties properties;
-    private final EndpointProperties endpoints;
 
-    public DockerConfig(DockerProperties properties, EndpointProperties endpoints, Environment environment) {
+    public DockerConfig(DockerProperties properties, Environment environment) {
         // Strict binding excludes real environment/system-property sources from unknown-key checks.
         var binder = Binder.get(environment);
         for (String key : new String[] {"host", "connection-timeout", "response-timeout"}) {
@@ -28,8 +27,12 @@ public class DockerConfig {
                                 + " is no longer supported; migrate to porthole.docker.connections with id, name and host per connection");
             }
         }
+        if (binder.bind("porthole.endpoints.published-host", String.class).isBound()) {
+            throw new IllegalArgumentException(
+                    "Global setting porthole.endpoints.published-host is no longer supported; "
+                            + "configure published-host in porthole.docker.connections instead");
+        }
         this.properties = properties;
-        this.endpoints = endpoints;
     }
 
     @Bean
@@ -37,10 +40,13 @@ public class DockerConfig {
         var sources = new ArrayList<DockerConnection>();
         try {
             for (var p : properties.connections()) {
-                String published = p.publishedHost();
-                if (published == null && properties.connections().size() == 1) published = endpoints.publishedHost();
                 sources.add(new DockerConnection(
-                        p.id(), p.name(), published, p.connectionTimeout(), p.responseTimeout(), createClient(p)));
+                        p.id(),
+                        p.name(),
+                        p.publishedHost(),
+                        p.connectionTimeout(),
+                        p.responseTimeout(),
+                        createClient(p)));
             }
             return new DockerSourceRegistry(sources);
         } catch (RuntimeException e) {

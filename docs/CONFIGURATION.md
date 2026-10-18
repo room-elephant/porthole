@@ -47,8 +47,7 @@ Each entry defaults to a `5s` connection timeout and `60s` response timeout, eve
 when omitted from an external list. Timeouts must be positive. With several
 sources, every entry must set `published-host` to the hostname/IP clients should
 use for direct port links. It must omit scheme, port, and path. For one source,
-the existing global `porthole.endpoints.published-host` remains a fallback, followed
-by the incoming request hostname. Traefik-discovered URLs retain their own hosts.
+the incoming request hostname is used when `published-host` is omitted. Traefik-discovered URLs retain their own hosts.
 
 Restart Porthole after changing connections. An unavailable source does not stop
 the application from starting: its host section reports the failure and retries
@@ -209,17 +208,23 @@ Porthole lists containers with at least one discovered endpoint by default. **Sh
 
 ### Published-Port Hostname
 
-Published-port URLs use HTTP and the hostname from the incoming Porthole request. For example, accessing `http://192.168.50.6:9753/` produces `http://192.168.50.6:51413/` for a container publishing port 51413. Port 80 uses the standard `http://192.168.50.6/` form. IPv6 addresses are bracketed correctly.
+Published-port URLs use HTTP and the connection’s `published-host`, falling back to the incoming request hostname when it is omitted for a single connection. For example, accessing `http://192.168.50.6:9753/` produces `http://192.168.50.6:51413/` for a container publishing port 51413. Port 80 uses the standard `http://192.168.50.6/` form. IPv6 addresses are bracketed correctly.
 
-For a single source, use the global override when Porthole's browser hostname differs from the Docker host that publishes the ports, including reverse-proxy deployments. For multiple sources, configure each connection's `published-host` as described above:
+Set `published-host` on the Docker connection when Porthole's browser hostname differs from the Docker host that publishes the ports, including reverse-proxy deployments:
 
 ```yaml
 porthole:
-  endpoints:
-    published-host: docker.example.com
+  docker:
+    connections:
+      - id: local
+        name: Local
+        host: unix:///var/run/docker.sock
+        published-host: docker.example.com
 ```
 
-The environment variable is **`PORTHOLE_ENDPOINTS_PUBLISHEDHOST`**. Its value must be a bare hostname or IP address, without a scheme, port, or path. Invalid values prevent application startup. The default is unset; the request hostname is resolved for each request. Porthole does not use the browser's client IP or a container bridge address.
+The first connection's environment variable is **`PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST`**. Its value must be a bare hostname or IP address, without a scheme, port, or path. Invalid values prevent application startup. For a single connection, the default is unset and the request hostname is resolved for each request. Multiple connections must each specify `published-host`. Porthole does not use the browser's client IP or a container bridge address.
+
+The former global `porthole.endpoints.published-host` / `PORTHOLE_ENDPOINTS_PUBLISHEDHOST` setting is no longer supported. Move it to the appropriate connection; configuring the global setting prevents startup with a migration message.
 
 Direct ports are candidates, not guarantees of a web UI: a published torrent, database, or HTTPS-only port can still produce an HTTP candidate. Choose the appropriate endpoint in settings.
 

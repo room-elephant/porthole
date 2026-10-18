@@ -25,7 +25,7 @@ It resolves container icons automatically
 
 Porthole discovers full URLs from Docker published ports and literal Traefik HTTP router labels. Clicking a tile prefers Traefik; when several Traefik URLs exist, a unique root route wins. Ambiguous choices open settings. A saved URL choice takes precedence and is remembered by endpoint ID.
 
-The gear icon groups candidates under **Traefik URLs**, **Published Ports**, and any additional provider sections. Published ports use each connection’s `published-host`; single-source deployments can fall back to `PORTHOLE_ENDPOINTS_PUBLISHEDHOST` or the hostname through which you accessed Porthole. See [endpoint configuration and rule support](docs/CONFIGURATION.md#endpoint-discovery).
+The gear icon groups candidates under **Traefik URLs**, **Published Ports**, and any additional provider sections. Published ports use each connection’s `published-host`; single-source deployments fall back to the hostname through which you accessed Porthole when `published-host` is omitted. See [endpoint configuration and rule support](docs/CONFIGURATION.md#endpoint-discovery).
 
 ## Quick Start
 

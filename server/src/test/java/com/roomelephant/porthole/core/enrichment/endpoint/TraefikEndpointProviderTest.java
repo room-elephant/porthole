@@ -72,9 +72,7 @@ class TraefikEndpointProviderTest {
         Container container = EndpointFixtures.container(Set.of(51413), labels);
         assertThat(provider.discover(container, context)).isEmpty();
         assertThat(new EndpointDiscovery(java.util.List.of(
-                                provider,
-                                new PublishedPortEndpointProvider(
-                                        new PublishedHostResolver(new EndpointSettings(null)))))
+                                provider, new PublishedPortEndpointProvider(new PublishedHostResolver())))
                         .discover(container, context))
                 .extracting(Endpoint::source)
                 .containsExactly("published-port");

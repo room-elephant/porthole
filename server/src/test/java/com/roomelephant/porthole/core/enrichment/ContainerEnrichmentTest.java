@@ -3,7 +3,6 @@ package com.roomelephant.porthole.core.enrichment;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roomelephant.porthole.core.enrichment.endpoint.*;
-import com.roomelephant.porthole.core.enrichment.endpoint.EndpointSettings;
 import com.roomelephant.porthole.core.enrichment.endpointavailability.*;
 import com.roomelephant.porthole.core.enrichment.state.*;
 import com.roomelephant.porthole.core.model.Container;
@@ -182,7 +181,7 @@ class ContainerEnrichmentTest {
         @Bean
         EndpointDiscovery endpointDiscovery() {
             return new EndpointDiscovery(List.of(
-                    new PublishedPortEndpointProvider(new PublishedHostResolver(new EndpointSettings(null))),
+                    new PublishedPortEndpointProvider(new PublishedHostResolver()),
                     new TraefikEndpointProvider(new TraefikRuleParser())));
         }
     }
