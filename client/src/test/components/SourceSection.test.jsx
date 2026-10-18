@@ -57,7 +57,7 @@ describe('source sections', () => {
   expect(document.querySelector('.tile-grid .tile-name')).toHaveTextContent('Web');
  });
 
- it('keeps the dialog open and the tile in place while choosing No endpoint, then moves it to a chip on close', () => {
+ it('keeps the dialog open and the tile in place while choosing No web UI, then moves it to a chip on close', () => {
   renderSection([mk()]);
   fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
   fireEvent.click(screen.getByRole('radio', { name: /No (endpoint|web UI)/ }));

@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
+import { X } from 'lucide-react';
 
-function Modal({ title, children, onClose, className = '' }) {
+function Modal({ title, icon = null, subtitle = null, children, onClose, className = '' }) {
     const dialogRef = useRef(null);
     const modalRef = useRef(null);
+    const titleId = useId();
 
     useEffect(() => {
         const handleEscape = (event) => {
@@ -36,7 +38,7 @@ function Modal({ title, children, onClose, className = '' }) {
                 onClose();
             }}
             aria-modal="true"
-            aria-labelledby="modal-title"
+            aria-labelledby={titleId}
         >
             <button type="button" className="modal-backdrop" aria-label="Close dialog" onClick={onClose} />
             <div 
@@ -44,8 +46,18 @@ function Modal({ title, children, onClose, className = '' }) {
                 className={`modal-content ${className}`} 
                 tabIndex={-1}
             >
-                <h3 id="modal-title" className="modal-title">{title}</h3>
-                {children}
+                <span className="modal-handle" aria-hidden="true" />
+                <div className="modal-header">
+                    {icon}
+                    <div className="modal-heading">
+                        <h2 id={titleId} className="modal-title">{title}</h2>
+                        {subtitle && <p className="modal-subtitle">{subtitle}</p>}
+                    </div>
+                    <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>
+                        <X size={20} aria-hidden="true" />
+                    </button>
+                </div>
+                <div className="modal-body">{children}</div>
             </div>
         </dialog>
     );

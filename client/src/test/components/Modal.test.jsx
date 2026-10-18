@@ -52,7 +52,8 @@ describe('Modal', () => {
     expect(dialog.tagName).toBe('DIALOG');
     expect(dialog).toHaveAttribute('open');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(dialog).toHaveAttribute('aria-labelledby', 'modal-title');
+    expect(dialog).toHaveAttribute('aria-labelledby');
+    expect(screen.getByRole('dialog', { name: 'Test Modal' })).toBe(dialog);
   });
 
   it('allows keyboard dismissal through the backdrop button', async () => {
@@ -91,15 +92,37 @@ describe('Modal', () => {
   it('should apply custom className', () => {
     render(<Modal {...defaultProps} className="custom-modal" />);
 
-    const modalContent = screen.getByText('Modal content').parentElement;
-    expect(modalContent).toHaveClass('modal-content');
+    const modalContent = screen.getByText('Modal content').closest('.modal-content');
     expect(modalContent).toHaveClass('custom-modal');
+    expect(screen.getByText('Modal content').parentElement).toHaveClass('modal-body');
   });
 
-  it('should render title with correct id for accessibility', () => {
+  it('labels the dialog by its title element', () => {
     render(<Modal {...defaultProps} />);
 
-    const title = screen.getByText('Test Modal');
-    expect(title).toHaveAttribute('id', 'modal-title');
+    const title = screen.getByRole('heading', { level: 2, name: 'Test Modal' });
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-labelledby', title.id);
+  });
+
+  it('calls onClose from the close button', () => {
+    const onClose = vi.fn();
+    render(<Modal {...defaultProps} onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the icon and subtitle in the header', () => {
+    render(<Modal {...defaultProps} icon={<span data-testid="icon" />} subtitle="Sub text" />);
+
+    expect(screen.getByTestId('icon')).toBeInTheDocument();
+    expect(screen.getByText('Sub text')).toHaveClass('modal-subtitle');
+  });
+
+  it('renders a decorative drag handle', () => {
+    const { container } = render(<Modal {...defaultProps} />);
+
+    expect(container.ownerDocument.querySelector('.modal-handle')).toHaveAttribute('aria-hidden', 'true');
   });
 });

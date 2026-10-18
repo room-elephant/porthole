@@ -13,10 +13,11 @@ const hostText = (container, selectedEndpoint) => {
     return container.endpoints.length > 0 ? 'Choose a URL' : 'No web UI';
 };
 
-function ContainerTile({ container, sourceOnline = true, hostTag = null, allowLegacyMigration = false, onSettingsOpenChange }) {
+function ContainerTile({ container, sourceOnline = true, hostTag = null, sourceName, allowLegacyMigration = false, onSettingsOpenChange }) {
     const { prefs: { selectedEndpoint }, status, showUpdate, openSettings, settingsDialog } = useContainerCard(container, {
         sourceOnline,
         allowLegacyMigration,
+        sourceName,
         onSettingsOpenChange,
     });
     const isLink = status.openable && Boolean(selectedEndpoint);

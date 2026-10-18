@@ -128,7 +128,7 @@ describe('ContainerTile', () => {
       expect(tile()).toHaveClass('tile--dashed');
       expect(screen.getByText(label)).toHaveClass('tile-label');
       await user.click(screen.getAllByRole('button', { name: settingsName })[0]);
-      expect(screen.getByText('Version Updates')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Image' })).toBeInTheDocument();
       expect(window.open).not.toHaveBeenCalled();
     });
 
@@ -156,7 +156,7 @@ describe('ContainerTile', () => {
       await user.tab();
       expect(screen.getByRole('button', { name: settingsName })).toHaveFocus();
       await user.keyboard('{Enter}');
-      expect(screen.getByText('Version Updates')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Image' })).toBeInTheDocument();
     });
 
     it('opens the chooser from the keyboard for ambiguous endpoints', async () => {
@@ -165,7 +165,7 @@ describe('ContainerTile', () => {
       await user.tab();
       expect(screen.getAllByRole('button', { name: settingsName })[0]).toHaveFocus();
       await user.keyboard('{Enter}');
-      expect(screen.getByText('Published Ports')).toBeInTheDocument();
+      expect(screen.getAllByText('Port')).not.toHaveLength(0);
       expect(window.open).not.toHaveBeenCalled();
     });
   });
@@ -181,7 +181,7 @@ describe('ContainerTile', () => {
       expect(screen.getByText('Choose a URL')).toHaveClass('tile-host');
       expect(tile()).not.toHaveClass('tile--dashed');
       fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
-      expect(screen.getByText('Traefik URLs')).toBeInTheDocument();
+      expect(screen.getAllByText('Traefik')).not.toHaveLength(0);
     });
 
     it('keeps an unhealthy tile red when no endpoint is selected', () => {
@@ -194,14 +194,14 @@ describe('ContainerTile', () => {
     it('shows ambiguous published ports in the chooser', () => {
       renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(443)] })} />);
       fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
-      expect(screen.getByText('Published Ports')).toBeInTheDocument();
+      expect(screen.getAllByText('Port')).not.toHaveLength(0);
     });
 
     it('should open settings modal from the menu button without navigating', () => {
       renderWithQuery(<ContainerTile container={createMockContainer()} />);
       openSettings();
       expect(screen.getByText('test-container')).toBeInTheDocument();
-      expect(screen.getByText('Version Updates')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Image' })).toBeInTheDocument();
       expect(window.open).not.toHaveBeenCalled();
     });
 
@@ -246,16 +246,17 @@ describe('ContainerTile', () => {
       expect(screen.queryByTitle('Update available')).not.toBeInTheDocument();
       openSettings();
       fireEvent.click(screen.getByRole('checkbox'));
-      expect(screen.getByTitle('Update available')).toBeInTheDocument();
+      // The tile and the open dialog's icon both carry the badge.
+      expect(screen.getAllByTitle('Update available')).toHaveLength(2);
     });
   });
 
-  describe('No endpoint choice', () => {
+  describe('No web UI choice', () => {
     it('turns the tile into a settings button and lets settings restore a URL', async () => {
       const user = userEvent.setup();
       renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(53)] })} />);
       await user.click(screen.getByRole('button', { name: settingsName }));
-      await user.click(screen.getByRole('radio', { name: 'No endpoint' }));
+      await user.click(screen.getByRole('radio', { name: 'No web UI' }));
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
       expect(tile()).not.toHaveClass('tile--dashed');
       expect(localStorage.getItem('endpoint_pref_v2_["local","test-container"]')).toBe('"none"');
@@ -274,7 +275,7 @@ describe('ContainerTile', () => {
       await user.tab();
       expect(screen.getAllByRole('button', { name: settingsName })[0]).toHaveFocus();
       await user.keyboard('{Enter}');
-      expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
+      expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked();
     });
   });
 

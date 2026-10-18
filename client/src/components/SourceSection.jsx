@@ -119,7 +119,7 @@ function Group({ group, section, sourcesById, allowLegacyMigration }) {
           <span className="chip-row-label">No web UI</span>
           {headless.map(container => (
             <span key={keyOf(container)} className="card-slot" data-container-key={keyOf(container)}>
-              <ContainerChip {...common(container)} />
+              <ContainerChip sourceName={sourcesById[container.sourceId]?.name} {...common(container)} />
             </span>
           ))}
         </div>
