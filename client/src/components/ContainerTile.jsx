@@ -11,11 +11,11 @@ const arraysEqual = (a, b) =>
 
 const getHealthStatus = (status) => status?.match(/\((healthy|unhealthy|health: starting)\)/i)?.[1]?.toLowerCase();
 
-function ContainerTile({ container, allowLegacyMigration = false }) {
+function ContainerTile({ container }) {
     const [showConfig, setShowConfig] = useState(false);
-    const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.sourceId, container.name, container.endpoints, {migrateLegacy: allowLegacyMigration});
+    const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.sourceId, container.name, container.endpoints);
     const hasEndpoints = container.hasEndpoints && selectedEndpointId !== NO_ENDPOINT_ID;
-    const [checkUpdates, setCheckUpdates] = useVersionPreference(container.sourceId, container.name, allowLegacyMigration);
+    const [checkUpdates, setCheckUpdates] = useVersionPreference(container.sourceId, container.name);
 
     const versionInfo = container.version;
 
@@ -108,7 +108,6 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
     return (
         prev.id === next.id &&
         prev.sourceId === next.sourceId &&
-        prevProps.allowLegacyMigration === nextProps.allowLegacyMigration &&
         prev.name === next.name &&
         prev.displayName === next.displayName &&
         prev.state === next.state &&

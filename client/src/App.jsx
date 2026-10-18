@@ -38,7 +38,6 @@ function App() {
         containers={grouped.get(source.id) || []}
         showAll={showAll}
         showStopped={showStopped}
-        allowLegacyMigration={data.sources.length === 1}
       />
     ));
   }
