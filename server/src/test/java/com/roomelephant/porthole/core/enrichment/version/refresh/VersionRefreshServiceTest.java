@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.version;
+package com.roomelephant.porthole.core.enrichment.version.refresh;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -6,6 +6,8 @@ import static org.mockito.Mockito.*;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.model.Container;
+import com.roomelephant.porthole.core.enrichment.version.resolution.VersionObservation;
+import com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.core.model.exception.NotFoundException;
 import java.time.*;
@@ -17,7 +19,7 @@ import org.mockito.ArgumentCaptor;
 class VersionRefreshServiceTest {
     private final DockerClient docker = mock(DockerClient.class);
     private final ListContainersCmd list = mock(ListContainersCmd.class);
-    private final VersionService resolver = mock(VersionService.class);
+    private final VersionResolver resolver = mock(VersionResolver.class);
     private final ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
     private final ManualExecutor workers = new ManualExecutor();
     private final ManualExecutor coordinators = new ManualExecutor();

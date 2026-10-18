@@ -1,5 +1,7 @@
-package com.roomelephant.porthole.core.version;
+package com.roomelephant.porthole.core.enrichment.version.refresh;
 
+import com.roomelephant.porthole.core.enrichment.version.resolution.VersionObservation;
+import com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver;
 import com.roomelephant.porthole.core.model.ContainerKey;
 import com.roomelephant.porthole.core.model.ContainerSnapshot;
 import com.roomelephant.porthole.core.model.DockerSource;
@@ -36,7 +38,7 @@ import org.springframework.stereotype.Service;
 @NullMarked
 public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     private final DockerOperations sources;
-    private final VersionService versionService;
+    private final VersionResolver versionResolver;
     private final VersionRefreshSettings properties;
     private final Clock clock;
     private final ExecutorService workers;
@@ -51,10 +53,10 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
 
     @Autowired
     public VersionRefreshService(
-            DockerOperations sources, VersionService versionService, VersionRefreshSettings properties) {
+            DockerOperations sources, VersionResolver versionResolver, VersionRefreshSettings properties) {
         this(
                 sources,
-                versionService,
+                versionResolver,
                 properties,
                 Clock.systemUTC(),
                 Executors.newFixedThreadPool(
@@ -67,14 +69,14 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
 
     VersionRefreshService(
             DockerOperations sources,
-            VersionService versionService,
+            VersionResolver versionResolver,
             VersionRefreshSettings properties,
             Clock clock,
             ExecutorService workers,
             ScheduledExecutorService scheduler,
             ExecutorService coordinators) {
         this.sources = sources;
-        this.versionService = versionService;
+        this.versionResolver = versionResolver;
         this.properties = properties;
         this.clock = clock;
         this.workers = workers;
@@ -113,7 +115,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
         forcedScans.addAll(pending);
         try {
             CompletableFuture<Void> invalidation =
-                    CompletableFuture.runAsync(versionService::invalidateRegistryCache, coordinators);
+                    CompletableFuture.runAsync(versionResolver::invalidateRegistryCache, coordinators);
             for (String id : pending) {
                 invalidation
                         .thenComposeAsync(_ -> refreshSource(id, true), coordinators)
@@ -212,7 +214,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
                 if (closed || entries.get(id) != entry) return;
                 previous = entry.observation;
             }
-            VersionObservation result = versionService.resolve(id, previous);
+            VersionObservation result = versionResolver.resolve(id, previous);
             VersionInfo value = result.toVersionInfo();
             synchronized (this) {
                 if (!closed && entries.get(id) == entry) {

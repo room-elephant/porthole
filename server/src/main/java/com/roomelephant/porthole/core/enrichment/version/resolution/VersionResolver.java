@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.version;
+package com.roomelephant.porthole.core.enrichment.version.resolution;
 
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.*;
@@ -8,13 +8,13 @@ import org.springframework.stereotype.Service;
 
 @Service
 @NullMarked
-public class VersionService {
+public class VersionResolver {
     private final DockerOperations docker;
     private final RegistryOperations registry;
     private final InstalledVersionDetector detector = new InstalledVersionDetector();
     private final UpdatePolicy policy = new UpdatePolicy();
 
-    public VersionService(DockerOperations docker, RegistryOperations registry) {
+    public VersionResolver(DockerOperations docker, RegistryOperations registry) {
         this.docker = docker;
         this.registry = registry;
     }
@@ -23,7 +23,7 @@ public class VersionService {
         registry.invalidateCache();
     }
 
-    VersionObservation resolve(ContainerKey key, @Nullable VersionObservation previous) {
+    public VersionObservation resolve(ContainerKey key, @Nullable VersionObservation previous) {
         ContainerInspection inspection = docker.inspectContainer(key);
         String image = inspection.image();
         String current = detector.detect(inspection);

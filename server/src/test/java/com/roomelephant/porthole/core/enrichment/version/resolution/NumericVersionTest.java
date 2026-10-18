@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.version;
+package com.roomelephant.porthole.core.enrichment.version.resolution;
 
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -135,14 +135,14 @@ class RegistryManifestTest {
     }
 
     private boolean changed(String image, List<String> digests) {
-        return new com.roomelephant.porthole.core.version.UpdatePolicy()
+        return new com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy()
                         .manifest(
                                 digests,
                                 service.readManifests(
                                         com.roomelephant.porthole.core.model.ImageReference.tryParse(image)
                                                 .orElseThrow(),
                                         digests))
-                == com.roomelephant.porthole.core.version.UpdatePolicy.Evidence.POSITIVE;
+                == com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy.Evidence.POSITIVE;
     }
 
     private static RegistryProperties.Ghcr ghcr() {

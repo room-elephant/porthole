@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.version;
+package com.roomelephant.porthole.core.enrichment.version.resolution;
 
 import com.roomelephant.porthole.core.model.*;
 import java.util.List;

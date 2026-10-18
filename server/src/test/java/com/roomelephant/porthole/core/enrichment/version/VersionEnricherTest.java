@@ -5,9 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.*;
 
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings;
+import com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver;
 import com.roomelephant.porthole.core.model.*;
-import com.roomelephant.porthole.core.version.*;
-import com.roomelephant.porthole.core.version.VersionRefreshSettings;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
@@ -41,8 +42,8 @@ class VersionEnricherTest {
     @Test
     void missingVersionDoesNotWaitForSlowResolution() throws Exception {
         var docker = mock(com.roomelephant.porthole.core.port.outbound.DockerOperations.class);
-        var resolver =
-                new VersionService(docker, mock(com.roomelephant.porthole.core.port.outbound.RegistryOperations.class));
+        var resolver = new VersionResolver(
+                docker, mock(com.roomelephant.porthole.core.port.outbound.RegistryOperations.class));
         var running = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         when(docker.inspectContainer(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))

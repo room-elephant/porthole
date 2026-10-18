@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.version;
+package com.roomelephant.porthole.core.enrichment.version.resolution;
 
 import com.roomelephant.porthole.core.model.*;
 import java.util.*;
@@ -6,14 +6,14 @@ import org.jspecify.annotations.*;
 
 /** Retained remote facts scoped to one installed image identity. */
 @NullMarked
-record VersionObservation(
+public record VersionObservation(
         @Nullable String image,
         @Nullable String imageId,
         @Nullable String currentVersion,
         List<String> installedDigests,
         @Nullable TagCatalogue catalogue,
         @Nullable ManifestEvidence manifests) {
-    VersionObservation {
+    public VersionObservation {
         installedDigests = List.copyOf(installedDigests);
     }
 
@@ -21,7 +21,7 @@ record VersionObservation(
         return id != null && !id.isBlank() && id.equals(imageId) && Objects.equals(reference, image);
     }
 
-    VersionInfo toVersionInfo() {
+    public VersionInfo toVersionInfo() {
         Optional<ImageReference> reference = ImageReference.tryParse(image);
         String latest = catalogue == null ? null : new ReleasePolicy().latest(catalogue);
         if (reference.isEmpty() || !reference.get().isMutable() || installedDigests.isEmpty())

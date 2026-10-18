@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.version;
+package com.roomelephant.porthole.core.enrichment.version.resolution;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -15,7 +15,7 @@ class VersionObservationTest {
     private static final String A = "sha256:" + "a".repeat(64), B = "sha256:" + "b".repeat(64);
     private final DockerOperations docker = mock(DockerOperations.class);
     private final RegistryOperations registry = mock(RegistryOperations.class);
-    private final VersionService service = new VersionService(docker, registry);
+    private final VersionResolver service = new VersionResolver(docker, registry);
 
     @BeforeEach
     void setUp() {
@@ -135,7 +135,7 @@ class VersionObservationTest {
                         .header("Docker-Content-Digest", A));
         assertEquals(
                 new VersionInfo("1.0", "2.0", true),
-                new VersionService(docker, adapter).resolve(KEY, null).toVersionInfo());
+                new VersionResolver(docker, adapter).resolve(KEY, null).toVersionInfo());
         server.verify();
     }
 }

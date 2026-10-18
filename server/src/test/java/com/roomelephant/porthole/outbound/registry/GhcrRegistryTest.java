@@ -212,14 +212,14 @@ class GhcrRegistryTest {
     private String latest(String image) {
         var result = service.listTags(ref(image));
         var available = assertInstanceOf(com.roomelephant.porthole.core.model.RegistryLookup.Available.class, result);
-        return new com.roomelephant.porthole.core.version.ReleasePolicy()
+        return new com.roomelephant.porthole.core.enrichment.version.resolution.ReleasePolicy()
                 .latest((com.roomelephant.porthole.core.model.TagCatalogue) available.value());
     }
 
     private boolean changed(String image, List<String> digests) {
-        return new com.roomelephant.porthole.core.version.UpdatePolicy()
+        return new com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy()
                         .manifest(digests, service.readManifests(ref(image), digests))
-                == com.roomelephant.porthole.core.version.UpdatePolicy.Evidence.POSITIVE;
+                == com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy.Evidence.POSITIVE;
     }
 
     private static RegistryProperties.Ghcr ghcr() {

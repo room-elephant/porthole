@@ -1,8 +1,8 @@
-package com.roomelephant.porthole.core.version;
+package com.roomelephant.porthole.core.enrichment.version.resolution;
 
-import static com.roomelephant.porthole.core.version.UpdatePolicy.Decision.NO_UPDATE;
-import static com.roomelephant.porthole.core.version.UpdatePolicy.Decision.UPDATE_AVAILABLE;
-import static com.roomelephant.porthole.core.version.UpdatePolicy.Evidence.*;
+import static com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy.Decision.NO_UPDATE;
+import static com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy.Decision.UPDATE_AVAILABLE;
+import static com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy.Evidence.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.roomelephant.porthole.core.model.*;

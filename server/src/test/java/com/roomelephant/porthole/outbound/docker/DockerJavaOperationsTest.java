@@ -111,7 +111,8 @@ class DockerJavaOperationsTest {
         when(config.getEnv()).thenReturn(environment);
         when(config.getLabels()).thenReturn(labels);
         var inspection = docker.inspectContainer(new ContainerKey("one", "id"));
-        assertThat(new com.roomelephant.porthole.core.version.InstalledVersionDetector().detect(inspection))
+        assertThat(new com.roomelephant.porthole.core.enrichment.version.resolution.InstalledVersionDetector()
+                        .detect(inspection))
                 .isEqualTo("1");
         environment[0] = "NGINX_VERSION=2";
         labels.put("version", "3");
