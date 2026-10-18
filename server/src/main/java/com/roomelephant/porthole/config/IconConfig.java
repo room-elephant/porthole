@@ -14,7 +14,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @Slf4j
 public class IconConfig {
 

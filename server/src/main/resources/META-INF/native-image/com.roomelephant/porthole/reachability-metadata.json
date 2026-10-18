@@ -1234,6 +1234,13 @@
       "type": "com.roomelephant.porthole.config.DockerConfig",
       "methods": [
         {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.config.properties.DockerProperties",
+            "org.springframework.core.env.Environment"
+          ]
+        },
+        {
           "name": "dockerOperations",
           "parameterTypes": [
             "com.roomelephant.porthole.outbound.docker.DockerSourceRegistry"
@@ -1246,59 +1253,12 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.config.DockerConfig$$SpringCGLIB$$0",
-      "fields": [
-        {
-          "name": "$$beanFactory"
-        },
-        {
-          "name": "CGLIB$CALLBACK_FILTER"
-        },
-        {
-          "name": "CGLIB$FACTORY_DATA"
-        }
-      ],
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.config.properties.DockerProperties",
-            "org.springframework.core.env.Environment"
-          ]
-        },
-        {
-          "name": "CGLIB$SET_STATIC_CALLBACKS",
-          "parameterTypes": [
-            "org.springframework.cglib.proxy.Callback[]"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.DockerConfig$$SpringCGLIB$$FastClass$$0",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.DockerConfig$$SpringCGLIB$$FastClass$$1",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
       "type": "com.roomelephant.porthole.config.IconConfig",
       "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
         {
           "name": "iconMappings",
           "parameterTypes": [
@@ -1308,56 +1268,12 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.config.IconConfig$$SpringCGLIB$$0",
-      "fields": [
-        {
-          "name": "$$beanFactory"
-        },
-        {
-          "name": "CGLIB$CALLBACK_FILTER"
-        },
-        {
-          "name": "CGLIB$FACTORY_DATA"
-        }
-      ],
+      "type": "com.roomelephant.porthole.config.RegistryConfig",
       "methods": [
         {
           "name": "<init>",
           "parameterTypes": []
         },
-        {
-          "name": "CGLIB$SET_STATIC_CALLBACKS",
-          "parameterTypes": [
-            "org.springframework.cglib.proxy.Callback[]"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.IconConfig$$SpringCGLIB$$FastClass$$0",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.IconConfig$$SpringCGLIB$$FastClass$$1",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.RestClientConfig",
-      "methods": [
         {
           "name": "registryOperations",
           "parameterTypes": [
@@ -1367,56 +1283,8 @@
         },
         {
           "name": "restClient",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.RestClientConfig$$SpringCGLIB$$0",
-      "fields": [
-        {
-          "name": "$$beanFactory"
-        },
-        {
-          "name": "CGLIB$CALLBACK_FILTER"
-        },
-        {
-          "name": "CGLIB$FACTORY_DATA"
-        }
-      ],
-      "methods": [
-        {
-          "name": "<init>",
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.RegistryProperties"
-          ]
-        },
-        {
-          "name": "CGLIB$SET_STATIC_CALLBACKS",
-          "parameterTypes": [
-            "org.springframework.cglib.proxy.Callback[]"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.RestClientConfig$$SpringCGLIB$$FastClass$$0",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.RestClientConfig$$SpringCGLIB$$FastClass$$1",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
           ]
         }
       ]
@@ -7153,9 +7021,6 @@
       "type": "org.springframework.context.annotation.Configuration"
     },
     {
-      "type": "org.springframework.context.annotation.ConfigurationClassEnhancer$EnhancedConfiguration"
-    },
-    {
       "type": "org.springframework.context.annotation.ConfigurationClassParser$DefaultDeferredImportSelectorGroup",
       "methods": [
         {
@@ -8532,7 +8397,7 @@
       "glob": "com/roomelephant/porthole/config/IconConfig.class"
     },
     {
-      "glob": "com/roomelephant/porthole/config/RestClientConfig.class"
+      "glob": "com/roomelephant/porthole/config/RegistryConfig.class"
     },
     {
       "glob": "com/roomelephant/porthole/config/nativehints/DockerNativeConfig.class"
