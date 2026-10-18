@@ -26,7 +26,7 @@ class GhcrRegistryTest {
     private static final String A = "sha256:" + "a".repeat(64);
     private static final String B = "sha256:" + "b".repeat(64);
     private MockRestServiceServer server;
-    private HttpRegistryOperations service;
+    private RegistryOperationsAdapter service;
 
     @BeforeEach
     void setUp() {
@@ -38,7 +38,7 @@ class GhcrRegistryTest {
                 new RegistryProperties.DockerHub(
                         "https://hub-registry/v2/", "https://hub-auth/", "https://hub-catalog/"),
                 ghcr());
-        service = new HttpRegistryOperations(builder.build(), properties);
+        service = RegistryTestClients.operations(builder.build(), properties);
     }
 
     @ParameterizedTest
@@ -85,8 +85,8 @@ class GhcrRegistryTest {
             auth("token", token);
             manifest("1.0", A, "application/vnd.oci.image.index.v1+json", token);
         }
-        assertEquals(A, service.getDigest(IMAGE, "1.0"));
-        assertEquals(A, service.getDigest(IMAGE, "1.0"));
+        assertFalse(service.isTagChanged(IMAGE, List.of(A)));
+        assertFalse(service.isTagChanged(IMAGE, List.of(A)));
         server.verify();
     }
 

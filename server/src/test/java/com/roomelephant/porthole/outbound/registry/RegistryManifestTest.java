@@ -20,7 +20,7 @@ class RegistryManifestTest {
     private static final String BASE = "https://registry.example/";
 
     private MockRestServiceServer server;
-    private HttpRegistryOperations service;
+    private RegistryOperationsAdapter service;
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
@@ -31,7 +31,7 @@ class RegistryManifestTest {
                 new RegistryProperties.Cache(Duration.ofMinutes(1), 100),
                 new RegistryProperties.DockerHub(BASE + "v2/", BASE + "auth?scope=repository:", BASE + "catalog/"),
                 ghcr());
-        service = new HttpRegistryOperations(builder.build(), props);
+        service = RegistryTestClients.operations(builder.build(), props);
         server.expect(requestTo(BASE + "auth?scope=repository:library/nginx:pull"))
                 .andRespond(withSuccess("{\"token\":\"test\"}", MediaType.APPLICATION_JSON));
     }

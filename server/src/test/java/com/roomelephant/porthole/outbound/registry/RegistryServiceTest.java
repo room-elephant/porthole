@@ -13,22 +13,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("HttpRegistryOperations")
+@DisplayName("RegistryOperationsAdapter")
 class RegistryServiceTest {
 
     @Mock
     private RestClient restClient;
 
-    @Mock
     private RegistryProperties registryProperties;
-
-    @Mock
-    private RegistryProperties.Cache cache;
 
     @Mock
     private RestClient.RequestHeadersUriSpec<?> requestHeadersUriSpec;
@@ -39,18 +33,17 @@ class RegistryServiceTest {
     @Mock
     private RestClient.ResponseSpec responseSpec;
 
-    @Mock
-    private RegistryProperties.DockerHub urls;
-
-    private HttpRegistryOperations registryService;
+    private RegistryOperationsAdapter registryService;
 
     @BeforeEach
     void setUp() {
-        when(registryProperties.cache()).thenReturn(cache);
-        when(cache.ttl()).thenReturn(Duration.ofMinutes(5));
-        when(cache.versionMaxSize()).thenReturn(100);
+        registryProperties = new RegistryProperties(
+                new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
+                new RegistryProperties.DockerHub("https://registry/v2/", "https://auth/", "https://repositories/"),
+                ghcr());
 
-        registryService = new HttpRegistryOperations(restClient, registryProperties);
+        registryService = RegistryTestClients.operations(restClient, registryProperties);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -67,94 +60,15 @@ class RegistryServiceTest {
                 new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
                 new RegistryProperties.DockerHub("https://registry/v2/", "https://auth/", "https://hub/"),
                 ghcr());
-        var service = new HttpRegistryOperations(restClient, properties);
+        var service = RegistryTestClients.operations(restClient, properties);
         assertNull(service.getLatestVersion(image));
-        assertNull(service.getDigest(image, "latest"));
         assertFalse(service.isTagChanged(image, java.util.List.of("sha256:" + "a".repeat(64))));
         verifyNoInteractions(restClient);
     }
 
     @Nested
-    @DisplayName("getDigest")
-    class GetDigest {
-
-        @BeforeEach
-        void setUpUrls() {
-            when(registryProperties.dockerhub()).thenReturn(urls);
-            when(urls.authUrl()).thenReturn("https://auth/");
-        }
-
-        @Test
-        @DisplayName("should return null when auth token cannot be fetched")
-        void shouldReturnNullWhenAuthTokenCannotBeFetched() {
-            setupGetRequest();
-            when(responseSpec.body(String.class)).thenReturn(null);
-
-            String result = registryService.getDigest("nginx", "latest");
-
-            assertNull(result);
-        }
-
-        @Test
-        @DisplayName("should return digest when token and manifest are available")
-        void shouldReturnDigestWhenTokenAndManifestAreAvailable() {
-            setupGetRequest();
-            when(urls.registryUrl()).thenReturn("https://registry/v2/");
-            when(responseSpec.body(String.class)).thenReturn("{\"token\": \"test-token\"}");
-
-            RestClient.RequestHeadersUriSpec headSpec = mock(RestClient.RequestHeadersUriSpec.class);
-            RestClient.RequestHeadersSpec headHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
-            RestClient.ResponseSpec headResponseSpec = mock(RestClient.ResponseSpec.class);
-
-            when(restClient.head()).thenReturn(headSpec);
-            when(headSpec.uri(anyString())).thenReturn(headHeadersSpec);
-            when(headHeadersSpec.header(anyString(), anyString())).thenReturn(headHeadersSpec);
-            when(headHeadersSpec.retrieve()).thenReturn(headResponseSpec);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("Docker-Content-Digest", "sha256:abc123");
-            ResponseEntity<Void> entity = ResponseEntity.ok().headers(headers).build();
-            when(headResponseSpec.toBodilessEntity()).thenReturn(entity);
-
-            String result = registryService.getDigest("nginx", "latest");
-
-            assertEquals("sha256:abc123", result);
-        }
-
-        @Test
-        @DisplayName("should return null on exception")
-        void shouldReturnNullOnException() {
-            setupGetRequest();
-            when(responseSpec.body(String.class)).thenThrow(new RuntimeException("Network error"));
-
-            String result = registryService.getDigest("nginx", "latest");
-
-            assertNull(result);
-        }
-
-        @Test
-        @DisplayName("should handle image with namespace")
-        void shouldHandleImageWithNamespace() {
-            setupGetRequest();
-            when(responseSpec.body(String.class)).thenReturn(null);
-
-            String result = registryService.getDigest("bitnami/redis:7", "7");
-
-            assertNull(result);
-        }
-    }
-
-    @Nested
     @DisplayName("getLatestVersion")
     class GetLatestVersion {
-
-        @BeforeEach
-        void setUpUrls() {
-            when(registryProperties.timeout())
-                    .thenReturn(new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)));
-            when(registryProperties.dockerhub()).thenReturn(urls);
-            when(urls.repositoriesUrl()).thenReturn("https://repositories/");
-        }
 
         @Test
         void invalidationFetchesNewTagsBeforeCacheExpiry() {

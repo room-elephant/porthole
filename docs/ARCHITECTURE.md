@@ -142,7 +142,7 @@ The complete environment is scanned before choosing the generic fallback. Blank 
 
 ## Container Registry Integration
 
-Porthole queries Docker Hub and public GitHub Container Registry packages to detect available updates. `HttpRegistryOperations` implements the core `RegistryOperations` port and selects transport by the parsed semantic registry; URL overrides never change that identity. When resolving image names:
+Porthole queries Docker Hub and public GitHub Container Registry packages to detect available updates. `RegistryOperationsAdapter` implements the core `RegistryOperations` port, caches catalogue results, and delegates through the adapter-internal `RegistryClient` interface. `DockerHubClient` and `GhcrClient` own provider authentication, token lifetime, and catalogue HTTP requests. Selection uses the parsed semantic registry; URL overrides never change that identity. When resolving image names:
 
 - **Official images** (e.g., `redis`, `postgres`) are stored under the `library/` namespace
 - **User/org images** (e.g., `bitnami/redis`) use their namespace directly
@@ -151,7 +151,7 @@ Porthole queries Docker Hub and public GitHub Container Registry packages to det
 - **GHCR images** retain the complete owner/image path. `RegistryProperties.Ghcr` supplies independent registry/auth transports. Anonymous pull tokens authorize both `/v2/<repository>/tags/list?n=100` and manifest HEAD requests; fresh tokens avoid storing expired GHCR credentials. Private-package authentication is outside this feature.
 - **Catalogue pagination** shares `RegistryTagPage` numeric selection and origin/path validation. Hub reads `results[].name` plus JSON `next`; GHCR reads `tags[]` plus `Link: <...>; rel="next"` ([OCI Distribution Specification](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#listing-tags)). Catalogue cache keys include the normalized registry and repository, preventing cross-registry results for identical paths.
 - **Numeric releases** use arbitrary-precision integer components, optional lowercase `v`, and zero-padding for missing components. Only a strictly greater comparable release triggers a version warning. All catalogue pages must complete within the documented bounds; the maximum is deterministic and cached by normalized registry/repository. See [Registry Configuration](CONFIGURATION.md#registry-configuration) for grammar, policy and limits.
-- **Mutable tags** negotiate OCI image/index and Docker v2 image/list media types. Equal exact digests suppress tag-change evidence. For different digests, HEAD requests for local digests establish compatible manifest levels; unavailable local manifests are skipped. An index and its platform child are never treated as comparable. Numeric-release and tag-change evidence are evaluated independently, and either can establish an update.
+- **Mutable tags** share `DistributionManifestClient` for Distribution protocol requests and comparable digest evidence. They negotiate OCI image/index and Docker v2 image/list media types. Equal exact digests suppress tag-change evidence. For different digests, HEAD requests for local digests establish compatible manifest levels; unavailable local manifests are skipped. An index and its platform child are never treated as comparable. Numeric-release and tag-change evidence are evaluated independently, and either can establish an update.
 
 ```
 redis           → library/redis      (official)
@@ -320,7 +320,7 @@ Published-port IDs use `published-port:<port>` independently of the request host
 - `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`.
 - `inbound/health/` — translates `CheckDockerAvailability` results into actuator health responses; probing and timeout handling belong to the core service.
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
-- `outbound/registry/` — Docker Hub/GHCR HTTP, anonymous authentication, catalogue pagination, manifest evidence, and Caffeine response caching.
+- `outbound/registry/` — `RegistryOperationsAdapter` routes through `RegistryClient` and caches catalogue results. Implementations in `dockerhub/` and `ghcr/` own provider HTTP and authentication. `RegistryTagPage` shares catalogue parsing and bounded traversal; `DistributionManifestClient` shares manifest protocol handling.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
 - `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`.
 - `config/nativehints/` — Spring AOT hints for library types the agent cannot observe.
