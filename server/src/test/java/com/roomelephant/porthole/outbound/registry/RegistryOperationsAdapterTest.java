@@ -73,9 +73,9 @@ class RegistryOperationsAdapterTest {
         assertInstanceOf(
                 RegistryLookup.Unavailable.class,
                 adapter.readManifests(ref("nginx"), List.of()).tagged());
-        assertThrows(
-                IllegalStateException.class,
-                () -> new RegistryOperationsAdapter(List.of(hub, hub), CACHE).listTags(ref("nginx")));
+        var ambiguous = new RegistryOperationsAdapter(List.of(hub, hub), CACHE);
+        var image = ref("nginx");
+        assertThrows(IllegalStateException.class, () -> ambiguous.listTags(image));
     }
 
     @Test

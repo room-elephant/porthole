@@ -228,9 +228,8 @@ class VersionServiceTest {
                     .thenThrow(new com.github.dockerjava.api.exception.NotFoundException("Not found"));
 
             var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "unknown");
-            NotFoundException exception = assertThrows(
-                    NotFoundException.class,
-                    () -> versionService.resolve(key, null).toVersionInfo());
+            NotFoundException exception =
+                    assertThrows(NotFoundException.class, () -> versionService.resolve(key, null));
 
             assertEquals("unknown", exception.getContainerId());
         }
@@ -242,9 +241,7 @@ class VersionServiceTest {
             when(inspectContainerCmd.exec()).thenThrow(new RuntimeException("Docker error"));
 
             var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
-            assertThrows(
-                    UnexpectedException.class,
-                    () -> versionService.resolve(key, null).toVersionInfo());
+            assertThrows(UnexpectedException.class, () -> versionService.resolve(key, null));
         }
 
         @Test
@@ -437,9 +434,7 @@ class VersionServiceTest {
                     .thenThrow(new RuntimeException("Network error"));
 
             var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
-            assertThrows(
-                    RuntimeException.class,
-                    () -> versionService.resolve(key, null).toVersionInfo());
+            assertThrows(RuntimeException.class, () -> versionService.resolve(key, null));
         }
 
         @Test
@@ -471,9 +466,7 @@ class VersionServiceTest {
             when(containerConfig.getLabels()).thenReturn(null);
 
             var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
-            assertThrows(
-                    RuntimeException.class,
-                    () -> versionService.resolve(key, null).toVersionInfo());
+            assertThrows(RuntimeException.class, () -> versionService.resolve(key, null));
         }
 
         @Test

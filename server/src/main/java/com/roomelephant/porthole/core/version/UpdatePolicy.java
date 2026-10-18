@@ -22,8 +22,9 @@ public final class UpdatePolicy {
 
     public Evidence release(ImageReference image, @Nullable String current, RegistryLookup<TagCatalogue> catalogue) {
         if (NumericVersion.tryParse(image.lookupTag()).isEmpty()) return Evidence.INAPPLICABLE;
-        if (!(catalogue instanceof RegistryLookup.Available<TagCatalogue> available)) return Evidence.INCONCLUSIVE;
-        String latest = new ReleasePolicy().latest(available.value());
+        if (!(catalogue instanceof RegistryLookup.Available<TagCatalogue>(TagCatalogue tags)))
+            return Evidence.INCONCLUSIVE;
+        String latest = new ReleasePolicy().latest(tags);
         if (latest == null) return Evidence.NEGATIVE;
         Optional<NumericVersion> installed = NumericVersion.tryParse(current);
         if (installed.isEmpty()) return Evidence.INCONCLUSIVE;
@@ -33,16 +34,16 @@ public final class UpdatePolicy {
     }
 
     public Evidence manifest(List<String> installedDigests, ManifestEvidence evidence) {
-        if (!(evidence.tagged() instanceof RegistryLookup.Available<ManifestMetadata> tagged))
+        if (!(evidence.tagged() instanceof RegistryLookup.Available<ManifestMetadata>(ManifestMetadata remote)))
             return Evidence.INCONCLUSIVE;
-        ManifestMetadata remote = tagged.value();
         if (remote.kind() == ManifestMetadata.Kind.UNKNOWN) return Evidence.INCONCLUSIVE;
         if (installedDigests.contains(remote.digest())) return Evidence.NEGATIVE;
         for (String digest : installedDigests) {
             if (!digest.split(":", 2)[0].equals(remote.digest().split(":", 2)[0])) continue;
-            if (evidence.installed().get(digest) instanceof RegistryLookup.Available<ManifestMetadata> local
-                    && local.value().digest().equals(digest)
-                    && local.value().kind() == remote.kind()) return Evidence.POSITIVE;
+            if (evidence.installed().get(digest)
+                            instanceof RegistryLookup.Available<ManifestMetadata>(ManifestMetadata local)
+                    && local.digest().equals(digest)
+                    && local.kind() == remote.kind()) return Evidence.POSITIVE;
         }
         return Evidence.INCONCLUSIVE;
     }

@@ -42,9 +42,8 @@ class MultipleSourcesTest {
                 new ContainerPresentation(mock(IconResolver.class)),
                 new ContainerEnrichment(List.of()));
         service.close();
-        assertThatThrownBy(() -> service.getContainers(
-                        new com.roomelephant.porthole.core.model.ContainerQuery(true, true, "proxy")))
-                .isInstanceOf(IllegalStateException.class);
+        var query = new ContainerQuery(true, true, "proxy");
+        assertThatThrownBy(() -> service.getContainers(query)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test

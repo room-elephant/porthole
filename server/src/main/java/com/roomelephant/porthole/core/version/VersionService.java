@@ -35,17 +35,21 @@ public class VersionService {
                 repoDigests == null ? List.of() : reference.get().matchingDigests(repoDigests);
         if (matching.isEmpty())
             return new VersionObservation(image, inspection.imageId(), current, matching, null, null);
-        boolean retain = previous != null && previous.belongsTo(image, inspection.imageId());
+        @Nullable TagCatalogue catalogue = null;
+        @Nullable ManifestEvidence conclusive = null;
+        if (previous != null && previous.belongsTo(image, inspection.imageId())) {
+            catalogue = previous.catalogue();
+            conclusive = previous.manifests();
+        }
         RegistryLookup<TagCatalogue> releases = registry.listTags(reference.get());
         ManifestEvidence manifest = registry.readManifests(reference.get(), matching);
-        TagCatalogue catalogue = releases instanceof RegistryLookup.Available<TagCatalogue> available
-                ? available.value()
-                : retain ? previous.catalogue() : null;
+        if (releases instanceof RegistryLookup.Available<TagCatalogue>(TagCatalogue freshCatalogue)) {
+            catalogue = freshCatalogue;
+        }
         UpdatePolicy.Evidence change = policy.manifest(matching, manifest);
-        ManifestEvidence conclusive =
-                change == UpdatePolicy.Evidence.POSITIVE || change == UpdatePolicy.Evidence.NEGATIVE
-                        ? manifest
-                        : retain ? previous.manifests() : null;
+        if (change == UpdatePolicy.Evidence.POSITIVE || change == UpdatePolicy.Evidence.NEGATIVE) {
+            conclusive = manifest;
+        }
         return new VersionObservation(image, inspection.imageId(), current, matching, catalogue, conclusive);
     }
 }

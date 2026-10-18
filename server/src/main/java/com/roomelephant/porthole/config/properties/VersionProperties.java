@@ -15,8 +15,11 @@ import org.springframework.validation.annotation.Validated;
 public record VersionProperties(
         @NotNull @DurationMin(nanos = 1, message = "Version refresh interval must be positive")
         Duration refreshInterval) {
+    private static final Duration MAX_REFRESH_INTERVAL = Duration.ofNanos(Long.MAX_VALUE);
+
     public VersionProperties {
-        // Scheduling requires a duration representable in nanoseconds.
-        if (refreshInterval != null) refreshInterval.toNanos();
+        if (refreshInterval != null && refreshInterval.compareTo(MAX_REFRESH_INTERVAL) > 0) {
+            throw new IllegalArgumentException("Version refresh interval must fit in nanoseconds");
+        }
     }
 }

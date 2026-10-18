@@ -45,7 +45,7 @@ class DockerAvailabilityServiceTest {
     }
 
     @Test
-    void repeatedRequestsReuseOneSlowProbeAndRemainBounded() throws Exception {
+    void repeatedRequestsReuseOneSlowProbeAndRemainBounded() {
         var operations = sources("a");
         var count = new AtomicInteger();
         var started = new CountDownLatch(1);
@@ -104,11 +104,9 @@ class DockerAvailabilityServiceTest {
                 .when(operations)
                 .ping("a");
         var service = new DockerAvailabilityService(operations, Duration.ofMillis(100));
-        try {
+        try (service) {
             service.checkAvailability();
             assertThat(started.await(1, TimeUnit.SECONDS)).isTrue();
-        } finally {
-            service.close();
         }
         assertThat(interrupted.await(1, TimeUnit.SECONDS)).isTrue();
         assertThat(service.checkAvailability().anyAvailable()).isFalse();

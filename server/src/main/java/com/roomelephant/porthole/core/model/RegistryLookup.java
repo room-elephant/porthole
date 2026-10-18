@@ -5,6 +5,7 @@ import org.jspecify.annotations.NullMarked;
 
 /** Outcome of a remote metadata lookup, independent of transport. */
 @NullMarked
+@SuppressWarnings("java:S2326") // T keeps each outcome tied to the requested metadata type.
 public sealed interface RegistryLookup<T> {
     record Available<T>(T value) implements RegistryLookup<T> {
         public Available {

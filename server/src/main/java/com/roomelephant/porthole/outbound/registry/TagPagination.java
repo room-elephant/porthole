@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.function.LongSupplier;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.web.client.HttpClientErrorException;
 
 @NullMarked
@@ -43,8 +44,9 @@ public final class TagPagination {
             }
             tags.addAll(result.tags());
             checkBudget(nanos, started, budget);
-            if (result.next() == null) return new TagCatalogue(tags);
-            next = result.next();
+            @Nullable URI following = result.next();
+            if (following == null) return new TagCatalogue(tags);
+            next = following;
         }
         throw new RegistryProtocolException("Registry catalogue exceeded the page limit");
     }

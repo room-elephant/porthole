@@ -66,9 +66,12 @@ public final class DistributionClient {
                 throw new RegistryProtocolException("Missing or invalid manifest digest");
             MediaType type = response.getHeaders().getContentType();
             String mime = type == null ? "" : type.getType() + "/" + type.getSubtype();
-            ManifestMetadata.Kind kind = INDEX_TYPES.contains(mime)
-                    ? ManifestMetadata.Kind.INDEX
-                    : IMAGE_TYPES.contains(mime) ? ManifestMetadata.Kind.IMAGE : ManifestMetadata.Kind.UNKNOWN;
+            ManifestMetadata.Kind kind = ManifestMetadata.Kind.UNKNOWN;
+            if (INDEX_TYPES.contains(mime)) {
+                kind = ManifestMetadata.Kind.INDEX;
+            } else if (IMAGE_TYPES.contains(mime)) {
+                kind = ManifestMetadata.Kind.IMAGE;
+            }
             return new ManifestMetadata(digest, kind);
         });
     }

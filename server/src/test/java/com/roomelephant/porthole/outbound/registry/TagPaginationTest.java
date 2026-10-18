@@ -37,26 +37,22 @@ class TagPaginationTest {
             })
     void rejectsUnsafeAndCyclicLinks(String target) {
         var count = new AtomicInteger();
-        assertThrows(
-                RegistryProtocolException.class,
-                () -> TagPagination.read(FIRST, Duration.ofSeconds(10), page -> {
-                    count.incrementAndGet();
-                    return new TagPage(List.of("9.0"), TagPagination.resolve(page, target));
-                }));
+        var timeout = Duration.ofSeconds(10);
+        TagPagination.PageFetcher fetcher = page -> {
+            count.incrementAndGet();
+            return new TagPage(List.of("9.0"), TagPagination.resolve(page, target));
+        };
+        assertThrows(RegistryProtocolException.class, () -> TagPagination.read(FIRST, timeout, fetcher));
         assertEquals(1, count.get());
     }
 
     @Test
     void incompleteCatalogueNeverReturnsPartialTags() {
         var count = new AtomicInteger();
-        assertThrows(
-                RegistryProtocolException.class,
-                () -> TagPagination.read(
-                        FIRST,
-                        Duration.ofSeconds(10),
-                        page -> new TagPage(
-                                List.of("9.0"),
-                                URI.create("https://registry/repo/tags?page=" + count.incrementAndGet()))));
+        var timeout = Duration.ofSeconds(10);
+        TagPagination.PageFetcher fetcher = page ->
+                new TagPage(List.of("9.0"), URI.create("https://registry/repo/tags?page=" + count.incrementAndGet()));
+        assertThrows(RegistryProtocolException.class, () -> TagPagination.read(FIRST, timeout, fetcher));
         assertEquals(100, count.get());
     }
 
@@ -71,17 +67,13 @@ class TagPaginationTest {
     void checksBudgetBeforeStartingAndAfterCompletingAPage() {
         var nanos = new AtomicLong();
         var requests = new AtomicInteger();
-        assertThrows(
-                RegistryProtocolException.class,
-                () -> TagPagination.read(
-                        FIRST,
-                        Duration.ofNanos(10),
-                        page -> {
-                            requests.incrementAndGet();
-                            nanos.set(11);
-                            return new TagPage(List.of("9.0"), null);
-                        },
-                        nanos::get));
+        var timeout = Duration.ofNanos(10);
+        TagPagination.PageFetcher fetcher = page -> {
+            requests.incrementAndGet();
+            nanos.set(11);
+            return new TagPage(List.of("9.0"), null);
+        };
+        assertThrows(RegistryProtocolException.class, () -> TagPagination.read(FIRST, timeout, fetcher, nanos::get));
         assertEquals(1, requests.get());
     }
 }

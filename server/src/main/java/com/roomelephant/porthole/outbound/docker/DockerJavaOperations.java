@@ -50,7 +50,7 @@ public final class DockerJavaOperations implements DockerOperations {
                     raw.getImageId(),
                     config == null || config.getEnv() == null ? List.of() : Arrays.asList(config.getEnv()),
                     config == null || config.getLabels() == null ? Map.of() : config.getLabels());
-        } catch (com.github.dockerjava.api.exception.NotFoundException e) {
+        } catch (com.github.dockerjava.api.exception.NotFoundException _) {
             throw new NotFoundException(key.containerId());
         } catch (RuntimeException e) {
             throw translate(e);
