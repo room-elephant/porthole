@@ -1,85 +1,63 @@
 import { useState, memo } from 'react';
-import { Settings } from 'lucide-react';
-import { useVersionPreference } from '../hooks/useVersionPreference';
-import { ASSETS } from '../constants';
-import { useEndpointSelection } from '../hooks/useEndpointSelection';
+import { ArrowUpRight, MoreVertical } from 'lucide-react';
+import { useContainerPrefs } from '../hooks/useContainerPrefs';
+import ContainerIcon from './ContainerIcon';
 import ContainerSettings from './ContainerSettings';
-import { NO_ENDPOINT_ID } from '../utils/endpoints';
-import { getHealthStatus } from '../utils/status';
+import { endpointLabel } from '../utils/endpoints';
+import { containerStatus, getHealthStatus } from '../utils/status';
 
-const arraysEqual = (a, b) => 
+const arraysEqual = (a, b) =>
     a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
 
-function ContainerTile({ container, allowLegacyMigration = false }) {
+const hostText = (container, selectedEndpoint) => {
+    if (selectedEndpoint) return endpointLabel(selectedEndpoint.url);
+    return container.endpoints.length > 0 ? 'Choose a URL' : 'No web UI';
+};
+
+function ContainerTile({ container, sourceOnline = true, hostTag = null, allowLegacyMigration = false }) {
     const [showConfig, setShowConfig] = useState(false);
-    const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(container.sourceId, container.name, container.endpoints, {migrateLegacy: allowLegacyMigration});
-    const hasEndpoints = container.hasEndpoints && selectedEndpointId !== NO_ENDPOINT_ID;
-    const [checkUpdates, setCheckUpdates] = useVersionPreference(container.sourceId, container.name, allowLegacyMigration);
+    const { selectedEndpoint, selectedEndpointId, selectEndpoint, checkUpdates, setCheckUpdates } = useContainerPrefs(container, allowLegacyMigration);
+    const showUpdate = Boolean(checkUpdates && container.version?.updateAvailable);
+    const status = containerStatus(container, { sourceOnline, showUpdate });
+    const isLink = status.openable && Boolean(selectedEndpoint);
+    const settingsLabel = `${container.displayName} settings`;
 
-    const versionInfo = container.version;
-
-    const getStatusClass = () => {
-        const state = container.state?.toLowerCase();
-        if (state === 'running') {
-            const health = getHealthStatus(container.status);
-            if (health === 'unhealthy') return 'status-stopped';
-            if (health === 'health: starting') return 'status-warning';
-            return 'status-running';
-        }
-        if (state === 'paused' || state === 'restarting') return 'status-warning';
-        return 'status-stopped';
-    };
-
-    const handleTileClick = () => {
-        if (selectedEndpoint) {
-            window.open(selectedEndpoint.url, '_blank');
-        } else {
-            setShowConfig(true);
-        }
-    };
-
-    const handleConfigClick = () => {
-        setShowConfig(true);
-    };
+    const content = (
+        <>
+            <ContainerIcon container={container} status={status} showUpdate={showUpdate} size={40} />
+            <span className="tile-text">
+                <span className="tile-name" title={container.name}>{container.displayName}</span>
+                <span className="tile-sub">
+                    {hostTag && <span className="tile-tag">{hostTag}</span>}
+                    {status.label && (
+                        <>
+                            <span className={`tile-label label-${status.kind}`}>{status.label}</span>
+                            <span className="tile-dot" aria-hidden="true">·</span>
+                        </>
+                    )}
+                    <span className="tile-host">{hostText(container, selectedEndpoint)}</span>
+                    <span className="tile-image" title={container.image}>{container.image}</span>
+                </span>
+            </span>
+        </>
+    );
 
     return (
         <>
-            <div className={`card container-card ${!hasEndpoints ? 'disabled' : ''}`}>
-                <button
-                    type="button"
-                    className="card-launch"
-                    aria-label={`Open ${container.displayName}`}
-                    disabled={!hasEndpoints}
-                    onClick={handleTileClick}
-                >
-                    <img
-                        src={container.name.includes("porthole") ? ASSETS.PORTHOLE_ICON : container.iconUrl}
-                        alt={container.name}
-                        className="container-icon"
-                        loading="lazy"
-                        onError={(e) => { e.target.src = ASSETS.FALLBACK_ICON; }}
-                    />
-                    <span className="container-info">
-                        <span className="container-title" title={container.name}>{container.displayName}</span>
-                        <span className="container-image" title={container.image}>
-                            {checkUpdates && versionInfo?.updateAvailable && (
-                                <span className="update-warning" title="Image update available">
-                                    ⚠️
-                                </span>
-                            )}
-                            {container.image}
-                        </span>
-                    </span>
-                </button>
-                <div className="card-actions">
-                    <span
-                        className={`status-indicator ${getStatusClass()}`}
-                        title={container.status || container.state}
-                    ></span>
-                    <button type="button" className="config-btn" onClick={handleConfigClick} title="Container Settings">
-                        <Settings size={20} />
+            <div className={`tile tile--${status.kind}${isLink ? '' : ' tile--dashed'}`}>
+                {isLink ? (
+                    <a className="tile-main" href={selectedEndpoint.url} target="_blank" rel="noopener">
+                        {content}
+                        <ArrowUpRight className="tile-go" size={16} aria-hidden="true" />
+                    </a>
+                ) : (
+                    <button type="button" className="tile-main" aria-label={settingsLabel} onClick={() => setShowConfig(true)}>
+                        {content}
                     </button>
-                </div>
+                )}
+                <button type="button" className="tile-menu" aria-label={settingsLabel} onClick={() => setShowConfig(true)}>
+                    <MoreVertical size={18} aria-hidden="true" />
+                </button>
             </div>
 
             {showConfig && (
@@ -108,6 +86,9 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
         prev.id === next.id &&
         prev.sourceId === next.sourceId &&
         prevProps.allowLegacyMigration === nextProps.allowLegacyMigration &&
+        prevProps.sourceName === nextProps.sourceName &&
+        prevProps.sourceOnline === nextProps.sourceOnline &&
+        prevProps.hostTag === nextProps.hostTag &&
         prev.name === next.name &&
         prev.displayName === next.displayName &&
         prev.state === next.state &&

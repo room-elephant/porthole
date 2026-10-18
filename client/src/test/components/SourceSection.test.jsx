@@ -19,7 +19,7 @@ describe('source sections', () => {
   renderWithQuery(<SourceSection source={source} containers={containers} showAll={true} showStopped={true} allowLegacyMigration={true}/>);
   expect(screen.getByRole('heading',{name:'null'})).toBeInTheDocument();
   expect(screen.getByRole('heading',{name:'__proto__'})).toBeInTheDocument();
-  expect(within(screen.getByRole('region',{name:'Walker'})).getAllByTitle('Container Settings')).toHaveLength(3);
+  expect(within(screen.getByRole('region',{name:'Walker'})).getAllByRole('button',{name:'Test Container settings'})).toHaveLength(3);
  });
  it.each([
   [false, false, 'No running containers with endpoints.', 'Show stopped containers', 'Show containers without endpoints'],
