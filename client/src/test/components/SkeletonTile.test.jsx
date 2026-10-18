@@ -3,29 +3,16 @@ import { render } from '@testing-library/react';
 import SkeletonTile from '../../components/SkeletonTile';
 
 describe('SkeletonTile', () => {
-  it('should render skeleton card', () => {
+  it('renders a hidden horizontal tile shape', () => {
     render(<SkeletonTile />);
-
-    const card = document.querySelector('.skeleton-card');
-    expect(card).toBeInTheDocument();
+    const tile = document.querySelector('.tile.skeleton-tile');
+    expect(tile).toBeInTheDocument();
+    expect(tile).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('should render skeleton elements', () => {
+  it('renders an icon block and two bars', () => {
     render(<SkeletonTile />);
-
-    expect(document.querySelector('.skeleton-status')).toBeInTheDocument();
-    expect(document.querySelector('.skeleton-button')).toBeInTheDocument();
     expect(document.querySelector('.skeleton-icon')).toBeInTheDocument();
-    expect(document.querySelector('.skeleton-title')).toBeInTheDocument();
-    expect(document.querySelector('.skeleton-subtitle')).toBeInTheDocument();
-  });
-
-  it('should have card structure matching ContainerTile', () => {
-    render(<SkeletonTile />);
-
-    expect(document.querySelector('.card')).toBeInTheDocument();
-    expect(document.querySelector('.card-actions')).toBeInTheDocument();
-    expect(document.querySelector('.container-info')).toBeInTheDocument();
+    expect(document.querySelectorAll('.skeleton-bar')).toHaveLength(2);
   });
 });
-
