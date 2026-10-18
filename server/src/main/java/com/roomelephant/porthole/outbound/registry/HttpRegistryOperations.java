@@ -148,13 +148,13 @@ public class HttpRegistryOperations implements com.roomelephant.porthole.core.po
     private String registryBase(ImageReference image) {
         return isGhcr(image)
                 ? ghcrProperties.registryUrl()
-                : registryProperties.urls().registry();
+                : registryProperties.dockerhub().registryUrl();
     }
 
     private String fetchAuthToken(ImageReference image) {
         String auth = isGhcr(image)
                 ? ghcrProperties.authUrl()
-                : registryProperties.urls().auth();
+                : registryProperties.dockerhub().authUrl();
         String url = auth + image.repository() + ":pull";
         try {
             String responseBody = restClient.get().uri(url).retrieve().body(String.class);
@@ -177,7 +177,8 @@ public class HttpRegistryOperations implements com.roomelephant.porthole.core.po
         URI first = URI.create(
                 isGhcr(image)
                         ? registryBase(image) + image.repository() + "/tags/list?n=100"
-                        : registryProperties.urls().repositories() + image.repository() + "/tags?page_size=100");
+                        : registryProperties.dockerhub().repositoriesUrl() + image.repository()
+                                + "/tags?page_size=100");
         URI next = first;
         var visited = new HashSet<URI>();
         String best = null;

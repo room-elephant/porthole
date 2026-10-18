@@ -133,12 +133,17 @@ Porthole checks public images on Docker Hub and GitHub Container Registry (GHCR)
 
 The container refresh interval and `REGISTRY_CACHE_TTL` control separate layers. A refresh can reuse a registry catalogue while its TTL has not elapsed; lower the TTL as well if you need fresher catalogue results more often. Container results themselves do not expire on this TTL.
 
-Docker Hub transport overrides retain the `REGISTRY_URLS_REGISTRY`, `REGISTRY_URLS_AUTH`, and `REGISTRY_URLS_REPOSITORIES` settings. GHCR has independent settings, useful with a trusted transport proxy:
+Docker Hub and GHCR have independent transport settings, useful with a trusted transport proxy:
 
 | Property | Default |
 |---|---|
+| `REGISTRY_DOCKERHUB_REGISTRY_URL` | `https://registry-1.docker.io/v2/` |
+| `REGISTRY_DOCKERHUB_AUTH_URL` | `https://auth.docker.io/token?service=registry.docker.io&scope=repository:` |
+| `REGISTRY_DOCKERHUB_REPOSITORIES_URL` | `https://hub.docker.com/v2/repositories/` |
 | `REGISTRY_GHCR_REGISTRY_URL` | `https://ghcr.io/v2/` |
 | `REGISTRY_GHCR_AUTH_URL` | `https://ghcr.io/token?service=ghcr.io&scope=repository:` |
+
+In YAML, Docker Hub settings live under `registry.dockerhub` with `registry-url`, `auth-url`, and `repositories-url`, matching GHCR's `registry.ghcr` naming. The legacy `registry.urls.registry`, `registry.urls.auth`, and `registry.urls.repositories` properties (and their `REGISTRY_URLS_*` environment variables) remain supported as per-setting fallbacks. A configured `registry.dockerhub.*` value takes precedence over its legacy alias; omitted settings retain their defaults or legacy overrides.
 
 The registry base ends in `/`; the auth prefix ends in `repository:` and receives the repository name plus `:pull`. Overrides must preserve these API shapes. GHCR uses anonymous pull tokens fetched for each registry operation; Porthole does not read Docker credentials. Complete catalogue results are cached separately by registry and repository. Inaccessible packages, denied requests and rate limits leave checks inconclusive. See [GitHub's Container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 

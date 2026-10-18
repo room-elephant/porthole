@@ -41,7 +41,7 @@ class RegistryServiceTest {
     private RestClient.ResponseSpec responseSpec;
 
     @Mock
-    private RegistryProperties.Urls urls;
+    private RegistryProperties.DockerHub urls;
 
     private HttpRegistryOperations registryService;
 
@@ -66,7 +66,7 @@ class RegistryServiceTest {
         var properties = new RegistryProperties(
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(1)),
                 new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
-                new RegistryProperties.Urls("https://registry/v2/", "https://auth/", "https://hub/"));
+                new RegistryProperties.DockerHub("https://registry/v2/", "https://auth/", "https://hub/"));
         var service = new HttpRegistryOperations(restClient, properties, ghcr());
         assertNull(service.getLatestVersion(image));
         assertNull(service.getDigest(image, "latest"));
@@ -80,8 +80,8 @@ class RegistryServiceTest {
 
         @BeforeEach
         void setUpUrls() {
-            when(registryProperties.urls()).thenReturn(urls);
-            when(urls.auth()).thenReturn("https://auth/");
+            when(registryProperties.dockerhub()).thenReturn(urls);
+            when(urls.authUrl()).thenReturn("https://auth/");
         }
 
         @Test
@@ -99,7 +99,7 @@ class RegistryServiceTest {
         @DisplayName("should return digest when token and manifest are available")
         void shouldReturnDigestWhenTokenAndManifestAreAvailable() {
             setupGetRequest();
-            when(urls.registry()).thenReturn("https://registry/v2/");
+            when(urls.registryUrl()).thenReturn("https://registry/v2/");
             when(responseSpec.body(String.class)).thenReturn("{\"token\": \"test-token\"}");
 
             RestClient.RequestHeadersUriSpec headSpec = mock(RestClient.RequestHeadersUriSpec.class);
@@ -152,8 +152,8 @@ class RegistryServiceTest {
         void setUpUrls() {
             when(registryProperties.timeout())
                     .thenReturn(new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)));
-            when(registryProperties.urls()).thenReturn(urls);
-            when(urls.repositories()).thenReturn("https://repositories/");
+            when(registryProperties.dockerhub()).thenReturn(urls);
+            when(urls.repositoriesUrl()).thenReturn("https://repositories/");
         }
 
         @Test

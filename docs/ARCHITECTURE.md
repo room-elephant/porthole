@@ -323,7 +323,7 @@ Published-port IDs use `published-port:<port>` independently of the request host
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
 - `outbound/registry/` — Docker Hub/GHCR HTTP, anonymous authentication, catalogue pagination, manifest evidence, and Caffeine response caching.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
-- `config/properties/` — existing `@ConfigurationProperties` beans and validation; property names and defaults are unchanged.
+- `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `registry.dockerhub.*`, with legacy `registry.urls.*` aliases retained as fallbacks; defaults are unchanged.
 - `config/nativehints/` — Spring AOT hints for library types the agent cannot observe.
 
 ### Dependency boundaries

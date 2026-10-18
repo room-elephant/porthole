@@ -1589,10 +1589,10 @@
           "name": "cache"
         },
         {
-          "name": "timeout"
+          "name": "dockerhub"
         },
         {
-          "name": "urls"
+          "name": "timeout"
         }
       ],
       "methods": [
@@ -1601,7 +1601,7 @@
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.RegistryProperties$Timeout",
             "com.roomelephant.porthole.config.properties.RegistryProperties$Cache",
-            "com.roomelephant.porthole.config.properties.RegistryProperties$Urls"
+            "com.roomelephant.porthole.config.properties.RegistryProperties$DockerHub"
           ]
         }
       ]
@@ -1627,6 +1627,30 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.config.properties.RegistryProperties$DockerHub",
+      "fields": [
+        {
+          "name": "authUrl"
+        },
+        {
+          "name": "registryUrl"
+        },
+        {
+          "name": "repositoriesUrl"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.config.properties.RegistryProperties$Timeout",
       "fields": [
         {
@@ -1642,30 +1666,6 @@
           "parameterTypes": [
             "java.time.Duration",
             "java.time.Duration"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.properties.RegistryProperties$Urls",
-      "fields": [
-        {
-          "name": "auth"
-        },
-        {
-          "name": "registry"
-        },
-        {
-          "name": "repositories"
-        }
-      ],
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String",
-            "java.lang.String",
-            "java.lang.String"
           ]
         }
       ]

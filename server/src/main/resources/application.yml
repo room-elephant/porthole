@@ -44,13 +44,13 @@ registry:
   cache:
     ttl: 1h
     version-max-size: 100
+  dockerhub:
+    registry-url: "${registry.urls.registry:https://registry-1.docker.io/v2/}"
+    auth-url: "${registry.urls.auth:https://auth.docker.io/token?service=registry.docker.io&scope=repository:}"
+    repositories-url: "${registry.urls.repositories:https://hub.docker.com/v2/repositories/}"
   ghcr:
     registry-url: "https://ghcr.io/v2/"
     auth-url: "https://ghcr.io/token?service=ghcr.io&scope=repository:"
-  urls:
-    registry: "https://registry-1.docker.io/v2/"
-    auth: "https://auth.docker.io/token?service=registry.docker.io&scope=repository:"
-    repositories: "https://hub.docker.com/v2/repositories/"
 
 # Actuator configuration
 management:

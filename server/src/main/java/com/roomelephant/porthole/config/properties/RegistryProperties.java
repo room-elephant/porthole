@@ -18,17 +18,17 @@ public record RegistryProperties(
         @Valid @NotNull(message = "Cache configuration is required")
         Cache cache,
 
-        @Valid @NotNull(message = "URLs configuration is required")
-        Urls urls) {
-    public record Urls(
+        @Valid @NotNull(message = "Docker Hub configuration is required")
+        DockerHub dockerhub) {
+    public record DockerHub(
             @NotNull(message = "Registry URL must be configured")
-            String registry,
+            String registryUrl,
 
             @NotNull(message = "Auth URL must be configured")
-            String auth,
+            String authUrl,
 
             @NotNull(message = "Repositories URL must be configured")
-            String repositories) {}
+            String repositoriesUrl) {}
 
     public record Timeout(
             @NotNull(message = "Connect timeout must be configured")

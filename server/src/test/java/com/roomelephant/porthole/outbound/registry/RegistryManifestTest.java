@@ -30,7 +30,7 @@ class RegistryManifestTest {
         var props = new RegistryProperties(
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 new RegistryProperties.Cache(Duration.ofMinutes(1), 100),
-                new RegistryProperties.Urls(BASE + "v2/", BASE + "auth?scope=repository:", BASE + "catalog/"));
+                new RegistryProperties.DockerHub(BASE + "v2/", BASE + "auth?scope=repository:", BASE + "catalog/"));
         service = new HttpRegistryOperations(builder.build(), props, ghcr());
         server.expect(requestTo(BASE + "auth?scope=repository:library/nginx:pull"))
                 .andRespond(withSuccess("{\"token\":\"test\"}", MediaType.APPLICATION_JSON));

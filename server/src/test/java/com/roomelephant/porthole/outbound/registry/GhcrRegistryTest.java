@@ -36,7 +36,8 @@ class GhcrRegistryTest {
         var properties = new RegistryProperties(
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
-                new RegistryProperties.Urls("https://hub-registry/v2/", "https://hub-auth/", "https://hub-catalog/"));
+                new RegistryProperties.DockerHub(
+                        "https://hub-registry/v2/", "https://hub-auth/", "https://hub-catalog/"));
         service = new HttpRegistryOperations(builder.build(), properties, ghcr());
     }
 
