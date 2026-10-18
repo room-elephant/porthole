@@ -84,6 +84,22 @@ describe('source sections', () => {
   expect(document.activeElement).toHaveClass('tile-menu');
  });
 
+ it('releases the freeze when the open container disappears and later returns', () => {
+  const other = mk({ id: 'other', name: 'other', displayName: 'Other' });
+  const sources = [source];
+  const sourcesById = { walker: source };
+  const render = containers => (
+   <SourceSection section={buildSections({ sources, containers, groupBy: GROUP_BY.HOST_STACK })[0]} sourcesById={sourcesById} showAll showStopped allowLegacyMigration={false} />
+  );
+  const view = renderWithQuery(render([mk(), other]));
+  fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
+  view.rerender(render([other]));
+  localStorage.setItem('endpoint_pref_v2_' + JSON.stringify(['walker', 'test-container']), '"none"');
+  view.rerender(render([mk(), other]));
+  expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip');
+  expect(document.querySelectorAll('.chip')).toHaveLength(1);
+ });
+
  it('shows an offline banner and last-known containers as offline tiles', () => {
   const down = { ...source, status: 'DOWN', error: 'Docker is not reachable' };
   renderSection([mk()], { sources: [down] });

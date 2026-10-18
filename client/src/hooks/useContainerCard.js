@@ -1,4 +1,4 @@
-import { createElement, useState, useCallback } from 'react';
+import { createElement, useState, useCallback, useRef, useEffect } from 'react';
 import { useContainerPrefs } from './useContainerPrefs';
 import ContainerSettings from '../components/ContainerSettings';
 import { containerStatus } from '../utils/status';
@@ -9,6 +9,16 @@ import { containerStatus } from '../utils/status';
  */
 export const useContainerCard = (container, { sourceOnline = true, allowLegacyMigration = false, onSettingsOpenChange } = {}) => {
   const [open, setOpen] = useState(false);
+  // Latest values for the unmount cleanup below.
+  const latest = useRef({});
+  useEffect(() => {
+    latest.current = { open, container, onSettingsOpenChange };
+  });
+  // A card that vanishes with its dialog open never gets to close it: release the owner's hold.
+  useEffect(() => () => {
+    const { open: wasOpen, container: last, onSettingsOpenChange: notify } = latest.current;
+    if (wasOpen) notify?.(last, false);
+  }, []);
   const prefs = useContainerPrefs(container, allowLegacyMigration);
   const showUpdate = Boolean(prefs.checkUpdates && container.version?.updateAvailable);
   const status = containerStatus(container, { sourceOnline, showUpdate });
