@@ -57,14 +57,31 @@ describe('source sections', () => {
   expect(document.querySelector('.tile-grid .tile-name')).toHaveTextContent('Web');
  });
 
- it('turns a tile into a chip when No web UI is chosen in settings', () => {
+ it('keeps the dialog open and the tile in place while choosing No endpoint, then moves it to a chip on close', () => {
   renderSection([mk()]);
-  expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
   fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
   fireEvent.click(screen.getByRole('radio', { name: /No (endpoint|web UI)/ }));
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(document.querySelector('.tile-grid .tile')).not.toBeNull();
+  expect(document.querySelector('.chip')).toBeNull();
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(screen.queryByRole('link')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip');
+  const chip = screen.getByRole('button', { name: 'Test Container settings' });
+  expect(chip).toHaveClass('chip');
+  expect(document.activeElement).toBe(chip);
+ });
+
+ it('keeps the dialog open while a chip gains an endpoint, then moves it to a tile and focuses its menu', () => {
+  localStorage.setItem('endpoint_pref_v2_' + JSON.stringify(['walker', 'test-container']), '"none"');
+  renderSection([mk()]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  fireEvent.click(screen.getByRole('radio', { name: /localhost:8080/ }));
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(document.querySelector('.chip')).not.toBeNull();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(document.querySelector('.chip')).toBeNull();
+  expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
+  expect(document.activeElement).toHaveClass('tile-menu');
  });
 
  it('shows an offline banner and last-known containers as offline tiles', () => {

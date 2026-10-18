@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState, useRef, useCallback, useEffect } from 'react';
 import ContainerTile from './ContainerTile';
 import ContainerChip from './ContainerChip';
 import { useStorageRevision } from '../hooks/useLocalStorage';
@@ -52,22 +52,53 @@ function HostMeta({ section }) {
   return <span className="section-meta">Checking…</span>;
 }
 
+const keyOf = container => JSON.stringify([container.sourceId, container.id]);
+
 function Group({ group, section, sourcesById, allowLegacyMigration }) {
   useStorageRevision();
-  const withUi = group.containers.filter(container => !isHeadless(container));
-  const headless = group.containers.filter(container => isHeadless(container));
+  const groupRef = useRef(null);
+  // While a settings dialog is open its card keeps its tile/chip slot, so the dialog
+  // (owned by the card) is not unmounted when the selection changes its partition.
+  const frozenRef = useRef(null);
+  const [frozen, setFrozen] = useState(null);
+  const focusKeyRef = useRef(null);
+
+  const handleSettingsOpenChange = useCallback((container, open) => {
+    if (open) {
+      frozenRef.current = { key: keyOf(container), headless: isHeadless(container) };
+      setFrozen(frozenRef.current);
+      return;
+    }
+    const held = frozenRef.current;
+    frozenRef.current = null;
+    setFrozen(null);
+    if (held && isHeadless(container) !== held.headless) focusKeyRef.current = held.key;
+  }, []);
+
+  // After the card has moved, put focus on its settings control (the dialog restored it to a stale node).
+  useEffect(() => {
+    const key = focusKeyRef.current;
+    if (key === null) return;
+    focusKeyRef.current = null;
+    const slot = [...groupRef.current.querySelectorAll('[data-container-key]')].find(el => el.dataset.containerKey === key);
+    slot?.querySelector('.chip, .tile-menu')?.focus();
+  });
+
+  const headlessOf = container => (frozen && frozen.key === keyOf(container) ? frozen.headless : isHeadless(container));
+  const withUi = group.containers.filter(container => !headlessOf(container));
+  const headless = group.containers.filter(headlessOf);
   if (group.containers.length === 0) return null;
 
-  const keyOf = container => JSON.stringify([container.sourceId, container.id]);
   const common = container => ({
     container,
     sourceOnline: sourcesById[container.sourceId]?.status === 'UP',
     hostTag: section.kind === 'stack' ? sourcesById[container.sourceId]?.name ?? null : null,
     allowLegacyMigration,
+    onSettingsOpenChange: handleSettingsOpenChange,
   });
 
   return (
-    <div className="stack-group">
+    <div className="stack-group" ref={groupRef}>
       {group.label && (
         <div className="stack-label">
           <span>{group.label}</span>
@@ -77,7 +108,9 @@ function Group({ group, section, sourcesById, allowLegacyMigration }) {
       {withUi.length > 0 && (
         <div className="tile-grid">
           {withUi.map(container => (
-            <ContainerTile key={keyOf(container)} sourceName={sourcesById[container.sourceId]?.name} {...common(container)} />
+            <span key={keyOf(container)} className="card-slot" data-container-key={keyOf(container)}>
+              <ContainerTile sourceName={sourcesById[container.sourceId]?.name} {...common(container)} />
+            </span>
           ))}
         </div>
       )}
@@ -85,7 +118,9 @@ function Group({ group, section, sourcesById, allowLegacyMigration }) {
         <div className="chip-row">
           <span className="chip-row-label">No web UI</span>
           {headless.map(container => (
-            <ContainerChip key={keyOf(container)} {...common(container)} />
+            <span key={keyOf(container)} className="card-slot" data-container-key={keyOf(container)}>
+              <ContainerChip {...common(container)} />
+            </span>
           ))}
         </div>
       )}

@@ -1,10 +1,9 @@
-import { useState, memo } from 'react';
+import { memo } from 'react';
 import { ArrowUpRight, MoreVertical } from 'lucide-react';
-import { useContainerPrefs } from '../hooks/useContainerPrefs';
+import { useContainerCard } from '../hooks/useContainerCard';
 import ContainerIcon from './ContainerIcon';
-import ContainerSettings from './ContainerSettings';
 import { endpointLabel } from '../utils/endpoints';
-import { containerStatus, getHealthStatus } from '../utils/status';
+import { getHealthStatus } from '../utils/status';
 
 const arraysEqual = (a, b) =>
     a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
@@ -14,11 +13,12 @@ const hostText = (container, selectedEndpoint) => {
     return container.endpoints.length > 0 ? 'Choose a URL' : 'No web UI';
 };
 
-function ContainerTile({ container, sourceOnline = true, hostTag = null, allowLegacyMigration = false }) {
-    const [showConfig, setShowConfig] = useState(false);
-    const { selectedEndpoint, selectedEndpointId, selectEndpoint, checkUpdates, setCheckUpdates } = useContainerPrefs(container, allowLegacyMigration);
-    const showUpdate = Boolean(checkUpdates && container.version?.updateAvailable);
-    const status = containerStatus(container, { sourceOnline, showUpdate });
+function ContainerTile({ container, sourceOnline = true, hostTag = null, allowLegacyMigration = false, onSettingsOpenChange }) {
+    const { prefs: { selectedEndpoint }, status, showUpdate, openSettings, settingsDialog } = useContainerCard(container, {
+        sourceOnline,
+        allowLegacyMigration,
+        onSettingsOpenChange,
+    });
     const isLink = status.openable && Boolean(selectedEndpoint);
     const settingsLabel = `${container.displayName} settings`;
 
@@ -51,26 +51,16 @@ function ContainerTile({ container, sourceOnline = true, hostTag = null, allowLe
                         <ArrowUpRight className="tile-go" size={16} aria-hidden="true" />
                     </a>
                 ) : (
-                    <button type="button" className="tile-main" aria-label={settingsLabel} onClick={() => setShowConfig(true)}>
+                    <button type="button" className="tile-main" aria-label={settingsLabel} onClick={openSettings}>
                         {content}
                     </button>
                 )}
-                <button type="button" className="tile-menu" aria-label={settingsLabel} onClick={() => setShowConfig(true)}>
+                <button type="button" className="tile-menu" aria-label={settingsLabel} onClick={openSettings}>
                     <MoreVertical size={18} aria-hidden="true" />
                 </button>
             </div>
 
-            {showConfig && (
-                <ContainerSettings
-                    containerName={container.name}
-                    endpoints={container.endpoints}
-                    selectedEndpointId={selectedEndpointId}
-                    checkUpdates={checkUpdates}
-                    onClose={() => setShowConfig(false)}
-                    onSelectEndpoint={selectEndpoint}
-                    onToggleCheckUpdates={setCheckUpdates}
-                />
-            )}
+            {settingsDialog}
         </>
     );
 }
