@@ -179,8 +179,16 @@ describe('ContainerTile', () => {
       renderWithQuery(<ContainerTile container={createMockContainer({ endpoints })} />);
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
       expect(screen.getByText('Choose a URL')).toHaveClass('tile-host');
+      expect(tile()).not.toHaveClass('tile--dashed');
       fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
       expect(screen.getByText('Traefik URLs')).toBeInTheDocument();
+    });
+
+    it('keeps an unhealthy tile red when no endpoint is selected', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ status: 'Up 2 minutes (unhealthy)', endpoints: [] })} />);
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(tile()).toHaveClass('tile--unhealthy');
+      expect(tile()).not.toHaveClass('tile--dashed');
     });
 
     it('shows ambiguous published ports in the chooser', () => {
@@ -249,7 +257,7 @@ describe('ContainerTile', () => {
       await user.click(screen.getByRole('button', { name: settingsName }));
       await user.click(screen.getByRole('radio', { name: 'No endpoint' }));
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
-      expect(tile()).toHaveClass('tile--dashed');
+      expect(tile()).not.toHaveClass('tile--dashed');
       expect(localStorage.getItem('endpoint_pref_v2_["local","test-container"]')).toBe('"none"');
       await user.click(screen.getByRole('checkbox'));
       expect(localStorage.getItem('version_check_v2_["local","test-container"]')).toBe('false');

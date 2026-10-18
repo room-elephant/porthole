@@ -44,7 +44,7 @@ function ContainerTile({ container, sourceOnline = true, hostTag = null, allowLe
 
     return (
         <>
-            <div className={`tile tile--${status.kind}${isLink ? '' : ' tile--dashed'}`}>
+            <div className={`tile tile--${status.kind}${status.openable ? '' : ' tile--dashed'}`}>
                 {isLink ? (
                     <a className="tile-main" href={selectedEndpoint.url} target="_blank" rel="noopener">
                         {content}
