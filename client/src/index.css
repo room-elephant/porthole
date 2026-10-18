@@ -1705,7 +1705,5 @@ input:checked + .toggle-slider::before {
 
   .segmented button {
     flex: 1;
-    height: 40px;
-    min-height: 40px;
   }
 }
