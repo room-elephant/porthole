@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
-import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import java.time.Duration;
 import java.util.List;
@@ -30,8 +29,9 @@ class RegistryManifestTest {
         var props = new RegistryProperties(
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 new RegistryProperties.Cache(Duration.ofMinutes(1), 100),
-                new RegistryProperties.DockerHub(BASE + "v2/", BASE + "auth?scope=repository:", BASE + "catalog/"));
-        service = new HttpRegistryOperations(builder.build(), props, ghcr());
+                new RegistryProperties.DockerHub(BASE + "v2/", BASE + "auth?scope=repository:", BASE + "catalog/"),
+                ghcr());
+        service = new HttpRegistryOperations(builder.build(), props);
         server.expect(requestTo(BASE + "auth?scope=repository:library/nginx:pull"))
                 .andRespond(withSuccess("{\"token\":\"test\"}", MediaType.APPLICATION_JSON));
     }
@@ -122,7 +122,8 @@ class RegistryManifestTest {
         server.verify();
     }
 
-    private static GhcrProperties ghcr() {
-        return new GhcrProperties("https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
+    private static RegistryProperties.Ghcr ghcr() {
+        return new RegistryProperties.Ghcr(
+                "https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
     }
 }

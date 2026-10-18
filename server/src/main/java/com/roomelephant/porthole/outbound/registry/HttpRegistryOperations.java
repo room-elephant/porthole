@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.model.ImageReference;
 import java.io.IOException;
@@ -39,15 +38,14 @@ public class HttpRegistryOperations implements com.roomelephant.porthole.core.po
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final RegistryProperties registryProperties;
-    private final GhcrProperties ghcrProperties;
+    private final RegistryProperties.Ghcr ghcrProperties;
     private final Cache<String, String> versionCache;
     private final Cache<String, String> tokenCache;
 
-    public HttpRegistryOperations(
-            RestClient restClient, RegistryProperties registryProperties, GhcrProperties ghcrProperties) {
+    public HttpRegistryOperations(RestClient restClient, RegistryProperties registryProperties) {
         this.restClient = restClient;
         this.registryProperties = registryProperties;
-        this.ghcrProperties = ghcrProperties;
+        this.ghcrProperties = registryProperties.ghcr();
         this.objectMapper = new ObjectMapper();
         this.versionCache = Caffeine.newBuilder()
                 .expireAfterWrite(registryProperties.cache().ttl())

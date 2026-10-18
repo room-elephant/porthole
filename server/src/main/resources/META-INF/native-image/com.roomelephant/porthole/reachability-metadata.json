@@ -1362,8 +1362,7 @@
           "name": "registryOperations",
           "parameterTypes": [
             "org.springframework.web.client.RestClient",
-            "com.roomelephant.porthole.config.properties.RegistryProperties",
-            "com.roomelephant.porthole.config.properties.GhcrProperties"
+            "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
         },
         {
@@ -1509,10 +1508,6 @@
         {
           "name": "isPublishedHostValid",
           "parameterTypes": []
-        },
-        {
-          "name": "isTimeoutsValid",
-          "parameterTypes": []
         }
       ]
     },
@@ -1541,26 +1536,6 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.config.properties.GhcrProperties",
-      "fields": [
-        {
-          "name": "authUrl"
-        },
-        {
-          "name": "registryUrl"
-        }
-      ],
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String",
-            "java.lang.String"
-          ]
-        }
-      ]
-    },
-    {
       "type": "com.roomelephant.porthole.config.properties.RegistryProperties",
       "fields": [
         {
@@ -1568,6 +1543,9 @@
         },
         {
           "name": "dockerhub"
+        },
+        {
+          "name": "ghcr"
         },
         {
           "name": "timeout"
@@ -1579,7 +1557,8 @@
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.RegistryProperties$Timeout",
             "com.roomelephant.porthole.config.properties.RegistryProperties$Cache",
-            "com.roomelephant.porthole.config.properties.RegistryProperties$DockerHub"
+            "com.roomelephant.porthole.config.properties.RegistryProperties$DockerHub",
+            "com.roomelephant.porthole.config.properties.RegistryProperties$Ghcr"
           ]
         }
       ]
@@ -1629,6 +1608,26 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.config.properties.RegistryProperties$Ghcr",
+      "fields": [
+        {
+          "name": "authUrl"
+        },
+        {
+          "name": "registryUrl"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.config.properties.RegistryProperties$Timeout",
       "fields": [
         {
@@ -1650,6 +1649,11 @@
     },
     {
       "type": "com.roomelephant.porthole.config.properties.VersionProperties",
+      "fields": [
+        {
+          "name": "refreshInterval"
+        }
+      ],
       "methods": [
         {
           "name": "<init>",
@@ -2500,6 +2504,9 @@
     },
     {
       "type": "jakarta.validation.ConstraintValidator"
+    },
+    {
+      "type": "jakarta.validation.ReportAsSingleViolation"
     },
     {
       "type": "jakarta.validation.Valid"
@@ -3353,6 +3360,51 @@
       "type": "org.hibernate.validator.HibernateValidator"
     },
     {
+      "type": "org.hibernate.validator.constraints.time.DurationMin",
+      "methods": [
+        {
+          "name": "days",
+          "parameterTypes": []
+        },
+        {
+          "name": "groups",
+          "parameterTypes": []
+        },
+        {
+          "name": "hours",
+          "parameterTypes": []
+        },
+        {
+          "name": "inclusive",
+          "parameterTypes": []
+        },
+        {
+          "name": "message",
+          "parameterTypes": []
+        },
+        {
+          "name": "millis",
+          "parameterTypes": []
+        },
+        {
+          "name": "minutes",
+          "parameterTypes": []
+        },
+        {
+          "name": "nanos",
+          "parameterTypes": []
+        },
+        {
+          "name": "payload",
+          "parameterTypes": []
+        },
+        {
+          "name": "seconds",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.hibernate.validator.constraintvalidation.HibernateConstraintValidator"
     },
     {
@@ -3402,6 +3454,15 @@
     },
     {
       "type": "org.hibernate.validator.internal.constraintvalidators.bv.number.sign.PositiveValidatorForInteger",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.hibernate.validator.internal.constraintvalidators.hv.time.DurationMinValidator",
       "methods": [
         {
           "name": "<init>",
@@ -9465,9 +9526,6 @@
     },
     {
       "glob": "public/api/containers/non-existent-id/version"
-    },
-    {
-      "glob": "public/index.html"
     },
     {
       "glob": "resources/api/containers/non-existent-id/version"

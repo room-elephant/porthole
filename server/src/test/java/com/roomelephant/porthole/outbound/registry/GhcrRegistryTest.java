@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
-import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import java.time.Duration;
 import java.util.List;
@@ -37,8 +36,9 @@ class GhcrRegistryTest {
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
                 new RegistryProperties.DockerHub(
-                        "https://hub-registry/v2/", "https://hub-auth/", "https://hub-catalog/"));
-        service = new HttpRegistryOperations(builder.build(), properties, ghcr());
+                        "https://hub-registry/v2/", "https://hub-auth/", "https://hub-catalog/"),
+                ghcr());
+        service = new HttpRegistryOperations(builder.build(), properties);
     }
 
     @ParameterizedTest
@@ -186,7 +186,8 @@ class GhcrRegistryTest {
                 .andRespond(withSuccess("", MediaType.parseMediaType(type)).header("Docker-Content-Digest", digest));
     }
 
-    private static GhcrProperties ghcr() {
-        return new GhcrProperties("https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
+    private static RegistryProperties.Ghcr ghcr() {
+        return new RegistryProperties.Ghcr(
+                "https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
     }
 }

@@ -31,6 +31,12 @@ class VersionPropertiesTest {
     }
 
     @Test
+    void rejectsIntervalsThatOverflowNanoseconds() {
+        runner.withPropertyValues("porthole.versions.refresh-interval=106752d")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
     void rejectsMissingInterval() {
         runner.run(context -> assertThat(context).hasFailed());
     }

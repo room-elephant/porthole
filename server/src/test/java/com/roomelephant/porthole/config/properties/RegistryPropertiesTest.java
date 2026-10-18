@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -156,9 +158,7 @@ class RegistryPropertiesTest {
                         "porthole.dashboard.icons.url=https://custom-icons/",
                         "porthole.dashboard.icons.extension=.svg")
                 .run(context -> assertNamespacedOverrides(
-                        context.getBean(RegistryProperties.class),
-                        context.getBean(GhcrProperties.class),
-                        context.getBean(DashboardProperties.class)));
+                        context.getBean(RegistryProperties.class), context.getBean(DashboardProperties.class)));
     }
 
     @Test
@@ -174,22 +174,38 @@ class RegistryPropertiesTest {
                         "PORTHOLE_DASHBOARD_ICONS_URL", "https://custom-icons/",
                         "PORTHOLE_DASHBOARD_ICONS_EXTENSION", ".svg"))
                 .run(context -> assertNamespacedOverrides(
-                        context.getBean(RegistryProperties.class),
-                        context.getBean(GhcrProperties.class),
-                        context.getBean(DashboardProperties.class)));
+                        context.getBean(RegistryProperties.class), context.getBean(DashboardProperties.class)));
     }
 
-    private void assertNamespacedOverrides(
-            RegistryProperties registry, GhcrProperties ghcr, DashboardProperties dashboard) {
+    private void assertNamespacedOverrides(RegistryProperties registry, DashboardProperties dashboard) {
         assertThat(registry.timeout().connect()).isEqualTo(java.time.Duration.ofSeconds(2));
         assertThat(registry.timeout().read()).isEqualTo(java.time.Duration.ofSeconds(3));
         assertThat(registry.cache().ttl()).isEqualTo(java.time.Duration.ofHours(2));
         assertThat(registry.cache().versionMaxSize()).isEqualTo(250);
-        assertThat(ghcr.registryUrl()).isEqualTo("https://custom-ghcr/");
-        assertThat(ghcr.authUrl()).isEqualTo("https://custom-ghcr-auth/");
+        assertThat(registry.ghcr().registryUrl()).isEqualTo("https://custom-ghcr/");
+        assertThat(registry.ghcr().authUrl()).isEqualTo("https://custom-ghcr-auth/");
         assertThat(dashboard.icons().path()).isEqualTo("/custom/icons.yml");
         assertThat(dashboard.icons().url()).isEqualTo("https://custom-icons/");
         assertThat(dashboard.icons().extension()).isEqualTo(".svg");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "porthole.registry.dockerhub.registry-url= ",
+                "porthole.registry.dockerhub.auth-url= ",
+                "porthole.registry.dockerhub.repositories-url= ",
+                "porthole.registry.ghcr.registry-url= ",
+                "porthole.registry.ghcr.auth-url= ",
+                "porthole.registry.timeout.connect=0s",
+                "porthole.registry.timeout.connect=-1s",
+                "porthole.registry.timeout.read=0s",
+                "porthole.registry.timeout.read=-1s",
+                "porthole.registry.cache.ttl=0s",
+                "porthole.registry.cache.ttl=-1s"
+            })
+    void rejectsInvalidRegistryConfiguration(String property) {
+        runner.withPropertyValues(property).run(context -> assertThat(context).hasFailed());
     }
 
     private ApplicationContextRunner environment(Map<String, Object> values) {
@@ -199,6 +215,6 @@ class RegistryPropertiesTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties({RegistryProperties.class, GhcrProperties.class, DashboardProperties.class})
+    @EnableConfigurationProperties({RegistryProperties.class, DashboardProperties.class})
     static class Config {}
 }

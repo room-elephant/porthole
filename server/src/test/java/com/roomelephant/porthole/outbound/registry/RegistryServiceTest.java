@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +50,7 @@ class RegistryServiceTest {
         when(cache.ttl()).thenReturn(Duration.ofMinutes(5));
         when(cache.versionMaxSize()).thenReturn(100);
 
-        registryService = new HttpRegistryOperations(restClient, registryProperties, ghcr());
+        registryService = new HttpRegistryOperations(restClient, registryProperties);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -66,8 +65,9 @@ class RegistryServiceTest {
         var properties = new RegistryProperties(
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(1)),
                 new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
-                new RegistryProperties.DockerHub("https://registry/v2/", "https://auth/", "https://hub/"));
-        var service = new HttpRegistryOperations(restClient, properties, ghcr());
+                new RegistryProperties.DockerHub("https://registry/v2/", "https://auth/", "https://hub/"),
+                ghcr());
+        var service = new HttpRegistryOperations(restClient, properties);
         assertNull(service.getLatestVersion(image));
         assertNull(service.getDigest(image, "latest"));
         assertFalse(service.isTagChanged(image, java.util.List.of("sha256:" + "a".repeat(64))));
@@ -345,7 +345,8 @@ class RegistryServiceTest {
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
     }
 
-    private static GhcrProperties ghcr() {
-        return new GhcrProperties("https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
+    private static RegistryProperties.Ghcr ghcr() {
+        return new RegistryProperties.Ghcr(
+                "https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
     }
 }

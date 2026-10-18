@@ -4,6 +4,7 @@ import com.roomelephant.porthole.core.enrichment.endpoint.EndpointUrls;
 import jakarta.validation.constraints.*;
 import java.net.URI;
 import java.time.Duration;
+import org.hibernate.validator.constraints.time.DurationMin;
 import org.jspecify.annotations.*;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -15,8 +16,12 @@ public record DockerConnectionProperties(
         @NotBlank String name,
         @NotBlank String host,
         @Nullable String publishedHost,
-        @NotNull @DefaultValue("5s") Duration connectionTimeout,
-        @NotNull @DefaultValue("60s") Duration responseTimeout) {
+
+        @NotNull @DurationMin(nanos = 1, message = "Connection timeout must be positive") @DefaultValue("5s")
+        Duration connectionTimeout,
+
+        @NotNull @DurationMin(nanos = 1, message = "Response timeout must be positive") @DefaultValue("60s")
+        Duration responseTimeout) {
     @AssertTrue(
             message =
                     "Docker host must be an absolute unix:/// socket or tcp://host:port URI; provision SSH externally")
@@ -41,14 +46,6 @@ public record DockerConnectionProperties(
         } catch (IllegalArgumentException _) {
             return false;
         }
-    }
-
-    @AssertTrue(message = "Docker timeouts must be positive")
-    public boolean isTimeoutsValid() {
-        return connectionTimeout != null
-                && responseTimeout != null
-                && connectionTimeout.isPositive()
-                && responseTimeout.isPositive();
     }
 
     @AssertTrue(message = "Published host must be a bare hostname or IP address")

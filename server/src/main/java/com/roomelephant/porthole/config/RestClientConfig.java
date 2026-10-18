@@ -18,10 +18,8 @@ public class RestClientConfig {
 
     @Bean
     public com.roomelephant.porthole.core.port.outbound.RegistryOperations registryOperations(
-            RestClient client,
-            RegistryProperties properties,
-            com.roomelephant.porthole.config.properties.GhcrProperties ghcr) {
-        return new com.roomelephant.porthole.outbound.registry.HttpRegistryOperations(client, properties, ghcr);
+            RestClient client, RegistryProperties properties) {
+        return new com.roomelephant.porthole.outbound.registry.HttpRegistryOperations(client, properties);
     }
 
     @Bean
