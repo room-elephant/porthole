@@ -5,11 +5,10 @@ import { ASSETS } from '../constants';
 import { useEndpointSelection } from '../hooks/useEndpointSelection';
 import ContainerSettings from './ContainerSettings';
 import { NO_ENDPOINT_ID } from '../utils/endpoints';
+import { getHealthStatus } from '../utils/status';
 
 const arraysEqual = (a, b) => 
     a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
-
-const getHealthStatus = (status) => status?.match(/\((healthy|unhealthy|health: starting)\)/i)?.[1]?.toLowerCase();
 
 function ContainerTile({ container, allowLegacyMigration = false }) {
     const [showConfig, setShowConfig] = useState(false);

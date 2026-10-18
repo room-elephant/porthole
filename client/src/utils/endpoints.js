@@ -15,10 +15,20 @@ export const resolveEndpointSelection = (endpoints, savedId) => {
   return endpoints.length === 1 ? endpoints[0] : null;
 };
 
+const titleCase = (source) => source.split(/[-_]+/).filter(Boolean).map(word => word[0].toUpperCase() + word.slice(1)).join(' ');
+
 const sourceTitle = (source) => {
   if (source === 'traefik') return 'Traefik URLs';
   if (source === 'published-port') return 'Published Ports';
-  return `${source.split(/[-_]+/).filter(Boolean).map(word => word[0].toUpperCase() + word.slice(1)).join(' ')} URLs`;
+  return `${titleCase(source)} URLs`;
+};
+
+export const endpointLabel = (url) => url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').replace(/\/$/, '');
+
+export const endpointTag = (source) => {
+  if (source === 'traefik') return 'Traefik';
+  if (source === 'published-port') return 'Port';
+  return titleCase(source);
 };
 
 const sourceOrder = (source) => {
