@@ -3,6 +3,7 @@ package com.roomelephant.porthole.outbound.registry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -37,7 +38,7 @@ final class RegistryLink {
         if (!parts.getFirst().isBlank()) throw new IllegalArgumentException("Invalid link suffix");
         String relation = null;
         for (String part : parts.subList(1, parts.size())) {
-            var parameter = PARAMETER.matcher(part);
+            Matcher parameter = PARAMETER.matcher(part);
             if (!parameter.matches()) throw new IllegalArgumentException("Invalid link parameter");
             if (parameter.group(1).equalsIgnoreCase("rel")) {
                 if (relation != null) throw new IllegalArgumentException("Duplicate link relation");
@@ -50,7 +51,7 @@ final class RegistryLink {
 
     private static String unquote(String value) {
         if (!value.startsWith("\"")) return value;
-        var result = new StringBuilder();
+        StringBuilder result = new StringBuilder();
         int position = 1;
         while (position < value.length() - 1) {
             char c = value.charAt(position++);
@@ -61,8 +62,8 @@ final class RegistryLink {
     }
 
     private static List<String> split(String value, char delimiter) {
-        var parts = new ArrayList<String>();
-        var state = new LinkState();
+        List<String> parts = new ArrayList<>();
+        LinkState state = new LinkState();
         int start = 0;
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);

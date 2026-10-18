@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.List;
 import org.jspecify.annotations.*;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
 @NullMarked
@@ -37,7 +38,7 @@ public final class GhcrClient implements RegistryClient {
         String token = fetchAuthToken(image);
         URI first = URI.create(properties.registryUrl() + image.repository() + "/tags/list?n=100");
         return RegistryTagPage.latest(first, readTimeout, current -> {
-            var response = restClient
+            ResponseEntity<String> response = restClient
                     .get()
                     .uri(current.toString())
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)

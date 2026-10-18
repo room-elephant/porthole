@@ -22,9 +22,9 @@ public class DockerConfig {
 
     @Bean
     public DockerSourceRegistry dockerSources() {
-        var sources = new ArrayList<DockerConnection>();
+        ArrayList<DockerConnection> sources = new ArrayList<>();
         try {
-            for (var p : properties.connections()) {
+            for (DockerConnectionProperties p : properties.connections()) {
                 sources.add(new DockerConnection(
                         p.id(),
                         p.name(),
@@ -35,7 +35,7 @@ public class DockerConfig {
             }
             return new DockerSourceRegistry(sources);
         } catch (RuntimeException e) {
-            for (var s : sources)
+            for (DockerConnection s : sources)
                 try {
                     s.client().close();
                 } catch (Exception cleanup) {
@@ -51,10 +51,10 @@ public class DockerConfig {
     }
 
     DockerClient createClient(DockerConnectionProperties p) {
-        var config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+        DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(p.host())
                 .build();
-        var http = new ZerodepDockerHttpClient.Builder()
+        ZerodepDockerHttpClient http = new ZerodepDockerHttpClient.Builder()
                 .dockerHost(config.getDockerHost())
                 .sslConfig(config.getSSLConfig())
                 .maxConnections(100)

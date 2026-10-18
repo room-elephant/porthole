@@ -39,7 +39,7 @@ public record RegistryTagPage(
 
     public static @Nullable String latest(URI first, Duration readTimeout, PageFetcher pages) {
         URI next = first;
-        var visited = new HashSet<URI>();
+        HashSet<URI> visited = new HashSet<>();
         String best = null;
         long started = System.nanoTime();
         long budget = readTimeout.toNanos();

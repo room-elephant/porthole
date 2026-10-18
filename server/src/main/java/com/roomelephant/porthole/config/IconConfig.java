@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.roomelephant.porthole.config.properties.DashboardProperties;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,7 +23,7 @@ public class IconConfig {
 
     @Bean
     public Map<String, String> iconMappings(DashboardProperties properties) {
-        var mappings = new HashMap<>(loadMappings(new ClassPathResource(FILE_NAME)));
+        Map<String, String> mappings = new HashMap<>(loadMappings(new ClassPathResource(FILE_NAME)));
         mappings.putAll(loadMappings(new FileSystemResource(properties.icons().path())));
 
         log.debug("Icon config initialized with {} mappings", mappings.size());
@@ -32,7 +33,7 @@ public class IconConfig {
     private Map<String, String> loadMappings(Resource resource) {
         if (!resource.exists()) return Map.of();
 
-        try (var input = resource.getInputStream()) {
+        try (InputStream input = resource.getInputStream()) {
             Map<String, String> mappings = new YAMLMapper().readValue(input, new TypeReference<>() {});
             return mappings == null ? Map.of() : mappings;
         } catch (IOException e) {

@@ -47,8 +47,8 @@ public class DockerAvailabilityService implements CheckDockerAvailability, AutoC
     }
 
     private Map<String, Future<Boolean>> startOrReuseProbes() {
-        var current = new LinkedHashMap<String, Future<Boolean>>();
-        for (var source : sources.sources())
+        Map<String, Future<Boolean>> current = new LinkedHashMap<>();
+        for (DockerSource source : sources.sources())
             current.put(
                     source.id(),
                     probes.compute(
@@ -60,8 +60,8 @@ public class DockerAvailabilityService implements CheckDockerAvailability, AutoC
     }
 
     private DockerAvailability awaitProbes(Map<String, Future<Boolean>> current, long deadline) {
-        var results = new LinkedHashMap<String, Boolean>();
-        for (var entry : current.entrySet()) {
+        Map<String, Boolean> results = new LinkedHashMap<>();
+        for (Map.Entry<String, Future<Boolean>> entry : current.entrySet()) {
             results.put(entry.getKey(), awaitProbe(entry.getValue(), deadline));
         }
         return new DockerAvailability(results);

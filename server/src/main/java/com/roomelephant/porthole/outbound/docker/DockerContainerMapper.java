@@ -10,9 +10,9 @@ import org.jspecify.annotations.NullMarked;
 @NullMarked
 public final class DockerContainerMapper {
     public ContainerSnapshot toSnapshot(Container raw) {
-        var names = raw.getNames();
+        String[] names = raw.getNames();
         String name = names == null || names.length == 0 ? "Unknown" : names[0].substring(1);
-        var ports = raw.getPorts();
+        ContainerPort[] ports = raw.getPorts();
         Set<Integer> published = ports == null
                 ? Set.of()
                 : Arrays.stream(ports)

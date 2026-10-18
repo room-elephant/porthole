@@ -34,7 +34,7 @@ public class ContainerService implements GetContainers, AutoCloseable {
     @Override
     public ContainerInventory getContainers(ContainerQuery query) {
         if (closed) throw new IllegalStateException("Container inventory is closed");
-        var futures = sources.sources().stream()
+        List<CompletableFuture<Result>> futures = sources.sources().stream()
                 .map(s -> submit(
                         s,
                         new EnrichmentContext(
@@ -44,18 +44,18 @@ public class ContainerService implements GetContainers, AutoCloseable {
                                 query.includeWithoutEndpoints(),
                                 query.includeStopped())))
                 .toList();
-        var results = futures.stream().map(CompletableFuture::join).toList();
+        List<Result> results = futures.stream().map(CompletableFuture::join).toList();
         return new ContainerInventory(
                 results.stream().map(Result::source).toList(),
                 results.stream().flatMap(r -> r.containers().stream()).toList());
     }
 
     private CompletableFuture<Result> submit(DockerSource source, EnrichmentContext context) {
-        var result = new CompletableFuture<Result>();
+        CompletableFuture<Result> result = new CompletableFuture<>();
         pending.add(result);
         try {
-            var task = workers.submit(() -> result.complete(fetch(source, context)));
-            var deadline = deadlines.schedule(
+            Future<Boolean> task = workers.submit(() -> result.complete(fetch(source, context)));
+            ScheduledFuture<?> deadline = deadlines.schedule(
                     () -> {
                         if (result.complete(failure(source, SourceStatus.DOWN, "Docker request timed out")))
                             task.cancel(true);
@@ -75,8 +75,8 @@ public class ContainerService implements GetContainers, AutoCloseable {
 
     private Result fetch(DockerSource source, EnrichmentContext context) {
         try {
-            var raw = sources.listContainers(source.id());
-            var containers = mapper.toModels(raw, source.id()).stream()
+            List<ContainerSnapshot> raw = sources.listContainers(source.id());
+            List<Container> containers = mapper.toModels(raw, source.id()).stream()
                     .map(c -> enrichment.enrich(c, context))
                     .flatMap(Optional::stream)
                     .toList();

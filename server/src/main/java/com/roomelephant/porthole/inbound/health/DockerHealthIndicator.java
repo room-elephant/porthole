@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.inbound.health;
 
+import com.roomelephant.porthole.core.model.DockerAvailability;
 import com.roomelephant.porthole.core.port.inbound.CheckDockerAvailability;
 import java.util.*;
 import org.jspecify.annotations.NullMarked;
@@ -21,8 +22,8 @@ public class DockerHealthIndicator implements HealthIndicator {
 
     @Override
     public Health health() {
-        var result = availability.checkAvailability();
-        var details = new LinkedHashMap<String, Object>();
+        DockerAvailability result = availability.checkAvailability();
+        Map<String, Object> details = new LinkedHashMap<>();
         result.sources().forEach((id, up) -> details.put(id, up ? UP_DETAILS : DOWN_DETAILS));
         return (result.anyAvailable() ? Health.up() : Health.down())
                 .withDetail("sources", details)

@@ -1,6 +1,7 @@
 package com.roomelephant.porthole.core.version;
 
 import com.roomelephant.porthole.core.model.ContainerKey;
+import com.roomelephant.porthole.core.model.ContainerSnapshot;
 import com.roomelephant.porthole.core.model.DockerSource;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.core.model.exception.NotFoundException;
@@ -12,6 +13,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -84,7 +86,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     public synchronized void start() {
         if (started || closed) return;
         started = true;
-        for (var source : sources.sources())
+        for (DockerSource source : sources.sources())
             scheduler.scheduleWithFixedDelay(
                     () -> refreshSource(source.id()).join(),
                     0,
@@ -103,14 +105,15 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     /** Queues an immediate scan without doing Docker or registry I/O on the HTTP thread. */
     public synchronized void requestRefresh() {
         if (closed) throw new RejectedExecutionException("Version refresh service is closed");
-        var pending = sources.sources().stream()
+        List<String> pending = sources.sources().stream()
                 .map(DockerSource::id)
                 .filter(id -> !forcedScans.contains(id))
                 .toList();
         if (pending.isEmpty()) return;
         forcedScans.addAll(pending);
         try {
-            var invalidation = CompletableFuture.runAsync(versionService::invalidateRegistryCache, coordinators);
+            CompletableFuture<Void> invalidation =
+                    CompletableFuture.runAsync(versionService::invalidateRegistryCache, coordinators);
             for (String id : pending) {
                 invalidation
                         .thenComposeAsync(_ -> refreshSource(id, true), coordinators)
@@ -146,15 +149,15 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
             scanRevision = ++revision;
         }
         try {
-            var containers = sources.listContainers(sourceId);
-            var checks = new ArrayList<CompletableFuture<Void>>();
+            List<ContainerSnapshot> containers = sources.listContainers(sourceId);
+            List<CompletableFuture<Void>> checks = new ArrayList<>();
             synchronized (this) {
                 if (!closed) {
-                    var present = new HashSet<ContainerKey>();
-                    for (var container : containers) {
+                    Set<ContainerKey> present = new HashSet<>();
+                    for (ContainerSnapshot container : containers) {
                         String dockerId = container.id();
                         if (dockerId == null) continue;
-                        var id = new ContainerKey(sourceId, dockerId);
+                        ContainerKey id = new ContainerKey(sourceId, dockerId);
                         present.add(id);
                         Entry entry = entries.computeIfAbsent(id, _ -> new Entry());
                         // A concurrent older inventory must not prune a newer scan's discoveries.
@@ -190,7 +193,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
         if (entry.inFlight != null) return entry.inFlight;
         if (!force && entry.retryAt != null && clock.instant().isBefore(entry.retryAt))
             return CompletableFuture.completedFuture(null);
-        var check = new CompletableFuture<Void>();
+        CompletableFuture<Void> check = new CompletableFuture<>();
         entry.inFlight = check;
         try {
             workers.execute(() -> resolve(id, entry, check));
@@ -238,7 +241,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
             if (entry.inFlight != null) entry.inFlight.complete(null);
         }
         entries.clear();
-        for (var scan : currentScans.values()) scan.complete(null);
+        for (CompletableFuture<Void> scan : currentScans.values()) scan.complete(null);
         currentScans.clear();
         forcedScans.clear();
     }

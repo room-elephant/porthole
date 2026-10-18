@@ -18,7 +18,7 @@ public class ContainerPresentation {
     }
 
     public List<Container> toModels(List<ContainerSnapshot> snapshots, String sourceId) {
-        var displayNames = names.resolve(snapshots);
+        List<String> displayNames = names.resolve(snapshots);
         return IntStream.range(0, snapshots.size())
                 .mapToObj(i -> toModel(snapshots.get(i), sourceId, displayNames.get(i)))
                 .toList();

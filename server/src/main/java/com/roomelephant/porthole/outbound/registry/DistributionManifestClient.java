@@ -29,7 +29,7 @@ public final class DistributionManifestClient {
     /** Unknown or incompatible manifest levels are not evidence of an image change. */
     public boolean isTagChanged(ImageReference image, List<String> localDigests, String token) {
         try {
-            var remote = requestHead(image.lookupTag(), image, token);
+            ResponseEntity<Void> remote = requestHead(image.lookupTag(), image, token);
             String remoteDigest = remote.getHeaders().getFirst(DOCKER_CONTENT_DIGEST);
             int remoteLevel = manifestLevel(remote);
             if (!validDigest(remoteDigest) || remoteLevel == 0 || localDigests.contains(remoteDigest)) return false;
@@ -46,7 +46,7 @@ public final class DistributionManifestClient {
 
     private boolean hasManifestAtLevel(String digest, ImageReference image, String token, int level) {
         try {
-            var local = requestHead(digest, image, token);
+            ResponseEntity<Void> local = requestHead(digest, image, token);
             return digest.equals(local.getHeaders().getFirst(DOCKER_CONTENT_DIGEST)) && manifestLevel(local) == level;
         } catch (HttpClientErrorException.NotFound _) {
             // A manifest removed by the registry supplies no comparison evidence.
@@ -59,7 +59,7 @@ public final class DistributionManifestClient {
     }
 
     private static int manifestLevel(ResponseEntity<Void> response) {
-        var type = response.getHeaders().getContentType();
+        MediaType type = response.getHeaders().getContentType();
         if (type == null) return 0;
         String mime = type.getType() + "/" + type.getSubtype();
         if (INDEX_TYPES.contains(mime)) return 2;

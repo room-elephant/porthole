@@ -1,6 +1,7 @@
 package com.roomelephant.porthole.core.model;
 
 import com.roomelephant.porthole.core.version.NumericVersion;
+import java.util.Optional;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -16,7 +17,7 @@ public final class ImageUtils {
      * Example: "nginx:1.25" → "1.25", "redis" → "latest"
      */
     public static @NonNull String extractTag(@NonNull String image) {
-        var reference = ImageReference.tryParse(image);
+        Optional<ImageReference> reference = ImageReference.tryParse(image);
         if (reference.isEmpty()) return LATEST;
         String tag = reference.get().lookupTag();
         if (tag == null) return LATEST;

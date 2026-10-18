@@ -1,5 +1,7 @@
 package com.roomelephant.porthole.outbound.docker;
 
+import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.model.ContainerConfig;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.model.exception.*;
 import com.roomelephant.porthole.core.port.outbound.DockerOperations;
@@ -38,11 +40,11 @@ public final class DockerJavaOperations implements DockerOperations {
     @Override
     public ContainerInspection inspectContainer(ContainerKey key) {
         try {
-            var raw = sources.require(key.sourceId())
+            InspectContainerResponse raw = sources.require(key.sourceId())
                     .client()
                     .inspectContainerCmd(key.containerId())
                     .exec();
-            var config = raw.getConfig();
+            ContainerConfig config = raw.getConfig();
             return new ContainerInspection(
                     config == null ? null : config.getImage(),
                     raw.getImageId(),

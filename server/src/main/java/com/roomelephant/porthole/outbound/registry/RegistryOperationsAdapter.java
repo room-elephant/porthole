@@ -22,18 +22,18 @@ public final class RegistryOperationsAdapter implements RegistryOperations {
 
     @Override
     public @Nullable String getLatestVersion(String imageName) {
-        var image = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
+        Optional<ImageReference> image = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
         if (image.isEmpty()) return null;
-        var client = clientFor(image.get());
+        RegistryClient client = clientFor(image.get());
         if (client == null) return null;
         return versionCache.get(image.get().canonicalRepository(), key -> client.getLatestVersion(image.get()));
     }
 
     @Override
     public boolean isTagChanged(String imageName, List<String> localDigests) {
-        var image = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
+        Optional<ImageReference> image = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
         if (image.isEmpty() || localDigests.isEmpty()) return false;
-        var client = clientFor(image.get());
+        RegistryClient client = clientFor(image.get());
         return client != null && client.isTagChanged(image.get(), localDigests);
     }
 
