@@ -1,74 +1,73 @@
 package com.roomelephant.porthole.outbound.registry.dockerhub;
 
 import com.fasterxml.jackson.databind.*;
-import com.github.benmanes.caffeine.cache.*;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
-import com.roomelephant.porthole.core.model.ImageReference;
+import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.outbound.registry.*;
-import java.io.*;
+import com.roomelephant.porthole.outbound.registry.distribution.*;
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.List;
-import org.jspecify.annotations.*;
+import java.util.*;
+import org.jspecify.annotations.NullMarked;
 import org.springframework.web.client.RestClient;
 
 @NullMarked
 public final class DockerHubClient implements RegistryClient {
-    private final RestClient restClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestClient http;
+    private final ObjectMapper json;
     private final RegistryProperties.DockerHub properties;
     private final Duration readTimeout;
-    private final DistributionManifestClient manifests;
-    private final Cache<String, String> tokens;
+    private final DistributionClient distribution;
 
     public DockerHubClient(
-            RestClient restClient,
+            RestClient http,
+            ObjectMapper json,
             RegistryProperties.DockerHub properties,
             Duration readTimeout,
-            RegistryProperties.Cache cache) {
-        this.restClient = restClient;
+            DistributionClient distribution) {
+        this.http = http;
+        this.json = json;
         this.properties = properties;
         this.readTimeout = readTimeout;
-        this.manifests = new DistributionManifestClient(restClient, properties.registryUrl());
-        this.tokens = Caffeine.newBuilder()
-                .expireAfterWrite(cache.ttl())
-                .maximumSize(1)
-                .build();
+        this.distribution = distribution;
     }
 
     @Override
     public boolean supports(ImageReference image) {
-        return image.supportsUpdates() && image.registry().equals("docker.io");
+        return image.isMutable() && image.registry().equals("docker.io");
     }
 
     @Override
-    public @Nullable String getLatestVersion(ImageReference image) {
+    public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
         URI first = URI.create(properties.repositoriesUrl() + image.repository() + "/tags?page_size=100");
-        return RegistryTagPage.latest(first, readTimeout, current -> {
-            String body = restClient.get().uri(current.toString()).retrieve().body(String.class);
-            if (body == null) throw new IllegalArgumentException("Missing tag response");
-            return RegistryTagPage.hub(objectMapper.readTree(body), current);
-        });
+        return RegistryRequests.read(() -> TagPagination.read(first, readTimeout, this::readPage));
+    }
+
+    private TagPage readPage(URI page) {
+        String body = http.get().uri(page).retrieve().body(String.class);
+        if (body == null) throw new RegistryProtocolException("Missing tag response");
+        try {
+            JsonNode response = json.readTree(body);
+            if (response == null || !response.path("results").isArray())
+                throw new RegistryProtocolException("Missing tag results");
+            List<String> tags = new ArrayList<>();
+            for (JsonNode result : response.path("results")) {
+                JsonNode name = result.path("name");
+                if (!name.isTextual()) throw new RegistryProtocolException("Invalid registry tag entry");
+                tags.add(name.asText());
+            }
+            JsonNode next = response.get("next");
+            if (next == null || next.isNull()) return new TagPage(tags, null);
+            if (!next.isTextual() || next.asText().isBlank()) throw new RegistryProtocolException("Invalid next page");
+            return new TagPage(tags, TagPagination.resolve(page, next.asText()));
+        } catch (IOException e) {
+            throw new RegistryProtocolException("Invalid tag response", e);
+        }
     }
 
     @Override
-    public boolean isTagChanged(ImageReference image, List<String> localDigests) {
-        String token = tokens.get(image.canonicalRepository(), key -> fetchAuthToken(image));
-        return manifests.isTagChanged(image, localDigests, token);
-    }
-
-    private String fetchAuthToken(ImageReference image) {
-        String url = properties.authUrl() + image.repository() + ":pull";
-        try {
-            String body = restClient.get().uri(url).retrieve().body(String.class);
-            if (body == null) throw new IllegalStateException("Missing registry token response");
-            JsonNode response = objectMapper.readTree(body);
-            JsonNode token = response.has("token") ? response.get("token") : response.path("access_token");
-            if (!token.isTextual() || token.asText().isBlank())
-                throw new IllegalStateException("Missing anonymous registry token");
-            return token.asText();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Invalid registry token response", e);
-        }
+    public RegistryLookup<ManifestMetadata> readManifest(ImageReference image, String reference) {
+        return distribution.readManifest(image, reference);
     }
 }

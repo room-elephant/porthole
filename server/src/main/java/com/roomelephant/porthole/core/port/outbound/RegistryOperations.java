@@ -1,15 +1,14 @@
 package com.roomelephant.porthole.core.port.outbound;
 
+import com.roomelephant.porthole.core.model.*;
 import java.util.List;
-import org.jspecify.annotations.*;
+import org.jspecify.annotations.NullMarked;
 
-/** Remote update evidence, with catalogue caching owned by the adapter. */
 @NullMarked
 public interface RegistryOperations {
-    @Nullable
-    String getLatestVersion(String imageName);
+    RegistryLookup<TagCatalogue> listTags(ImageReference image);
 
-    boolean isTagChanged(String imageName, List<String> localDigests);
+    ManifestEvidence readManifests(ImageReference image, List<String> installedDigests);
 
-    void invalidateVersionCache();
+    void invalidateCache();
 }

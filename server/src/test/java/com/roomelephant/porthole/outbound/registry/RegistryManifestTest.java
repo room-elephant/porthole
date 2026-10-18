@@ -52,7 +52,7 @@ class RegistryManifestTest {
         server.expect(requestTo(BASE + "v2/library/nginx/manifests/" + A))
                 .andExpect(method(HttpMethod.HEAD))
                 .andRespond(withSuccess("", MediaType.parseMediaType(localType)).header("Docker-Content-Digest", A));
-        assertEquals(expected, service.isTagChanged("nginx:latest", List.of(A)));
+        assertEquals(expected, changed("nginx:latest", List.of(A)));
         server.verify();
     }
 
@@ -67,7 +67,7 @@ class RegistryManifestTest {
         server.expect(requestTo(BASE + "v2/library/nginx/manifests/latest"))
                 .andExpect(method(HttpMethod.HEAD))
                 .andRespond(withSuccess("", MediaType.parseMediaType(type)).header("Docker-Content-Digest", digest));
-        assertFalse(service.isTagChanged("nginx:latest", List.of(A)));
+        assertFalse(changed("nginx:latest", List.of(A)));
         server.verify();
     }
 
@@ -77,7 +77,7 @@ class RegistryManifestTest {
                 .andRespond(withSuccess("", MediaType.parseMediaType("application/vnd.oci.image.index.v1+json"))
                         .header("Docker-Content-Digest", B));
         server.expect(requestTo(BASE + "v2/library/nginx/manifests/" + A)).andRespond(withResourceNotFound());
-        assertFalse(service.isTagChanged("nginx:latest", List.of(A)));
+        assertFalse(changed("nginx:latest", List.of(A)));
         server.verify();
     }
 
@@ -90,7 +90,7 @@ class RegistryManifestTest {
         server.expect(requestTo(BASE + "v2/library/nginx/manifests/" + A)).andRespond(withResourceNotFound());
         server.expect(requestTo(BASE + "v2/library/nginx/manifests/" + available))
                 .andRespond(withSuccess("", type).header("Docker-Content-Digest", available));
-        assertTrue(service.isTagChanged("nginx:latest", List.of(A, available)));
+        assertTrue(changed("nginx:latest", List.of(A, available)));
         server.verify();
     }
 
@@ -100,7 +100,7 @@ class RegistryManifestTest {
         var type = MediaType.parseMediaType("application/vnd.oci.image.index.v1+json");
         server.expect(requestTo(BASE + "v2/library/nginx/manifests/latest"))
                 .andRespond(withSuccess("", type).header("Docker-Content-Digest", remote));
-        assertFalse(service.isTagChanged("nginx:latest", List.of(A)));
+        assertFalse(changed("nginx:latest", List.of(A)));
         server.verify();
     }
 
@@ -108,7 +108,13 @@ class RegistryManifestTest {
     void registryOutageIsNotACompletedNoUpdateCheck() {
         server.expect(requestTo(BASE + "v2/library/nginx/manifests/latest")).andRespond(withServerError());
         var digests = List.of(A);
-        assertThrows(RuntimeException.class, () -> service.isTagChanged("nginx:latest", digests));
+        assertInstanceOf(
+                com.roomelephant.porthole.core.model.RegistryLookup.Unavailable.class,
+                service.readManifests(
+                                com.roomelephant.porthole.core.model.ImageReference.tryParse("nginx:latest")
+                                        .orElseThrow(),
+                                digests)
+                        .tagged());
         server.verify();
     }
 
@@ -118,8 +124,25 @@ class RegistryManifestTest {
         server.expect(requestTo(BASE + "auth?scope=repository:library/nginx:pull"))
                 .andRespond(withResourceNotFound());
         var digests = List.of(A);
-        assertThrows(RuntimeException.class, () -> service.isTagChanged("nginx:latest", digests));
+        assertInstanceOf(
+                com.roomelephant.porthole.core.model.RegistryLookup.Unavailable.class,
+                service.readManifests(
+                                com.roomelephant.porthole.core.model.ImageReference.tryParse("nginx:latest")
+                                        .orElseThrow(),
+                                digests)
+                        .tagged());
         server.verify();
+    }
+
+    private boolean changed(String image, List<String> digests) {
+        return new com.roomelephant.porthole.core.version.UpdatePolicy()
+                        .manifest(
+                                digests,
+                                service.readManifests(
+                                        com.roomelephant.porthole.core.model.ImageReference.tryParse(image)
+                                                .orElseThrow(),
+                                        digests))
+                == com.roomelephant.porthole.core.version.UpdatePolicy.Evidence.POSITIVE;
     }
 
     private static RegistryProperties.Ghcr ghcr() {

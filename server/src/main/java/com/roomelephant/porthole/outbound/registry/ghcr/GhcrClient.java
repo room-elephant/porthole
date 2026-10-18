@@ -1,76 +1,41 @@
 package com.roomelephant.porthole.outbound.registry.ghcr;
 
-import com.fasterxml.jackson.databind.*;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
-import com.roomelephant.porthole.core.model.ImageReference;
+import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.outbound.registry.*;
-import java.io.*;
+import com.roomelephant.porthole.outbound.registry.distribution.DistributionClient;
 import java.net.URI;
 import java.time.Duration;
-import java.util.List;
-import org.jspecify.annotations.*;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
+import org.jspecify.annotations.NullMarked;
 
 @NullMarked
 public final class GhcrClient implements RegistryClient {
-    private final RestClient restClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final RegistryProperties.Ghcr properties;
     private final Duration readTimeout;
-    private final DistributionManifestClient manifests;
+    private final DistributionClient distribution;
 
-    public GhcrClient(RestClient restClient, RegistryProperties.Ghcr properties, Duration readTimeout) {
-        this.restClient = restClient;
+    public GhcrClient(RegistryProperties.Ghcr properties, Duration readTimeout, DistributionClient distribution) {
         this.properties = properties;
         this.readTimeout = readTimeout;
-        this.manifests = new DistributionManifestClient(restClient, properties.registryUrl());
+        this.distribution = distribution;
     }
 
     @Override
     public boolean supports(ImageReference image) {
-        return image.supportsUpdates() && image.registry().equals("ghcr.io");
+        return image.isMutable()
+                && image.registry().equals("ghcr.io")
+                && image.repository().contains("/");
     }
 
     @Override
-    public @Nullable String getLatestVersion(ImageReference image) {
-        String token = fetchAuthToken(image);
+    public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
         URI first = URI.create(properties.registryUrl() + image.repository() + "/tags/list?n=100");
-        return RegistryTagPage.latest(first, readTimeout, current -> {
-            ResponseEntity<String> response = restClient
-                    .get()
-                    .uri(current.toString())
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                    .retrieve()
-                    .toEntity(String.class);
-            if (response.getBody() == null) throw new IllegalArgumentException("Missing tag response");
-            return RegistryTagPage.distribution(
-                    objectMapper.readTree(response.getBody()),
-                    response.getHeaders().getOrEmpty(HttpHeaders.LINK),
-                    current);
-        });
+        return RegistryRequests.read(
+                () -> TagPagination.read(first, readTimeout, page -> distribution.readTagPage(image, page)));
     }
 
     @Override
-    public boolean isTagChanged(ImageReference image, List<String> localDigests) {
-        // Anonymous GHCR tokens are short-lived; obtain a fresh one for each operation.
-        String token = fetchAuthToken(image);
-        return manifests.isTagChanged(image, localDigests, token);
-    }
-
-    private String fetchAuthToken(ImageReference image) {
-        String url = properties.authUrl() + image.repository() + ":pull";
-        try {
-            String body = restClient.get().uri(url).retrieve().body(String.class);
-            if (body == null) throw new IllegalStateException("Missing registry token response");
-            JsonNode response = objectMapper.readTree(body);
-            JsonNode token = response.has("token") ? response.get("token") : response.path("access_token");
-            if (!token.isTextual() || token.asText().isBlank())
-                throw new IllegalStateException("Missing anonymous registry token");
-            return token.asText();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Invalid registry token response", e);
-        }
+    public RegistryLookup<ManifestMetadata> readManifest(ImageReference image, String reference) {
+        return distribution.readManifest(image, reference);
     }
 }

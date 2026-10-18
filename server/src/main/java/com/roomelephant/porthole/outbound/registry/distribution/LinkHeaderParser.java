@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.outbound.registry;
+package com.roomelephant.porthole.outbound.registry.distribution;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,12 +10,12 @@ import org.jspecify.annotations.Nullable;
 
 /** Parses complete Link values so quoted metadata cannot hide pagination. */
 @NullMarked
-final class RegistryLink {
+final class LinkHeaderParser {
     private static final String PARAMETER_ATOM = "[!#$%&'*+.^_`|~0-9A-Za-z-]+";
     private static final Pattern PARAMETER = Pattern.compile(
             "\\s*(" + PARAMETER_ATOM + ")\\s*=\\s*(\"(?:[^\"\\\\]|\\\\.)*+\"|" + PARAMETER_ATOM + ")\\s*");
 
-    private RegistryLink() {}
+    private LinkHeaderParser() {}
 
     static @Nullable String next(List<String> headers) {
         String next = null;
@@ -23,9 +23,9 @@ final class RegistryLink {
             for (String value : split(header, ',')) {
                 String link = value.strip();
                 int end = link.indexOf('>');
-                if (!link.startsWith("<") || end < 2) throw new IllegalArgumentException("Invalid pagination link");
+                if (!link.startsWith("<") || end < 2) throw new RegistryProtocolException("Invalid pagination link");
                 if (hasNextRelation(link.substring(end + 1))) {
-                    if (next != null) throw new IllegalArgumentException("Ambiguous next page");
+                    if (next != null) throw new RegistryProtocolException("Ambiguous next page");
                     next = link.substring(1, end);
                 }
             }
@@ -35,17 +35,17 @@ final class RegistryLink {
 
     private static boolean hasNextRelation(String parameters) {
         List<String> parts = split(parameters, ';');
-        if (!parts.getFirst().isBlank()) throw new IllegalArgumentException("Invalid link suffix");
+        if (!parts.getFirst().isBlank()) throw new RegistryProtocolException("Invalid link suffix");
         String relation = null;
         for (String part : parts.subList(1, parts.size())) {
             Matcher parameter = PARAMETER.matcher(part);
-            if (!parameter.matches()) throw new IllegalArgumentException("Invalid link parameter");
+            if (!parameter.matches()) throw new RegistryProtocolException("Invalid link parameter");
             if (parameter.group(1).equalsIgnoreCase("rel")) {
-                if (relation != null) throw new IllegalArgumentException("Duplicate link relation");
+                if (relation != null) throw new RegistryProtocolException("Duplicate link relation");
                 relation = unquote(parameter.group(2));
             }
         }
-        if (relation == null || relation.isBlank()) throw new IllegalArgumentException("Missing link relation");
+        if (relation == null || relation.isBlank()) throw new RegistryProtocolException("Missing link relation");
         return Arrays.stream(relation.split("\\s+")).anyMatch("next"::equalsIgnoreCase);
     }
 
@@ -73,8 +73,8 @@ final class RegistryLink {
                 start = i + 1;
             }
         }
-        if (state.escaped) throw new IllegalArgumentException("Unterminated quoted escape");
-        if (!state.outside()) throw new IllegalArgumentException("Unterminated link value");
+        if (state.escaped) throw new RegistryProtocolException("Unterminated quoted escape");
+        if (!state.outside()) throw new RegistryProtocolException("Unterminated link value");
         parts.add(value.substring(start));
         return parts;
     }
@@ -106,10 +106,10 @@ final class RegistryLink {
 
         private void acceptTarget(char c) {
             if (c == '<') {
-                if (angle) throw new IllegalArgumentException("Nested link target");
+                if (angle) throw new RegistryProtocolException("Nested link target");
                 angle = true;
             } else if (c == '>') {
-                if (!angle) throw new IllegalArgumentException("Invalid link target");
+                if (!angle) throw new RegistryProtocolException("Invalid link target");
                 angle = false;
             }
         }

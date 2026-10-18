@@ -9,7 +9,7 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.InspectImageCmd;
 import com.github.dockerjava.api.command.InspectImageResponse;
 import com.github.dockerjava.api.model.ContainerConfig;
-import com.roomelephant.porthole.core.model.VersionInfo;
+import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.model.exception.NotFoundException;
 import com.roomelephant.porthole.core.model.exception.UnexpectedException;
 import com.roomelephant.porthole.core.port.outbound.RegistryOperations;
@@ -52,6 +52,24 @@ class VersionServiceTest {
 
     private VersionService versionService;
 
+    private static ImageReference ref(String image) {
+        return ImageReference.tryParse(image).orElseThrow();
+    }
+
+    private static RegistryLookup<TagCatalogue> catalogue(String latest) {
+        return new RegistryLookup.Available<>(new TagCatalogue(latest == null ? List.of() : List.of(latest)));
+    }
+
+    private static ManifestEvidence evidence(boolean changed) {
+        String remote = changed ? "sha256:" + "b".repeat(64) : LOCAL_DIGEST;
+        return new ManifestEvidence(
+                new RegistryLookup.Available<>(new ManifestMetadata(remote, ManifestMetadata.Kind.INDEX)),
+                Map.of(
+                        LOCAL_DIGEST,
+                        new RegistryLookup.Available<>(
+                                new ManifestMetadata(LOCAL_DIGEST, ManifestMetadata.Kind.INDEX))));
+    }
+
     @BeforeEach
     void setUp() {
         versionService = new VersionService(
@@ -64,21 +82,34 @@ class VersionServiceTest {
         @org.junit.jupiter.params.ParameterizedTest
         @org.junit.jupiter.params.provider.ValueSource(
                 strings = {
-                    "quay.io/acme/app:1.0",
                     "ghcr.io/acme/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                    "ghcr.io/app",
-                    "localhost:5000/app",
                     "nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     "nginx:1.25@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 })
-        void unsupportedOrPinnedImagesDoNotQueryRegistry(String image) {
+        void pinnedOrInvalidImagesDoNotQueryRegistry(String image) {
             setupContainerWithImage(image);
             assertFalse(versionService
-                    .getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"))
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo()
                     .updateAvailable());
             verifyNoInteractions(registryService);
             verify(dockerClient, never()).inspectImageCmd(anyString());
+        }
+
+        @Test
+        void mutableReferencesAreResolvedThroughTheRegistryPortWithoutAProviderAllowlist() {
+            String image = "quay.io/acme/app:1.0";
+            setupContainerWithImage(image);
+            setupRemoteImage();
+            when(inspectImageResponse.getRepoDigests()).thenReturn(List.of("quay.io/acme/app@" + LOCAL_DIGEST));
+            when(registryService.listTags(ref(image))).thenReturn(catalogue("2.0"));
+            when(registryService.readManifests(ref(image), List.of(LOCAL_DIGEST)))
+                    .thenReturn(evidence(false));
+            assertTrue(versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo()
+                    .updateAvailable());
         }
 
         @org.junit.jupiter.params.ParameterizedTest
@@ -94,13 +125,13 @@ class VersionServiceTest {
             setupContainerWithImage("nginx:1.0");
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(new String[] {"NGINX_VERSION=" + current});
-            when(registryService.getLatestVersion("nginx:1.0")).thenReturn(latest);
-            when(registryService.isTagChanged(eq("nginx:1.0"), anyList())).thenReturn(false);
+            when(registryService.listTags(ref("nginx:1.0"))).thenReturn(catalogue(latest));
+            when(registryService.readManifests(eq(ref("nginx:1.0")), anyList())).thenReturn(evidence(false));
             assertEquals(
                     expected,
                     versionService
-                            .getVersionInfo(
-                                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"))
+                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .toVersionInfo()
                             .updateAvailable());
         }
 
@@ -109,13 +140,13 @@ class VersionServiceTest {
             setupContainerWithImage("nginx:1.0");
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(new String[] {"VERSION=9.9", "NGINX_VERSION=1.0"});
-            when(registryService.getLatestVersion("nginx:1.0")).thenReturn("1.0");
-            when(registryService.isTagChanged(eq("nginx:1.0"), anyList())).thenReturn(false);
+            when(registryService.listTags(ref("nginx:1.0"))).thenReturn(catalogue("1.0"));
+            when(registryService.readManifests(eq(ref("nginx:1.0")), anyList())).thenReturn(evidence(false));
             assertEquals(
                     "1.0",
                     versionService
-                            .getVersionInfo(
-                                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"))
+                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .toVersionInfo()
                             .currentVersion());
         }
 
@@ -131,14 +162,15 @@ class VersionServiceTest {
             setupRemoteImage();
             when(inspectImageResponse.getRepoDigests()).thenReturn(List.of(provenance + "@" + LOCAL_DIGEST));
             if (eligible) {
-                when(registryService.getLatestVersion(image)).thenReturn("2.0");
-                when(registryService.isTagChanged(image, List.of(LOCAL_DIGEST))).thenReturn(false);
+                when(registryService.listTags(ref(image))).thenReturn(catalogue("2.0"));
+                when(registryService.readManifests(ref(image), List.of(LOCAL_DIGEST)))
+                        .thenReturn(evidence(false));
             }
             assertEquals(
                     eligible,
                     versionService
-                            .getVersionInfo(
-                                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"))
+                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .toVersionInfo()
                             .updateAvailable());
             if (!eligible) verifyNoInteractions(registryService);
         }
@@ -159,8 +191,8 @@ class VersionServiceTest {
             assertEquals(
                     expected,
                     versionService
-                            .getVersionInfo(
-                                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"))
+                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .toVersionInfo()
                             .currentVersion());
         }
 
@@ -170,8 +202,8 @@ class VersionServiceTest {
             assertEquals(
                     "1.25",
                     versionService
-                            .getVersionInfo(
-                                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"))
+                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .toVersionInfo()
                             .currentVersion());
             verifyNoInteractions(registryService);
         }
@@ -182,7 +214,8 @@ class VersionServiceTest {
             setupRemoteImage();
             when(inspectImageResponse.getRepoDigests()).thenReturn(List.of("ghcr.io/acme/nginx@" + LOCAL_DIGEST));
             assertFalse(versionService
-                    .getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"))
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo()
                     .updateAvailable());
             verifyNoInteractions(registryService);
         }
@@ -195,8 +228,9 @@ class VersionServiceTest {
                     .thenThrow(new com.github.dockerjava.api.exception.NotFoundException("Not found"));
 
             var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "unknown");
-            NotFoundException exception =
-                    assertThrows(NotFoundException.class, () -> versionService.getVersionInfo(key));
+            NotFoundException exception = assertThrows(
+                    NotFoundException.class,
+                    () -> versionService.resolve(key, null).toVersionInfo());
 
             assertEquals("unknown", exception.getContainerId());
         }
@@ -208,7 +242,9 @@ class VersionServiceTest {
             when(inspectContainerCmd.exec()).thenThrow(new RuntimeException("Docker error"));
 
             var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
-            assertThrows(UnexpectedException.class, () -> versionService.getVersionInfo(key));
+            assertThrows(
+                    UnexpectedException.class,
+                    () -> versionService.resolve(key, null).toVersionInfo());
         }
 
         @Test
@@ -218,8 +254,9 @@ class VersionServiceTest {
             when(inspectContainerCmd.exec()).thenReturn(inspectContainerResponse);
             when(inspectContainerResponse.getConfig()).thenReturn(null);
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertNull(result.currentVersion());
             assertNull(result.latestVersion());
@@ -234,8 +271,9 @@ class VersionServiceTest {
             when(inspectContainerResponse.getConfig()).thenReturn(containerConfig);
             when(containerConfig.getImage()).thenReturn(null);
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertNull(result.currentVersion());
             assertNull(result.latestVersion());
@@ -253,8 +291,9 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertEquals("1.25", result.currentVersion());
             assertNull(result.latestVersion());
@@ -268,11 +307,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("org.opencontainers.image.version", "1.25.0"));
-            when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
+            when(registryService.listTags(ref("nginx:latest"))).thenReturn(catalogue("1.26.0"));
+            when(registryService.readManifests(eq(ref("nginx:latest")), anyList()))
+                    .thenReturn(evidence(true));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertEquals("1.25.0", result.currentVersion());
             assertEquals("1.26.0", result.latestVersion());
@@ -285,11 +326,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("version", "2.0.0"));
-            when(registryService.getLatestVersion("myapp:latest")).thenReturn("2.1.0");
-            when(registryService.isTagChanged(eq("myapp:latest"), anyList())).thenReturn(true);
+            when(registryService.listTags(ref("myapp:latest"))).thenReturn(catalogue("2.1.0"));
+            when(registryService.readManifests(eq(ref("myapp:latest")), anyList()))
+                    .thenReturn(evidence(true));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertEquals("2.0.0", result.currentVersion());
         }
@@ -300,11 +343,13 @@ class VersionServiceTest {
             setupContainerWithImage("nginx:latest");
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(new String[] {"NGINX_VERSION=1.25.0"});
-            when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
+            when(registryService.listTags(ref("nginx:latest"))).thenReturn(catalogue("1.26.0"));
+            when(registryService.readManifests(eq(ref("nginx:latest")), anyList()))
+                    .thenReturn(evidence(true));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertEquals("1.25.0", result.currentVersion());
         }
@@ -315,11 +360,13 @@ class VersionServiceTest {
             setupContainerWithImage("myapp:latest");
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(new String[] {"VERSION=3.0.0"});
-            when(registryService.getLatestVersion("myapp:latest")).thenReturn("3.1.0");
-            when(registryService.isTagChanged(eq("myapp:latest"), anyList())).thenReturn(true);
+            when(registryService.listTags(ref("myapp:latest"))).thenReturn(catalogue("3.1.0"));
+            when(registryService.readManifests(eq(ref("myapp:latest")), anyList()))
+                    .thenReturn(evidence(true));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertEquals("3.0.0", result.currentVersion());
         }
@@ -331,11 +378,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
-            when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26");
-            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(true);
+            when(registryService.listTags(ref("nginx:1.25"))).thenReturn(catalogue("1.26"));
+            when(registryService.readManifests(eq(ref("nginx:1.25")), anyList()))
+                    .thenReturn(evidence(true));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertTrue(result.updateAvailable());
         }
@@ -347,11 +396,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
-            when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.25");
-            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
+            when(registryService.listTags(ref("nginx:1.25"))).thenReturn(catalogue("1.25"));
+            when(registryService.readManifests(eq(ref("nginx:1.25")), anyList()))
+                    .thenReturn(evidence(false));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertFalse(result.updateAvailable());
         }
@@ -363,11 +414,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("org.opencontainers.image.version", "1.25.0"));
-            when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26.0");
-            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
+            when(registryService.listTags(ref("nginx:1.25"))).thenReturn(catalogue("1.26.0"));
+            when(registryService.readManifests(eq(ref("nginx:1.25")), anyList()))
+                    .thenReturn(evidence(false));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertTrue(result.updateAvailable());
         }
@@ -379,12 +432,14 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
-            when(registryService.getLatestVersion("nginx:1.25")).thenReturn(null);
-            when(registryService.isTagChanged(eq("nginx:1.25"), anyList()))
+            when(registryService.listTags(ref("nginx:1.25"))).thenReturn(catalogue(null));
+            when(registryService.readManifests(eq(ref("nginx:1.25")), anyList()))
                     .thenThrow(new RuntimeException("Network error"));
 
             var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
-            assertThrows(RuntimeException.class, () -> versionService.getVersionInfo(key));
+            assertThrows(
+                    RuntimeException.class,
+                    () -> versionService.resolve(key, null).toVersionInfo());
         }
 
         @Test
@@ -398,8 +453,9 @@ class VersionServiceTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertFalse(result.updateAvailable());
         }
@@ -415,7 +471,9 @@ class VersionServiceTest {
             when(containerConfig.getLabels()).thenReturn(null);
 
             var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
-            assertThrows(RuntimeException.class, () -> versionService.getVersionInfo(key));
+            assertThrows(
+                    RuntimeException.class,
+                    () -> versionService.resolve(key, null).toVersionInfo());
         }
 
         @Test
@@ -425,11 +483,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(new String[] {"NGINX_VERSION=", "VERSION="});
             when(containerConfig.getLabels()).thenReturn(null);
-            when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(true);
+            when(registryService.listTags(ref("nginx:latest"))).thenReturn(catalogue("1.26.0"));
+            when(registryService.readManifests(eq(ref("nginx:latest")), anyList()))
+                    .thenReturn(evidence(true));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertEquals("latest", result.currentVersion());
         }
@@ -441,11 +501,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
-            when(registryService.getLatestVersion("nginx:1.25")).thenReturn(null);
-            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
+            when(registryService.listTags(ref("nginx:1.25"))).thenReturn(catalogue(null));
+            when(registryService.readManifests(eq(ref("nginx:1.25")), anyList()))
+                    .thenReturn(evidence(false));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertFalse(result.updateAvailable());
             assertNull(result.latestVersion());
@@ -458,11 +520,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
-            when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(false);
+            when(registryService.listTags(ref("nginx:latest"))).thenReturn(catalogue("1.26.0"));
+            when(registryService.readManifests(eq(ref("nginx:latest")), anyList()))
+                    .thenReturn(evidence(false));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertFalse(result.updateAvailable());
         }
@@ -474,11 +538,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(Map.of("org.opencontainers.image.version", "1.26.0"));
-            when(registryService.getLatestVersion("nginx:1.25")).thenReturn("1.26.0");
-            when(registryService.isTagChanged(eq("nginx:1.25"), anyList())).thenReturn(false);
+            when(registryService.listTags(ref("nginx:1.25"))).thenReturn(catalogue("1.26.0"));
+            when(registryService.readManifests(eq(ref("nginx:1.25")), anyList()))
+                    .thenReturn(evidence(false));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertFalse(result.updateAvailable());
         }
@@ -490,11 +556,13 @@ class VersionServiceTest {
             setupRemoteImage();
             when(containerConfig.getEnv()).thenReturn(new String[] {"OTHER_VAR=value", "PATH=/bin"});
             when(containerConfig.getLabels()).thenReturn(null);
-            when(registryService.getLatestVersion("nginx:latest")).thenReturn("1.26.0");
-            when(registryService.isTagChanged(eq("nginx:latest"), anyList())).thenReturn(false);
+            when(registryService.listTags(ref("nginx:latest"))).thenReturn(catalogue("1.26.0"));
+            when(registryService.readManifests(eq(ref("nginx:latest")), anyList()))
+                    .thenReturn(evidence(false));
 
-            VersionInfo result = versionService.getVersionInfo(
-                    new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"));
+            VersionInfo result = versionService
+                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .toVersionInfo();
 
             assertEquals("latest", result.currentVersion());
         }

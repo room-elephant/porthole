@@ -1,11 +1,14 @@
 package com.roomelephant.porthole.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.port.outbound.RegistryOperations;
 import com.roomelephant.porthole.outbound.registry.*;
+import com.roomelephant.porthole.outbound.registry.distribution.*;
 import com.roomelephant.porthole.outbound.registry.dockerhub.DockerHubClient;
 import com.roomelephant.porthole.outbound.registry.ghcr.GhcrClient;
 import java.net.http.HttpClient;
+import java.time.Clock;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,14 +24,29 @@ public class RegistryConfig {
     }
 
     @Bean
-    public DockerHubClient dockerHubClient(RestClient client, RegistryProperties properties) {
+    public DockerHubClient dockerHubClient(RestClient client, ObjectMapper json, RegistryProperties properties) {
+        DistributionClient distribution = new DistributionClient(
+                client,
+                json,
+                properties.dockerhub().registryUrl(),
+                new BearerTokenClient(client, json, properties.dockerhub().authUrl(), Clock.systemUTC()));
         return new DockerHubClient(
-                client, properties.dockerhub(), properties.timeout().read(), properties.cache());
+                client, json, properties.dockerhub(), properties.timeout().read(), distribution);
     }
 
     @Bean
-    public GhcrClient ghcrClient(RestClient client, RegistryProperties properties) {
-        return new GhcrClient(client, properties.ghcr(), properties.timeout().read());
+    public GhcrClient ghcrClient(RestClient client, ObjectMapper json, RegistryProperties properties) {
+        DistributionClient distribution = new DistributionClient(
+                client,
+                json,
+                properties.ghcr().registryUrl(),
+                new BearerTokenClient(client, json, properties.ghcr().authUrl(), Clock.systemUTC()));
+        return new GhcrClient(properties.ghcr(), properties.timeout().read(), distribution);
+    }
+
+    @Bean
+    public ObjectMapper registryJsonMapper() {
+        return new ObjectMapper();
     }
 
     @Bean

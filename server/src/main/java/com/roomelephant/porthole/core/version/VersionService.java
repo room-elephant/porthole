@@ -2,9 +2,8 @@ package com.roomelephant.porthole.core.version;
 
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.*;
-import java.util.List;
-import java.util.Optional;
-import org.jspecify.annotations.NullMarked;
+import java.util.*;
+import org.jspecify.annotations.*;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,22 +20,32 @@ public class VersionService {
     }
 
     public void invalidateRegistryCache() {
-        registry.invalidateVersionCache();
+        registry.invalidateCache();
     }
 
-    public VersionInfo getVersionInfo(ContainerKey key) {
+    VersionObservation resolve(ContainerKey key, @Nullable VersionObservation previous) {
         ContainerInspection inspection = docker.inspectContainer(key);
         String image = inspection.image();
-        if (image == null) return new VersionInfo(null, null, false);
         String current = detector.detect(inspection);
-        Optional<ImageReference> reference = ImageReference.tryParse(image).filter(ImageReference::supportsUpdates);
-        if (reference.isEmpty()) return new VersionInfo(current, null, false);
+        Optional<ImageReference> reference = ImageReference.tryParse(image).filter(ImageReference::isMutable);
+        if (reference.isEmpty())
+            return new VersionObservation(image, inspection.imageId(), current, List.of(), null, null);
         List<String> repoDigests = docker.getRepoDigests(key.sourceId(), inspection.imageId());
         List<String> matching =
-                repoDigests == null ? List.<String>of() : reference.get().matchingDigests(repoDigests);
-        if (matching.isEmpty()) return new VersionInfo(current, null, false);
-        String latest = registry.getLatestVersion(image);
-        boolean changed = registry.isTagChanged(image, matching);
-        return new VersionInfo(current, latest, policy.updateAvailable(image, current, latest, changed));
+                repoDigests == null ? List.of() : reference.get().matchingDigests(repoDigests);
+        if (matching.isEmpty())
+            return new VersionObservation(image, inspection.imageId(), current, matching, null, null);
+        boolean retain = previous != null && previous.belongsTo(image, inspection.imageId());
+        RegistryLookup<TagCatalogue> releases = registry.listTags(reference.get());
+        ManifestEvidence manifest = registry.readManifests(reference.get(), matching);
+        TagCatalogue catalogue = releases instanceof RegistryLookup.Available<TagCatalogue> available
+                ? available.value()
+                : retain ? previous.catalogue() : null;
+        UpdatePolicy.Evidence change = policy.manifest(matching, manifest);
+        ManifestEvidence conclusive =
+                change == UpdatePolicy.Evidence.POSITIVE || change == UpdatePolicy.Evidence.NEGATIVE
+                        ? manifest
+                        : retain ? previous.manifests() : null;
+        return new VersionObservation(image, inspection.imageId(), current, matching, catalogue, conclusive);
     }
 }

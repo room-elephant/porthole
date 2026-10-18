@@ -2,50 +2,68 @@ package com.roomelephant.porthole.outbound.registry;
 
 import com.github.benmanes.caffeine.cache.*;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
-import com.roomelephant.porthole.core.model.ImageReference;
+import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.RegistryOperations;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.*;
 
 @NullMarked
 public final class RegistryOperationsAdapter implements RegistryOperations {
     private final List<RegistryClient> clients;
-    private final Cache<String, String> versionCache;
+    private final Cache<String, TagCatalogue> catalogues;
 
     public RegistryOperationsAdapter(List<RegistryClient> clients, RegistryProperties.Cache cache) {
         this.clients = List.copyOf(clients);
-        this.versionCache = Caffeine.newBuilder()
+        this.catalogues = Caffeine.newBuilder()
                 .expireAfterWrite(cache.ttl())
                 .maximumSize(cache.versionMaxSize())
                 .build();
     }
 
     @Override
-    public @Nullable String getLatestVersion(String imageName) {
-        Optional<ImageReference> image = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
-        if (image.isEmpty()) return null;
-        RegistryClient client = clientFor(image.get());
-        if (client == null) return null;
-        return versionCache.get(image.get().canonicalRepository(), key -> client.getLatestVersion(image.get()));
+    public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
+        RegistryClient client = clientFor(image);
+        if (client == null) return new RegistryLookup.Unsupported<>();
+        AtomicReference<RegistryLookup<TagCatalogue>> fetched = new AtomicReference<>();
+        TagCatalogue catalogue = catalogues.get(image.canonicalRepository(), key -> {
+            RegistryLookup<TagCatalogue> result = client.listTags(image);
+            fetched.set(result);
+            return result instanceof RegistryLookup.Available<TagCatalogue> available ? available.value() : null;
+        });
+        return catalogue == null ? Objects.requireNonNull(fetched.get()) : new RegistryLookup.Available<>(catalogue);
     }
 
     @Override
-    public boolean isTagChanged(String imageName, List<String> localDigests) {
-        Optional<ImageReference> image = ImageReference.tryParse(imageName).filter(ImageReference::supportsUpdates);
-        if (image.isEmpty() || localDigests.isEmpty()) return false;
-        RegistryClient client = clientFor(image.get());
-        return client != null && client.isTagChanged(image.get(), localDigests);
+    public ManifestEvidence readManifests(ImageReference image, List<String> installedDigests) {
+        RegistryClient client = clientFor(image);
+        if (client == null) return new ManifestEvidence(new RegistryLookup.Unsupported<>(), Map.of());
+        if (installedDigests.isEmpty())
+            return new ManifestEvidence(new RegistryLookup.Unavailable<>("No installed repository digest"), Map.of());
+        RegistryLookup<ManifestMetadata> tagged = client.readManifest(image, Objects.requireNonNull(image.lookupTag()));
+        if (!(tagged instanceof RegistryLookup.Available<ManifestMetadata> available)
+                || available.value().kind() == ManifestMetadata.Kind.UNKNOWN
+                || installedDigests.contains(available.value().digest())) return new ManifestEvidence(tagged, Map.of());
+        Map<String, RegistryLookup<ManifestMetadata>> installed = new LinkedHashMap<>();
+        String algorithm = available.value().digest().split(":", 2)[0];
+        for (String digest : installedDigests) {
+            if (ImageReference.tryParse("image@" + digest).isPresent() && digest.split(":", 2)[0].equals(algorithm))
+                installed.put(digest, client.readManifest(image, digest));
+        }
+        return new ManifestEvidence(tagged, installed);
     }
 
     @Override
-    public void invalidateVersionCache() {
-        versionCache.invalidateAll();
+    public void invalidateCache() {
+        catalogues.invalidateAll();
     }
 
     private @Nullable RegistryClient clientFor(ImageReference image) {
-        return clients.stream()
-                .filter(client -> client.supports(image))
-                .findFirst()
-                .orElse(null);
+        if (!image.isMutable()) return null;
+        List<RegistryClient> matching =
+                clients.stream().filter(client -> client.supports(image)).toList();
+        if (matching.size() > 1)
+            throw new IllegalStateException("Multiple registry providers handle " + image.registry());
+        return matching.isEmpty() ? null : matching.getFirst();
     }
 }

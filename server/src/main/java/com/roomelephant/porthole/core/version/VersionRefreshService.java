@@ -207,12 +207,18 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
 
     private void resolve(ContainerKey id, Entry entry, CompletableFuture<Void> check) {
         try {
+            VersionObservation previous;
             synchronized (this) {
                 if (closed || entries.get(id) != entry) return;
+                previous = entry.observation;
             }
-            VersionInfo result = versionService.getVersionInfo(id);
+            VersionObservation result = versionService.resolve(id, previous);
+            VersionInfo value = result.toVersionInfo();
             synchronized (this) {
-                if (!closed && entries.get(id) == entry) entry.value = result;
+                if (!closed && entries.get(id) == entry) {
+                    entry.observation = result;
+                    entry.value = value;
+                }
             }
         } catch (NotFoundException _) {
             synchronized (this) {
@@ -247,6 +253,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     }
 
     private static final class Entry {
+        private @Nullable VersionObservation observation;
         private @Nullable VersionInfo value;
         private @Nullable Instant retryAt;
         private @Nullable CompletableFuture<Void> inFlight;

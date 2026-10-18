@@ -94,9 +94,8 @@ public record ImageReference(
         return tag == null ? "latest" : tag;
     }
 
-    public boolean supportsUpdates() {
-        return digest == null
-                && (registry.equals(DOCKER_HUB) || (registry.equals("ghcr.io") && repository.contains("/")));
+    public boolean isMutable() {
+        return digest == null;
     }
 
     public List<String> matchingDigests(List<String> repoDigests) {

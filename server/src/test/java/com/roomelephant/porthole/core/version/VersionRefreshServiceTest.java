@@ -25,6 +25,40 @@ class VersionRefreshServiceTest {
     private final VersionInfo old = new VersionInfo("1.0", "2.0", true);
     private VersionRefreshService service;
 
+    @Test
+    void cacheReadersReuseTheProjectedResultWithoutRepeatingReleaseSelection() {
+        var id = new com.roomelephant.porthole.core.model.ContainerKey("local", "a");
+        var snapshot = mock(VersionObservation.class);
+        when(snapshot.toVersionInfo()).thenReturn(old);
+        when(resolver.resolve(eq(id), nullable(VersionObservation.class))).thenReturn(snapshot);
+        service.getCachedVersionAndRefresh(id);
+        workers.runAll();
+        assertThat(service.getCachedVersionAndRefresh(id)).isEqualTo(old);
+        assertThat(service.getCachedVersionAndRefresh(id)).isEqualTo(old);
+        verify(snapshot, times(1)).toVersionInfo();
+    }
+
+    private static VersionObservation observation(VersionInfo info) {
+        String a = "sha256:" + "a".repeat(64), b = "sha256:" + "b".repeat(64);
+        var metadata = new com.roomelephant.porthole.core.model.ManifestMetadata(
+                info.updateAvailable() ? b : a, com.roomelephant.porthole.core.model.ManifestMetadata.Kind.INDEX);
+        var manifests = new com.roomelephant.porthole.core.model.ManifestEvidence(
+                new com.roomelephant.porthole.core.model.RegistryLookup.Available<>(metadata),
+                Map.of(
+                        a,
+                        new com.roomelephant.porthole.core.model.RegistryLookup.Available<>(
+                                new com.roomelephant.porthole.core.model.ManifestMetadata(a, metadata.kind()))));
+        return new VersionObservation(
+                "nginx:1.0",
+                a,
+                info.currentVersion(),
+                List.of(a),
+                info.latestVersion() == null
+                        ? null
+                        : new com.roomelephant.porthole.core.model.TagCatalogue(List.of(info.latestVersion())),
+                manifests);
+    }
+
     @BeforeEach
     void setUp() {
         when(docker.listContainersCmd()).thenReturn(list);
@@ -49,7 +83,8 @@ class VersionRefreshServiceTest {
     void forcedRefreshBypassesIntervalAndKeepsOldResultWhileChecking() {
         inventory("a");
         var id = new com.roomelephant.porthole.core.model.ContainerKey("local", "a");
-        when(resolver.getVersionInfo(id)).thenReturn(old, new VersionInfo("1.0", "3.0", true));
+        when(resolver.resolve(eq(id), nullable(VersionObservation.class)))
+                .thenReturn(observation(old), observation(new VersionInfo("1.0", "3.0", true)));
         service.refreshSource("local");
         workers.runAll();
         service.requestRefresh();
@@ -90,7 +125,7 @@ class VersionRefreshServiceTest {
         when(list.exec()).thenThrow(new IllegalStateException("source unavailable"));
         when(remoteList.exec()).thenReturn(List.of(discovered));
         var remote = new com.roomelephant.porthole.core.model.ContainerKey("remote", "a");
-        when(resolver.getVersionInfo(remote)).thenReturn(old);
+        when(resolver.resolve(eq(remote), nullable(VersionObservation.class))).thenReturn(observation(old));
         service.requestRefresh();
         assertThat(freshCoordinators.tasks).hasSize(1);
         verify(docker, never()).listContainersCmd();
@@ -111,7 +146,8 @@ class VersionRefreshServiceTest {
     void manualRequestForcesRecentlyCheckedContainersDuringAnActiveScan() {
         inventory("a");
         var a = new com.roomelephant.porthole.core.model.ContainerKey("local", "a");
-        when(resolver.getVersionInfo(a)).thenReturn(old, new VersionInfo("1.0", "3.0", true));
+        when(resolver.resolve(eq(a), nullable(VersionObservation.class)))
+                .thenReturn(observation(old), observation(new VersionInfo("1.0", "3.0", true)));
         service.refreshSource("local");
         workers.runAll();
         inventory("a", "b");
@@ -129,7 +165,7 @@ class VersionRefreshServiceTest {
         var discovered = mock(Container.class);
         when(discovered.getId()).thenReturn("new");
         var id = new com.roomelephant.porthole.core.model.ContainerKey("local", "new");
-        when(resolver.getVersionInfo(id)).thenReturn(old);
+        when(resolver.resolve(eq(id), nullable(VersionObservation.class))).thenReturn(observation(old));
         when(list.exec())
                 .thenAnswer(_ -> {
                     service.requestRefresh();
@@ -155,8 +191,8 @@ class VersionRefreshServiceTest {
     void successfulScanPrunesOnlyItsSource() {
         var local = new com.roomelephant.porthole.core.model.ContainerKey("local", "same-id");
         var remote = new com.roomelephant.porthole.core.model.ContainerKey("mike", "same-id");
-        when(resolver.getVersionInfo(local)).thenReturn(old);
-        when(resolver.getVersionInfo(remote)).thenReturn(old);
+        when(resolver.resolve(eq(local), nullable(VersionObservation.class))).thenReturn(observation(old));
+        when(resolver.resolve(eq(remote), nullable(VersionObservation.class))).thenReturn(observation(old));
         service.getCachedVersionAndRefresh(local);
         service.getCachedVersionAndRefresh(remote);
         workers.runAll();
@@ -169,8 +205,9 @@ class VersionRefreshServiceTest {
     void sameContainerIdOnTwoSourcesHasIndependentVersions() {
         var a = new com.roomelephant.porthole.core.model.ContainerKey("local", "same-id");
         var b = new com.roomelephant.porthole.core.model.ContainerKey("mike", "same-id");
-        when(resolver.getVersionInfo(a)).thenReturn(old);
-        when(resolver.getVersionInfo(b)).thenReturn(new VersionInfo("9", null, false));
+        when(resolver.resolve(eq(a), nullable(VersionObservation.class))).thenReturn(observation(old));
+        when(resolver.resolve(eq(b), nullable(VersionObservation.class)))
+                .thenReturn(observation(new VersionInfo("9", null, false)));
         assertThat(service.getCachedVersionAndRefresh(a)).isNull();
         assertThat(service.getCachedVersionAndRefresh(b)).isNull();
         workers.runAll();
@@ -180,8 +217,10 @@ class VersionRefreshServiceTest {
 
     @Test
     void missesQueueOneCheckAndPublishItsResult() {
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
-                .thenReturn(old);
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
+                .thenReturn(observation(old));
         assertThat(service.getCachedVersionAndRefresh(
                         new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
                 .isNull();
@@ -211,8 +250,10 @@ class VersionRefreshServiceTest {
     @Test
     void refreshKeepsOldValueUntilReplacementAndCoalescesBatches() {
         inventory("a");
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
-                .thenReturn(old, new VersionInfo("1.0", "3.0", true));
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
+                .thenReturn(observation(old), observation(new VersionInfo("1.0", "3.0", true)));
         var first = service.refreshSource("local");
         workers.runAll();
         assertThat(first).isCompleted();
@@ -233,16 +274,22 @@ class VersionRefreshServiceTest {
     @Test
     void failedRefreshKeepsSuccessfulResultAndOtherContainersProgress() {
         inventory("a");
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
-                .thenReturn(old);
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
+                .thenReturn(observation(old));
         service.refreshSource("local");
         workers.runAll();
         clock.advance(Duration.ofHours(1));
         inventory("a", "b");
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
                 .thenThrow(new IllegalStateException("registry unavailable"));
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "b")))
-                .thenReturn(new VersionInfo("5.0", null, false));
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "b")),
+                        nullable(VersionObservation.class)))
+                .thenReturn(observation(new VersionInfo("5.0", null, false)));
         var refresh = service.refreshSource("local");
         workers.runAll();
         assertThat(refresh).isCompleted();
@@ -257,9 +304,11 @@ class VersionRefreshServiceTest {
 
     @Test
     void failedFirstCheckIsRetriedOnlyAfterConfiguredInterval() {
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
                 .thenThrow(new IllegalStateException("outage"))
-                .thenReturn(old);
+                .thenReturn(observation(old));
         service.getCachedVersionAndRefresh(new com.roomelephant.porthole.core.model.ContainerKey("local", "a"));
         workers.runAll();
         clock.advance(Duration.ofMinutes(59));
@@ -280,8 +329,10 @@ class VersionRefreshServiceTest {
 
     @Test
     void inventoryFailureKeepsCacheAndDoesNotStopLaterScans() {
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
-                .thenReturn(old);
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
+                .thenReturn(observation(old));
         service.getCachedVersionAndRefresh(new com.roomelephant.porthole.core.model.ContainerKey("local", "a"));
         workers.runAll();
         when(list.exec())
@@ -299,8 +350,10 @@ class VersionRefreshServiceTest {
 
     @Test
     void prunedQueuedWorkCannotRestoreRemovedResult() {
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
-                .thenReturn(old);
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
+                .thenReturn(observation(old));
         service.getCachedVersionAndRefresh(new com.roomelephant.porthole.core.model.ContainerKey("local", "a"));
         service.refreshSource("local");
         workers.runAll();
@@ -315,8 +368,10 @@ class VersionRefreshServiceTest {
             service.getCachedVersionAndRefresh(new com.roomelephant.porthole.core.model.ContainerKey("local", "new"));
             return List.of();
         });
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "new")))
-                .thenReturn(old);
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "new")),
+                        nullable(VersionObservation.class)))
+                .thenReturn(observation(old));
         service.refreshSource("local");
         workers.runAll();
         assertThat(service.getCachedVersionAndRefresh(
@@ -327,10 +382,12 @@ class VersionRefreshServiceTest {
     @Test
     void lateRunningResultCannotRestorePrunedEntry() {
         service.getCachedVersionAndRefresh(new com.roomelephant.porthole.core.model.ContainerKey("local", "a"));
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
                 .thenAnswer(call -> {
                     service.refreshSource("local");
-                    return old;
+                    return observation(old);
                 });
         workers.runAll();
         assertThat(service.getCachedVersionAndRefresh(
@@ -341,10 +398,14 @@ class VersionRefreshServiceTest {
     @Test
     void disappearingContainerDoesNotStopBatch() {
         inventory("a", "b");
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")),
+                        nullable(VersionObservation.class)))
                 .thenThrow(new NotFoundException("a"));
-        when(resolver.getVersionInfo(new com.roomelephant.porthole.core.model.ContainerKey("local", "b")))
-                .thenReturn(old);
+        when(resolver.resolve(
+                        eq(new com.roomelephant.porthole.core.model.ContainerKey("local", "b")),
+                        nullable(VersionObservation.class)))
+                .thenReturn(observation(old));
         var refresh = service.refreshSource("local");
         workers.runAll();
         assertThat(refresh).isCompleted();
@@ -370,12 +431,14 @@ class VersionRefreshServiceTest {
         var running = new CountDownLatch(4);
         var release = new CountDownLatch(1);
         var entered = new java.util.concurrent.atomic.AtomicInteger();
-        when(resolver.getVersionInfo(any(com.roomelephant.porthole.core.model.ContainerKey.class)))
+        when(resolver.resolve(
+                        any(com.roomelephant.porthole.core.model.ContainerKey.class),
+                        nullable(VersionObservation.class)))
                 .thenAnswer(call -> {
                     entered.incrementAndGet();
                     running.countDown();
                     if (!release.await(5, TimeUnit.SECONDS)) throw new AssertionError("worker did not release");
-                    return old;
+                    return observation(old);
                 });
         try (var actual = new VersionRefreshService(
                 com.roomelephant.porthole.DockerTestSources.operationsOf(docker),

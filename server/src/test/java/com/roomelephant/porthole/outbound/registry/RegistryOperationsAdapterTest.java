@@ -1,78 +1,116 @@
 package com.roomelephant.porthole.outbound.registry;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.roomelephant.porthole.config.properties.RegistryProperties;
-import com.roomelephant.porthole.core.model.ImageReference;
+import com.roomelephant.porthole.core.model.*;
 import java.time.Duration;
-import java.util.List;
+import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class RegistryOperationsAdapterTest {
     private static final RegistryProperties.Cache CACHE = new RegistryProperties.Cache(Duration.ofMinutes(5), 100);
+    private static final String A = "sha256:" + "a".repeat(64), B = "sha256:" + "b".repeat(64);
+
+    private static ImageReference ref(String name) {
+        return ImageReference.tryParse(name).orElseThrow();
+    }
 
     @Test
-    void selectsTheMatchingProviderAndKeepsTheirCataloguesSeparate() {
-        var hub = new Provider("docker.io", "2.0", false);
-        var ghcr = new Provider("ghcr.io", "3.0", true);
+    void providersAndAliasesHaveSeparateCompleteCatalogueCaches() {
+        var hub = new Provider("docker.io", List.of("latest", "2.0"));
+        var ghcr = new Provider("ghcr.io", List.of("3.0"));
         var adapter = new RegistryOperationsAdapter(List.of(ghcr, hub), CACHE);
-        assertThat(adapter.getLatestVersion("acme/app:1.0")).isEqualTo("2.0");
-        assertThat(adapter.getLatestVersion("ghcr.io/acme/app:1.0")).isEqualTo("3.0");
-        assertThat(adapter.isTagChanged("acme/app:1.0", List.of("digest"))).isFalse();
-        assertThat(adapter.isTagChanged("ghcr.io/acme/app:1.0", List.of("digest")))
-                .isTrue();
+        assertEquals(
+                new RegistryLookup.Available<>(new TagCatalogue(List.of("latest", "2.0"))),
+                adapter.listTags(ref("nginx:1.0")));
+        assertEquals(
+                new RegistryLookup.Available<>(new TagCatalogue(List.of("3.0"))),
+                adapter.listTags(ref("ghcr.io/library/nginx:1.0")));
+        hub.result = new RegistryLookup.Available<>(new TagCatalogue(List.of("4.0")));
+        assertEquals(
+                new RegistryLookup.Available<>(new TagCatalogue(List.of("latest", "2.0"))),
+                adapter.listTags(ref("index.docker.io/library/nginx:latest")));
+        adapter.invalidateCache();
+        assertEquals(hub.result, adapter.listTags(ref("nginx")));
+        assertEquals(2, hub.catalogues);
     }
 
     @Test
-    void aliasesShareACacheEntryAndInvalidationRefreshesIt() {
-        var hub = new Provider("docker.io", "2.0", false);
+    void emptyCataloguesAreCachedButFailuresAreRetried() {
+        var hub = new Provider("docker.io", List.of());
         var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE);
-        assertThat(adapter.getLatestVersion("nginx:1.0")).isEqualTo("2.0");
-        hub.version = "3.0";
-        assertThat(adapter.getLatestVersion("index.docker.io/library/nginx:latest"))
-                .isEqualTo("2.0");
-        adapter.invalidateVersionCache();
-        assertThat(adapter.getLatestVersion("docker.io/library/nginx:1.0")).isEqualTo("3.0");
+        adapter.listTags(ref("nginx"));
+        adapter.listTags(ref("nginx"));
+        assertEquals(1, hub.catalogues);
+        adapter.invalidateCache();
+        hub.result = new RegistryLookup.Unavailable<>("offline");
+        adapter.listTags(ref("nginx"));
+        hub.result = new RegistryLookup.Available<>(new TagCatalogue(List.of("2.0")));
+        assertEquals(hub.result, adapter.listTags(ref("nginx")));
+        assertEquals(3, hub.catalogues);
     }
 
     @Test
-    void missingProviderSuppliesNoUpdateEvidence() {
-        var adapter = new RegistryOperationsAdapter(List.of(new Provider("docker.io", "2.0", true)), CACHE);
-        assertThat(adapter.getLatestVersion("ghcr.io/acme/app:1.0")).isNull();
-        assertThat(adapter.isTagChanged("ghcr.io/acme/app:1.0", List.of("digest")))
-                .isFalse();
+    void manifestResultsStayFreshAndPreserveMissingInstalledMetadata() {
+        var hub = new Provider("docker.io", List.of());
+        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE);
+        var image = ref("nginx");
+        var first = adapter.readManifests(image, List.of(A));
+        assertInstanceOf(RegistryLookup.Missing.class, first.installed().get(A));
+        hub.remote = A;
+        var second = adapter.readManifests(image, List.of(A));
+        assertTrue(second.installed().isEmpty());
+        assertEquals(3, hub.manifests);
     }
 
     @Test
-    void missingLocalDigestsCannotProveAChange() {
-        var adapter = new RegistryOperationsAdapter(List.of(new Provider("docker.io", "2.0", true)), CACHE);
-        assertThat(adapter.isTagChanged("nginx:1.0", List.of())).isFalse();
+    void unsupportedPinsAndAmbiguousProvidersAreExplicit() {
+        var hub = new Provider("docker.io", List.of());
+        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE);
+        assertInstanceOf(RegistryLookup.Unsupported.class, adapter.listTags(ref("ghcr.io/acme/app")));
+        assertInstanceOf(RegistryLookup.Unsupported.class, adapter.listTags(ref("nginx@" + A)));
+        assertInstanceOf(
+                RegistryLookup.Unavailable.class,
+                adapter.readManifests(ref("nginx"), List.of()).tagged());
+        assertThrows(
+                IllegalStateException.class,
+                () -> new RegistryOperationsAdapter(List.of(hub, hub), CACHE).listTags(ref("nginx")));
+    }
+
+    @Test
+    void registeredProvidersDoNotRequireACoreAllowlist() {
+        var provider = new Provider("quay.io", List.of("4.0"));
+        var adapter = new RegistryOperationsAdapter(List.of(provider), CACHE);
+        assertEquals(provider.result, adapter.listTags(ref("quay.io/acme/app:1.0")));
     }
 
     private static final class Provider implements RegistryClient {
         private final String registry;
-        private String version;
-        private final boolean changed;
+        private RegistryLookup<TagCatalogue> result;
+        private int catalogues;
+        private int manifests;
+        private String remote = B;
 
-        private Provider(String registry, String version, boolean changed) {
+        Provider(String registry, List<String> tags) {
             this.registry = registry;
-            this.version = version;
-            this.changed = changed;
+            this.result = new RegistryLookup.Available<>(new TagCatalogue(tags));
         }
 
-        @Override
         public boolean supports(ImageReference image) {
             return registry.equals(image.registry());
         }
 
-        @Override
-        public String getLatestVersion(ImageReference image) {
-            return version;
+        public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
+            catalogues++;
+            return result;
         }
 
-        @Override
-        public boolean isTagChanged(ImageReference image, List<String> digests) {
-            return changed;
+        public RegistryLookup<ManifestMetadata> readManifest(ImageReference image, String reference) {
+            manifests++;
+            return reference.equals("latest")
+                    ? new RegistryLookup.Available<>(new ManifestMetadata(remote, ManifestMetadata.Kind.INDEX))
+                    : new RegistryLookup.Missing<>();
         }
     }
 }
