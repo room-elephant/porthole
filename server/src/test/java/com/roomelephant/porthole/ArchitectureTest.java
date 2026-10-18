@@ -1,62 +1,66 @@
 package com.roomelephant.porthole;
 
-import static org.assertj.core.api.Assertions.*;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.*;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.*;
 
-import java.nio.file.*;
-import java.util.*;
-import java.util.regex.Pattern;
-import org.junit.jupiter.api.Test;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.*;
+import com.tngtech.archunit.lang.ArchRule;
 
+@AnalyzeClasses(packages = "com.roomelephant.porthole", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
-    private static final Path ROOT = Path.of("src/main/java/com/roomelephant/porthole");
+    private static final String ROOT = "com.roomelephant.porthole.";
 
-    @Test
-    void coreDoesNotDependOnAdaptersConfigurationOrTransportLibraries() throws Exception {
-        var forbidden = Pattern.compile(
-                "com\\.roomelephant\\.porthole\\.(?:inbound|outbound|config|domain|controller)\\.|com\\.github\\.dockerjava\\.|jakarta\\.servlet\\.|java\\.net\\.http\\.|org\\.springframework\\.(?:http|web)\\.");
-        try (var files = Files.walk(ROOT.resolve("core"))) {
-            for (var file : files.filter(p -> p.toString().endsWith(".java")).toList())
-                assertThat(forbidden.matcher(Files.readString(file)).find())
-                        .as(file.toString())
-                        .isFalse();
-        }
-    }
+    @ArchTest
+    static final ArchRule coreDoesNotDependOnAdaptersConfigurationOrTransportLibraries = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "core..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(
+                    ROOT + "inbound..",
+                    ROOT + "outbound..",
+                    ROOT + "config..",
+                    "com.github.dockerjava..",
+                    "jakarta.servlet..",
+                    "java.net.http..",
+                    "org.springframework.http..",
+                    "org.springframework.web..",
+                    "org.springframework.boot.health..");
 
-    @Test
-    void controllersUseCoreInboundContracts() throws Exception {
-        for (String type : List.of("ContainerController", "VersionController")) {
-            Class<?> controller = Class.forName("com.roomelephant.porthole.inbound.web." + type);
-            assertThat(Arrays.stream(controller.getDeclaredConstructors())
-                            .flatMap(c -> Arrays.stream(c.getParameterTypes()))
-                            .filter(c -> c.getName().startsWith("com.roomelephant.porthole.core.")))
-                    .allMatch(c -> c.isInterface()
-                            && c.getPackageName().equals("com.roomelephant.porthole.core.port.inbound"));
-        }
-    }
+    @ArchTest
+    static final ArchRule inboundAdaptersUseCoreModelsAndInboundPorts = classes()
+            .that()
+            .resideInAPackage(ROOT + "inbound..")
+            .should()
+            .onlyDependOnClassesThat(resideOutsideOfPackage("com.roomelephant.porthole..")
+                    .or(resideInAnyPackage(
+                            ROOT + "inbound..",
+                            ROOT + "core.model..",
+                            ROOT + "core.port.inbound..",
+                            ROOT + "config.properties..")));
 
-    @Test
-    void portSignaturesUseOnlyCoreAndJdkTypes() throws Exception {
-        Path ports = ROOT.resolve("core/port");
-        try (var files = Files.walk(ports)) {
-            for (var file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
-                String name = "com.roomelephant.porthole."
-                        + ROOT.relativize(file).toString().replace('/', '.').replace(".java", "");
-                Class<?> port = Class.forName(name);
-                assertThat(port.isInterface()).isTrue();
-                for (var method : port.getDeclaredMethods()) {
-                    List<java.lang.reflect.Type> types = new ArrayList<>(List.of(method.getGenericParameterTypes()));
-                    types.add(method.getGenericReturnType());
-                    for (var type : types) {
-                        var names = Pattern.compile("[a-zA-Z_$][\\w$]*(?:\\.[a-zA-Z_$][\\w$]*)+")
-                                .matcher(type.getTypeName());
-                        while (names.find())
-                            assertThat(names.group())
-                                    .satisfiesAnyOf(
-                                            s -> assertThat(s).startsWith("java."),
-                                            s -> assertThat(s).startsWith("com.roomelephant.porthole.core."));
-                    }
-                }
-            }
-        }
-    }
+    @ArchTest
+    static final ArchRule outboundAdaptersUseCoreModelsAndOutboundPorts = classes()
+            .that()
+            .resideInAPackage(ROOT + "outbound..")
+            .should()
+            .onlyDependOnClassesThat(resideOutsideOfPackage("com.roomelephant.porthole..")
+                    .or(resideInAnyPackage(
+                            ROOT + "outbound..",
+                            ROOT + "core.model..",
+                            ROOT + "core.port.outbound..",
+                            ROOT + "config.properties..")));
+
+    @ArchTest
+    static final ArchRule portsAreInterfaces =
+            classes().that().resideInAPackage(ROOT + "core.port..").should().beInterfaces();
+
+    @ArchTest
+    static final ArchRule portsDependOnlyOnCoreModelsJdkAndNullabilityAnnotations = classes()
+            .that()
+            .resideInAPackage(ROOT + "core.port..")
+            .should()
+            .onlyDependOnClassesThat()
+            .resideInAnyPackage(ROOT + "core.port..", ROOT + "core.model..", "java..", "org.jspecify.annotations..");
 }

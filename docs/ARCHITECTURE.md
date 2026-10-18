@@ -310,15 +310,15 @@ Published-port IDs use `published-port:<port>` independently of the request host
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `core/port/inbound/` — `GetContainers` and `RefreshVersions`, called by inbound adapters and implemented by core services.
+- `core/port/inbound/` — `GetContainers`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
 - `core/port/outbound/` — `DockerOperations` and `RegistryOperations`, implemented by outbound integrations.
-- `core/service/` — `ContainerService`, which coordinates source requests, deadlines, presentation, and enrichment.
+- `core/service/` — `ContainerService` coordinates source requests, deadlines, presentation, and enrichment. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `endpoint/`, `endpointavailability/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
 - `core/version/` — version resolution, installed-version detection, update policy, numeric-version comparison, and background refresh coordination/cache state.
 - `core/model/` — application-owned container/source metadata, outcomes, queries, image references, version values, and exceptions. Ports never expose SDK objects or client handles.
 - `core/presentation/` — `ContainerPresentation`, `DisplayNameResolver`, and icon resolution in `icon/`.
 - `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`.
-- `inbound/health/` — actuator Docker health probes backed by the Docker port, preserving the shared deadline and per-source in-flight deduplication.
+- `inbound/health/` — translates `CheckDockerAvailability` results into actuator health responses; probing and timeout handling belong to the core service.
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
 - `outbound/registry/` — Docker Hub/GHCR HTTP, anonymous authentication, catalogue pagination, manifest evidence, and Caffeine response caching.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
@@ -327,9 +327,11 @@ Published-port IDs use `published-port:<port>` independently of the request host
 
 ### Dependency boundaries
 
-Core owns the interfaces and values at its boundaries. Controllers call inbound
-ports; Docker and registry integrations implement outbound ports. Configuration
-wires the implementations. Core does not import adapters, configuration-property
+Core owns the interfaces and values at its boundaries. Controllers and health
+adapters call inbound ports; Docker and registry integrations implement outbound
+ports. Both adapter groups may depend on `config/properties/`, but not on
+configuration wiring classes. Configuration wires the implementations. Core does
+not import adapters, configuration-property
 beans, Docker SDK classes, servlet types, or HTTP clients. Spring component and
 lifecycle annotations remain allowed in core.
 
@@ -342,7 +344,8 @@ inbound ──→ core ←── outbound
 Version enrichment only reads cached results and queues background work. Registry
 HTTP and Docker inspection stay off the inventory request path. Refresh state,
 revision guards, deduplication, and pruning retain one coordinator's ownership.
-`ArchitectureTest` checks dependency direction and port signatures, while behavior
+`ArchitectureTest` uses ArchUnit to check core isolation, adapter dependency
+direction, and port contracts against production bytecode, while behavior
 tests cover pipeline composition, source failures, and refresh races.
 
 ## Integration Test Infrastructure
