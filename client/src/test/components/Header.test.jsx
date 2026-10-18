@@ -85,6 +85,7 @@ describe('Header', () => {
     expect(screen.getByRole('button', { name: /Walker 3/ })).toHaveAttribute('aria-pressed', 'false');
     const offline = screen.getByRole('button', { name: /Mike offline/ });
     expect(offline).toHaveClass('pill--offline');
+    expect(offline.querySelector('.pill-dot')).toBeInTheDocument();
   });
 
   it('selects a host from its pill', () => {

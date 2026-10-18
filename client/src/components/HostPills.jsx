@@ -16,7 +16,7 @@ export default function HostPills({ sources, counts, selected, onSelect }) {
             aria-pressed={selected === source.id}
             onClick={() => onSelect(source.id)}
           >
-            {online && <span className="pill-dot" aria-hidden="true"></span>}
+            <span className="pill-dot" aria-hidden="true"></span>
             {source.name}{' '}
             <span className="pill-count">{online ? (counts[source.id] ?? 0) : 'offline'}</span>
           </button>

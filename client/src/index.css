@@ -237,6 +237,10 @@ body {
   color: var(--bad-title);
 }
 
+.pill--offline .pill-dot {
+  background: var(--bad);
+}
+
 .pill--offline .pill-count {
   color: var(--bad-text);
 }
