@@ -54,35 +54,32 @@ the application from starting: its host section reports the failure and retries
 on the next 30-second dashboard poll. Empty lists and invalid entries fail
 startup, rather than silently falling back to the local daemon.
 
-### Environment variables and migration
+### Environment Variables
 
-The former singular `porthole.docker.host`, `connection-timeout`, and
-`response-timeout` settings have been replaced by list entries. Remove the old
-keys: they are rejected as unbound configuration. For example:
+Configure connections with indexed environment variables:
 
-| Former setting | New first-source setting |
+| Variable | Description |
 | --- | --- |
-| `PORTHOLE_DOCKER_HOST` | `PORTHOLE_DOCKER_CONNECTIONS_0_HOST` |
-| `PORTHOLE_DOCKER_CONNECTIONTIMEOUT` | `PORTHOLE_DOCKER_CONNECTIONS_0_CONNECTIONTIMEOUT` |
-| `PORTHOLE_DOCKER_RESPONSETIMEOUT` | `PORTHOLE_DOCKER_CONNECTIONS_0_RESPONSETIMEOUT` |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_ID` | Unique source ID |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_NAME` | Display name |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_HOST` | Docker socket or TCP URI |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST` | Hostname or IP for published-port links |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_CONNECTIONTIMEOUT` | Connection timeout; defaults to `5s` |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_RESPONSETIMEOUT` | Response timeout; defaults to `60s` |
 
-Also set `PORTHOLE_DOCKER_CONNECTIONS_0_ID` and
-`PORTHOLE_DOCKER_CONNECTIONS_0_NAME`. Additional entries use indexes `1`, `2`, and
-so on; set `PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST` and the corresponding
-property on every other entry when configuring several sources. Supply every
-entry's required fields; higher-priority lists replace lower-priority defaults.
-Do not rely on `DOCKER_HOST` to configure application sources.
+Additional entries use indexes `1`, `2`, and so on. Supply every entry's required
+fields; higher-priority lists replace lower-priority defaults. Set `published-host`
+on every entry when configuring several sources. Unknown YAML properties under
+`porthole.docker` are rejected by strict binding.
 
 Browser endpoint choices and update-warning preferences are scoped by source ID
-and container name. Existing name-only choices migrate only when exactly one
-source is configured and no scoped value exists. With several sources, the old
-keys remain untouched and each host starts with independent defaults.
+and container name.
 
 ## Configuration Files
 
 Application settings share the `porthole` namespace: `porthole.docker`, `porthole.versions`, `porthole.dashboard`, and `porthole.registry`. Spring's `server`, `spring`, and `management` settings keep their standard namespaces.
 
-When upgrading an existing configuration, move the former top-level `dashboard` and `registry` sections under `porthole` and prefix their environment variables with `PORTHOLE_`. For compound property names, Spring's canonical environment form removes hyphens: for example, `porthole.registry.cache.version-max-size` becomes `PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE`. The legacy Docker Hub `registry.urls.*` aliases remain supported as described below.
+For compound property names, Spring's canonical environment form removes hyphens: for example, `porthole.registry.cache.version-max-size` becomes `PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE`.
 
 The Docker image includes template configuration files in `/app/config/`:
 
@@ -121,7 +118,7 @@ Set `PORTHOLE_VERSIONS_REFRESHINTERVAL` to override the interval through the env
 
 Before a successful check, `version` is `null`. Completed results contain `currentVersion`, `latestVersion`, and `updateAvailable`; either version string may be null when metadata is unavailable. Previous successful results remain visible during refreshes and registry outages, so cached information may be stale. Failed first checks retry no sooner than the configured interval. Version results are keyed by `(sourceId, containerId)`, so the same image or container ID on different hosts retains independent installed-version and update results. Docker container and image inspection uses the owning source. Registry release catalogues remain shared by normalized registry/repository. Each source scans independently; a failed source scan keeps its cached results and cannot prune another source. Deleted containers are removed from that source’s cache after its successful inventory scan; restarting Porthole clears the cache.
 
-The client retrieves updated cached information through its existing 30-second container polling. Its per-container notification preference controls warning visibility; it does not stop server-side checks. The separate `/api/containers/{containerId}/version` endpoint has been removed.
+The client retrieves updated cached information through its existing 30-second container polling. Its per-container notification preference controls warning visibility; it does not stop server-side checks.
 
 ### Registry Configuration
 
@@ -146,7 +143,7 @@ Docker Hub and GHCR have independent transport settings, useful with a trusted t
 | `PORTHOLE_REGISTRY_GHCR_REGISTRYURL` | `https://ghcr.io/v2/` |
 | `PORTHOLE_REGISTRY_GHCR_AUTHURL` | `https://ghcr.io/token?service=ghcr.io&scope=repository:` |
 
-In YAML, Docker Hub settings live under `porthole.registry.dockerhub` with `registry-url`, `auth-url`, and `repositories-url`, matching GHCR's `porthole.registry.ghcr` naming. The legacy `registry.urls.registry`, `registry.urls.auth`, and `registry.urls.repositories` properties (and their `REGISTRY_URLS_*` environment variables) remain supported as per-setting fallbacks. A configured `porthole.registry.dockerhub.*` value takes precedence over its legacy alias; omitted settings retain their defaults or legacy overrides.
+In YAML, Docker Hub settings live under `porthole.registry.dockerhub` with `registry-url`, `auth-url`, and `repositories-url`, matching GHCR's `porthole.registry.ghcr` naming.
 
 The registry base ends in `/`; the auth prefix ends in `repository:` and receives the repository name plus `:pull`. Overrides must preserve these API shapes. GHCR uses anonymous pull tokens fetched for each registry operation; Porthole does not read Docker credentials. Complete catalogue results are cached separately by registry and repository. Inaccessible packages, denied requests and rate limits leave checks inconclusive. See [GitHub's Container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
@@ -228,8 +225,6 @@ porthole:
 
 The first connection's environment variable is **`PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST`**. Its value must be a bare hostname or IP address, without a scheme, port, or path. Invalid values prevent application startup. For a single connection, the default is unset and the request hostname is resolved for each request. Multiple connections must each specify `published-host`. Porthole does not use the browser's client IP or a container bridge address.
 
-The former global `porthole.endpoints.published-host` / `PORTHOLE_ENDPOINTS_PUBLISHEDHOST` setting is no longer supported. Move it to the appropriate connection; configuring the global setting prevents startup with a migration message.
-
 Direct ports are candidates, not guarantees of a web UI: a published torrent, database, or HTTPS-only port can still produce an HTTP candidate. Choose the appropriate endpoint in settings.
 
 ### Traefik Labels
@@ -260,8 +255,8 @@ The **Endpoint** section contains one selection across **No endpoint**, **Traefi
 
 A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traefik URL or the unique root `/` route among several Traefik URLs. If Traefik is absent, it selects a sole candidate from any provider. Multiple root routes, multiple non-root Traefik routes, or multiple candidates without Traefik open settings for a choice.
 
-Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. An explicit **No endpoint** choice is saved and remains in effect when discovered URLs change. Existing numeric port preferences migrate when their published port still exists and no new endpoint preference has been saved; the old preference remains intact. Preferences synchronize across browser tabs.
+Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. An explicit **No endpoint** choice is saved and remains in effect when discovered URLs change. Preferences synchronize across browser tabs.
 
 ### Version Update Notifications
 
-Use **Show update notifications** to show or hide a container's update warning (⚠️). The preference is stored in your browser and preserves existing saved settings. Version checks continue on the server regardless of this setting. This is useful for hiding notifications on containers you do not intend to update.
+Use **Show update notifications** to show or hide a container's update warning (⚠️). The preference is stored in your browser. Version checks continue on the server regardless of this setting. This is useful for hiding notifications on containers you do not intend to update.

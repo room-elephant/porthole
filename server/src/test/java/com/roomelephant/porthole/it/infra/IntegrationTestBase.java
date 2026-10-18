@@ -8,8 +8,8 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
-import com.roomelephant.porthole.controller.model.ContainerDTO;
-import com.roomelephant.porthole.domain.model.VersionInfo;
+import com.roomelephant.porthole.core.model.VersionInfo;
+import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -104,7 +104,7 @@ public abstract class IntegrationTestBase {
         startPorthole();
         if (responseType == ContainerDTO[].class) {
             var response = restTemplate.getForEntity(
-                    porthole.baseUrl() + url, com.roomelephant.porthole.controller.model.ContainerInventoryDTO.class);
+                    porthole.baseUrl() + url, com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO.class);
             @SuppressWarnings("unchecked")
             T containers = (T) java.util.Objects.requireNonNull(response.getBody())
                     .containers()

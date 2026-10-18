@@ -11,7 +11,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
@@ -84,8 +83,8 @@ class DockerPropertiesTest {
     }
 
     @Test
-    void rejectsLegacySingularSettings() {
-        source().withPropertyValues("porthole.docker.host=unix:///old.sock")
+    void rejectsUnknownDockerProperties() {
+        source().withPropertyValues("porthole.docker.unknown-setting=value")
                 .run(c -> assertThat(c).hasFailed());
     }
 
@@ -133,34 +132,6 @@ class DockerPropertiesTest {
                 throw new IllegalStateException(e);
             }
         });
-    }
-
-    @Test
-    void realLegacyEnvironmentAndSystemPropertiesFailWithMigrationGuidance() {
-        for (String key : new String[] {"host", "connection-timeout", "response-timeout"}) {
-            String value = key.equals("host") ? "unix:///old.sock" : "3s";
-            String envKey = "PORTHOLE_DOCKER_" + key.replace("-", "").toUpperCase(java.util.Locale.ROOT);
-            layered("{}")
-                    .withInitializer(c -> c.getEnvironment()
-                            .getPropertySources()
-                            .replace(
-                                    "systemEnvironment",
-                                    new SystemEnvironmentPropertySource("systemEnvironment", Map.of(envKey, value))))
-                    .run(c -> assertThat(c)
-                            .hasFailed()
-                            .getFailure()
-                            .hasStackTraceContaining("porthole.docker.connections"));
-            layered("{}")
-                    .withInitializer(c -> c.getEnvironment()
-                            .getPropertySources()
-                            .replace(
-                                    "systemProperties",
-                                    new MapPropertySource("systemProperties", Map.of("porthole.docker." + key, value))))
-                    .run(c -> assertThat(c)
-                            .hasFailed()
-                            .getFailure()
-                            .hasStackTraceContaining("porthole.docker.connections"));
-        }
     }
 
     @Test

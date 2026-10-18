@@ -55,7 +55,7 @@ Regular JVM and native IT runs do not supply the recording property and therefor
 
 ### Spring AOT hints
 
-`DockerNativeConfig` (`server/src/main/java/.../config/nativehints/DockerNativeConfig.java`) registers additional Spring AOT hints for `docker-java` model classes and `@ConfigurationProperties` beans that are bound reflectively by Jackson or Hibernate Validator. This covers types that the agent cannot observe because they are never instantiated during the IT run.
+`DockerNativeConfig` (`server/src/main/java/.../config/nativehints/DockerNativeConfig.java`) registers additional Spring AOT hints for Docker SDK model, command, and configuration-file types used reflectively by Jackson. This covers types that the agent cannot observe because they are never instantiated during the IT run.
 
 ### JVM vs Native Integration Tests
 
@@ -196,8 +196,7 @@ Compose groups use source identity before project identity.
 A source with a successful list is `UP`, including an empty list. Transport
 failures/deadlines are `DOWN`; other per-source processing errors are `ERROR`.
 Failed sources contribute no containers. Completed inventories return 200 even
-when all sources failed; global request/orchestration errors remain 5xx. This
-replaces the former bare-array response and source-wide 502 failure. Diagnostic
+when all sources failed; global request/orchestration errors remain 5xx. Diagnostic
 causes stay in server logs rather than public source errors.
 
 A source attempt is bounded by its connection timeout plus response timeout;
@@ -252,7 +251,7 @@ Each endpoint has exactly these fields:
 }
 ```
 
-Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fields. `includeWithoutEndpoints=false` filters after discovery, so label-only services are included. Both query flags default to false. The former `includeWithoutPorts` parameter is not an alias.
+Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fields. `includeWithoutEndpoints=false` filters after discovery, so label-only services are included. Both query flags default to false.
 
 For names matching `<project>-<name>`, `displayName` removes the project prefix and a trailing numeric replica suffix (for example, `smh-sonarr-1` becomes `sonarr`). If shortening creates a collision within the same project, the affected names keep their replica suffixes. Names outside this project-prefix convention are preserved. Collision detection uses all discovered containers before filtering, so query flags do not change display names. The original `name` is always retained.
 
@@ -323,7 +322,7 @@ Published-port IDs use `published-port:<port>` independently of the request host
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
 - `outbound/registry/` — Docker Hub/GHCR HTTP, anonymous authentication, catalogue pagination, manifest evidence, and Caffeine response caching.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
-- `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`, with legacy `registry.urls.*` aliases retained as fallbacks; defaults are unchanged.
+- `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`.
 - `config/nativehints/` — Spring AOT hints for library types the agent cannot observe.
 
 ### Dependency boundaries
@@ -364,9 +363,5 @@ during structural migrations. Those tests exercise packaged application behavior
 against JVM and native images. Unit tests outside that directory follow the new
 production packages and test adapter translation and core behavior separately.
 
-The existing ITs import wire records and image-reference helpers using their old
-package names. Test-only compatibility fixtures under `controller/model/` and
-`domain/model/`, outside the protected `it` directory, preserve those imports and
-JSON shapes. The image-reference helper delegates to the canonical core parser.
-These fixtures are not packaged in the production application. Production HTTP
-DTOs live exclusively in `inbound/web/dto/`.
+Integration tests use the production HTTP DTOs in `inbound/web/dto/` and shared
+values in `core/model/`.

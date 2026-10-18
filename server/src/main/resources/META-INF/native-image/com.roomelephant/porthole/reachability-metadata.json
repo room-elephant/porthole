@@ -1236,8 +1236,7 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "com.roomelephant.porthole.config.properties.DockerProperties",
-            "org.springframework.core.env.Environment"
+            "com.roomelephant.porthole.config.properties.DockerProperties"
           ]
         },
         {

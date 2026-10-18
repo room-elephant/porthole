@@ -8,7 +8,7 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.ServeEventListener;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
-import com.roomelephant.porthole.controller.model.ContainerDTO;
+import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
 import com.roomelephant.porthole.it.infra.IntegrationTestBase;
 import java.time.Duration;
 import java.util.Arrays;

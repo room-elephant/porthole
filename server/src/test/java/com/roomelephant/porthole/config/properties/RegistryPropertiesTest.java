@@ -40,7 +40,7 @@ class RegistryPropertiesTest {
     }
 
     @Test
-    void bindsNewDockerHubPropertyNames() {
+    void bindsDockerHubPropertyNames() {
         runner.withPropertyValues(
                         "porthole.registry.dockerhub.registry-url=https://new-registry/",
                         "porthole.registry.dockerhub.auth-url=https://new-auth/",
@@ -55,38 +55,7 @@ class RegistryPropertiesTest {
     }
 
     @Test
-    void retainsLegacyPropertyOverrides() {
-        runner.withPropertyValues(
-                        "registry.urls.registry=https://old-registry/",
-                        "registry.urls.auth=https://old-auth/",
-                        "registry.urls.repositories=https://old-catalogue/")
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    var hub = context.getBean(RegistryProperties.class).dockerhub();
-                    assertThat(hub.registryUrl()).isEqualTo("https://old-registry/");
-                    assertThat(hub.authUrl()).isEqualTo("https://old-auth/");
-                    assertThat(hub.repositoriesUrl()).isEqualTo("https://old-catalogue/");
-                });
-    }
-
-    @Test
-    void newPropertiesWinPerSettingAndUnspecifiedSettingsUseLegacyFallbacks() {
-        runner.withPropertyValues(
-                        "porthole.registry.dockerhub.registry-url=https://new-registry/",
-                        "registry.urls.registry=https://old-registry/",
-                        "registry.urls.auth=https://old-auth/",
-                        "registry.urls.repositories=https://old-catalogue/")
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    var hub = context.getBean(RegistryProperties.class).dockerhub();
-                    assertThat(hub.registryUrl()).isEqualTo("https://new-registry/");
-                    assertThat(hub.authUrl()).isEqualTo("https://old-auth/");
-                    assertThat(hub.repositoriesUrl()).isEqualTo("https://old-catalogue/");
-                });
-    }
-
-    @Test
-    void bindsNewDockerHubEnvironmentVariables() {
+    void bindsDockerHubEnvironmentVariables() {
         environment(Map.of(
                         "PORTHOLE_REGISTRY_DOCKERHUB_REGISTRYURL",
                         "https://new-registry/",
@@ -94,48 +63,6 @@ class RegistryPropertiesTest {
                         "https://new-auth/",
                         "PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL",
                         "https://new-catalogue/"))
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    var hub = context.getBean(RegistryProperties.class).dockerhub();
-                    assertThat(hub.registryUrl()).isEqualTo("https://new-registry/");
-                    assertThat(hub.authUrl()).isEqualTo("https://new-auth/");
-                    assertThat(hub.repositoriesUrl()).isEqualTo("https://new-catalogue/");
-                });
-    }
-
-    @Test
-    void retainsLegacyEnvironmentVariables() {
-        environment(Map.of(
-                        "REGISTRY_URLS_REGISTRY",
-                        "https://old-registry/",
-                        "REGISTRY_URLS_AUTH",
-                        "https://old-auth/",
-                        "REGISTRY_URLS_REPOSITORIES",
-                        "https://old-catalogue/"))
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    var hub = context.getBean(RegistryProperties.class).dockerhub();
-                    assertThat(hub.registryUrl()).isEqualTo("https://old-registry/");
-                    assertThat(hub.authUrl()).isEqualTo("https://old-auth/");
-                    assertThat(hub.repositoriesUrl()).isEqualTo("https://old-catalogue/");
-                });
-    }
-
-    @Test
-    void newEnvironmentOverridesLegacyEnvironment() {
-        environment(Map.of(
-                        "PORTHOLE_REGISTRY_DOCKERHUB_REGISTRYURL",
-                        "https://new-registry/",
-                        "REGISTRY_URLS_REGISTRY",
-                        "https://old-registry/",
-                        "PORTHOLE_REGISTRY_DOCKERHUB_AUTHURL",
-                        "https://new-auth/",
-                        "REGISTRY_URLS_AUTH",
-                        "https://old-auth/",
-                        "PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL",
-                        "https://new-catalogue/",
-                        "REGISTRY_URLS_REPOSITORIES",
-                        "https://old-catalogue/"))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     var hub = context.getBean(RegistryProperties.class).dockerhub();

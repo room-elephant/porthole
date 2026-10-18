@@ -11,30 +11,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class DockerConfigTest {
-    @Test
-    void rejectsRemovedGlobalPublishedHost() {
-        var properties = new DockerProperties(List.of(connection("local")));
-        var environment = new org.springframework.mock.env.MockEnvironment()
-                .withProperty("porthole.endpoints.published-host", "docker.example.com");
-        assertThatThrownBy(() -> new DockerConfig(properties, environment))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("porthole.docker.connections")
-                .hasMessageContaining("published-host");
-    }
-
-    @Test
-    void rejectsRemovedGlobalPublishedHostEnvironmentVariable() {
-        var environment = new org.springframework.mock.env.MockEnvironment();
-        environment
-                .getPropertySources()
-                .addFirst(new org.springframework.core.env.SystemEnvironmentPropertySource(
-                        "systemEnvironment",
-                        java.util.Map.of("PORTHOLE_ENDPOINTS_PUBLISHEDHOST", "docker.example.com")));
-        assertThatThrownBy(() -> new DockerConfig(new DockerProperties(List.of(connection("local"))), environment))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("porthole.docker.connections");
-    }
-
     private DockerConnectionProperties connection(String id) {
         return new DockerConnectionProperties(
                 id, id, "unix:///" + id + ".sock", null, Duration.ofSeconds(5), Duration.ofSeconds(60));
@@ -76,15 +52,12 @@ class DockerConfigTest {
     void doesNotPingDuringStartupAndClosesEveryClient() throws Exception {
         var a = mock(DockerClient.class);
         var b = mock(DockerClient.class);
-        var config =
-                new DockerConfig(
-                        new DockerProperties(List.of(connection("a"), connection("b"))),
-                        new org.springframework.mock.env.MockEnvironment()) {
-                    @Override
-                    DockerClient createClient(DockerConnectionProperties p) {
-                        return p.id().equals("a") ? a : b;
-                    }
-                };
+        var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
+            @Override
+            DockerClient createClient(DockerConnectionProperties p) {
+                return p.id().equals("a") ? a : b;
+            }
+        };
         try (var sources = config.dockerSources()) {
             assertThat(sources.sources()).extracting(s -> s.id()).containsExactly("a", "b");
             assertThat(sources.require("b").client()).isSameAs(b);
@@ -97,16 +70,13 @@ class DockerConfigTest {
     @Test
     void cleansUpPartialConstruction() throws Exception {
         var client = mock(DockerClient.class);
-        var config =
-                new DockerConfig(
-                        new DockerProperties(List.of(connection("a"), connection("b"))),
-                        new org.springframework.mock.env.MockEnvironment()) {
-                    @Override
-                    DockerClient createClient(DockerConnectionProperties p) {
-                        if (p.id().equals("b")) throw new IllegalStateException("failed");
-                        return client;
-                    }
-                };
+        var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
+            @Override
+            DockerClient createClient(DockerConnectionProperties p) {
+                if (p.id().equals("b")) throw new IllegalStateException("failed");
+                return client;
+            }
+        };
         assertThatThrownBy(config::dockerSources).hasMessage("failed");
         verify(client).close();
     }
