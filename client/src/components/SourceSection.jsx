@@ -3,9 +3,9 @@ import ContainerTile from './ContainerTile';
 import ContainerChip from './ContainerChip';
 import { useStorageRevision } from '../hooks/useLocalStorage';
 import { isHeadless } from '../utils/endpoints';
+import { plural } from '../utils/containers';
 import { ASSETS } from '../constants';
 
-const plural = (count, noun) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
 function emptyMessage(showAll, showStopped) {
   if (!showAll && !showStopped) {
@@ -20,12 +20,22 @@ function emptyMessage(showAll, showStopped) {
   return 'Docker is running but no containers exist. Start some containers to see them here.';
 }
 
+export function EmptyState({ showAll, showStopped }) {
+  return (
+    <div className="empty-state">
+      <img src={ASSETS.PORTHOLE_ICON} alt="" width="40" height="40" />
+      <h3>No containers found</h3>
+      <p>{emptyMessage(showAll, showStopped)}</p>
+    </div>
+  );
+}
+
 export function OfflineBanner({ source }) {
   return (
     <div className="banner-offline" role="alert">
-      <strong>{`Can't reach ${source.name}`}</strong>
-      {source.error && <span>{source.error}</span>}
-      <span>Retrying automatically.</span>
+      <p><strong>{`Can't reach ${source.name}`}</strong></p>
+      {source.error && <p>{source.error}</p>}
+      <p>Retrying automatically.</p>
     </div>
   );
 }
@@ -149,11 +159,7 @@ export default function SourceSection({ section, sourcesById, showAll, showStopp
       </header>
       {offline && <OfflineBanner source={source} />}
       {showEmpty ? (
-        <div className="empty-state">
-          <img src={ASSETS.PORTHOLE_ICON} alt="" width="40" height="40" />
-          <h3>No containers found</h3>
-          <p>{emptyMessage(showAll, showStopped)}</p>
-        </div>
+        <EmptyState showAll={showAll} showStopped={showStopped} />
       ) : (
         section.groups.map(group => (
           <Group

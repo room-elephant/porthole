@@ -24,7 +24,7 @@ export default function Header({ query, onQueryChange, sources, counts, hostFilt
       <div className="app-bar-inner">
         <div className="brand">
           <img src={ASSETS.PORTHOLE_ICON} alt="" width="32" height="32" />
-          <span className="wordmark">Porthole</span>
+          <h1 className="wordmark">Porthole</h1>
         </div>
         <label className="filter">
           <Search size={16} aria-hidden="true" />

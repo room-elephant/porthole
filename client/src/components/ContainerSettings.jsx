@@ -35,18 +35,19 @@ function EndpointOption({ id, label, tag = null, source = null, helper = null, s
 function ImageCard({ container }) {
     const { version } = container;
     const updateAvailable = Boolean(version?.updateAvailable);
+    const versionKnown = Boolean(version) && version.latestVersion != null;
 
     return (
         <div className={`image-card ${updateAvailable ? 'image-card--update' : ''}`}>
             <div className="image-card-header">
                 {updateAvailable && <span className="image-status image-status--update">Update available</span>}
-                {!updateAvailable && version && (
+                {!updateAvailable && versionKnown && (
                     <span className="image-status image-status--ok">
                         <Check size={16} aria-hidden="true" />
                         Up to date
                     </span>
                 )}
-                {!version && <span className="image-status image-status--unknown">Version unknown</span>}
+                {!versionKnown && !updateAvailable && <span className="image-status image-status--unknown">Version unknown</span>}
             </div>
             <div className="image-card-body">
                 <span className="image-name">{container.image}</span>
@@ -73,6 +74,7 @@ function ImageCard({ container }) {
 function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates }) {
     const selectionName = useId();
     const endpoints = groupEndpointsBySource(container.endpoints).flatMap(group => group.endpoints);
+    const effectiveEndpointId = endpoints.length === 0 ? NO_ENDPOINT_ID : selectedEndpointId;
     const subtitle = [container.name, sourceName].filter(Boolean).join(' · ') + (container.project ? ` / ${container.project}` : '');
 
     return (
@@ -102,7 +104,7 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
                     label="No web UI"
                     helper="Shown as a small chip instead of a tile"
                     selectionName={selectionName}
-                    selectedEndpointId={selectedEndpointId}
+                    selectedEndpointId={effectiveEndpointId}
                     onSelectEndpoint={onSelectEndpoint}
                 />
             </fieldset>

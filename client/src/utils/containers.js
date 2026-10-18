@@ -61,3 +61,5 @@ export const buildSections = ({ sources, containers, groupBy: mode, hostFilter =
   })
   .filter(section => !filtering || section.containers.length > 0);
 };
+
+export const plural = (count, noun) => `${count} ${noun}${count === 1 ? '' : 's'}`;

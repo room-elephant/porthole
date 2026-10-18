@@ -130,9 +130,22 @@ describe('source sections', () => {
   expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveTextContent('Test Container · Offline');
  });
 
+ it('turns a legacy "No web UI" preference into a chip on first load', () => {
+  localStorage.setItem('endpoint_pref_Test Container', JSON.stringify('none'));
+  const container = mk({ name: 'Test Container' });
+  const sections = buildSections({ sources: [source], containers: [container], groupBy: GROUP_BY.HOST_STACK });
+  renderWithQuery(<SourceSection section={sections[0]} sourcesById={{ walker: source }} showAll showStopped allowLegacyMigration />);
+  expect(screen.getByRole('button', { name: /settings/ })).toHaveClass('chip');
+  expect(document.querySelector('.tile-grid')).toBeNull();
+ });
+
  it('exports a reusable OfflineBanner', () => {
   renderWithQuery(<OfflineBanner source={{ ...mike, status: 'DOWN', error: 'timeout' }} />);
-  expect(screen.getByRole('alert')).toHaveTextContent("Can't reach Miketimeout");
+  const alert = screen.getByRole('alert');
+  expect(alert).toHaveTextContent("Can't reach Mike");
+  expect(alert).toHaveTextContent('timeout');
+  expect([...alert.children].map(el => getComputedStyle(el).display)).not.toContain('inline');
+  expect(alert.querySelectorAll('p')).toHaveLength(3);
  });
 
  it('shows the empty state with the mark for a connected host', () => {

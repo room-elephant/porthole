@@ -64,6 +64,11 @@ describe('AppSettings', () => {
       expect(screen.getByText('Unreachable')).toBeInTheDocument();
     });
 
+    it('singularises a host with one container', () => {
+      render(<AppSettings {...defaultProps} counts={{ local: 1 }} />);
+      expect(document.querySelector('.host-count')).toHaveTextContent(/^1 container$/);
+    });
+
     it.each([
       ['UP', 'Connected'],
       ['DOWN', 'Unreachable'],

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
 const SAME_TAB_EVENT = 'porthole:storage';
 
@@ -82,7 +82,9 @@ export const useLocalStorage = (key, defaultValue) => {
  */
 export const useStorageRevision = () => {
   const [revision, setRevision] = useState(0);
-  useEffect(() => {
+  // Layout effect: subscribe before any child's passive effect (e.g. legacy preference
+  // migration) writes storage and dispatches the same-tab event.
+  useLayoutEffect(() => {
     const bump = () => setRevision(value => value + 1);
     window.addEventListener('storage', bump);
     window.addEventListener(SAME_TAB_EVENT, bump);

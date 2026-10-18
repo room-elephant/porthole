@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import Header from './components/Header';
 import NoResults from './components/NoResults';
 import SkeletonTile from './components/SkeletonTile';
-import SourceSection, { OfflineBanner } from './components/SourceSection';
+import SourceSection, { EmptyState, OfflineBanner } from './components/SourceSection';
 import AppSettings from './components/AppSettings';
 import { useContainers } from './hooks/useContainers';
 import { useLastKnownContainers } from './hooks/useLastKnownContainers';
@@ -19,7 +19,8 @@ function App() {
   const [selectedHost, setHostFilter] = useState('all');
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
-  const [groupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
+  const [storedGroupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
+  const groupBy = Object.values(GROUP_BY).includes(storedGroupBy) ? storedGroupBy : GROUP_BY.HOST_STACK;
   const { data = EMPTY, isLoading, error } = useContainers({ showAll, showStopped });
   const containers = useLastKnownContainers(data);
   const hostFilter = data.sources.some(source => source.id === selectedHost) ? selectedHost : 'all';
@@ -58,6 +59,8 @@ function App() {
         onIncludeStopped={() => setShowStopped(true)}
       />
     );
+  } else if (sections.length === 0) {
+    inventory = <EmptyState showAll={showAll} showStopped={showStopped} />;
   } else {
     const banners = groupBy === GROUP_BY.STACK
       ? data.sources

@@ -3,6 +3,7 @@ import { refreshVersions } from '../api';
 import { Loader2 } from 'lucide-react';
 import Modal from './Modal';
 import { ASSETS, GROUP_BY } from '../constants';
+import { plural } from '../utils/containers';
 
 const STATUS_TEXT = { UP: 'Connected', DOWN: 'Unreachable', ERROR: 'Error', CHECKING: 'Checking…' };
 const GROUP_OPTIONS = [
@@ -36,7 +37,7 @@ function HostRow({ source, count }) {
         <div className="host-row">
             {checking ? <Loader2 size={14} className="status-spinner" aria-hidden="true" /> : <span className={`host-dot${up ? '' : ' host-dot--bad'}`} />}
             <span className="host-name">{source.name}</span>
-            <span className="host-count">{count} containers</span>
+            <span className="host-count">{plural(count, 'container')}</span>
             <span className={`host-status ${statusClass}`}>{STATUS_TEXT[source.status] ?? 'Unknown'}</span>
         </div>
     );

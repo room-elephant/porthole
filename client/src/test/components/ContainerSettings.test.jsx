@@ -185,6 +185,20 @@ describe('ContainerSettings', () => {
     expect(screen.queryByText('Latest')).not.toBeInTheDocument();
   });
 
+  it('says Version unknown when the latest version cannot be resolved', () => {
+    const version = { currentVersion: '1.2', latestVersion: null, updateAvailable: false };
+    render(<ContainerSettings {...defaultProps} container={{ ...defaultProps.container, version }} />);
+
+    expect(screen.getByText('Version unknown')).toBeInTheDocument();
+    expect(screen.queryByText('Up to date')).not.toBeInTheDocument();
+  });
+
+  it('checks No web UI when the container has no endpoints', () => {
+    render(<ContainerSettings {...defaultProps} selectedEndpointId={null} container={{ ...defaultProps.container, endpoints: [] }} />);
+
+    expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked();
+  });
+
   it('groups all sources and offers one accessible selection across sections', async () => {
     const onSelectEndpoint = vi.fn();
     const user = userEvent.setup();

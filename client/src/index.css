@@ -116,6 +116,7 @@ body {
 }
 
 .wordmark {
+  margin: 0;
   font-weight: 700;
   font-size: 19px;
   letter-spacing: -0.01em;
@@ -1459,7 +1460,7 @@ input:checked + .toggle-slider::before {
   padding: 0 14px;
   background: var(--surface);
   border: 1px dashed var(--border-dashed);
-  border-radius: var(--r-pill);
+  border-radius: var(--r-control);
   color: var(--text);
   font: inherit;
   font-size: 14px;
@@ -1499,6 +1500,10 @@ input:checked + .toggle-slider::before {
   border-radius: var(--r-tile);
   font-size: 13px;
   color: var(--text-2);
+}
+
+.banner-offline p {
+  margin: 0;
 }
 
 .banner-offline strong {
@@ -1605,8 +1610,14 @@ input:checked + .toggle-slider::before {
     height: 44px;
   }
 
+  /* minmax(0, 1fr), not 1fr (= minmax(auto, 1fr)): long mono image/URL text must not
+     widen the track past the viewport. jsdom does no layout, so this has no unit test. */
   .tile-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tile {
+    min-width: 0;
   }
 
   .tile-main {

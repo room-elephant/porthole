@@ -25,7 +25,7 @@ const renderHeader = (props = {}) => render(
 describe('Header', () => {
   it('shows the wordmark, filter and settings button', () => {
     renderHeader();
-    expect(screen.getByText('Porthole')).toHaveClass('wordmark');
+    expect(screen.getByRole('heading', { level: 1, name: 'Porthole' })).toHaveClass('wordmark');
     expect(screen.getByRole('searchbox', { name: 'Filter containers' })).toHaveAttribute('placeholder', 'Filter containers, images, hosts…');
     expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
   });

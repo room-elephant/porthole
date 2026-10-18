@@ -43,6 +43,22 @@ describe('App', () => {
     expect(document.querySelectorAll('.stack-label')).toHaveLength(2);
   });
 
+  it('shows the empty state when stack grouping has no containers', () => {
+    localStorage.setItem('porthole_groupBy', '"stack"');
+    query({ sources: [walker], containers: [] });
+    renderWithQuery(<App />);
+    expect(screen.getByRole('heading', { name: 'No containers found' })).toBeInTheDocument();
+  });
+
+  it('falls back to host-stack grouping for an invalid stored value', () => {
+    localStorage.setItem('porthole_groupBy', '"foo"');
+    query({ sources: [walker], containers: [createMockContainer({ sourceId: 'walker', project: 'smh' })] });
+    renderWithQuery(<App />);
+    expect(screen.getByRole('region', { name: 'Walker' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.getByRole('button', { name: 'Host › Stack' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('groups by stack when the setting is stored', () => {
     localStorage.setItem('porthole_groupBy', '"stack"');
     query({ sources: [walker, mike], containers: [
