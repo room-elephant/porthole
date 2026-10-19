@@ -469,7 +469,8 @@ input:checked + .toggle-slider::before {
 }
 
 .label-update { color: var(--update-text); }
-.label-starting { color: var(--warn-text); }
+.label-starting,
+.label-restarting { color: var(--warn-text); }
 .label-unhealthy { color: var(--bad-text); }
 
 .tile--unhealthy {

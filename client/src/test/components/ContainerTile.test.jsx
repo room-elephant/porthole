@@ -105,7 +105,7 @@ describe('ContainerTile', () => {
     it.each([
       ['running', 'Up 2 minutes (unhealthy)', 'dot-bad', 'Unhealthy', 'unhealthy'],
       ['running', 'Up 2 seconds (health: starting)', 'dot-warn', 'Starting', 'starting'],
-      ['restarting', 'Restarting (1) 2 seconds ago', 'dot-warn', 'Starting', 'starting'],
+      ['restarting', 'Restarting (1) 2 seconds ago', 'dot-warn', 'Restarting', 'restarting'],
       ['running', 'Up 2 minutes (healthy)', 'dot-ok', null, 'ok'],
       ['running', 'Up 2 hours', 'dot-ok', null, 'ok'],
       ['running', null, 'dot-ok', null, 'ok'],
@@ -116,6 +116,11 @@ describe('ContainerTile', () => {
       expect(tile()).toHaveClass(`tile--${kind}`);
       if (label) expect(screen.getByText(label)).toHaveClass('tile-label', `label-${kind}`);
       else expect(document.querySelector('.tile-label')).toBeNull();
+    });
+
+    it('keeps a restarting tile openable as a link', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ state: 'restarting', status: 'Restarting (1) 2 seconds ago' })} />);
+      expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
     });
 
     it('updates dot, label and tile as health changes without a lifecycle change', () => {

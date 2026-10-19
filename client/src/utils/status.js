@@ -9,7 +9,8 @@ export const containerStatus = (container, { sourceOnline, showUpdate }) => {
   if (state !== 'running' && state !== 'restarting') return result('stopped', 'off', 'Stopped', false);
   const health = getHealthStatus(container.status);
   if (health === 'unhealthy') return result('unhealthy', 'bad', 'Unhealthy');
-  if (state === 'restarting' || health === 'health: starting') return result('starting', 'warn', 'Starting');
+  if (state === 'restarting') return result('restarting', 'warn', 'Restarting');
+  if (health === 'health: starting') return result('starting', 'warn', 'Starting');
   if (showUpdate) return result('update', 'ok', 'Update');
   return result('ok', 'ok', null);
 };
