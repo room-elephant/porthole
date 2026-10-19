@@ -16,12 +16,17 @@ public class ContainerService implements GetContainers {
     private final DockerDiscoveryService discovery;
     private final ContainerPresentation mapper;
     private final ContainerEnrichment enrichment;
+    private final SelfContainer self;
 
     public ContainerService(
-            DockerDiscoveryService discovery, ContainerPresentation mapper, ContainerEnrichment enrichment) {
+            DockerDiscoveryService discovery,
+            ContainerPresentation mapper,
+            ContainerEnrichment enrichment,
+            SelfContainer self) {
         this.discovery = discovery;
         this.mapper = mapper;
         this.enrichment = enrichment;
+        this.self = self;
     }
 
     @Override
@@ -48,6 +53,7 @@ public class ContainerService implements GetContainers {
                     .map(c -> enrichment.enrich(c, context))
                     .flatMap(Optional::stream)
                     .toList();
+            containers.forEach(c -> c.setSelf(self.matches(c.id(), source.local())));
             return new Result(result.state(), containers);
         } catch (RuntimeException e) {
             log.warn("Could not prepare containers from Docker source {}", source.id(), e);

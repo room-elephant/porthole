@@ -16,7 +16,7 @@ class DockerDiscoveryServiceTest {
     private final DockerOperations docker = mock(DockerOperations.class);
 
     private DockerSource source(String id) {
-        return new DockerSource(id, id, null, Duration.ofSeconds(1), Duration.ofSeconds(1));
+        return new DockerSource(id, id, null, Duration.ofSeconds(1), Duration.ofSeconds(1), true);
     }
 
     @Test

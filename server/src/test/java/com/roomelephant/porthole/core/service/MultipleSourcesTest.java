@@ -40,14 +40,17 @@ class MultipleSourcesTest {
 
     private DockerConnection source(String id, DockerClient client, Duration timeout) {
         return new DockerConnection(
-                id, id, "192.168.50." + (id.equals("walker") ? "6" : "5"), timeout, timeout, client);
+                id, id, "192.168.50." + (id.equals("walker") ? "6" : "5"), timeout, timeout, true, client);
     }
 
     private ContainerService service(DockerOperations operations, ContainerEnrichment enrichment) {
         var discovery = new DockerDiscoveryService(operations);
         discoveries.add(discovery);
         return new ContainerService(
-                discovery, new ContainerPresentation(mock(IconResolver.class, i -> "icon")), enrichment);
+                discovery,
+                new ContainerPresentation(mock(IconResolver.class, i -> "icon")),
+                enrichment,
+                SelfContainer.none());
     }
 
     @Test

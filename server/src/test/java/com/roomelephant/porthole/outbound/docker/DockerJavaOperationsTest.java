@@ -19,13 +19,21 @@ import org.junit.jupiter.api.Test;
 
 class DockerJavaOperationsTest {
     private final DockerClient client = mock(DockerClient.class);
-    private final DockerOperations docker = new DockerJavaOperations(new DockerSourceRegistry(
-            List.of(new DockerConnection("one", "One", "host", Duration.ofSeconds(2), Duration.ofSeconds(3), client))));
+    private final DockerOperations docker = new DockerJavaOperations(new DockerSourceRegistry(List.of(
+            new DockerConnection("one", "One", "host", Duration.ofSeconds(2), Duration.ofSeconds(3), false, client))));
 
     @Test
     void sourceDescriptorsContainNoClientsAndKeepConfiguredBudgets() {
         assertThat(docker.sources())
-                .containsExactly(new DockerSource("one", "One", "host", Duration.ofSeconds(2), Duration.ofSeconds(3)));
+                .containsExactly(
+                        new DockerSource("one", "One", "host", Duration.ofSeconds(2), Duration.ofSeconds(3), false));
+    }
+
+    @Test
+    void sourceDescriptorsCarryTheLocalFlag() {
+        var local = new DockerJavaOperations(new DockerSourceRegistry(List.of(
+                new DockerConnection("two", "Two", null, Duration.ofSeconds(2), Duration.ofSeconds(3), true, client))));
+        assertThat(local.sources()).extracting(DockerSource::local).containsExactly(true);
     }
 
     @Test

@@ -16,6 +16,7 @@ public final class Container {
     private final Details details;
     private List<Endpoint> urlCandidates;
     private @Nullable VersionInfo version;
+    private boolean self;
 
     public record Details(
             Set<Integer> publishedPorts,
@@ -85,6 +86,14 @@ public final class Container {
 
     public void setVersion(@Nullable VersionInfo version) {
         this.version = version;
+    }
+
+    public boolean isSelf() {
+        return self;
+    }
+
+    public void setSelf(boolean self) {
+        this.self = self;
     }
 
     public String iconUrl() {

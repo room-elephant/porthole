@@ -13,7 +13,9 @@ import com.roomelephant.porthole.core.enrichment.endpoint.EndpointDiscovery;
 import com.roomelephant.porthole.core.enrichment.endpoint.UrlCandidateEnricher;
 import com.roomelephant.porthole.core.enrichment.endpointavailability.EndpointAvailabilityFilter;
 import com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter;
+import com.roomelephant.porthole.core.model.ContainerQuery;
 import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.core.presentation.ContainerPresentation;
 import com.roomelephant.porthole.core.presentation.icon.IconResolver;
 import java.net.SocketException;
@@ -320,7 +322,53 @@ class ContainerServiceTest {
                         new Endpoint("published-port:8080", "published-port", "http://other.example.com:8080/"));
     }
 
+    @Test
+    void marksOnlyTheMatchingContainerOnALocalSource() {
+        Container self = container("porthole", 8080, Map.of());
+        when(self.getId()).thenReturn("abcdef123456" + "0".repeat(52));
+        Container other = container("other", 8081, Map.of());
+        when(listContainersCmd.exec()).thenReturn(List.of(self, other));
+
+        assertThat(service(null, new SelfContainer("abcdef123456"), true)
+                        .getContainers(new ContainerQuery(false, false, "localhost"))
+                        .containers())
+                .extracting(c -> c.name() + "=" + c.isSelf())
+                .containsExactly("porthole=true", "other=false");
+    }
+
+    @Test
+    void doesNotMarkShortIdPrefixOnARemoteSource() {
+        Container self = container("porthole", 8080, Map.of());
+        when(self.getId()).thenReturn("abcdef123456" + "0".repeat(52));
+        when(listContainersCmd.exec()).thenReturn(List.of(self));
+
+        assertThat(service(null, new SelfContainer("abcdef123456"), false)
+                        .getContainers(new ContainerQuery(false, false, "localhost"))
+                        .containers())
+                .extracting(com.roomelephant.porthole.core.model.Container::isSelf)
+                .containsExactly(false);
+    }
+
+    @Test
+    void marksFullIdContainerOnARemoteSource() {
+        String fullId = "abcdef123456" + "0".repeat(52);
+        Container self = container("porthole", 8080, Map.of());
+        when(self.getId()).thenReturn(fullId);
+        Container other = container("other", 8081, Map.of());
+        when(listContainersCmd.exec()).thenReturn(List.of(self, other));
+
+        assertThat(service(null, new SelfContainer(fullId), false)
+                        .getContainers(new ContainerQuery(false, false, "localhost"))
+                        .containers())
+                .extracting(c -> c.name() + "=" + c.isSelf())
+                .containsExactly("porthole=true", "other=false");
+    }
+
     private ContainerService service(String publishedHost) {
+        return service(publishedHost, SelfContainer.none(), true);
+    }
+
+    private ContainerService service(String publishedHost, SelfContainer self, boolean local) {
         IconResolver icon = mock(IconResolver.class, invocation -> "icon");
         EndpointDiscovery discovery = new EndpointDiscovery(List.of(
                 new PublishedPortEndpointProvider(new PublishedHostResolver()),
@@ -334,12 +382,14 @@ class ContainerServiceTest {
                                         publishedHost,
                                         java.time.Duration.ofSeconds(5),
                                         java.time.Duration.ofSeconds(60),
+                                        local,
                                         dockerClient))))),
                 new ContainerPresentation(icon),
                 new ContainerEnrichment(List.of(
                         new ContainerStateFilter(),
                         new UrlCandidateEnricher(discovery),
-                        new EndpointAvailabilityFilter())));
+                        new EndpointAvailabilityFilter())),
+                self);
     }
 
     private DockerDiscoveryService discovery(com.roomelephant.porthole.core.port.outbound.DockerOperations operations) {

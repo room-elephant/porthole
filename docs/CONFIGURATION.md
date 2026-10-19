@@ -77,9 +77,25 @@ on every entry when configuring several sources. Unknown YAML properties under
 Browser endpoint choices and update-warning preferences are scoped by source ID
 and container name.
 
+### Porthole's Own Container
+
+`GET /api/containers` marks the container Porthole runs in with `"self": true`.
+At startup Porthole resolves its own container ID, first hit wins: the
+`porthole.self-container-id` property, a full ID from `/proc/self/mountinfo`, a
+full ID from `/proc/self/cgroup`, then `HOSTNAME` when it is 12 to 64 lowercase
+hex characters. The resolved ID is logged at startup.
+
+A full 64-character ID matches on any source, including a `tcp://` socket proxy.
+A shorter ID, such as Docker's default hostname, matches as a prefix only on
+`unix://` sources.
+
+Set `PORTHOLE_SELFCONTAINERID` only when detection fails: typically the container
+hostname is overridden (`hostname:` in Compose) and `/proc` does not expose the
+container ID. Use the full ID when Porthole reaches its own daemon over `tcp://`.
+
 ## Configuration Files
 
-Application settings share the `porthole` namespace: `porthole.docker`, `porthole.versions`, `porthole.dashboard`, and `porthole.registry`. Spring's `server`, `spring`, and `management` settings keep their standard namespaces.
+Application settings share the `porthole` namespace: `porthole.docker`, `porthole.versions`, `porthole.dashboard`, `porthole.registry`, and `porthole.self-container-id`. Spring's `server`, `spring`, and `management` settings keep their standard namespaces.
 
 For compound property names, Spring's canonical environment form removes hyphens: for example, `porthole.registry.cache.version-max-size` becomes `PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE`.
 

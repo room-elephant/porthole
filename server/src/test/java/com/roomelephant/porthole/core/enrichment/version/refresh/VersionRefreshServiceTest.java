@@ -109,9 +109,9 @@ class VersionRefreshServiceTest {
         when(remoteList.withShowAll(true)).thenReturn(remoteList);
         var dockerSources = new com.roomelephant.porthole.outbound.docker.DockerSourceRegistry(List.of(
                 new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                        "local", "Local", null, Duration.ofSeconds(5), Duration.ofSeconds(60), docker),
+                        "local", "Local", null, Duration.ofSeconds(5), Duration.ofSeconds(60), true, docker),
                 new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                        "remote", "Remote", null, Duration.ofSeconds(5), Duration.ofSeconds(60), remoteDocker)));
+                        "remote", "Remote", null, Duration.ofSeconds(5), Duration.ofSeconds(60), false, remoteDocker)));
         var freshWorkers = new ManualExecutor();
         var freshCoordinators = new ManualExecutor();
         service = new VersionRefreshService(

@@ -150,6 +150,16 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
     }
 
     @Test
+    void shouldFlagOnlyPortholesOwnContainerAsSelf() {
+        Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
+
+        assertThat(containersByName.values())
+                .filteredOn(ContainerDTO::self)
+                .extracting(ContainerDTO::id)
+                .containsExactly(porthole.getContainerId());
+    }
+
+    @Test
     void shouldIncludeTraefikContainerWithoutPublishedPorts() {
         ContainerDTO container = fetchContainers(false, false).get(TEST_PROXY_CONTAINER_NAME);
         assertThat(container).isNotNull();
