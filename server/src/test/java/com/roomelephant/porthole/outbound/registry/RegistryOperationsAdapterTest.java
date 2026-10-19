@@ -97,15 +97,18 @@ class RegistryOperationsAdapterTest {
             this.result = new RegistryLookup.Available<>(new TagCatalogue(tags));
         }
 
+        @Override
         public boolean supports(ImageReference image) {
             return registry.equals(image.registry());
         }
 
+        @Override
         public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
             catalogues++;
             return result;
         }
 
+        @Override
         public RegistryLookup<ManifestMetadata> readManifest(ImageReference image, String reference) {
             manifests++;
             return reference.equals("latest")

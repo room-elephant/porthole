@@ -105,6 +105,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     }
 
     /** Queues an immediate scan without doing Docker or registry I/O on the HTTP thread. */
+    @Override
     public synchronized void requestRefresh() {
         if (closed) throw new RejectedExecutionException("Version refresh service is closed");
         List<String> pending = sources.sources().stream()
