@@ -23,5 +23,6 @@ describe('groupBy key', () => {
 describe('assets', () => {
  it('uses the porthole mark for in-app icons', () => {
   expect(ASSETS.PORTHOLE_ICON).toBe('porthole-mark.svg');
+  expect(ASSETS.PORTHOLE_FULL).toBe('porthole-full.webp');
  });
 });

@@ -138,10 +138,16 @@ describe('source sections', () => {
   expect(alert.querySelectorAll('p')).toHaveLength(3);
  });
 
- it('shows the empty state with the mark for a connected host', () => {
+ it('shows the full illustration, host heading and docs link in the empty state for a connected host', () => {
   renderSection([]);
-  expect(screen.getByRole('heading', { name: 'No containers found' })).toBeInTheDocument();
-  expect(document.querySelector('.empty-state img')).toHaveAttribute('src', 'porthole-mark.svg');
+  expect(screen.getByRole('heading', { name: 'Nothing running on Walker yet' })).toBeInTheDocument();
+  const img = document.querySelector('.empty-state img');
+  expect(img).toHaveAttribute('src', 'porthole-full.webp');
+  expect(img).toHaveAttribute('width', '112');
+  const link = screen.getByRole('link', { name: 'Add more Docker hosts ↗' });
+  expect(link).toHaveAttribute('href', 'https://github.com/room-elephant/porthole/blob/main/docs/CONFIGURATION.md');
+  expect(link).toHaveAttribute('target', '_blank');
+  expect(link).toHaveAttribute('rel', 'noopener');
  });
 
  it('describes stack sections with their hosts', () => {
@@ -179,7 +185,7 @@ describe('source sections', () => {
   [false, false, 'No running containers with endpoints.', 'Show stopped containers', 'Show containers without a web UI'],
   [true, false, 'No running containers found.', 'Show stopped containers', null],
   [false, true, 'No containers with endpoints found.', 'Show containers without a web UI', null],
-  [true, true, 'Docker is running but no containers exist.', 'Start some containers', null],
+  [true, true, 'Start a container and it shows up here automatically', 'Traefik URL or published port.', null],
  ])('describes an empty inventory with showAll=%s and showStopped=%s', (showAll, showStopped, description, suggestion, alternative) => {
   renderSection([], { showAll, showStopped });
   const message = screen.getByText(text => text.startsWith(description));

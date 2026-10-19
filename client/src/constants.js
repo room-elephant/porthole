@@ -17,5 +17,6 @@ export const API = {
 
 export const ASSETS = {
   PORTHOLE_ICON: 'porthole-mark.svg',
+  PORTHOLE_FULL: 'porthole-full.webp',
   FALLBACK_ICON: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp/docker.webp',
 };

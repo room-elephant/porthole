@@ -117,7 +117,7 @@ describe('App', () => {
   it('shows connected empty hosts with filter guidance', () => {
     query({ sources: [walker], containers: [] });
     renderWithQuery(<App />);
-    expect(screen.getByText('No containers found')).toBeInTheDocument();
+    expect(screen.getByText('Nothing running on Walker yet')).toBeInTheDocument();
     expect(screen.getByText(/No running containers with endpoints/)).toBeInTheDocument();
   });
 

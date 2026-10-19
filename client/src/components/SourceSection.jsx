@@ -20,12 +20,20 @@ function emptyMessage(showAll, showStopped) {
   return 'Docker is running but no containers exist. Start some containers to see them here.';
 }
 
-export function EmptyState({ showAll, showStopped }) {
+const DOCS_URL = 'https://github.com/room-elephant/porthole/blob/main/docs/CONFIGURATION.md';
+
+export function EmptyState({ showAll, showStopped, hostName }) {
+  const nothingHidden = showAll && showStopped;
   return (
     <div className="empty-state">
-      <img src={ASSETS.PORTHOLE_ICON} alt="" width="40" height="40" />
-      <h3>No containers found</h3>
-      <p>{emptyMessage(showAll, showStopped)}</p>
+      <img src={ASSETS.PORTHOLE_FULL} alt="" width="112" height="112" />
+      <h3>{hostName ? `Nothing running on ${hostName} yet` : 'No containers found'}</h3>
+      <p>
+        {nothingHidden && hostName
+          ? 'Start a container and it shows up here automatically, with its Traefik URL or published port.'
+          : emptyMessage(showAll, showStopped)}
+      </p>
+      <a href={DOCS_URL} target="_blank" rel="noopener">Add more Docker hosts ↗</a>
     </div>
   );
 }
@@ -158,7 +166,7 @@ export default function SourceSection({ section, sourcesById, showAll, showStopp
       </header>
       {offline && <OfflineBanner source={source} />}
       {showEmpty ? (
-        <EmptyState showAll={showAll} showStopped={showStopped} />
+        <EmptyState showAll={showAll} showStopped={showStopped} hostName={source?.name ?? section.title} />
       ) : (
         section.groups.map(group => (
           <Group

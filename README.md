@@ -1,6 +1,6 @@
 # Porthole ⚓️
 
-![Porthole](docs/images/porthole.webp)
+![Porthole](docs/images/porthole-full.webp)
 
 > Centralized dashboard for running Docker containers with automatic endpoint discovery.
 
