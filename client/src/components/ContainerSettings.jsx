@@ -130,6 +130,7 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
                     onSelectEndpoint={onSelectEndpoint}
                 />
             </fieldset>
+            <div className="settings-divider" />
 
             <div className="settings-section">
                 <h3 className="settings-heading">Image</h3>

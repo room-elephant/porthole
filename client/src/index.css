@@ -962,6 +962,11 @@ input:checked + .toggle-slider::before {
   margin-bottom: 0;
 }
 
+/* The modal body already spaces its children with a flex gap */
+.modal-body > .settings-section {
+  margin-bottom: 0;
+}
+
 .settings-description {
   display: block;
   font-size: 0.85rem;
@@ -1541,7 +1546,7 @@ input:checked + .toggle-slider::before {
   gap: 12px;
   padding: 24px;
   border: 1px dashed var(--border-dashed);
-  border-radius: 12px;
+  border-radius: var(--r-tile);
   color: var(--text-muted);
 }
 
@@ -1563,10 +1568,21 @@ input:checked + .toggle-slider::before {
   line-height: 1.5;
 }
 
+.empty-state a,
+.empty-state a:visited {
+  color: var(--accent-2);
+}
+
 .empty-state a {
   margin-top: 4px;
   font-size: 14px;
   text-decoration: none;
+}
+
+.empty-state a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 4px;
 }
 
 .settings-btn-primary:disabled {

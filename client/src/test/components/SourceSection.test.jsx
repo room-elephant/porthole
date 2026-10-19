@@ -144,7 +144,7 @@ describe('source sections', () => {
   const img = document.querySelector('.empty-state img');
   expect(img).toHaveAttribute('src', 'porthole-full.webp');
   expect(img).toHaveAttribute('width', '112');
-  const link = screen.getByRole('link', { name: 'Add more Docker hosts ↗' });
+  const link = screen.getByRole('link', { name: 'Add more Docker hosts' });
   expect(link).toHaveAttribute('href', 'https://github.com/room-elephant/porthole/blob/main/docs/CONFIGURATION.md');
   expect(link).toHaveAttribute('target', '_blank');
   expect(link).toHaveAttribute('rel', 'noopener');

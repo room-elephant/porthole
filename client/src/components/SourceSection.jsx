@@ -33,7 +33,7 @@ export function EmptyState({ showAll, showStopped, hostName }) {
           ? 'Start a container and it shows up here automatically, with its Traefik URL or published port.'
           : emptyMessage(showAll, showStopped)}
       </p>
-      <a href={DOCS_URL} target="_blank" rel="noopener">Add more Docker hosts ↗</a>
+      <a href={DOCS_URL} target="_blank" rel="noopener">Add more Docker hosts <span aria-hidden="true">↗</span></a>
     </div>
   );
 }

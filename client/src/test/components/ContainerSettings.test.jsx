@@ -25,6 +25,17 @@ describe('ContainerSettings', () => {
     vi.clearAllMocks();
   });
 
+  it('separates Status, Tile opens and Image with two dividers in order', () => {
+    render(<ContainerSettings {...defaultProps} />);
+    const body = screen.getByRole('dialog').querySelector('.modal-body');
+    const kids = [...body.children];
+    const isDivider = el => el.classList.contains('settings-divider');
+    expect(body.querySelectorAll('.settings-divider')).toHaveLength(2);
+    expect(kids.map(el => (isDivider(el) ? 'divider' : el.tagName.toLowerCase()))).toEqual([
+      'section', 'divider', 'fieldset', 'divider', 'div',
+    ]);
+  });
+
   it('should render container name as title', () => {
     render(<ContainerSettings {...defaultProps} />);
     expect(screen.getByRole('dialog', { name: 'Nginx' })).toBeInTheDocument();
@@ -224,7 +235,6 @@ describe('ContainerSettings', () => {
     render(<ContainerSettings {...defaultProps} selectedEndpointId={null} />);
     expect(screen.getAllByRole('radio').filter(radio => radio.checked)).toHaveLength(0);
   });
-
 
   describe('status section', () => {
     it('is the first section, before Tile opens', () => {

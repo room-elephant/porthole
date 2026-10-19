@@ -52,8 +52,22 @@ describe('App', () => {
     ] });
     renderWithQuery(<App />);
     expect(screen.getByText('Sonarr')).toBeInTheDocument();
-    expect(screen.queryByText('Porthole', { selector: '.tile-name, .tile-title, h3, span' })).toBeNull();
-    expect(screen.getByRole('button', { name: /Walker/ })).toHaveTextContent('1');
+    const section = screen.getByRole('region', { name: 'Walker' });
+    const names = [...section.querySelectorAll('.tile-name')].map(el => el.textContent);
+    expect(names).toEqual(['Sonarr']);
+    expect(screen.getByRole('button', { name: /Walker/ }).querySelector('.pill-count')).toHaveTextContent(/^1$/);
+  });
+
+  it('shows the empty state and a zero count when Porthole is the only container and is hidden', () => {
+    localStorage.setItem('porthole_showSelf', 'false');
+    query({ sources: [walker], containers: [
+      createMockContainer({ id: 'b', sourceId: 'walker', displayName: 'Porthole', self: true }),
+    ] });
+    renderWithQuery(<App />);
+    const section = screen.getByRole('region', { name: 'Walker' });
+    expect(within(section).getByRole('heading', { name: 'Nothing running on Walker yet' })).toBeInTheDocument();
+    expect(section.querySelectorAll('.tile-name')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: /Walker/ }).querySelector('.pill-count')).toHaveTextContent(/^0$/);
   });
 
   it('shows the self container by default', () => {
@@ -61,7 +75,8 @@ describe('App', () => {
       createMockContainer({ id: 'b', sourceId: 'walker', displayName: 'Porthole', self: true }),
     ] });
     renderWithQuery(<App />);
-    expect(screen.getAllByText('Porthole').length).toBeGreaterThan(1);
+    const section = screen.getByRole('region', { name: 'Walker' });
+    expect([...section.querySelectorAll('.tile-name')].map(el => el.textContent)).toEqual(['Porthole']);
   });
 
   it('shows the empty state when stack grouping has no containers', () => {
