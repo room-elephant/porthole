@@ -225,4 +225,36 @@ describe('ContainerSettings', () => {
     expect(screen.getAllByRole('radio').filter(radio => radio.checked)).toHaveLength(0);
   });
 
+
+  describe('status section', () => {
+    it('is the first section, before Tile opens', () => {
+      render(<ContainerSettings {...defaultProps} />);
+      const status = screen.getByRole('heading', { name: 'Status' });
+      const tile = screen.getByText('Tile opens');
+      expect(status.compareDocumentPosition(tile) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('shows title, health and uptime', () => {
+      const container = createMockContainer({ ...defaultProps.container, state: 'running', status: 'Up 3 days (healthy)' });
+      render(<ContainerSettings {...defaultProps} container={container} />);
+      const row = screen.getByRole('status');
+      expect(row).toHaveTextContent('Running');
+      expect(row).toHaveTextContent('Healthy');
+      expect(row).toHaveTextContent('Up 3 days');
+    });
+
+    it('shows a note for paused containers outside the status row', () => {
+      const container = createMockContainer({ ...defaultProps.container, state: 'paused', status: 'Up 1h (Paused)' });
+      render(<ContainerSettings {...defaultProps} container={container} status={{ kind: 'paused', dot: 'off', label: 'Paused', openable: false }} />);
+      const note = screen.getByText("Processes are frozen, so the tile won't open until it's resumed.");
+      expect(note).toBeInTheDocument();
+      expect(screen.getByRole('status')).not.toContainElement(note);
+    });
+
+    it('marks unhealthy rows with the bad tone', () => {
+      const container = createMockContainer({ ...defaultProps.container, state: 'running', status: 'Up 1h (unhealthy)' });
+      render(<ContainerSettings {...defaultProps} container={container} status={{ kind: 'unhealthy', dot: 'bad', label: 'Unhealthy', openable: true }} />);
+      expect(screen.getByRole('status')).toHaveClass('status-row--bad');
+    });
+  });
 });

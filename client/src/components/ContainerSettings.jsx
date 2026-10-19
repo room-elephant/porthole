@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import Modal from './Modal';
 import ContainerIcon from './ContainerIcon';
+import { statusDetail } from '../utils/status';
 import { NO_ENDPOINT_ID, endpointTag, groupEndpointsBySource } from '../utils/endpoints';
 
 function EndpointOption({ id, label, tag = null, source = null, helper = null, selectionName, selectedEndpointId, onSelectEndpoint }) {
@@ -71,6 +72,23 @@ function ImageCard({ container }) {
     );
 }
 
+function StatusSection({ container, status }) {
+    const { tone, title, health, time, note } = statusDetail(container, status);
+
+    return (
+        <section className="settings-section">
+            <h3 className="settings-heading status-heading">Status</h3>
+            <div role="status" className={`status-row status-row--${tone}`}>
+                <span className={`status-row-dot dot-${status.dot}`} aria-hidden="true"></span>
+                <span className="status-row-title">{title}</span>
+                {health && <span className="status-row-health">· {health}</span>}
+                {time && <span className="status-row-time">{time}</span>}
+            </div>
+            {note && <p className="status-row-note">{note}</p>}
+        </section>
+    );
+}
+
 function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates }) {
     const selectionName = useId();
     const updateToggleId = useId();
@@ -86,6 +104,9 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
             onClose={onClose}
             className="settings-modal"
         >
+            <StatusSection container={container} status={status} />
+            <div className="settings-divider" />
+
             <fieldset className="settings-section endpoint-selection">
                 <legend className="settings-heading">Tile opens</legend>
                 {endpoints.map(endpoint => (
