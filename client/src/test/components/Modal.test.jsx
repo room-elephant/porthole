@@ -125,4 +125,14 @@ describe('Modal', () => {
 
     expect(container.ownerDocument.querySelector('.modal-handle')).toHaveAttribute('aria-hidden', 'true');
   });
+
+  it('keeps handle and header outside the scrolling body', () => {
+    const { container } = render(<Modal {...defaultProps} />);
+    const doc = container.ownerDocument;
+    const body = doc.querySelector('.modal-body');
+
+    expect(body).not.toContainElement(doc.querySelector('.modal-handle'));
+    expect(body).not.toContainElement(doc.querySelector('.modal-header'));
+    expect(body).toContainElement(screen.getByText('Modal content'));
+  });
 });
