@@ -27,7 +27,25 @@ describe('ContainerTile', () => {
   it('should render container name and image', () => {
     renderWithQuery(<ContainerTile container={createMockContainer({ displayName: 'My Container', image: 'nginx:latest' })} />);
     expect(screen.getByText('My Container')).toHaveClass('tile-name');
-    expect(screen.getByText('nginx:latest')).toBeInTheDocument();
+    expect(screen.getByTitle('nginx:latest')).toHaveClass('tile-image');
+  });
+
+  it('shows the image wrapped in LRM marks with the full image as title', () => {
+    renderWithQuery(<ContainerTile container={createMockContainer({ image: 'lscr.io/linuxserver/sonarr:latest' })} />);
+    const image = screen.getByTitle('lscr.io/linuxserver/sonarr:latest');
+    expect(image).toHaveClass('tile-image');
+    expect(image.textContent).toBe('\u200Elscr.io/linuxserver/sonarr:latest\u200E');
+  });
+
+  it('renders the status label before the image', () => {
+    const { container: root } = renderWithQuery(
+      <ContainerTile container={createMockContainer({ state: 'exited', status: 'Exited (0) 1 hour ago' })} />,
+    );
+    const label = root.querySelector('.tile-label');
+    const image = root.querySelector('.tile-image');
+    expect(label).not.toBeNull();
+    expect(label.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(root.querySelector('.tile-dot')).toHaveTextContent('·');
   });
 
   it('is a new-tab link to the selected endpoint with the host as subtitle', () => {
@@ -37,7 +55,7 @@ describe('ContainerTile', () => {
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener');
     expect(screen.getByText('localhost:8080')).toHaveClass('tile-host');
-    expect(screen.getByText('test-image:latest')).toHaveClass('tile-image');
+    expect(screen.getByTitle('test-image:latest')).toHaveClass('tile-image');
     expect(link.querySelector('.tile-go')).toHaveAttribute('aria-hidden', 'true');
     expect(window.open).not.toHaveBeenCalled();
   });

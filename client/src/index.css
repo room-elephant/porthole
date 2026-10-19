@@ -405,17 +405,30 @@ input:checked + .toggle-slider::before {
 }
 
 .tile-image {
+  direction: rtl;
+  text-align: left;
+}
+
+.tile-host {
   display: none;
 }
 
-.tile:hover .tile-image,
 .tile:focus-within .tile-image {
+  display: none;
+}
+
+.tile:focus-within .tile-host {
   display: block;
 }
 
-.tile:hover .tile-host,
-.tile:focus-within .tile-host {
-  display: none;
+@media (hover: hover) {
+  .tile:hover .tile-image {
+    display: none;
+  }
+
+  .tile:hover .tile-host {
+    display: block;
+  }
 }
 
 .tile-go {

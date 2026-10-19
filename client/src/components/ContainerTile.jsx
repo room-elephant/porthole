@@ -36,7 +36,7 @@ function ContainerTile({ container, sourceOnline = true, hostTag = null, sourceN
                         </>
                     )}
                     <span className="tile-host">{hostText(container, selectedEndpoint)}</span>
-                    <span className="tile-image" title={container.image}>{container.image}</span>
+                    <span className="tile-image" title={container.image}>{`\u200E${container.image}\u200E`}</span>
                 </span>
             </span>
         </>
