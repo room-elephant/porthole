@@ -44,6 +44,26 @@ describe('App', () => {
     expect(document.querySelectorAll('.stack-label')).toHaveLength(2);
   });
 
+  it('hides the self container and its host count when Show Porthole itself is off', () => {
+    localStorage.setItem('porthole_showSelf', 'false');
+    query({ sources: [walker], containers: [
+      createMockContainer({ id: 'a', sourceId: 'walker', displayName: 'Sonarr' }),
+      createMockContainer({ id: 'b', sourceId: 'walker', displayName: 'Porthole', self: true }),
+    ] });
+    renderWithQuery(<App />);
+    expect(screen.getByText('Sonarr')).toBeInTheDocument();
+    expect(screen.queryByText('Porthole', { selector: '.tile-name, .tile-title, h3, span' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Walker/ })).toHaveTextContent('1');
+  });
+
+  it('shows the self container by default', () => {
+    query({ sources: [walker], containers: [
+      createMockContainer({ id: 'b', sourceId: 'walker', displayName: 'Porthole', self: true }),
+    ] });
+    renderWithQuery(<App />);
+    expect(screen.getAllByText('Porthole').length).toBeGreaterThan(1);
+  });
+
   it('shows the empty state when stack grouping has no containers', () => {
     localStorage.setItem('porthole_groupBy', '"stack"');
     query({ sources: [walker], containers: [] });

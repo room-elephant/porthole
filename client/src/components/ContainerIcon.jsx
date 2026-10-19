@@ -3,7 +3,7 @@ import { ASSETS } from '../constants';
 
 /** Container image with a health dot and an optional purple update badge. */
 export default function ContainerIcon({ container, status, showUpdate = false, size = 40 }) {
-  const src = container.name.includes('porthole') ? ASSETS.PORTHOLE_ICON : container.iconUrl;
+  const src = container.self ? ASSETS.PORTHOLE_ICON : container.iconUrl;
   return (
     <span className="container-icon" style={{ '--icon-size': `${size}px` }}>
       <img

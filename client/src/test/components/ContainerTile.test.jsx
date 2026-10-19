@@ -90,7 +90,7 @@ describe('ContainerTile', () => {
   });
 
   it('should use porthole icon for porthole container', () => {
-    renderWithQuery(<ContainerTile container={createMockContainer({ name: 'porthole-container', iconUrl: 'https://example.com/other.png' })} />);
+    renderWithQuery(<ContainerTile container={createMockContainer({ name: 'porthole-container', self: true, iconUrl: 'https://example.com/other.png' })} />);
     expect(document.querySelector('img')).toHaveAttribute('src', 'porthole-mark.svg');
   });
 

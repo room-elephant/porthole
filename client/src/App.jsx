@@ -19,10 +19,12 @@ function App() {
   const [selectedHost, setSelectedHost] = useState('all');
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
+  const [showSelf, setShowSelf] = useLocalStorage(STORAGE_KEYS.SHOW_SELF, true);
   const [storedGroupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
   const groupBy = Object.values(GROUP_BY).includes(storedGroupBy) ? storedGroupBy : GROUP_BY.HOST_STACK;
   const { data = EMPTY, isLoading, error } = useContainers({ showAll, showStopped });
-  const containers = useLastKnownContainers(data);
+  const lastKnown = useLastKnownContainers(data);
+  const containers = useMemo(() => (showSelf ? lastKnown : lastKnown.filter(container => !container.self)), [lastKnown, showSelf]);
   const hostFilter = data.sources.some(source => source.id === selectedHost) ? selectedHost : 'all';
   const counts = useMemo(() => {
     const result = Object.fromEntries(data.sources.map(source => [source.id, 0]));
@@ -103,6 +105,8 @@ function App() {
           showAll={showAll}
           onToggleShowStopped={setShowStopped}
           onToggleShowAll={setShowAll}
+          showSelf={showSelf}
+          onToggleShowSelf={setShowSelf}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
           counts={counts}

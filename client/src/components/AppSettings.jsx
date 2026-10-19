@@ -50,6 +50,8 @@ function AppSettings({
     showAll,
     onToggleShowStopped,
     onToggleShowAll,
+    showSelf = true,
+    onToggleShowSelf,
     groupBy,
     onGroupByChange,
     counts = {},
@@ -95,8 +97,9 @@ function AppSettings({
 
             <section className="settings-block">
                 <h3 className="settings-heading-sm">Containers</h3>
-                <ToggleSetting label="Show stopped containers" help="Shown with a dashed outline." checked={showStopped} onChange={onToggleShowStopped} />
+                <ToggleSetting label="Show stopped containers" help="Shown with a dashed outline below running ones." checked={showStopped} onChange={onToggleShowStopped} />
                 <ToggleSetting label="Show containers without a web UI" help="Shown as small chips under their group." checked={showAll} onChange={onToggleShowAll} />
+                <ToggleSetting label="Show Porthole itself" help="Turn off to hide this Porthole instance from the dashboard." checked={showSelf} onChange={onToggleShowSelf} />
             </section>
 
             <div className="settings-divider" />

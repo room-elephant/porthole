@@ -58,6 +58,7 @@ export const createMockContainer = (overrides = {}) => ({
   endpoints: [publishedEndpoint(8080)],
   hasEndpoints: true,
   iconUrl: 'https://example.com/icon.png',
+  self: false,
   ...overrides,
 });
 

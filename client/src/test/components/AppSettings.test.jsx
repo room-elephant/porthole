@@ -41,6 +41,16 @@ describe('AppSettings', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('renders Show Porthole itself checked and calls its handler', () => {
+    const onToggleShowSelf = vi.fn();
+    render(<AppSettings {...defaultProps} showSelf onToggleShowSelf={onToggleShowSelf} />);
+    const box = screen.getByRole('checkbox', { name: 'Show Porthole itself' });
+    expect(box).toBeChecked();
+    expect(screen.getByText('Turn off to hide this Porthole instance from the dashboard.')).toBeInTheDocument();
+    fireEvent.click(box);
+    expect(onToggleShowSelf).toHaveBeenCalledWith(false);
+  });
+
   it('should render Settings title', () => {
     render(<AppSettings {...defaultProps} />);
     expect(screen.getByText('Settings')).toBeInTheDocument();
@@ -104,7 +114,7 @@ describe('AppSettings', () => {
     it('should render toggle', () => {
       render(<AppSettings {...defaultProps} />);
       expect(screen.getByLabelText('Show stopped containers')).toBeInTheDocument();
-      expect(screen.getByText('Shown with a dashed outline.')).toBeInTheDocument();
+      expect(screen.getByText('Shown with a dashed outline below running ones.')).toBeInTheDocument();
     });
 
     it('should be unchecked when showStopped is false', () => {

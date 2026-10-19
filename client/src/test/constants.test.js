@@ -8,6 +8,12 @@ describe('scoped preference keys', () => {
  });
 });
 
+describe('showSelf key', () => {
+ it('uses the porthole_showSelf storage key', () => {
+  expect(STORAGE_KEYS.SHOW_SELF).toBe('porthole_showSelf');
+ });
+});
+
 describe('groupBy key', () => {
  it('uses the porthole_groupBy storage key', () => {
   expect(STORAGE_KEYS.GROUP_BY).toBe('porthole_groupBy');
