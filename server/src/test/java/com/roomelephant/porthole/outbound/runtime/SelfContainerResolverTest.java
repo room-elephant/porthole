@@ -24,6 +24,10 @@ class SelfContainerResolverTest {
                 """.formatted(MOUNT_ID));
     }
 
+    private static final String OTHER_ID = "4".repeat(64);
+    private static final String DECOY =
+            "620 600 0:60 /docker/containers/%s/mounts/shm /dev/shm rw,nosuid - tmpfs shm rw\n".formatted(OTHER_ID);
+
     private Path cgroup() throws IOException {
         return Files.writeString(dir.resolve("cgroup"), "0::/system.slice/docker-" + CGROUP_ID + ".scope\n");
     }
@@ -84,5 +88,29 @@ class SelfContainerResolverTest {
     void unreadableFileIsSkipped() throws IOException {
         Path directory = Files.createDirectory(dir.resolve("not-a-file"));
         assertThat(resolver(Map.of(), directory, cgroup()).resolve(null).id()).isEqualTo(CGROUP_ID);
+    }
+
+    @Test
+    void decoyMountBeforeRealHostnameMountIsIgnored() throws IOException {
+        Path mountinfo = Files.writeString(
+                dir.resolve("mountinfo"),
+                "600 590 0:52 / / rw - overlay overlay rw\n"
+                        + DECOY
+                        + "612 600 254:1 /docker/containers/%s/hostname /etc/hostname rw - ext4 /dev/vda1 rw\n"
+                                .formatted(MOUNT_ID));
+        assertThat(resolver(Map.of(), mountinfo, cgroup()).resolve(null).id()).isEqualTo(MOUNT_ID);
+    }
+
+    @Test
+    void decoyOnlyMountinfoFallsThroughToCgroup() throws IOException {
+        Path mountinfo = Files.writeString(dir.resolve("mountinfo"), DECOY);
+        assertThat(resolver(Map.of(), mountinfo, cgroup()).resolve(null).id()).isEqualTo(CGROUP_ID);
+    }
+
+    @Test
+    void decoyOnlyMountinfoWithNothingElseResolvesToNone() throws IOException {
+        Path mountinfo = Files.writeString(dir.resolve("mountinfo"), DECOY);
+        assertThat(resolver(Map.of(), mountinfo, missing("c")).resolve(null).id())
+                .isNull();
     }
 }
