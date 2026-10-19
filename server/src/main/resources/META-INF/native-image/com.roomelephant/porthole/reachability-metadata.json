@@ -46,6 +46,15 @@
       "type": "com.fasterxml.jackson.core.JsonGenerator"
     },
     {
+      "type": "com.fasterxml.jackson.core.ObjectCodec"
+    },
+    {
+      "type": "com.fasterxml.jackson.core.TreeCodec"
+    },
+    {
+      "type": "com.fasterxml.jackson.core.Versioned"
+    },
+    {
       "type": "com.fasterxml.jackson.databind.ObjectMapper"
     },
     {
@@ -149,6 +158,15 @@
       ]
     },
     {
+      "type": "com.github.benmanes.caffeine.cache.PSMS",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "com.github.benmanes.caffeine.cache.PSW",
       "fields": [
         {
@@ -168,6 +186,9 @@
     {
       "type": "com.github.benmanes.caffeine.cache.SSMS",
       "fields": [
+        {
+          "name": "FACTORY"
+        },
         {
           "name": "maximum"
         },
@@ -1277,6 +1298,7 @@
           "name": "dockerHubClient",
           "parameterTypes": [
             "org.springframework.web.client.RestClient",
+            "com.fasterxml.jackson.databind.ObjectMapper",
             "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
         },
@@ -1284,8 +1306,13 @@
           "name": "ghcrClient",
           "parameterTypes": [
             "org.springframework.web.client.RestClient",
+            "com.fasterxml.jackson.databind.ObjectMapper",
             "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
+        },
+        {
+          "name": "registryJsonMapper",
+          "parameterTypes": []
         },
         {
           "name": "registryOperations",
@@ -1647,7 +1674,43 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "com.roomelephant.porthole.core.version.VersionRefreshService"
+            "com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
+            "com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver",
+            "com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings"
+          ]
+        },
+        {
+          "name": "close",
+          "parameterTypes": []
+        },
+        {
+          "name": "start",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings"
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
+            "com.roomelephant.porthole.core.port.outbound.RegistryOperations"
           ]
         }
       ]
@@ -1719,14 +1782,10 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
+            "com.roomelephant.porthole.core.service.DockerDiscoveryService",
             "com.roomelephant.porthole.core.presentation.ContainerPresentation",
             "com.roomelephant.porthole.core.enrichment.ContainerEnrichment"
           ]
-        },
-        {
-          "name": "close",
-          "parameterTypes": []
         }
       ]
     },
@@ -1746,38 +1805,17 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.core.version.VersionRefreshService",
+      "type": "com.roomelephant.porthole.core.service.DockerDiscoveryService",
       "methods": [
         {
           "name": "<init>",
           "parameterTypes": [
-            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
-            "com.roomelephant.porthole.core.version.VersionService",
-            "com.roomelephant.porthole.core.version.VersionRefreshSettings"
+            "com.roomelephant.porthole.core.port.outbound.DockerOperations"
           ]
         },
         {
           "name": "close",
           "parameterTypes": []
-        },
-        {
-          "name": "start",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.core.version.VersionRefreshSettings"
-    },
-    {
-      "type": "com.roomelephant.porthole.core.version.VersionService",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
-            "com.roomelephant.porthole.core.port.outbound.RegistryOperations"
-          ]
         }
       ]
     },
@@ -8484,6 +8522,15 @@
       "glob": "com/roomelephant/porthole/core/enrichment/version/VersionEnricher.class"
     },
     {
+      "glob": "com/roomelephant/porthole/core/enrichment/version/refresh/VersionRefreshService$Entry.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/enrichment/version/refresh/VersionRefreshService.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/enrichment/version/resolution/VersionResolver.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/core/port/inbound/CheckDockerAvailability.class"
     },
     {
@@ -8508,13 +8555,7 @@
       "glob": "com/roomelephant/porthole/core/service/DockerAvailabilityService.class"
     },
     {
-      "glob": "com/roomelephant/porthole/core/version/VersionRefreshService$Entry.class"
-    },
-    {
-      "glob": "com/roomelephant/porthole/core/version/VersionRefreshService.class"
-    },
-    {
-      "glob": "com/roomelephant/porthole/core/version/VersionService.class"
+      "glob": "com/roomelephant/porthole/core/service/DockerDiscoveryService.class"
     },
     {
       "glob": "com/roomelephant/porthole/inbound/health/DockerHealthIndicator.class"
