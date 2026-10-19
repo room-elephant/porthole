@@ -3,18 +3,18 @@ porthole:
   versions:
     refresh-interval: 1h
 
-# Icon configuration
-dashboard:
-  icons:
-    url: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp
-    extension: .webp
+  # Icon configuration
+  dashboard:
+    icons:
+      url: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp
+      extension: .webp
 
-# Registry configuration
-registry:
-  timeout:
-    connect: 5s
-    read: 10s
-  cache:
-    ttl: 1h
-    version-max-size: 100
+  # Registry configuration
+  registry:
+    timeout:
+      connect: 5s
+      read: 10s
+    cache:
+      ttl: 1h
+      version-max-size: 100
 

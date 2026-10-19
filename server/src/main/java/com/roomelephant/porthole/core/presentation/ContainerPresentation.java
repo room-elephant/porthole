@@ -3,6 +3,7 @@ package com.roomelephant.porthole.core.presentation;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.presentation.icon.IconResolver;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.IntStream;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
@@ -18,9 +19,11 @@ public class ContainerPresentation {
     }
 
     public List<Container> toModels(List<ContainerSnapshot> snapshots, String sourceId) {
-        var displayNames = names.resolve(snapshots);
-        return IntStream.range(0, snapshots.size())
-                .mapToObj(i -> toModel(snapshots.get(i), sourceId, displayNames.get(i)))
+        List<ContainerSnapshot> identified =
+                snapshots.stream().filter(c -> c.id() != null).toList();
+        List<String> displayNames = names.resolve(identified);
+        return IntStream.range(0, identified.size())
+                .mapToObj(i -> toModel(identified.get(i), sourceId, displayNames.get(i)))
                 .toList();
     }
 
@@ -29,12 +32,16 @@ public class ContainerPresentation {
     }
 
     private Container toModel(ContainerSnapshot c, String sourceId, String displayName) {
+        String image = c.image();
+        if (image == null) {
+            image = ImageUtils.UNKNOWN_IMAGE_NAME;
+        }
         return new Container(
-                c.id(),
+                Objects.requireNonNull(c.id()),
                 sourceId,
                 c.name(),
                 displayName,
-                c.image(),
+                image,
                 new Container.Details(
                         c.publishedPorts(),
                         c.labels(),

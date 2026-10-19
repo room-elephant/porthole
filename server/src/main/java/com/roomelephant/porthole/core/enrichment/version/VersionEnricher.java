@@ -2,8 +2,8 @@ package com.roomelephant.porthole.core.enrichment.version;
 
 import com.roomelephant.porthole.core.enrichment.ContainerEnricher;
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.version.VersionRefreshService;
 import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.core.annotation.Order;

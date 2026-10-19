@@ -8,7 +8,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.dockerjava.api.command.InspectImageResponse;
-import com.roomelephant.porthole.domain.model.VersionInfo;
+import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -67,7 +67,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void retaggedImageWithMissingRemoteRepositoryHasNoUpdate() {
-        var localReference = com.roomelephant.porthole.domain.model.ImageReference.tryParse(TEST_LOCAL_IMAGE_TAG)
+        var localReference = com.roomelephant.porthole.core.model.ImageReference.tryParse(TEST_LOCAL_IMAGE_TAG)
                 .orElseThrow();
         var digests = localContainer
                 .getDockerClient()

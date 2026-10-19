@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
-import com.roomelephant.porthole.config.properties.GhcrProperties;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import java.time.Duration;
 import java.util.List;
@@ -27,7 +26,7 @@ class GhcrRegistryTest {
     private static final String A = "sha256:" + "a".repeat(64);
     private static final String B = "sha256:" + "b".repeat(64);
     private MockRestServiceServer server;
-    private HttpRegistryOperations service;
+    private RegistryOperationsAdapter service;
 
     @BeforeEach
     void setUp() {
@@ -36,8 +35,10 @@ class GhcrRegistryTest {
         var properties = new RegistryProperties(
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
-                new RegistryProperties.Urls("https://hub-registry/v2/", "https://hub-auth/", "https://hub-catalog/"));
-        service = new HttpRegistryOperations(builder.build(), properties, ghcr());
+                new RegistryProperties.DockerHub(
+                        "https://hub-registry/v2/", "https://hub-auth/", "https://hub-catalog/"),
+                ghcr());
+        service = RegistryTestClients.operations(builder.build(), properties);
     }
 
     @ParameterizedTest
@@ -57,14 +58,13 @@ class GhcrRegistryTest {
         server.expect(requestTo("https://ghcr.io/v2/acme/app/tags/list?n=100&last=1.0"))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer ghcr-token"))
                 .andRespond(withSuccess(
-                        "{\"name\":\"acme/app\",\"tags\":[null,42,\"2.0\",\"1.0-alpine\"]}",
-                        MediaType.APPLICATION_JSON));
+                        "{\"name\":\"acme/app\",\"tags\":[\"2.0\",\"1.0-alpine\"]}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://hub-catalog/acme/app/tags?page_size=100"))
                 .andExpect(headerDoesNotExist(HttpHeaders.AUTHORIZATION))
                 .andRespond(withSuccess("{\"results\":[{\"name\":\"9.0\"}]}", MediaType.APPLICATION_JSON));
-        assertEquals("2.0", service.getLatestVersion(IMAGE));
-        assertEquals("9.0", service.getLatestVersion("acme/app:1.0"));
-        assertEquals("2.0", service.getLatestVersion("GHCR.IO/acme/app:latest"));
+        assertEquals("2.0", latest(IMAGE));
+        assertEquals("9.0", latest("acme/app:1.0"));
+        assertEquals("2.0", latest("GHCR.IO/acme/app:latest"));
         server.verify();
     }
 
@@ -74,18 +74,17 @@ class GhcrRegistryTest {
         auth("access_token", "ghcr-token");
         manifest("1.0", B, "application/vnd.oci.image.index.v1+json", "ghcr-token");
         manifest(A, A, localType, "ghcr-token");
-        assertEquals(changed, service.isTagChanged(IMAGE, List.of(A)));
+        assertEquals(changed, changed(IMAGE, List.of(A)));
         server.verify();
     }
 
     @Test
-    void anonymousTokensAreFreshForEachOperation() {
-        for (String token : List.of("first", "second")) {
-            auth("token", token);
-            manifest("1.0", A, "application/vnd.oci.image.index.v1+json", token);
-        }
-        assertEquals(A, service.getDigest(IMAGE, "1.0"));
-        assertEquals(A, service.getDigest(IMAGE, "1.0"));
+    void anonymousTokensAreReusedAcrossOperations() {
+        auth("token", "first");
+        manifest("1.0", A, "application/vnd.oci.image.index.v1+json", "first");
+        manifest("1.0", A, "application/vnd.oci.image.index.v1+json", "first");
+        assertFalse(changed(IMAGE, List.of(A)));
+        assertFalse(changed(IMAGE, List.of(A)));
         server.verify();
     }
 
@@ -103,8 +102,8 @@ class GhcrRegistryTest {
                         .header(HttpHeaders.LINK, "<?n=100&last=1.0>; " + parameters));
         server.expect(requestTo("https://ghcr.io/v2/acme/app/tags/list?n=100&last=1.0"))
                 .andRespond(withSuccess("{\"tags\":[\"2.0\"]}", MediaType.APPLICATION_JSON));
-        assertEquals("2.0", service.getLatestVersion(IMAGE));
-        assertEquals("2.0", service.getLatestVersion(IMAGE));
+        assertEquals("2.0", latest(IMAGE));
+        assertEquals("2.0", latest(IMAGE));
         server.verify();
     }
 
@@ -124,7 +123,8 @@ class GhcrRegistryTest {
         server.expect(requestTo(TAGS))
                 .andRespond(withSuccess("{\"tags\":[\"9.0\"]}", MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.LINK, link));
-        assertThrows(RuntimeException.class, () -> service.getLatestVersion(IMAGE));
+        assertInstanceOf(
+                com.roomelephant.porthole.core.model.RegistryLookup.Unavailable.class, service.listTags(ref(IMAGE)));
         server.verify();
     }
 
@@ -137,24 +137,43 @@ class GhcrRegistryTest {
                         .header(HttpHeaders.LINK, "<?n=100&last=9.0>; rel=next"));
         server.expect(requestTo("https://ghcr.io/v2/acme/app/tags/list?n=100&last=9.0"))
                 .andRespond(withStatus(HttpStatus.valueOf(status)));
-        assertThrows(RuntimeException.class, () -> service.getLatestVersion(IMAGE));
+        if (status == 401) {
+            auth("token", "refreshed");
+            server.expect(requestTo("https://ghcr.io/v2/acme/app/tags/list?n=100&last=9.0"))
+                    .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+        }
+        assertInstanceOf(
+                com.roomelephant.porthole.core.model.RegistryLookup.Unavailable.class, service.listTags(ref(IMAGE)));
         server.verify();
     }
 
     @Test
     void deniedAnonymousAccessIsInconclusive() {
         server.expect(requestTo(TOKEN)).andRespond(withStatus(HttpStatus.FORBIDDEN));
-        assertThrows(RuntimeException.class, () -> service.getLatestVersion(IMAGE));
+        assertInstanceOf(
+                com.roomelephant.porthole.core.model.RegistryLookup.Unavailable.class, service.listTags(ref(IMAGE)));
         server.verify();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"{}", "{\"tags\":null}", "{\"tags\":\"1.0\"}", "{\"tags\":[]}"})
+    @ValueSource(
+            strings = {
+                "{}",
+                "{\"tags\":null}",
+                "{\"tags\":\"1.0\"}",
+                "{\"tags\":[]}",
+                "{\"tags\":[null]}",
+                "{\"tags\":[42]}",
+                "{\"tags\":[\"2.0\",null]}"
+            })
     void malformedOrEmptyTagListsDoNotSupplyAVersion(String body) {
         auth("token", "ghcr-token");
         server.expect(requestTo(TAGS)).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
-        if (body.equals("{\"tags\":[]}")) assertNull(service.getLatestVersion(IMAGE));
-        else assertThrows(RuntimeException.class, () -> service.getLatestVersion(IMAGE));
+        if (body.equals("{\"tags\":[]}")) assertNull(latest(IMAGE));
+        else
+            assertInstanceOf(
+                    com.roomelephant.porthole.core.model.RegistryLookup.Unavailable.class,
+                    service.listTags(ref(IMAGE)));
         server.verify();
     }
 
@@ -167,7 +186,7 @@ class GhcrRegistryTest {
                         .header(HttpHeaders.LINK, "<?n=100&last=1.0>; rel=next"));
         server.expect(requestTo("https://ghcr.io/v2/acme/app/tags/list?n=100&last=1.0"))
                 .andRespond(withSuccess("{\"tags\":" + tags + "}", MediaType.APPLICATION_JSON));
-        assertEquals(expected, service.getLatestVersion(IMAGE));
+        assertEquals(expected, latest(IMAGE));
         server.verify();
     }
 
@@ -185,7 +204,26 @@ class GhcrRegistryTest {
                 .andRespond(withSuccess("", MediaType.parseMediaType(type)).header("Docker-Content-Digest", digest));
     }
 
-    private static GhcrProperties ghcr() {
-        return new GhcrProperties("https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
+    private static com.roomelephant.porthole.core.model.ImageReference ref(String image) {
+        return com.roomelephant.porthole.core.model.ImageReference.tryParse(image)
+                .orElseThrow();
+    }
+
+    private String latest(String image) {
+        var result = service.listTags(ref(image));
+        var available = assertInstanceOf(com.roomelephant.porthole.core.model.RegistryLookup.Available.class, result);
+        return new com.roomelephant.porthole.core.enrichment.version.resolution.ReleasePolicy()
+                .latest((com.roomelephant.porthole.core.model.TagCatalogue) available.value());
+    }
+
+    private boolean changed(String image, List<String> digests) {
+        return new com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy()
+                        .manifest(digests, service.readManifests(ref(image), digests))
+                == com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy.Evidence.POSITIVE;
+    }
+
+    private static RegistryProperties.Ghcr ghcr() {
+        return new RegistryProperties.Ghcr(
+                "https://ghcr.io/v2/", "https://ghcr.io/token?service=ghcr.io&scope=repository:");
     }
 }

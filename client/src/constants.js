@@ -3,7 +3,6 @@ export const STORAGE_KEYS = {
   SHOW_STOPPED: 'porthole_showStopped',
   GROUP_BY: 'porthole_groupBy',
   ENDPOINT_PREF: (sourceId, name) => `endpoint_pref_v2_${JSON.stringify([sourceId, name])}`,
-  PORT_PREF: (name) => `port_pref_${name}`,
   VERSION_CHECK: (sourceId, name) => `version_check_v2_${JSON.stringify([sourceId, name])}`,
 };
 

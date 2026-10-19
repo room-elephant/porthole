@@ -16,6 +16,7 @@
 
     <properties>
         <java.version>25</java.version>
+        <archunit.version>1.5.1</archunit.version>
         <docker-java.version>3.7.1</docker-java.version>
         <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
         <jspecify.version>1.0.1</jspecify.version>
@@ -69,6 +70,12 @@
             <artifactId>jackson-dataformat-yaml</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit6</artifactId>
+            <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

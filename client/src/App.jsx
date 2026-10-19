@@ -77,7 +77,6 @@ function App() {
             sourcesById={sourcesById}
             showAll={showAll}
             showStopped={showStopped}
-            allowLegacyMigration={data.sources.length === 1}
           />
         ))}
       </>

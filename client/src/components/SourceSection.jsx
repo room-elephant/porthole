@@ -64,7 +64,7 @@ function HostMeta({ section }) {
 
 const keyOf = container => JSON.stringify([container.sourceId, container.id]);
 
-function Group({ group, section, sourcesById, allowLegacyMigration }) {
+function Group({ group, section, sourcesById }) {
   useStorageRevision();
   const groupRef = useRef(null);
   // While a settings dialog is open its card keeps its tile/chip slot, so the dialog
@@ -103,7 +103,6 @@ function Group({ group, section, sourcesById, allowLegacyMigration }) {
     container,
     sourceOnline: sourcesById[container.sourceId]?.status === 'UP',
     hostTag: section.kind === 'stack' ? sourcesById[container.sourceId]?.name ?? null : null,
-    allowLegacyMigration,
     onSettingsOpenChange: handleSettingsOpenChange,
   });
 
@@ -138,7 +137,7 @@ function Group({ group, section, sourcesById, allowLegacyMigration }) {
   );
 }
 
-export default function SourceSection({ section, sourcesById, showAll, showStopped, allowLegacyMigration }) {
+export default function SourceSection({ section, sourcesById, showAll, showStopped }) {
   const headingId = useId();
   const isHost = section.kind === 'host';
   const source = section.source;
@@ -167,7 +166,6 @@ export default function SourceSection({ section, sourcesById, showAll, showStopp
             group={group}
             section={section}
             sourcesById={sourcesById}
-            allowLegacyMigration={allowLegacyMigration}
           />
         ))
       )}

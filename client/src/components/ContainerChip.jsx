@@ -1,10 +1,9 @@
 import { useContainerCard } from '../hooks/useContainerCard';
 
 /** Compact button for a container without a web UI; opens its settings. */
-export default function ContainerChip({ container, sourceOnline = true, hostTag = null, sourceName, allowLegacyMigration = false, onSettingsOpenChange }) {
+export default function ContainerChip({ container, sourceOnline = true, hostTag = null, sourceName, onSettingsOpenChange }) {
     const { status, openSettings, settingsDialog } = useContainerCard(container, {
         sourceOnline,
-        allowLegacyMigration,
         sourceName,
         onSettingsOpenChange,
     });

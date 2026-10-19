@@ -7,7 +7,7 @@ import { containerStatus } from '../utils/status';
  * Shared behaviour of a container tile or chip: preferences, derived status and
  * the owned settings dialog. `onSettingsOpenChange(container, open)` is optional.
  */
-export const useContainerCard = (container, { sourceOnline = true, allowLegacyMigration = false, sourceName, onSettingsOpenChange } = {}) => {
+export const useContainerCard = (container, { sourceOnline = true, sourceName, onSettingsOpenChange } = {}) => {
   const [open, setOpen] = useState(false);
   // Latest values for the unmount cleanup below.
   const latest = useRef({});
@@ -19,7 +19,7 @@ export const useContainerCard = (container, { sourceOnline = true, allowLegacyMi
     const { open: wasOpen, container: last, onSettingsOpenChange: notify } = latest.current;
     if (wasOpen) notify?.(last, false);
   }, []);
-  const prefs = useContainerPrefs(container, allowLegacyMigration);
+  const prefs = useContainerPrefs(container);
   const showUpdate = Boolean(prefs.checkUpdates && container.version?.updateAvailable);
   const status = containerStatus(container, { sourceOnline, showUpdate });
 

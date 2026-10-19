@@ -8,6 +8,7 @@ import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.model.ContainerConfig;
 import com.github.dockerjava.api.model.ContainerPort;
 import com.roomelephant.porthole.core.model.ContainerKey;
+import com.roomelephant.porthole.core.model.DockerSource;
 import com.roomelephant.porthole.core.model.exception.*;
 import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import java.net.SocketException;
@@ -23,10 +24,8 @@ class DockerJavaOperationsTest {
 
     @Test
     void sourceDescriptorsContainNoClientsAndKeepConfiguredBudgets() {
-        assertThat(docker.sources()).containsExactly(docker.requireSource("one"));
-        assertThat(docker.requireSource("one").publishedHost()).isEqualTo("host");
-        assertThat(docker.requireSource("one").responseTimeout()).isEqualTo(Duration.ofSeconds(3));
-        assertThatThrownBy(() -> docker.requireSource("unknown")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(docker.sources())
+                .containsExactly(new DockerSource("one", "One", "host", Duration.ofSeconds(2), Duration.ofSeconds(3)));
     }
 
     @Test
@@ -112,7 +111,8 @@ class DockerJavaOperationsTest {
         when(config.getEnv()).thenReturn(environment);
         when(config.getLabels()).thenReturn(labels);
         var inspection = docker.inspectContainer(new ContainerKey("one", "id"));
-        assertThat(new com.roomelephant.porthole.core.version.InstalledVersionDetector().detect(inspection))
+        assertThat(new com.roomelephant.porthole.core.enrichment.version.resolution.InstalledVersionDetector()
+                        .detect(inspection))
                 .isEqualTo("1");
         environment[0] = "NGINX_VERSION=2";
         labels.put("version", "3");

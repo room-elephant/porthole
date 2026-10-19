@@ -6,9 +6,9 @@ import { useVersionPreference } from './useVersionPreference';
  * notifications are shown. Both persist in localStorage and stay in sync
  * between every component that reads the same container.
  */
-export const useContainerPrefs = (container, allowLegacyMigration = false) => {
+export const useContainerPrefs = (container) => {
   const { selectedEndpoint, selectedEndpointId, selectEndpoint } = useEndpointSelection(
-    container.sourceId, container.name, container.endpoints, { migrateLegacy: allowLegacyMigration });
-  const [checkUpdates, setCheckUpdates] = useVersionPreference(container.sourceId, container.name, allowLegacyMigration);
+    container.sourceId, container.name, container.endpoints);
+  const [checkUpdates, setCheckUpdates] = useVersionPreference(container.sourceId, container.name);
   return { selectedEndpoint, selectedEndpointId, selectEndpoint, checkUpdates, setCheckUpdates };
 };

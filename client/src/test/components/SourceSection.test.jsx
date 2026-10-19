@@ -3,7 +3,6 @@ import { screen, within, fireEvent } from '@testing-library/react';
 import SourceSection, { OfflineBanner } from '../../components/SourceSection';
 import { renderWithQuery, createMockContainer } from '../testUtils';
 import { renderHook, act } from '@testing-library/react';
-import { useVersionPreference } from '../../hooks/useVersionPreference';
 import { useEndpointSelection } from '../../hooks/useEndpointSelection';
 import { buildSections } from '../../utils/containers';
 import { GROUP_BY } from '../../constants';
@@ -16,7 +15,7 @@ const renderSection = (containers, { sources = [source], groupBy = GROUP_BY.HOST
   const sections = buildSections({ sources, containers, groupBy });
   const sourcesById = Object.fromEntries(sources.map(s => [s.id, s]));
   return renderWithQuery(
-    <SourceSection section={sections[index]} sourcesById={sourcesById} showAll={showAll} showStopped={showStopped} allowLegacyMigration={false} />
+    <SourceSection section={sections[index]} sourcesById={sourcesById} showAll={showAll} showStopped={showStopped} />
   );
 };
 
@@ -89,7 +88,7 @@ describe('source sections', () => {
   const sources = [source];
   const sourcesById = { walker: source };
   const render = containers => (
-   <SourceSection section={buildSections({ sources, containers, groupBy: GROUP_BY.HOST_STACK })[0]} sourcesById={sourcesById} showAll showStopped allowLegacyMigration={false} />
+   <SourceSection section={buildSections({ sources, containers, groupBy: GROUP_BY.HOST_STACK })[0]} sourcesById={sourcesById} showAll showStopped />
   );
   const view = renderWithQuery(render([mk(), other]));
   fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
@@ -128,15 +127,6 @@ describe('source sections', () => {
  it('shows offline chips for headless containers on an unreachable host', () => {
   renderSection([mk({ hasEndpoints: false, endpoints: [] })], { sources: [{ ...source, status: 'DOWN', error: 'x' }] });
   expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveTextContent('Test Container · Offline');
- });
-
- it('turns a legacy "No web UI" preference into a chip on first load', () => {
-  localStorage.setItem('endpoint_pref_Test Container', JSON.stringify('none'));
-  const container = mk({ name: 'Test Container' });
-  const sections = buildSections({ sources: [source], containers: [container], groupBy: GROUP_BY.HOST_STACK });
-  renderWithQuery(<SourceSection section={sections[0]} sourcesById={{ walker: source }} showAll showStopped allowLegacyMigration />);
-  expect(screen.getByRole('button', { name: /settings/ })).toHaveClass('chip');
-  expect(document.querySelector('.tile-grid')).toBeNull();
  });
 
  it('exports a reusable OfflineBanner', () => {
@@ -203,23 +193,5 @@ describe('source sections', () => {
   act(() => result.current.walker.selectEndpoint('none'));
   expect(result.current.walker.selectedEndpoint).toBeNull();
   expect(result.current.mike.selectedEndpoint.id).toBe('traefik:test');
- });
- it('does not import a legacy preference when multiple hosts exist', () => {
-  localStorage.setItem('endpoint_pref_same','"none"');
-  const endpoints=[{id:'published-port:80',source:'published-port',url:'http://example.com/'}];
-  const {result}=renderHook(() => useEndpointSelection('mike','same',endpoints,{migrateLegacy:false}));
-  expect(result.current.selectedEndpoint).toEqual(endpoints[0]);
- });
- it('migrates single-source explicit endpoint and disabled update preferences without changing legacy keys', () => {
-  localStorage.setItem('endpoint_pref_same','"none"');localStorage.setItem('version_check_same','false');
-  const endpoints=[{id:'published-port:80',source:'published-port',url:'http://example.com/'}];
-  const {result}=renderHook(() => ({selection:useEndpointSelection('walker','same',endpoints,{migrateLegacy:true}),version:useVersionPreference('walker','same',true)}));
-  expect(result.current.selection.selectedEndpoint).toBeNull();expect(result.current.version[0]).toBe(false);
-  expect(localStorage.getItem('endpoint_pref_same')).toBe('"none"');expect(localStorage.getItem('version_check_same')).toBe('false');
- });
- it('does not import an old update preference for multiple sources', () => {
-  localStorage.setItem('version_check_same','false');
-  const {result}=renderHook(() => useVersionPreference('mike','same',false));
-  expect(result.current[0]).toBe(true);
  });
 });

@@ -7,7 +7,7 @@ import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.endpointavailability.EndpointAvailabilityFilter;
 import com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter;
 import com.roomelephant.porthole.core.enrichment.version.VersionEnricher;
-import com.roomelephant.porthole.core.version.VersionRefreshService;
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;

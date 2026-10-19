@@ -52,16 +52,12 @@ class DockerConfigTest {
     void doesNotPingDuringStartupAndClosesEveryClient() throws Exception {
         var a = mock(DockerClient.class);
         var b = mock(DockerClient.class);
-        var config =
-                new DockerConfig(
-                        new DockerProperties(List.of(connection("a"), connection("b"))),
-                        new EndpointProperties(null),
-                        new org.springframework.mock.env.MockEnvironment()) {
-                    @Override
-                    DockerClient createClient(DockerConnectionProperties p) {
-                        return p.id().equals("a") ? a : b;
-                    }
-                };
+        var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
+            @Override
+            DockerClient createClient(DockerConnectionProperties p) {
+                return p.id().equals("a") ? a : b;
+            }
+        };
         try (var sources = config.dockerSources()) {
             assertThat(sources.sources()).extracting(s -> s.id()).containsExactly("a", "b");
             assertThat(sources.require("b").client()).isSameAs(b);
@@ -74,17 +70,13 @@ class DockerConfigTest {
     @Test
     void cleansUpPartialConstruction() throws Exception {
         var client = mock(DockerClient.class);
-        var config =
-                new DockerConfig(
-                        new DockerProperties(List.of(connection("a"), connection("b"))),
-                        new EndpointProperties(null),
-                        new org.springframework.mock.env.MockEnvironment()) {
-                    @Override
-                    DockerClient createClient(DockerConnectionProperties p) {
-                        if (p.id().equals("b")) throw new IllegalStateException("failed");
-                        return client;
-                    }
-                };
+        var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
+            @Override
+            DockerClient createClient(DockerConnectionProperties p) {
+                if (p.id().equals("b")) throw new IllegalStateException("failed");
+                return client;
+            }
+        };
         assertThatThrownBy(config::dockerSources).hasMessage("failed");
         verify(client).close();
     }

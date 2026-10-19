@@ -44,42 +44,44 @@ transport; `ssh://` is not a supported application URI. This feature adds no
 per-source TLS certificate or credential settings.
 
 Each entry defaults to a `5s` connection timeout and `60s` response timeout, even
-when omitted from an external list. Timeouts must be positive. With several
+when omitted from an external list. Timeouts must be positive. Their sum bounds
+Docker container retrieval for that source; presentation and enrichment run outside
+that deadline. With several
 sources, every entry must set `published-host` to the hostname/IP clients should
 use for direct port links. It must omit scheme, port, and path. For one source,
-the existing global `porthole.endpoints.published-host` remains a fallback, followed
-by the incoming request hostname. Traefik-discovered URLs retain their own hosts.
+the incoming request hostname is used when `published-host` is omitted. Traefik-discovered URLs retain their own hosts.
 
 Restart Porthole after changing connections. An unavailable source does not stop
 the application from starting: its host section reports the failure and retries
 on the next 30-second dashboard poll. Empty lists and invalid entries fail
 startup, rather than silently falling back to the local daemon.
 
-### Environment variables and migration
+### Environment Variables
 
-The former singular `porthole.docker.host`, `connection-timeout`, and
-`response-timeout` settings have been replaced by list entries. Remove the old
-keys: they are rejected as unbound configuration. For example:
+Configure connections with indexed environment variables:
 
-| Former setting | New first-source setting |
+| Variable | Description |
 | --- | --- |
-| `PORTHOLE_DOCKER_HOST` | `PORTHOLE_DOCKER_CONNECTIONS_0_HOST` |
-| `PORTHOLE_DOCKER_CONNECTIONTIMEOUT` | `PORTHOLE_DOCKER_CONNECTIONS_0_CONNECTIONTIMEOUT` |
-| `PORTHOLE_DOCKER_RESPONSETIMEOUT` | `PORTHOLE_DOCKER_CONNECTIONS_0_RESPONSETIMEOUT` |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_ID` | Unique source ID |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_NAME` | Display name |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_HOST` | Docker socket or TCP URI |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST` | Hostname or IP for published-port links |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_CONNECTIONTIMEOUT` | Connection timeout; defaults to `5s` |
+| `PORTHOLE_DOCKER_CONNECTIONS_0_RESPONSETIMEOUT` | Response timeout; defaults to `60s` |
 
-Also set `PORTHOLE_DOCKER_CONNECTIONS_0_ID` and
-`PORTHOLE_DOCKER_CONNECTIONS_0_NAME`. Additional entries use indexes `1`, `2`, and
-so on; set `PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST` and the corresponding
-property on every other entry when configuring several sources. Supply every
-entry's required fields; higher-priority lists replace lower-priority defaults.
-Do not rely on `DOCKER_HOST` to configure application sources.
+Additional entries use indexes `1`, `2`, and so on. Supply every entry's required
+fields; higher-priority lists replace lower-priority defaults. Set `published-host`
+on every entry when configuring several sources. Unknown YAML properties under
+`porthole.docker` are rejected by strict binding.
 
 Browser endpoint choices and update-warning preferences are scoped by source ID
-and container name. Existing name-only choices migrate only when exactly one
-source is configured and no scoped value exists. With several sources, the old
-keys remain untouched and each host starts with independent defaults.
+and container name.
 
 ## Configuration Files
+
+Application settings share the `porthole` namespace: `porthole.docker`, `porthole.versions`, `porthole.dashboard`, and `porthole.registry`. Spring's `server`, `spring`, and `management` settings keep their standard namespaces.
+
+For compound property names, Spring's canonical environment form removes hyphens: for example, `porthole.registry.cache.version-max-size` becomes `PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE`.
 
 The Docker image includes template configuration files in `/app/config/`:
 
@@ -116,9 +118,9 @@ porthole:
 
 Set `PORTHOLE_VERSIONS_REFRESHINTERVAL` to override the interval through the environment. It must be positive. The interval is the delay after a completed background inventory refresh, with one immediate refresh at startup. Up to four containers are checked concurrently, and duplicate checks for the same container are coalesced.
 
-Before a successful check, `version` is `null`. Completed results contain `currentVersion`, `latestVersion`, and `updateAvailable`; either version string may be null when metadata is unavailable. Previous successful results remain visible during refreshes and registry outages, so cached information may be stale. Failed first checks retry no sooner than the configured interval. Version results are keyed by `(sourceId, containerId)`, so the same image or container ID on different hosts retains independent installed-version and update results. Docker container and image inspection uses the owning source. Registry release catalogues remain shared by normalized registry/repository. Each source scans independently; a failed source scan keeps its cached results and cannot prune another source. Deleted containers are removed from that source’s cache after its successful inventory scan; restarting Porthole clears the cache.
+Before a successful check, `version` is `null`. Completed results contain `currentVersion`, `latestVersion`, and `updateAvailable`; either version string may be null when metadata is unavailable. During refreshes, prior results remain visible. Each successful registry evidence channel is retained independently during failures, so cached information may be stale. A successful negative observation clears a previous positive in that channel. Evidence is discarded when the configured image reference or installed image ID changes, or matching repository provenance is lost; Docker inspection failures retain the previous result. Failed first checks retry no sooner than the configured interval. Version results are keyed by `(sourceId, containerId)`, so the same image or container ID on different hosts retains independent installed-version and update results. Docker container and image inspection uses the owning source. Registry release catalogues remain shared by normalized registry/repository. Each source scans independently; a failed source scan keeps its cached results and cannot prune another source. Deleted containers are removed from that source’s cache after its successful inventory scan; restarting Porthole clears the cache.
 
-The client retrieves updated cached information through its existing 30-second container polling. Its per-container notification preference controls warning visibility; it does not stop server-side checks. The separate `/api/containers/{containerId}/version` endpoint has been removed.
+The client retrieves updated cached information through its existing 30-second container polling. Its per-container notification preference controls warning visibility; it does not stop server-side checks.
 
 ### Registry Configuration
 
@@ -126,27 +128,32 @@ Porthole checks public images on Docker Hub and GitHub Container Registry (GHCR)
 
 | Property                          | Default | Description                           |
 |-----------------------------------|---------|---------------------------------------|
-| `REGISTRY_TIMEOUT_CONNECT`        | `5s`    | Connection timeout for registry APIs |
-| `REGISTRY_TIMEOUT_READ`           | `10s`   | Read timeout for registry APIs       |
-| `REGISTRY_CACHE_TTL`              | `1h`    | TTL for registry catalogue and Docker Hub token caches |
-| `REGISTRY_CACHE_VERSION_MAX_SIZE` | `100` | Maximum cached registry catalogue entries   |
+| `PORTHOLE_REGISTRY_TIMEOUT_CONNECT`        | `5s`    | Connection timeout for registry APIs |
+| `PORTHOLE_REGISTRY_TIMEOUT_READ`           | `10s`   | Read timeout for registry APIs       |
+| `PORTHOLE_REGISTRY_CACHE_TTL`              | `1h`    | TTL for complete registry tag catalogues |
+| `PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE` | `100` | Maximum cached registry tag catalogues   |
 
-The container refresh interval and `REGISTRY_CACHE_TTL` control separate layers. A refresh can reuse a registry catalogue while its TTL has not elapsed; lower the TTL as well if you need fresher catalogue results more often. Container results themselves do not expire on this TTL.
+The container refresh interval and `PORTHOLE_REGISTRY_CACHE_TTL` control separate layers. A refresh can reuse a registry catalogue while its TTL has not elapsed; lower the TTL as well if you need fresher catalogue results more often. Container results themselves do not expire on this TTL.
 
-Docker Hub transport overrides retain the `REGISTRY_URLS_REGISTRY`, `REGISTRY_URLS_AUTH`, and `REGISTRY_URLS_REPOSITORIES` settings. GHCR has independent settings, useful with a trusted transport proxy:
+Docker Hub and GHCR have independent transport settings, useful with a trusted transport proxy:
 
 | Property | Default |
 |---|---|
-| `REGISTRY_GHCR_REGISTRY_URL` | `https://ghcr.io/v2/` |
-| `REGISTRY_GHCR_AUTH_URL` | `https://ghcr.io/token?service=ghcr.io&scope=repository:` |
+| `PORTHOLE_REGISTRY_DOCKERHUB_REGISTRYURL` | `https://registry-1.docker.io/v2/` |
+| `PORTHOLE_REGISTRY_DOCKERHUB_AUTHURL` | `https://auth.docker.io/token?service=registry.docker.io&scope=repository:` |
+| `PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL` | `https://hub.docker.com/v2/repositories/` |
+| `PORTHOLE_REGISTRY_GHCR_REGISTRYURL` | `https://ghcr.io/v2/` |
+| `PORTHOLE_REGISTRY_GHCR_AUTHURL` | `https://ghcr.io/token?service=ghcr.io&scope=repository:` |
 
-The registry base ends in `/`; the auth prefix ends in `repository:` and receives the repository name plus `:pull`. Overrides must preserve these API shapes. GHCR uses anonymous pull tokens fetched for each registry operation; Porthole does not read Docker credentials. Complete catalogue results are cached separately by registry and repository. Inaccessible packages, denied requests and rate limits leave checks inconclusive. See [GitHub's Container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+In YAML, Docker Hub settings live under `porthole.registry.dockerhub` with `registry-url`, `auth-url`, and `repositories-url`, matching GHCR's `porthole.registry.ghcr` naming.
+
+The registry base ends in `/`; the auth prefix ends in `repository:` and receives the repository name plus `:pull`. Overrides must preserve these API shapes. Both providers use anonymous pull tokens whose lifetime follows the authentication response, independently of catalogue caching. An authenticated registry request returning `401` triggers one token refresh and retry. Porthole does not read Docker credentials. Complete tag catalogues, including empty ones, are cached by normalized registry and repository. Manifest observations remain fresh on each check. Inaccessible packages, denied requests, rate limits, and incomplete responses supply unavailable evidence. Catalogue and manifest checks run independently; positive evidence from either can establish an update. See [GitHub's Container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
 Numeric release checks accept tags with at least two dot-separated integer components, optionally prefixed by `v` (for example, `1.2`, `v1.2.3`). Components are compared numerically without integer overflow; missing trailing components count as zero. Suffixes such as `-alpine`, prereleases, and single-number tags are excluded. The highest numeric tag across all major versions is considered; there is no major-version pinning policy. A warning requires a strictly newer comparable version, and this release check only applies when the configured image tag is numeric.
 
-Docker Hub tag enumeration follows JSON `next` links; GHCR uses OCI tag-list `Link` headers. Both follow pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration marks the refresh unsuccessful rather than publishing a partial maximum; previous successful container results remain available.
+Docker Hub tag enumeration follows JSON `next` links; GHCR uses OCI tag-list `Link` headers. Both follow pagination on the same catalogue URL, with a fixed limit of 100 pages of up to 100 tags each. `PORTHOLE_REGISTRY_TIMEOUT_READ` also supplies the total enumeration budget, checked between responses; an individual in-flight request still uses its configured HTTP timeout. Failed, unsafe, cyclic, or incomplete enumeration supplies unavailable catalogue evidence rather than publishing a partial maximum; it does not prevent the independent manifest check. The enumeration budget is not a hard deadline for the entire check: authentication and manifest requests use their individual timeouts.
 
-Mutable tag changes are checked independently of numeric releases. Digests must belong to the same repository, use the same hash algorithm, and represent the same manifest level (image manifest or multi-platform index). Missing or incompatible metadata is inconclusive; index-versus-platform-image differences alone never trigger a warning. The update tooltip says **Image update available**, since a changed tag does not necessarily identify a newer numeric release.
+Mutable tag changes are checked independently of numeric releases. Digests must belong to the same repository, use the same hash algorithm, and represent the same manifest level (image manifest or multi-platform index). Missing or incompatible metadata is internally inconclusive; index-versus-platform-image differences alone never trigger a warning. The current comparison concerns repository manifests: another platform changing can change a multi-platform index, and removal of an old manifest can prevent comparison. Platform-aware image comparison is deferred. The update tooltip says **Image update available**, since a changed tag does not necessarily identify a newer numeric release.
 
 ### Icon Mappings
 
@@ -158,8 +165,8 @@ By default, icons are fetched from Dashboard Icons CDN. You can customize the so
 
 | Property                          | Default                                                         | Description                           |
 |-----------------------------------|-----------------------------------------------------------------|---------------------------------------|
-| `DASHBOARD_ICONS_URL`             | `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp`  | Base URL for icons                    |
-| `DASHBOARD_ICONS_EXTENSION`       | `.webp`                                                         | File extension                        |
+| `PORTHOLE_DASHBOARD_ICONS_URL`             | `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp`  | Base URL for icons                    |
+| `PORTHOLE_DASHBOARD_ICONS_EXTENSION`       | `.webp`                                                         | File extension                        |
 
 #### Icon Resolution Logic
 
@@ -204,17 +211,21 @@ Porthole lists containers with at least one discovered endpoint by default. **Sh
 
 ### Published-Port Hostname
 
-Published-port URLs use HTTP and the hostname from the incoming Porthole request. For example, accessing `http://192.168.50.6:9753/` produces `http://192.168.50.6:51413/` for a container publishing port 51413. Port 80 uses the standard `http://192.168.50.6/` form. IPv6 addresses are bracketed correctly.
+Published-port URLs use HTTP and the connection’s `published-host`, falling back to the incoming request hostname when it is omitted for a single connection. For example, accessing `http://192.168.50.6:9753/` produces `http://192.168.50.6:51413/` for a container publishing port 51413. Port 80 uses the standard `http://192.168.50.6/` form. IPv6 addresses are bracketed correctly.
 
-For a single source, use the global override when Porthole's browser hostname differs from the Docker host that publishes the ports, including reverse-proxy deployments. For multiple sources, configure each connection's `published-host` as described above:
+Set `published-host` on the Docker connection when Porthole's browser hostname differs from the Docker host that publishes the ports, including reverse-proxy deployments:
 
 ```yaml
 porthole:
-  endpoints:
-    published-host: docker.example.com
+  docker:
+    connections:
+      - id: local
+        name: Local
+        host: unix:///var/run/docker.sock
+        published-host: docker.example.com
 ```
 
-The environment variable is **`PORTHOLE_ENDPOINTS_PUBLISHEDHOST`**. Its value must be a bare hostname or IP address, without a scheme, port, or path. Invalid values prevent application startup. The default is unset; the request hostname is resolved for each request. Porthole does not use the browser's client IP or a container bridge address.
+The first connection's environment variable is **`PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST`**. Its value must be a bare hostname or IP address, without a scheme, port, or path. Invalid values prevent application startup. For a single connection, the default is unset and the request hostname is resolved for each request. Multiple connections must each specify `published-host`. Porthole does not use the browser's client IP or a container bridge address.
 
 Direct ports are candidates, not guarantees of a web UI: a published torrent, database, or HTTPS-only port can still produce an HTTP candidate. Choose the appropriate endpoint in settings.
 
@@ -246,8 +257,8 @@ The **Endpoint** section contains one selection across **No endpoint**, **Traefi
 
 A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traefik URL or the unique root `/` route among several Traefik URLs. If Traefik is absent, it selects a sole candidate from any provider. Multiple root routes, multiple non-root Traefik routes, or multiple candidates without Traefik open settings for a choice.
 
-Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. An explicit **No endpoint** choice is saved and remains in effect when discovered URLs change. Existing numeric port preferences migrate when their published port still exists and no new endpoint preference has been saved; the old preference remains intact. Preferences synchronize across browser tabs.
+Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. An explicit **No endpoint** choice is saved and remains in effect when discovered URLs change. Preferences synchronize across browser tabs.
 
 ### Version Update Notifications
 
-Use **Show update notifications** to show or hide a container's update warning (⚠️). The preference is stored in your browser and preserves existing saved settings. Version checks continue on the server regardless of this setting. This is useful for hiding notifications on containers you do not intend to update.
+Use **Show update notifications** to show or hide a container's update warning (⚠️). The preference is stored in your browser. Version checks continue on the server regardless of this setting. This is useful for hiding notifications on containers you do not intend to update.

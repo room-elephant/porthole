@@ -82,8 +82,8 @@ export const useLocalStorage = (key, defaultValue) => {
  */
 export const useStorageRevision = () => {
   const [revision, setRevision] = useState(0);
-  // Layout effect: subscribe before any child's passive effect (e.g. legacy preference
-  // migration) writes storage and dispatches the same-tab event.
+  // Layout effect: subscribe before any child's passive effect (e.g. a preference
+  // write) updates storage and dispatches the same-tab event.
   useLayoutEffect(() => {
     const bump = () => setRevision(value => value + 1);
     window.addEventListener('storage', bump);

@@ -23,7 +23,7 @@ public record DockerSourceRegistry(List<DockerConnection> sources) implements Au
     @Override
     public void close() throws IOException {
         IOException failure = null;
-        for (var source : sources)
+        for (DockerConnection source : sources)
             try {
                 source.client().close();
             } catch (IOException e) {

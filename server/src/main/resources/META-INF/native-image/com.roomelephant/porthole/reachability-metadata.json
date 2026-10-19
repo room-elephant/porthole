@@ -46,6 +46,15 @@
       "type": "com.fasterxml.jackson.core.JsonGenerator"
     },
     {
+      "type": "com.fasterxml.jackson.core.ObjectCodec"
+    },
+    {
+      "type": "com.fasterxml.jackson.core.TreeCodec"
+    },
+    {
+      "type": "com.fasterxml.jackson.core.Versioned"
+    },
+    {
       "type": "com.fasterxml.jackson.databind.ObjectMapper"
     },
     {
@@ -149,6 +158,15 @@
       ]
     },
     {
+      "type": "com.github.benmanes.caffeine.cache.PSMS",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "com.github.benmanes.caffeine.cache.PSW",
       "fields": [
         {
@@ -168,6 +186,9 @@
     {
       "type": "com.github.benmanes.caffeine.cache.SSMS",
       "fields": [
+        {
+          "name": "FACTORY"
+        },
         {
           "name": "maximum"
         },
@@ -1217,12 +1238,6 @@
           "parameterTypes": []
         },
         {
-          "name": "endpointSettings",
-          "parameterTypes": [
-            "com.roomelephant.porthole.config.properties.EndpointProperties"
-          ]
-        },
-        {
           "name": "iconSettings",
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.DashboardProperties"
@@ -1240,6 +1255,12 @@
       "type": "com.roomelephant.porthole.config.DockerConfig",
       "methods": [
         {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.config.properties.DockerProperties"
+          ]
+        },
+        {
           "name": "dockerOperations",
           "parameterTypes": [
             "com.roomelephant.porthole.outbound.docker.DockerSourceRegistry"
@@ -1252,60 +1273,12 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.config.DockerConfig$$SpringCGLIB$$0",
-      "fields": [
-        {
-          "name": "$$beanFactory"
-        },
-        {
-          "name": "CGLIB$CALLBACK_FILTER"
-        },
-        {
-          "name": "CGLIB$FACTORY_DATA"
-        }
-      ],
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.config.properties.DockerProperties",
-            "com.roomelephant.porthole.config.properties.EndpointProperties",
-            "org.springframework.core.env.Environment"
-          ]
-        },
-        {
-          "name": "CGLIB$SET_STATIC_CALLBACKS",
-          "parameterTypes": [
-            "org.springframework.cglib.proxy.Callback[]"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.DockerConfig$$SpringCGLIB$$FastClass$$0",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.DockerConfig$$SpringCGLIB$$FastClass$$1",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
       "type": "com.roomelephant.porthole.config.IconConfig",
       "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
         {
           "name": "iconMappings",
           "parameterTypes": [
@@ -1315,116 +1288,43 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.config.IconConfig$$SpringCGLIB$$0",
-      "fields": [
-        {
-          "name": "$$beanFactory"
-        },
-        {
-          "name": "CGLIB$CALLBACK_FILTER"
-        },
-        {
-          "name": "CGLIB$FACTORY_DATA"
-        }
-      ],
+      "type": "com.roomelephant.porthole.config.RegistryConfig",
       "methods": [
         {
           "name": "<init>",
           "parameterTypes": []
         },
         {
-          "name": "CGLIB$SET_STATIC_CALLBACKS",
-          "parameterTypes": [
-            "org.springframework.cglib.proxy.Callback[]"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.IconConfig$$SpringCGLIB$$FastClass$$0",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.IconConfig$$SpringCGLIB$$FastClass$$1",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.Class"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.RestClientConfig",
-      "methods": [
-        {
-          "name": "registryOperations",
+          "name": "dockerHubClient",
           "parameterTypes": [
             "org.springframework.web.client.RestClient",
-            "com.roomelephant.porthole.config.properties.RegistryProperties",
-            "com.roomelephant.porthole.config.properties.GhcrProperties"
-          ]
-        },
-        {
-          "name": "restClient",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.RestClientConfig$$SpringCGLIB$$0",
-      "fields": [
-        {
-          "name": "$$beanFactory"
-        },
-        {
-          "name": "CGLIB$CALLBACK_FILTER"
-        },
-        {
-          "name": "CGLIB$FACTORY_DATA"
-        }
-      ],
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
+            "com.fasterxml.jackson.databind.ObjectMapper",
             "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
         },
         {
-          "name": "CGLIB$SET_STATIC_CALLBACKS",
+          "name": "ghcrClient",
           "parameterTypes": [
-            "org.springframework.cglib.proxy.Callback[]"
+            "org.springframework.web.client.RestClient",
+            "com.fasterxml.jackson.databind.ObjectMapper",
+            "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.RestClientConfig$$SpringCGLIB$$FastClass$$0",
-      "methods": [
+        },
         {
-          "name": "<init>",
+          "name": "registryJsonMapper",
+          "parameterTypes": []
+        },
+        {
+          "name": "registryOperations",
           "parameterTypes": [
-            "java.lang.Class"
+            "java.util.List",
+            "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.RestClientConfig$$SpringCGLIB$$FastClass$$1",
-      "methods": [
+        },
         {
-          "name": "<init>",
+          "name": "restClient",
           "parameterTypes": [
-            "java.lang.Class"
+            "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
         }
       ]
@@ -1516,10 +1416,6 @@
         {
           "name": "isPublishedHostValid",
           "parameterTypes": []
-        },
-        {
-          "name": "isTimeoutsValid",
-          "parameterTypes": []
         }
       ]
     },
@@ -1548,51 +1444,19 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.config.properties.EndpointProperties",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String"
-          ]
-        },
-        {
-          "name": "isPublishedHostValid",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.properties.GhcrProperties",
-      "fields": [
-        {
-          "name": "authUrl"
-        },
-        {
-          "name": "registryUrl"
-        }
-      ],
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String",
-            "java.lang.String"
-          ]
-        }
-      ]
-    },
-    {
       "type": "com.roomelephant.porthole.config.properties.RegistryProperties",
       "fields": [
         {
           "name": "cache"
         },
         {
-          "name": "timeout"
+          "name": "dockerhub"
         },
         {
-          "name": "urls"
+          "name": "ghcr"
+        },
+        {
+          "name": "timeout"
         }
       ],
       "methods": [
@@ -1601,7 +1465,8 @@
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.RegistryProperties$Timeout",
             "com.roomelephant.porthole.config.properties.RegistryProperties$Cache",
-            "com.roomelephant.porthole.config.properties.RegistryProperties$Urls"
+            "com.roomelephant.porthole.config.properties.RegistryProperties$DockerHub",
+            "com.roomelephant.porthole.config.properties.RegistryProperties$Ghcr"
           ]
         }
       ]
@@ -1627,6 +1492,50 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.config.properties.RegistryProperties$DockerHub",
+      "fields": [
+        {
+          "name": "authUrl"
+        },
+        {
+          "name": "registryUrl"
+        },
+        {
+          "name": "repositoriesUrl"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.config.properties.RegistryProperties$Ghcr",
+      "fields": [
+        {
+          "name": "authUrl"
+        },
+        {
+          "name": "registryUrl"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.config.properties.RegistryProperties$Timeout",
       "fields": [
         {
@@ -1647,31 +1556,12 @@
       ]
     },
     {
-      "type": "com.roomelephant.porthole.config.properties.RegistryProperties$Urls",
+      "type": "com.roomelephant.porthole.config.properties.VersionProperties",
       "fields": [
         {
-          "name": "auth"
-        },
-        {
-          "name": "registry"
-        },
-        {
-          "name": "repositories"
+          "name": "refreshInterval"
         }
       ],
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String",
-            "java.lang.String",
-            "java.lang.String"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.config.properties.VersionProperties",
       "methods": [
         {
           "name": "<init>",
@@ -1710,16 +1600,11 @@
       "type": "com.roomelephant.porthole.core.enrichment.endpoint.EndpointProvider"
     },
     {
-      "type": "com.roomelephant.porthole.core.enrichment.endpoint.EndpointSettings"
-    },
-    {
       "type": "com.roomelephant.porthole.core.enrichment.endpoint.PublishedHostResolver",
       "methods": [
         {
           "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.core.enrichment.endpoint.EndpointSettings"
-          ]
+          "parameterTypes": []
         }
       ]
     },
@@ -1789,7 +1674,43 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "com.roomelephant.porthole.core.version.VersionRefreshService"
+            "com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
+            "com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver",
+            "com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings"
+          ]
+        },
+        {
+          "name": "close",
+          "parameterTypes": []
+        },
+        {
+          "name": "start",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings"
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
+            "com.roomelephant.porthole.core.port.outbound.RegistryOperations"
           ]
         }
       ]
@@ -1813,6 +1734,9 @@
           "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.port.inbound.CheckDockerAvailability"
     },
     {
       "type": "com.roomelephant.porthole.core.port.inbound.GetContainers"
@@ -1858,55 +1782,15 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
+            "com.roomelephant.porthole.core.service.DockerDiscoveryService",
             "com.roomelephant.porthole.core.presentation.ContainerPresentation",
             "com.roomelephant.porthole.core.enrichment.ContainerEnrichment"
           ]
-        },
-        {
-          "name": "close",
-          "parameterTypes": []
         }
       ]
     },
     {
-      "type": "com.roomelephant.porthole.core.version.VersionRefreshService",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
-            "com.roomelephant.porthole.core.version.VersionService",
-            "com.roomelephant.porthole.core.version.VersionRefreshSettings"
-          ]
-        },
-        {
-          "name": "close",
-          "parameterTypes": []
-        },
-        {
-          "name": "start",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.core.version.VersionRefreshSettings"
-    },
-    {
-      "type": "com.roomelephant.porthole.core.version.VersionService",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.core.port.outbound.DockerOperations",
-            "com.roomelephant.porthole.core.port.outbound.RegistryOperations"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.inbound.health.DockerHealthIndicator",
+      "type": "com.roomelephant.porthole.core.service.DockerAvailabilityService",
       "methods": [
         {
           "name": "<init>",
@@ -1917,6 +1801,32 @@
         {
           "name": "close",
           "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.service.DockerDiscoveryService",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.outbound.DockerOperations"
+          ]
+        },
+        {
+          "name": "close",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.inbound.health.DockerHealthIndicator",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.inbound.CheckDockerAvailability"
+          ]
         }
       ]
     },
@@ -2096,7 +2006,16 @@
       "type": "com.roomelephant.porthole.outbound.docker.DockerSourceRegistry"
     },
     {
-      "type": "com.roomelephant.porthole.outbound.registry.HttpRegistryOperations"
+      "type": "com.roomelephant.porthole.outbound.registry.RegistryClient"
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.registry.RegistryOperationsAdapter"
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.registry.dockerhub.DockerHubClient"
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.registry.ghcr.GhcrClient"
     },
     {
       "type": "com.sun.crypto.provider.AESCipher$General",
@@ -2527,6 +2446,9 @@
     },
     {
       "type": "jakarta.validation.ConstraintValidator"
+    },
+    {
+      "type": "jakarta.validation.ReportAsSingleViolation"
     },
     {
       "type": "jakarta.validation.Valid"
@@ -3380,6 +3302,51 @@
       "type": "org.hibernate.validator.HibernateValidator"
     },
     {
+      "type": "org.hibernate.validator.constraints.time.DurationMin",
+      "methods": [
+        {
+          "name": "days",
+          "parameterTypes": []
+        },
+        {
+          "name": "groups",
+          "parameterTypes": []
+        },
+        {
+          "name": "hours",
+          "parameterTypes": []
+        },
+        {
+          "name": "inclusive",
+          "parameterTypes": []
+        },
+        {
+          "name": "message",
+          "parameterTypes": []
+        },
+        {
+          "name": "millis",
+          "parameterTypes": []
+        },
+        {
+          "name": "minutes",
+          "parameterTypes": []
+        },
+        {
+          "name": "nanos",
+          "parameterTypes": []
+        },
+        {
+          "name": "payload",
+          "parameterTypes": []
+        },
+        {
+          "name": "seconds",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.hibernate.validator.constraintvalidation.HibernateConstraintValidator"
     },
     {
@@ -3429,6 +3396,15 @@
     },
     {
       "type": "org.hibernate.validator.internal.constraintvalidators.bv.number.sign.PositiveValidatorForInteger",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.hibernate.validator.internal.constraintvalidators.hv.time.DurationMinValidator",
       "methods": [
         {
           "name": "<init>",
@@ -7119,9 +7095,6 @@
       "type": "org.springframework.context.annotation.Configuration"
     },
     {
-      "type": "org.springframework.context.annotation.ConfigurationClassEnhancer$EnhancedConfiguration"
-    },
-    {
       "type": "org.springframework.context.annotation.ConfigurationClassParser$DefaultDeferredImportSelectorGroup",
       "methods": [
         {
@@ -8498,7 +8471,7 @@
       "glob": "com/roomelephant/porthole/config/IconConfig.class"
     },
     {
-      "glob": "com/roomelephant/porthole/config/RestClientConfig.class"
+      "glob": "com/roomelephant/porthole/config/RegistryConfig.class"
     },
     {
       "glob": "com/roomelephant/porthole/config/nativehints/DockerNativeConfig.class"
@@ -8549,6 +8522,18 @@
       "glob": "com/roomelephant/porthole/core/enrichment/version/VersionEnricher.class"
     },
     {
+      "glob": "com/roomelephant/porthole/core/enrichment/version/refresh/VersionRefreshService$Entry.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/enrichment/version/refresh/VersionRefreshService.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/enrichment/version/resolution/VersionResolver.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/port/inbound/CheckDockerAvailability.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/core/port/inbound/GetContainers.class"
     },
     {
@@ -8567,13 +8552,10 @@
       "glob": "com/roomelephant/porthole/core/service/ContainerService.class"
     },
     {
-      "glob": "com/roomelephant/porthole/core/version/VersionRefreshService$Entry.class"
+      "glob": "com/roomelephant/porthole/core/service/DockerAvailabilityService.class"
     },
     {
-      "glob": "com/roomelephant/porthole/core/version/VersionRefreshService.class"
-    },
-    {
-      "glob": "com/roomelephant/porthole/core/version/VersionService.class"
+      "glob": "com/roomelephant/porthole/core/service/DockerDiscoveryService.class"
     },
     {
       "glob": "com/roomelephant/porthole/inbound/health/DockerHealthIndicator.class"

@@ -9,8 +9,6 @@ import org.jspecify.annotations.*;
 public interface DockerOperations {
     List<DockerSource> sources();
 
-    DockerSource requireSource(String sourceId);
-
     List<ContainerSnapshot> listContainers(String sourceId);
 
     ContainerInspection inspectContainer(ContainerKey key);

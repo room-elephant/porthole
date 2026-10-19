@@ -5,16 +5,38 @@ import static org.assertj.core.api.Assertions.*;
 import com.roomelephant.porthole.config.DockerConfig;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 
 class DockerPropertiesTest {
+    @ParameterizedTest
+    @ValueSource(strings = {"http://192.168.50.6", "host:9753", "host/path", "", "host?query", "user@host", "${HOST}"})
+    void rejectsInvalidConnectionPublishedHosts(String host) {
+        source().withPropertyValues("porthole.docker.connections[0].published-host=" + host)
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"docker.example.com", "192.168.50.6", "2001:db8::6", "[2001:db8::6]"})
+    void acceptsValidConnectionPublishedHosts(String host) {
+        source().withPropertyValues("porthole.docker.connections[0].published-host=" + host)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(DockerProperties.class)
+                                    .connections()
+                                    .getFirst()
+                                    .publishedHost())
+                            .isEqualTo(host);
+                });
+    }
+
     private final ApplicationContextRunner runner = new ApplicationContextRunner().withUserConfiguration(Config.class);
 
     private ApplicationContextRunner source() {
@@ -61,8 +83,8 @@ class DockerPropertiesTest {
     }
 
     @Test
-    void rejectsLegacySingularSettings() {
-        source().withPropertyValues("porthole.docker.host=unix:///old.sock")
+    void rejectsUnknownDockerProperties() {
+        source().withPropertyValues("porthole.docker.unknown-setting=value")
                 .run(c -> assertThat(c).hasFailed());
     }
 
@@ -110,34 +132,6 @@ class DockerPropertiesTest {
                 throw new IllegalStateException(e);
             }
         });
-    }
-
-    @Test
-    void realLegacyEnvironmentAndSystemPropertiesFailWithMigrationGuidance() {
-        for (String key : new String[] {"host", "connection-timeout", "response-timeout"}) {
-            String value = key.equals("host") ? "unix:///old.sock" : "3s";
-            String envKey = "PORTHOLE_DOCKER_" + key.replace("-", "").toUpperCase(java.util.Locale.ROOT);
-            layered("{}")
-                    .withInitializer(c -> c.getEnvironment()
-                            .getPropertySources()
-                            .replace(
-                                    "systemEnvironment",
-                                    new SystemEnvironmentPropertySource("systemEnvironment", Map.of(envKey, value))))
-                    .run(c -> assertThat(c)
-                            .hasFailed()
-                            .getFailure()
-                            .hasStackTraceContaining("porthole.docker.connections"));
-            layered("{}")
-                    .withInitializer(c -> c.getEnvironment()
-                            .getPropertySources()
-                            .replace(
-                                    "systemProperties",
-                                    new MapPropertySource("systemProperties", Map.of("porthole.docker." + key, value))))
-                    .run(c -> assertThat(c)
-                            .hasFailed()
-                            .getFailure()
-                            .hasStackTraceContaining("porthole.docker.connections"));
-        }
     }
 
     @Test
@@ -191,6 +185,6 @@ class DockerPropertiesTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties({DockerProperties.class, EndpointProperties.class})
+    @EnableConfigurationProperties(DockerProperties.class)
     static class Config {}
 }

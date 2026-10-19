@@ -22,18 +22,18 @@ class ImageReferenceTest {
         "registry-1.docker.io/library/nginx,docker.io/library/nginx,latest,true",
         "bitnami/redis:7,docker.io/bitnami/redis,7,true",
         "ghcr.io/acme/app:Release,ghcr.io/acme/app,Release,true",
-        "ghcr.io/app,ghcr.io/app,latest,false",
-        "ghcr.io:443/acme/app,ghcr.io:443/acme/app,latest,false",
-        "localhost:5000/app,localhost:5000/app,latest,false",
-        "[::1]:5000/app,[::1]:5000/app,latest,false",
-        "MYREGISTRY/app:Release,myregistry/app,Release,false",
-        "docker.io:443/app,docker.io:443/app,latest,false"
+        "ghcr.io/app,ghcr.io/app,latest,true",
+        "ghcr.io:443/acme/app,ghcr.io:443/acme/app,latest,true",
+        "localhost:5000/app,localhost:5000/app,latest,true",
+        "[::1]:5000/app,[::1]:5000/app,latest,true",
+        "MYREGISTRY/app:Release,myregistry/app,Release,true",
+        "docker.io:443/app,docker.io:443/app,latest,true"
     })
-    void preservesIdentity(String value, String repository, String tag, boolean supported) {
+    void preservesIdentity(String value, String repository, String tag, boolean mutable) {
         var reference = ImageReference.tryParse(value).orElseThrow();
         assertEquals(repository, reference.canonicalRepository());
         assertEquals(tag, reference.lookupTag());
-        assertEquals(supported, reference.supportsUpdates());
+        assertEquals(mutable, reference.isMutable());
     }
 
     @ParameterizedTest
@@ -43,7 +43,7 @@ class ImageReferenceTest {
         assertEquals("nginx", reference.leafName());
         assertEquals(DIGEST, reference.digest());
         assertNull(reference.lookupTag());
-        assertFalse(reference.supportsUpdates());
+        assertFalse(reference.isMutable());
     }
 
     @ParameterizedTest

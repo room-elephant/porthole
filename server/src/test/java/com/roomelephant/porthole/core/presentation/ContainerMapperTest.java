@@ -33,6 +33,27 @@ class ContainerMapperTest {
         containerMapper = new ContainerPresentation(iconComponent);
     }
 
+    @Test
+    void snapshotsWithoutIdentityDoNotEnterThePublicModel() {
+        var missing = new com.roomelephant.porthole.core.model.ContainerSnapshot(
+                null, "app", "nginx:latest", Set.of(), Map.of(), null, null);
+        var healthy = new com.roomelephant.porthole.core.model.ContainerSnapshot(
+                "valid", "app", "nginx:latest", Set.of(), Map.of(), null, null);
+        when(iconComponent.resolveIcon(anyString())).thenReturn("icon");
+        var models = containerMapper.toModels(java.util.List.of(missing, healthy), "local");
+        assertEquals(1, models.size());
+        assertEquals("valid", models.getFirst().id());
+        assertEquals("app", models.getFirst().displayName());
+    }
+
+    @Test
+    void missingImageUsesTheExistingUnknownFallback() {
+        var snapshot = new com.roomelephant.porthole.core.model.ContainerSnapshot(
+                "valid", "app", null, Set.of(), Map.of(), null, null);
+        when(iconComponent.resolveIcon("Unknown")).thenReturn("icon");
+        assertEquals("Unknown", containerMapper.toModel(snapshot, "local").image());
+    }
+
     @Nested
     @DisplayName("toModel")
     class ToModel {

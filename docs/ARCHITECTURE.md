@@ -55,7 +55,7 @@ Regular JVM and native IT runs do not supply the recording property and therefor
 
 ### Spring AOT hints
 
-`DockerNativeConfig` (`server/src/main/java/.../config/nativehints/DockerNativeConfig.java`) registers additional Spring AOT hints for `docker-java` model classes and `@ConfigurationProperties` beans that are bound reflectively by Jackson or Hibernate Validator. This covers types that the agent cannot observe because they are never instantiated during the IT run.
+`DockerNativeConfig` (`server/src/main/java/.../config/nativehints/DockerNativeConfig.java`) registers additional Spring AOT hints for Docker SDK model, command, and configuration-file types used reflectively by Jackson. This covers types that the agent cannot observe because they are never instantiated during the IT run.
 
 ### JVM vs Native Integration Tests
 
@@ -142,16 +142,15 @@ The complete environment is scanned before choosing the generic fallback. Blank 
 
 ## Container Registry Integration
 
-Porthole queries Docker Hub and public GitHub Container Registry packages to detect available updates. `HttpRegistryOperations` implements the core `RegistryOperations` port and selects transport by the parsed semantic registry; URL overrides never change that identity. When resolving image names:
+Porthole queries Docker Hub and public GitHub Container Registry packages for remote image facts. Core owns the `RegistryOperations` port, numeric release selection, manifest comparison, and update decisions. `RegistryOperationsAdapter` selects a registered `RegistryClient` and caches complete raw tag catalogues, including empty ones. Providers in `dockerhub/` and `ghcr/` own their endpoints and catalogue integration; URL overrides never change the semantic image registry identity.
 
-- **Official images** (e.g., `redis`, `postgres`) are stored under the `library/` namespace
-- **User/org images** (e.g., `bitnami/redis`) use their namespace directly
-- **Image identity** is parsed before lookup. Registry ports and digest qualifiers are preserved; GHCR and unsupported registries are never rewritten into Docker Hub paths.
-- **Update eligibility** requires a mutable supported reference and local RepoDigests from the same normalized repository. Explicit digest pins and local image identifiers are skipped.
-- **GHCR images** retain the complete owner/image path. `GhcrProperties` supplies independent registry/auth transports. Anonymous pull tokens authorize both `/v2/<repository>/tags/list?n=100` and manifest HEAD requests; fresh tokens avoid storing expired GHCR credentials. Private-package authentication is outside this feature.
-- **Catalogue pagination** shares `RegistryTagPage` numeric selection and origin/path validation. Hub reads `results[].name` plus JSON `next`; GHCR reads `tags[]` plus `Link: <...>; rel="next"` ([OCI Distribution Specification](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#listing-tags)). Catalogue cache keys include the normalized registry and repository, preventing cross-registry results for identical paths.
-- **Numeric releases** use arbitrary-precision integer components, optional lowercase `v`, and zero-padding for missing components. Only a strictly greater comparable release triggers a version warning. All catalogue pages must complete within the documented bounds; the maximum is deterministic and cached by normalized registry/repository. See [Registry Configuration](CONFIGURATION.md#registry-configuration) for grammar, policy and limits.
-- **Mutable tags** negotiate OCI image/index and Docker v2 image/list media types. Equal exact digests suppress tag-change evidence. For different digests, HEAD requests for local digests establish compatible manifest levels; unavailable local manifests are skipped. An index and its platform child are never treated as comparable. Numeric-release and tag-change evidence are evaluated independently, and either can establish an update.
+- **Image identity and eligibility** use parsed references and matching local RepoDigests from the owning Docker source. Docker Hub aliases normalize to `docker.io`, and official images gain `library/`. GHCR retains its complete owner/image path. Digest pins, local identifiers, unsupported registries, and images without repository provenance supply no update evidence.
+- **Provider composition** uses concrete `DistributionClient` and `BearerTokenClient` collaborators. Each provider owns separate repository-scoped token state while sharing expiry, anonymous token decoding, and one refresh/retry after an authenticated request returns 401. Docker Hub catalogue requests remain unauthenticated. Private-package login and Docker credential discovery are outside this feature.
+- **Catalogue pagination** parses Hub `results[].name` and JSON `next`, or Distribution `tags[]` and `Link` headers. `TagPagination` follows complete same-origin/path catalogues with cycle, page-count, and elapsed-budget checks. It returns raw tags without selecting versions. `LinkHeaderParser` handles Distribution pagination metadata.
+- **Numeric releases** are selected by `ReleasePolicy` in `core.enrichment.version.resolution`, using arbitrary-precision numeric components, optional lowercase `v`, zero-padding, and deterministic alias ties. The existing dotted-numeric grammar and all-major-version policy are documented in [Registry Configuration](CONFIGURATION.md#registry-configuration).
+- **Manifest facts** come from authenticated HEAD requests negotiating OCI image/index and Docker v2 image/list media types. `DistributionClient` returns validated digest and manifest-kind metadata. Core treats exact equality as unchanged and different same-algorithm digests with remotely confirmed matching manifest levels as changed. Missing old manifests, unknown types, and incompatible levels remain inconclusive. This compares repository manifests; a changed multi-platform index does not necessarily mean the installed platform changed. Platform-aware resolution is deferred.
+- **Independent evidence** distinguishes available, missing, unsupported, and unavailable remote lookups. A failed catalogue lookup does not prevent manifest checking, and a failed manifest lookup does not erase a newer release. Either positive channel establishes an update; incomplete required evidence is internally inconclusive. The public `VersionInfo` JSON shape remains unchanged.
+- **Refresh retention** preserves each channel's last successful facts independently for the same configured reference and installed image ID. Successful negative evidence can clear a prior positive in its channel. Changing the installed identity or losing repository provenance discards the previous evidence; Docker inspection failures retain the previous public result.
 
 ```
 redis           → library/redis      (official)
@@ -196,16 +195,16 @@ Compose groups use source identity before project identity.
 A source with a successful list is `UP`, including an empty list. Transport
 failures/deadlines are `DOWN`; other per-source processing errors are `ERROR`.
 Failed sources contribute no containers. Completed inventories return 200 even
-when all sources failed; global request/orchestration errors remain 5xx. This
-replaces the former bare-array response and source-wide 502 failure. Diagnostic
+when all sources failed; global request/orchestration errors remain 5xx. Diagnostic
 causes stay in server logs rather than public source errors.
 
-A source attempt is bounded by its connection timeout plus response timeout;
-parallel attempts bound aggregate latency by the largest budget, rather than
-the sum. The browser cancels through its request signal and overrides its normal
-ten-second Axios timeout for this server-bounded request. A slow source can delay
-the aggregate snapshot until its deadline. The frontend polls one aggregate
-request every 30 seconds, replaces failed-source containers with an error state,
+Each Docker retrieval is bounded by its connection timeout plus response timeout.
+`DockerDiscoveryService` retrieves sources concurrently, so the Docker retrieval
+phase is bounded by the largest budget rather than the sum. Presentation and
+enrichment run afterward and are outside the Docker deadline. The browser cancels
+through its request signal and overrides its normal ten-second Axios timeout for
+this aggregate request. A slow Docker source can delay discovery until its deadline.
+The frontend polls one aggregate request every 30 seconds, replaces failed-source containers with an error state,
 and does not use actuator health to suppress otherwise usable results.
 
 `DockerSourceRegistry` owns each client's lifecycle. Mapping and enrichment receive
@@ -223,7 +222,7 @@ retry state, in-flight work, and revision guards use `(sourceId, containerId)`.
 Only a successful source scan prunes that source's missing containers; one source
 failure cannot erase another's results. Successful results remain cached while
 refreshing; eligible misses queue deduplicated background work. HTTP enrichment
-never waits for registry HTTP or version inspection. Shared registry catalogue
+never waits for registry HTTP or version inspection. Shared complete registry catalogue
 caches remain keyed by normalized registry/repository; installed version/digest
 comparisons and final update decisions remain specific to the container/source.
 
@@ -252,13 +251,13 @@ Each endpoint has exactly these fields:
 }
 ```
 
-Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fields. `includeWithoutEndpoints=false` filters after discovery, so label-only services are included. Both query flags default to false. The former `includeWithoutPorts` parameter is not an alias.
+Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fields. `includeWithoutEndpoints=false` filters after discovery, so label-only services are included. Both query flags default to false.
 
 For names matching `<project>-<name>`, `displayName` removes the project prefix and a trailing numeric replica suffix (for example, `smh-sonarr-1` becomes `sonarr`). If shortening creates a collision within the same project, the affected names keep their replica suffixes. Names outside this project-prefix convention are preserved. Collision detection uses all discovered containers before filtering, so query flags do not change display names. The original `name` is always retained.
 
 ### Endpoint Provider Extension
 
-`ContainerService` calls the core-owned `DockerOperations` port. Its outbound `DockerJavaOperations` implementation maps docker-java responses into `ContainerSnapshot` records; `ContainerPresentation` and `DisplayNameResolver` then assemble core `Container` objects using the complete source list. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
+`DockerDiscoveryService` calls the core-owned `DockerOperations` port and returns per-source snapshots and retrieval status in `DockerDiscoveryResult`. Its outbound `DockerJavaOperations` implementation maps docker-java responses into `ContainerSnapshot` records. `ContainerService` uses those discovery results with `ContainerPresentation` and `DisplayNameResolver` to assemble core `Container` objects using each complete source list, then runs request-specific enrichment. Presentation and enrichment failures produce a source `ERROR` without discarding other sources. Docker metadata fields are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
 
 The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the container and the request-specific `EnrichmentContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler; enrichment handlers update the same container instance, and filters retain it without changing it. An empty chain retains the input, and handler failures propagate to the existing exception handling.
 
@@ -293,7 +292,7 @@ public final class MyProxyEndpointProvider implements EndpointProvider {
 }
 ```
 
-Place implementations and URL helpers in `core/enrichment/endpoint/`; shared endpoint values live in `core/model/`. Each enrichment handler owns a concern package: `state`, `endpoint`, `endpointavailability`, or `version`. Bound endpoint configuration lives in `config/properties/EndpointProperties`; `CoreConfig` supplies a plain core `EndpointSettings` value. New reflectively accessed types require Spring AOT binding hints; generated reachability metadata must not be edited by hand.
+Place implementations and URL helpers in `core/enrichment/endpoint/`; shared endpoint values live in `core/model/`. Each enrichment handler owns a concern package: `state`, `endpoint`, `endpointavailability`, or `version`. The published hostname is bound per connection in `config/properties/DockerConnectionProperties` and passed into the source enrichment context; there is no global endpoint-host setting. New reflectively accessed types require Spring AOT binding hints; generated reachability metadata must not be edited by hand.
 
 Published-port IDs use `published-port:<port>` independently of the request hostname. Traefik IDs use `traefik:<normalized-url>`. The client opens the API URL directly, resolves saved IDs before Traefik defaults, and keeps automatic defaults out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
 
@@ -311,26 +310,30 @@ Published-port IDs use `published-port:<port>` independently of the request host
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `core/port/inbound/` — `GetContainers` and `RefreshVersions`, called by inbound adapters and implemented by core services.
+- `core/port/inbound/` — `GetContainers`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
 - `core/port/outbound/` — `DockerOperations` and `RegistryOperations`, implemented by outbound integrations.
-- `core/service/` — `ContainerService`, which coordinates source requests, deadlines, presentation, and enrichment.
+- `core/service/` — `ContainerService` coordinates presentation, enrichment, and response assembly. `DockerDiscoveryService` owns concurrent Docker retrieval, per-source deadlines, cancellation, and retrieval failure translation. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `endpoint/`, `endpointavailability/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
-- `core/version/` — version resolution, installed-version detection, update policy, numeric-version comparison, and background refresh coordination/cache state.
+- `core/enrichment/version/` — `VersionEnricher` attaches cached version results to containers.
+- `core/enrichment/version/refresh/` — `VersionRefreshService` owns background scheduling, refresh coordination, retries, and cache state; `VersionRefreshSettings` supplies its interval.
+- `core/enrichment/version/resolution/` — `VersionResolver` gathers version evidence; installed-version detection, retained observations, release selection, update policy, and numeric comparison live alongside it.
 - `core/model/` — application-owned container/source metadata, outcomes, queries, image references, version values, and exceptions. Ports never expose SDK objects or client handles.
 - `core/presentation/` — `ContainerPresentation`, `DisplayNameResolver`, and icon resolution in `icon/`.
 - `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`.
-- `inbound/health/` — actuator Docker health probes backed by the Docker port, preserving the shared deadline and per-source in-flight deduplication.
+- `inbound/health/` — translates `CheckDockerAvailability` results into actuator health responses; probing and timeout handling belong to the core service.
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
-- `outbound/registry/` — Docker Hub/GHCR HTTP, anonymous authentication, catalogue pagination, manifest evidence, and Caffeine response caching.
+- `outbound/registry/` — `RegistryOperationsAdapter` implements the core port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares authenticated tag/manifest protocol, token lifecycle, and Link parsing. Numeric selection and update decisions belong to `core.enrichment.version.resolution`.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
-- `config/properties/` — existing `@ConfigurationProperties` beans and validation; property names and defaults are unchanged.
+- `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`.
 - `config/nativehints/` — Spring AOT hints for library types the agent cannot observe.
 
 ### Dependency boundaries
 
-Core owns the interfaces and values at its boundaries. Controllers call inbound
-ports; Docker and registry integrations implement outbound ports. Configuration
-wires the implementations. Core does not import adapters, configuration-property
+Core owns the interfaces and values at its boundaries. Controllers and health
+adapters call inbound ports; Docker and registry integrations implement outbound
+ports. Both adapter groups may depend on `config/properties/`, but not on
+configuration wiring classes. Configuration wires the implementations. Core does
+not import adapters, configuration-property
 beans, Docker SDK classes, servlet types, or HTTP clients. Spring component and
 lifecycle annotations remain allowed in core.
 
@@ -343,7 +346,8 @@ inbound ──→ core ←── outbound
 Version enrichment only reads cached results and queues background work. Registry
 HTTP and Docker inspection stay off the inventory request path. Refresh state,
 revision guards, deduplication, and pruning retain one coordinator's ownership.
-`ArchitectureTest` checks dependency direction and port signatures, while behavior
+`ArchitectureTest` uses ArchUnit to check core isolation, adapter dependency
+direction, and port contracts against production bytecode, while behavior
 tests cover pipeline composition, source failures, and refresh races.
 
 ## Integration Test Infrastructure
@@ -364,9 +368,5 @@ during structural migrations. Those tests exercise packaged application behavior
 against JVM and native images. Unit tests outside that directory follow the new
 production packages and test adapter translation and core behavior separately.
 
-The existing ITs import wire records and image-reference helpers using their old
-package names. Test-only compatibility fixtures under `controller/model/` and
-`domain/model/`, outside the protected `it` directory, preserve those imports and
-JSON shapes. The image-reference helper delegates to the canonical core parser.
-These fixtures are not packaged in the production application. Production HTTP
-DTOs live exclusively in `inbound/web/dto/`.
+Integration tests use the production HTTP DTOs in `inbound/web/dto/` and shared
+values in `core/model/`.

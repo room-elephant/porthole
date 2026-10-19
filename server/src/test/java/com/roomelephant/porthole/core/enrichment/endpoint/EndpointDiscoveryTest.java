@@ -15,7 +15,6 @@ class EndpointDiscoveryTest {
     @Test
     void shouldInjectEveryRegisteredProviderBean() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
-            context.registerBean(EndpointSettings.class, () -> new EndpointSettings(null));
             context.register(
                     EndpointDiscovery.class,
                     PublishedPortEndpointProvider.class,
@@ -47,11 +46,8 @@ class EndpointDiscoveryTest {
                         "traefik.http.routers.root.tls", "true",
                         "traefik.http.routers.path.rule", "Host(`app.example.com`) && PathPrefix(`/z/`)",
                         "traefik.http.routers.path.tls", "true"));
-        assertThat(new EndpointDiscovery(List.of(
-                                proxy,
-                                proxy,
-                                new PublishedPortEndpointProvider(
-                                        new PublishedHostResolver(new EndpointSettings(null)))))
+        assertThat(new EndpointDiscovery(
+                                List.of(proxy, proxy, new PublishedPortEndpointProvider(new PublishedHostResolver())))
                         .discover(container, new EnrichmentContext("local", "localhost", null, false, false)))
                 .extracting(Endpoint::url)
                 .containsExactly("https://app.example.com/", "https://app.example.com/z/");

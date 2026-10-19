@@ -13,10 +13,9 @@ const hostText = (container, selectedEndpoint) => {
     return container.endpoints.length > 0 ? 'Choose a URL' : 'No web UI';
 };
 
-function ContainerTile({ container, sourceOnline = true, hostTag = null, sourceName, allowLegacyMigration = false, onSettingsOpenChange }) {
+function ContainerTile({ container, sourceOnline = true, hostTag = null, sourceName, onSettingsOpenChange }) {
     const { prefs: { selectedEndpoint }, status, showUpdate, openSettings, settingsDialog } = useContainerCard(container, {
         sourceOnline,
-        allowLegacyMigration,
         sourceName,
         onSettingsOpenChange,
     });
@@ -76,7 +75,6 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
     return (
         prev.id === next.id &&
         prev.sourceId === next.sourceId &&
-        prevProps.allowLegacyMigration === nextProps.allowLegacyMigration &&
         prevProps.sourceName === nextProps.sourceName &&
         prevProps.sourceOnline === nextProps.sourceOnline &&
         prevProps.hostTag === nextProps.hostTag &&
