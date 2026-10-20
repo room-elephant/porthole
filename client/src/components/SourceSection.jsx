@@ -17,21 +17,20 @@ function emptyMessage(showAll, showStopped) {
   return 'Docker is running but no containers exist. Start some containers to see them here.';
 }
 
-function ContainerGrid({ containers, allowLegacyMigration }) {
+function ContainerGrid({ containers }) {
   return (
     <div className="container-grid">
       {containers.map(container => (
         <ContainerTile
           key={JSON.stringify([container.sourceId, container.id])}
           container={container}
-          allowLegacyMigration={allowLegacyMigration}
         />
       ))}
     </div>
   );
 }
 
-function SourceInventory({ source, containers, showAll, showStopped, allowLegacyMigration }) {
+function SourceInventory({ source, containers, showAll, showStopped }) {
   if (source.status !== 'UP') {
     return (
       <div className="empty-state warning" role="alert">
@@ -59,19 +58,19 @@ function SourceInventory({ source, containers, showAll, showStopped, allowLegacy
   return (
     <>
       {groups.has(null) && (
-        <ContainerGrid containers={groups.get(null)} allowLegacyMigration={allowLegacyMigration} />
+        <ContainerGrid containers={groups.get(null)} />
       )}
       {projects.map(project => (
         <div key={project} className="project-section">
           <h3 className="project-title">{project}</h3>
-          <ContainerGrid containers={groups.get(project)} allowLegacyMigration={allowLegacyMigration} />
+          <ContainerGrid containers={groups.get(project)} />
         </div>
       ))}
     </>
   );
 }
 
-export default function SourceSection({ source, containers, showAll, showStopped, allowLegacyMigration }) {
+export default function SourceSection({ source, containers, showAll, showStopped }) {
   const connected = source.status === 'UP';
   return (
     <section className="source-section" aria-labelledby={`source-${source.id}`}>
@@ -92,7 +91,6 @@ export default function SourceSection({ source, containers, showAll, showStopped
         containers={containers}
         showAll={showAll}
         showStopped={showStopped}
-        allowLegacyMigration={allowLegacyMigration}
       />
     </section>
   );
