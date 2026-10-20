@@ -16,7 +16,7 @@ class DockerAvailabilityServiceTest {
         var operations = mock(DockerOperations.class);
         when(operations.sources())
                 .thenReturn(Arrays.stream(ids)
-                        .map(id -> new DockerSource(id, id, null, Duration.ofSeconds(5), Duration.ofSeconds(60)))
+                        .map(id -> new DockerSource(id, id, null, Duration.ofSeconds(5), Duration.ofSeconds(60), true))
                         .toList());
         return operations;
     }

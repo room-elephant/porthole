@@ -20,7 +20,8 @@ public record ContainerDTO(
         @Nullable String project,
         @Nullable String state,
         @Nullable String status,
-        @Nullable VersionInfo version) {
+        @Nullable VersionInfo version,
+        boolean self) {
     public ContainerDTO {
         endpoints = List.copyOf(endpoints);
     }

@@ -11,4 +11,5 @@ public record DockerConnection(
         @Nullable String publishedHost,
         Duration connectionTimeout,
         Duration responseTimeout,
+        boolean local,
         DockerClient client) {}

@@ -23,7 +23,8 @@ public final class DockerJavaOperations implements DockerOperations {
     }
 
     private DockerSource descriptor(DockerConnection s) {
-        return new DockerSource(s.id(), s.name(), s.publishedHost(), s.connectionTimeout(), s.responseTimeout());
+        return new DockerSource(
+                s.id(), s.name(), s.publishedHost(), s.connectionTimeout(), s.responseTimeout(), s.local());
     }
 
     @Override

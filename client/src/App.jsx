@@ -1,28 +1,50 @@
 import { useState, useMemo } from 'react';
-import { Settings } from 'lucide-react';
+import Header from './components/Header';
+import NoResults from './components/NoResults';
 import SkeletonTile from './components/SkeletonTile';
-import SourceSection from './components/SourceSection';
+import SourceSection, { EmptyState, OfflineBanner } from './components/SourceSection';
 import AppSettings from './components/AppSettings';
 import { useContainers } from './hooks/useContainers';
+import { useLastKnownContainers } from './hooks/useLastKnownContainers';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { STORAGE_KEYS } from './constants';
-import { groupBySource } from './utils/containers';
+import { STORAGE_KEYS, GROUP_BY } from './constants';
+import { buildSections } from './utils/containers';
 
 const EMPTY = { sources: [], containers: [] };
+const isOffline = source => source.status === 'DOWN' || source.status === 'ERROR';
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedHost, setSelectedHost] = useState('all');
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
+  const [showSelf, setShowSelf] = useLocalStorage(STORAGE_KEYS.SHOW_SELF, true);
+  const [storedGroupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
+  const groupBy = Object.values(GROUP_BY).includes(storedGroupBy) ? storedGroupBy : GROUP_BY.HOST_STACK;
   const { data = EMPTY, isLoading, error } = useContainers({ showAll, showStopped });
-  const grouped = useMemo(() => groupBySource(data.containers), [data.containers]);
+  const lastKnown = useLastKnownContainers(data);
+  const containers = useMemo(() => (showSelf ? lastKnown : lastKnown.filter(container => !container.self)), [lastKnown, showSelf]);
+  const hostFilter = data.sources.some(source => source.id === selectedHost) ? selectedHost : 'all';
+  const counts = useMemo(() => {
+    const result = Object.fromEntries(data.sources.map(source => [source.id, 0]));
+    containers.forEach(container => { result[container.sourceId] = (result[container.sourceId] ?? 0) + 1; });
+    return result;
+  }, [data.sources, containers]);
+  const sections = useMemo(
+    () => buildSections({ sources: data.sources, containers, groupBy, hostFilter, query }),
+    [data.sources, containers, groupBy, hostFilter, query]);
+  const sourcesById = useMemo(() => Object.fromEntries(data.sources.map(source => [source.id, source])), [data.sources]);
 
   let inventory;
   if (isLoading) {
     inventory = (
-      <div className="container-grid">
-        {Array.from({ length: 6 }, (_, index) => <SkeletonTile key={index} />)}
-      </div>
+      <>
+        <div className="tile-grid">
+          {Array.from({ length: 6 }, (_, index) => <SkeletonTile key={index} />)}
+        </div>
+        <output className="loading-status">Connecting…</output>
+      </>
     );
   } else if (error) {
     inventory = (
@@ -30,37 +52,64 @@ function App() {
         Failed to fetch containers. Ensure the server is running.
       </div>
     );
-  } else {
-    inventory = data.sources.map(source => (
-      <SourceSection
-        key={source.id}
-        source={source}
-        containers={grouped.get(source.id) || []}
-        showAll={showAll}
+  } else if (query.trim() !== '' && sections.every(section => section.containers.length === 0)) {
+    inventory = (
+      <NoResults
+        query={query}
         showStopped={showStopped}
+        onClear={() => setQuery('')}
+        onIncludeStopped={() => setShowStopped(true)}
       />
-    ));
+    );
+  } else if (sections.length === 0) {
+    inventory = <EmptyState showAll={showAll} showStopped={showStopped} />;
+  } else {
+    const banners = groupBy === GROUP_BY.STACK
+      ? data.sources
+        .filter(source => (hostFilter === 'all' || source.id === hostFilter) && isOffline(source))
+        .map(source => <OfflineBanner key={source.id} source={source} />)
+      : [];
+    inventory = (
+      <>
+        {banners}
+        {sections.map(section => (
+          <SourceSection
+            key={section.id}
+            section={section}
+            sourcesById={sourcesById}
+            showAll={showAll}
+            showStopped={showStopped}
+          />
+        ))}
+      </>
+    );
   }
 
   return (
     <div>
-      <div className="app-container">
-        <header className="app-header">
-          <div className="header-title">
-            <h1>Porthole</h1>
-            <button className="settings-btn" onClick={() => setShowSettings(true)} title="Settings">
-              <Settings size={24} />
-            </button>
-          </div>
-        </header>
+      <Header
+        query={query}
+        onQueryChange={setQuery}
+        sources={error ? [] : data.sources}
+        counts={counts}
+        hostFilter={hostFilter}
+        onHostFilterChange={setSelectedHost}
+        onOpenSettings={() => setShowSettings(true)}
+      />
+      <main className="page">
         {inventory}
-      </div>
+      </main>
       {showSettings && (
         <AppSettings
           showStopped={showStopped}
           showAll={showAll}
           onToggleShowStopped={setShowStopped}
           onToggleShowAll={setShowAll}
+          showSelf={showSelf}
+          onToggleShowSelf={setShowSelf}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
+          counts={counts}
           onClose={() => setShowSettings(false)}
           sources={error ? [] : data.sources}
         />

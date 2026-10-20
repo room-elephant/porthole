@@ -33,6 +33,7 @@ public class ContainerDTOMapper {
                 container.project(),
                 container.state(),
                 container.status(),
-                container.version());
+                container.version(),
+                container.isSelf());
     }
 }

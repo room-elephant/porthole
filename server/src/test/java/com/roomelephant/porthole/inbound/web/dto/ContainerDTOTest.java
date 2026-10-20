@@ -24,7 +24,8 @@ class ContainerDTOTest {
                 "my-project",
                 "running",
                 "Up 2 hours",
-                null);
+                null,
+                false);
 
         assertTrue(dto.hasEndpoints());
     }
@@ -43,7 +44,8 @@ class ContainerDTOTest {
                 "my-project",
                 "running",
                 "Up 2 hours",
-                null);
+                null,
+                false);
 
         assertFalse(dto.hasEndpoints());
     }
@@ -62,7 +64,8 @@ class ContainerDTOTest {
                 "test-project",
                 "running",
                 "Up 1 hour",
-                null);
+                null,
+                true);
 
         assertEquals("abc123", dto.id());
         assertEquals("test-container", dto.name());
@@ -75,5 +78,28 @@ class ContainerDTOTest {
         assertEquals("test-project", dto.project());
         assertEquals("running", dto.state());
         assertEquals("Up 1 hour", dto.status());
+        assertTrue(dto.self());
+    }
+
+    @Test
+    @DisplayName("should serialise the self flag")
+    void shouldSerialiseSelfFlag() throws Exception {
+        ContainerDTO dto = new ContainerDTO(
+                "abc123",
+                "local",
+                "porthole",
+                "porthole",
+                "porthole:latest",
+                List.of(),
+                "https://example.com/porthole.png",
+                null,
+                "running",
+                "Up",
+                null,
+                true);
+
+        String json = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(dto);
+
+        assertTrue(json.contains("\"self\":true"), json);
     }
 }

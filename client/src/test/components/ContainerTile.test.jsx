@@ -3,45 +3,66 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import ContainerTile from '../../components/ContainerTile';
-import * as api from '../../api';
 import { createMockContainer, publishedEndpoint } from '../testUtils';
 
-vi.mock('../../api', () => ({
-  fetchContainerVersion: vi.fn(),
-}));
-
 const renderWithQuery = (ui) => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        gcTime: 0,
-      },
-    },
-  });
-
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(ui, {
     wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
   });
 };
 
+const settingsName = 'Test Container settings';
+const openSettings = () => fireEvent.click(screen.getByRole('button', { name: settingsName }));
+const update = { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true };
+const dot = () => document.querySelector('.status-dot');
+const tile = () => document.querySelector('.tile');
+
 describe('ContainerTile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    api.fetchContainerVersion.mockResolvedValue({ updateAvailable: false });
   });
 
   it('should render container name and image', () => {
-    const container = createMockContainer({
-      displayName: 'My Container',
-      image: 'nginx:latest',
-    });
+    renderWithQuery(<ContainerTile container={createMockContainer({ displayName: 'My Container', image: 'nginx:latest' })} />);
+    expect(screen.getByText('My Container')).toHaveClass('tile-name');
+    expect(screen.getByTitle('nginx:latest')).toHaveClass('tile-image');
+  });
 
-    renderWithQuery(<ContainerTile container={container} />);
+  it('shows the image wrapped in LRM marks with the full image as title', () => {
+    renderWithQuery(<ContainerTile container={createMockContainer({ image: 'lscr.io/linuxserver/sonarr:latest' })} />);
+    const image = screen.getByTitle('lscr.io/linuxserver/sonarr:latest');
+    expect(image).toHaveClass('tile-image');
+    expect(image.textContent).toBe('\u200Elscr.io/linuxserver/sonarr:latest\u200E');
+  });
 
-    expect(screen.getByText('My Container')).toBeInTheDocument();
-    expect(screen.getByText('nginx:latest')).toBeInTheDocument();
+  it('renders the status label before the image', () => {
+    const { container: root } = renderWithQuery(
+      <ContainerTile container={createMockContainer({ state: 'exited', status: 'Exited (0) 1 hour ago' })} />,
+    );
+    const label = root.querySelector('.tile-label');
+    const image = root.querySelector('.tile-image');
+    expect(label).not.toBeNull();
+    expect(label.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(root.querySelector('.tile-dot')).toHaveTextContent('·');
+  });
+
+  it('is a new-tab link to the selected endpoint with the host as subtitle', () => {
+    renderWithQuery(<ContainerTile container={createMockContainer()} sourceName="Walker" sourceOnline />);
+    const link = screen.getByRole('link', { name: /Test Container/ });
+    expect(link).toHaveAttribute('href', 'http://localhost:8080/');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener');
+    expect(screen.getByText('localhost:8080')).toHaveClass('tile-host');
+    expect(screen.getByTitle('test-image:latest')).toHaveClass('tile-image');
+    expect(link.querySelector('.tile-go')).toHaveAttribute('aria-hidden', 'true');
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it('shows an optional host tag before the subtitle', () => {
+    renderWithQuery(<ContainerTile container={createMockContainer()} hostTag="Walker" />);
+    expect(screen.getByText('Walker')).toHaveClass('tile-tag');
   });
 
   it('renders and lets settings change the launch URL when storage access is blocked', () => {
@@ -53,11 +74,10 @@ describe('ContainerTile', () => {
         get: () => { throw new DOMException('Storage is blocked', 'SecurityError'); },
       });
       renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(8080)] })} />);
-      fireEvent.click(screen.getByTitle('Container Settings'));
+      fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
       fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:8080/' }));
       fireEvent.keyDown(document, { key: 'Escape' });
-      fireEvent.click(screen.getByRole('button', { name: /^Open / }));
-      expect(window.open).toHaveBeenCalledWith('http://localhost:8080/', '_blank');
+      expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://localhost:8080/');
     } finally {
       Object.defineProperty(window, 'localStorage', descriptor);
       warning.mockRestore();
@@ -65,298 +85,231 @@ describe('ContainerTile', () => {
   });
 
   it('should render container icon', () => {
-    const container = createMockContainer({
-      name: 'nginx',
-      iconUrl: 'https://example.com/nginx-icon.png',
-    });
-
-    renderWithQuery(<ContainerTile container={container} />);
-
-    const icon = screen.getByRole('img');
-    expect(icon).toHaveAttribute('src', 'https://example.com/nginx-icon.png');
+    renderWithQuery(<ContainerTile container={createMockContainer({ name: 'nginx', iconUrl: 'https://example.com/nginx-icon.png' })} />);
+    expect(document.querySelector('img')).toHaveAttribute('src', 'https://example.com/nginx-icon.png');
   });
 
   it('should use porthole icon for porthole container', () => {
-    const container = createMockContainer({
-      name: 'porthole-container',
-      iconUrl: 'https://example.com/other.png',
-    });
-
-    renderWithQuery(<ContainerTile container={container} />);
-
-    const icon = screen.getByRole('img');
-    expect(icon).toHaveAttribute('src', 'porthole.webp');
+    renderWithQuery(<ContainerTile container={createMockContainer({ name: 'porthole-container', self: true, iconUrl: 'https://example.com/other.png' })} />);
+    expect(document.querySelector('img')).toHaveAttribute('src', 'porthole-mark.svg');
   });
 
-  describe('Status indicator', () => {
+  it('falls back to the default icon when the image fails to load', () => {
+    renderWithQuery(<ContainerTile container={createMockContainer()} />);
+    const img = document.querySelector('img');
+    fireEvent.error(img);
+    expect(img.getAttribute('src')).toContain('docker.webp');
+  });
+
+  describe('Status', () => {
     it.each([
-      ['running', 'Up 2 minutes (unhealthy)', 'status-stopped'],
-      ['running', 'Up 2 seconds (health: starting)', 'status-warning'],
-      ['running', 'Up 2 minutes (healthy)', 'status-running'],
-      ['running', 'Up 2 hours', 'status-running'],
-      ['running', null, 'status-running'],
-      ['running', undefined, 'status-running'],
-      ['paused', 'Up 2 minutes (healthy) (Paused)', 'status-warning'],
-      ['paused', 'Up 2 hours (Paused)', 'status-warning'],
-      ['restarting', 'Restarting (1) 2 seconds ago', 'status-warning'],
-      ['exited', 'Exited (0) 2 minutes ago', 'status-stopped'],
-    ])('shows %s with status %s as %s', (state, status, expectedClass) => {
+      ['running', 'Up 2 minutes (unhealthy)', 'dot-bad', 'Unhealthy', 'unhealthy'],
+      ['running', 'Up 2 seconds (health: starting)', 'dot-warn', 'Starting', 'starting'],
+      ['restarting', 'Restarting (1) 2 seconds ago', 'dot-warn', 'Restarting', 'restarting'],
+      ['running', 'Up 2 minutes (healthy)', 'dot-ok', null, 'ok'],
+      ['running', 'Up 2 hours', 'dot-ok', null, 'ok'],
+      ['running', null, 'dot-ok', null, 'ok'],
+    ])('shows %s with status %s as %s', (state, status, dotClass, label, kind) => {
       renderWithQuery(<ContainerTile container={createMockContainer({ state, status })} />);
-      expect(document.querySelector('.status-indicator')).toHaveClass(expectedClass);
+      expect(dot()).toHaveClass(dotClass);
+      expect(dot()).toHaveAttribute('title', label ?? 'Running');
+      expect(tile()).toHaveClass(`tile--${kind}`);
+      if (label) expect(screen.getByText(label)).toHaveClass('tile-label', `label-${kind}`);
+      else expect(document.querySelector('.tile-label')).toBeNull();
     });
 
-    it('updates color and tooltip as health changes without a lifecycle change', () => {
+    it('keeps a restarting tile openable as a link', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ state: 'restarting', status: 'Restarting (1) 2 seconds ago' })} />);
+      expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
+    });
+
+    it('updates dot, label and tile as health changes without a lifecycle change', () => {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       const container = createMockContainer({ status: 'Up 2 minutes (healthy)' });
-      const tile = status => (
+      const view = (status) => (
         <QueryClientProvider client={client}>
           <ContainerTile container={{ ...container, status }} />
         </QueryClientProvider>
       );
-      const view = render(tile(container.status));
-      const indicator = document.querySelector('.status-indicator');
-      expect(indicator).toHaveClass('status-running');
-
-      for (const [status, expectedClass] of [
-        ['Up 3 minutes (unhealthy)', 'status-stopped'],
-        ['Up 3 minutes (health: starting)', 'status-warning'],
-        ['Up 4 minutes (healthy)', 'status-running'],
+      const rendered = render(view(container.status));
+      expect(dot()).toHaveClass('dot-ok');
+      for (const [status, dotClass, title] of [
+        ['Up 3 minutes (unhealthy)', 'dot-bad', 'Unhealthy'],
+        ['Up 3 minutes (health: starting)', 'dot-warn', 'Starting'],
+        ['Up 4 minutes (healthy)', 'dot-ok', 'Running'],
       ]) {
-        view.rerender(tile(status));
-        expect(indicator).toHaveClass(expectedClass);
-        expect(indicator).toHaveAttribute('title', status);
+        rendered.rerender(view(status));
+        expect(dot()).toHaveClass(dotClass);
+        expect(dot()).toHaveAttribute('title', title);
       }
     });
 
+    it.each([['exited', 'Stopped'], ['paused', 'Paused']])('renders a %s container as a dashed settings button', async (state, label) => {
+      const user = userEvent.setup();
+      renderWithQuery(<ContainerTile container={createMockContainer({ state })} />);
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(tile()).toHaveClass('tile--dashed');
+      expect(screen.getByText(label)).toHaveClass('tile-label');
+      await user.click(screen.getAllByRole('button', { name: settingsName })[0]);
+      expect(screen.getByRole('heading', { name: 'Image' })).toBeInTheDocument();
+      expect(window.open).not.toHaveBeenCalled();
+    });
+
+    it('renders containers of an offline host as Offline, not links', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer()} sourceOnline={false} />);
+      expect(screen.getByText('Offline')).toHaveClass('label-offline');
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(tile()).toHaveClass('tile--dashed');
+    });
+
+    it('prefers Unhealthy over Update', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ status: 'Up 2 minutes (unhealthy)', version: update })} />);
+      expect(screen.getByText('Unhealthy')).toBeInTheDocument();
+      expect(screen.queryByText('Update')).not.toBeInTheDocument();
+      expect(screen.getByTitle('Update available')).toBeInTheDocument();
+    });
   });
 
   describe('Keyboard behavior', () => {
-    it.each(['Enter', ' '])('opens the API URL with keyboard key %s', async key => {
+    it('tabs from the link to the settings button and opens settings with Enter', async () => {
       const user = userEvent.setup();
-      const container = createMockContainer({
-        endpoints: [{ id: 'proxy', source: 'traefik', url: 'https://app.example.com/' }],
-      });
-      renderWithQuery(<ContainerTile container={container} />);
-      const launch = screen.getByRole('button', { name: 'Open Test Container' });
-
+      renderWithQuery(<ContainerTile container={createMockContainer()} />);
       await user.tab();
-      expect(launch).toHaveFocus();
-      await user.keyboard(key === 'Enter' ? '{Enter}' : ' ');
-
-      expect(window.open).toHaveBeenCalledExactlyOnceWith('https://app.example.com/', '_blank');
+      expect(screen.getByRole('link', { name: /Test Container/ })).toHaveFocus();
+      await user.tab();
+      expect(screen.getByRole('button', { name: settingsName })).toHaveFocus();
+      await user.keyboard('{Enter}');
+      expect(screen.getByRole('heading', { name: 'Image' })).toBeInTheDocument();
     });
 
     it('opens the chooser from the keyboard for ambiguous endpoints', async () => {
       const user = userEvent.setup();
       renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(443)] })} />);
-      const launch = screen.getByRole('button', { name: 'Open Test Container' });
-      launch.focus();
-
-      await user.keyboard('{Enter}');
-
-      expect(screen.getByText('Published Ports')).toBeInTheDocument();
-      expect(window.open).not.toHaveBeenCalled();
-    });
-
-    it('skips the disabled launch control and keeps settings keyboard-accessible', async () => {
-      const user = userEvent.setup();
-      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [], hasEndpoints: false })} />);
-      expect(screen.getByRole('button', { name: 'Open Test Container' })).toBeDisabled();
-
       await user.tab();
-      expect(screen.getByTitle('Container Settings')).toHaveFocus();
+      expect(screen.getAllByRole('button', { name: settingsName })[0]).toHaveFocus();
       await user.keyboard('{Enter}');
-
-      expect(screen.getByText('Version Updates')).toBeInTheDocument();
+      expect(screen.getAllByText('Port')).not.toHaveLength(0);
       expect(window.open).not.toHaveBeenCalled();
     });
   });
 
-  describe('Click behavior', () => {
-    it('should open URL on click when container has single port', () => {
-      const container = createMockContainer({
-        endpoints: [publishedEndpoint(8080)],
-        hasEndpoints: true,
-      });
-
-      renderWithQuery(<ContainerTile container={container} />);
-
-      fireEvent.click(screen.getByRole('button', { name: /^Open / }));
-
-      expect(window.open).toHaveBeenCalledWith('http://localhost:8080/', '_blank');
+  describe('Settings opening', () => {
+    it('opens settings when endpoints exist but none can be chosen automatically', () => {
+      const endpoints = [
+        { id: 'a', source: 'traefik', url: 'https://app.example.com/a' },
+        { id: 'b', source: 'traefik', url: 'https://app.example.com/b' },
+      ];
+      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints })} />);
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(screen.getByText('Choose a URL')).toHaveClass('tile-host');
+      expect(tile()).not.toHaveClass('tile--dashed');
+      fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
+      expect(screen.getAllByText('Traefik')).not.toHaveLength(0);
     });
 
-    it('should not open URL when container has no ports', () => {
-      const container = createMockContainer({
-        endpoints: [],
-        hasEndpoints: false,
-      });
+    it('keeps an unhealthy tile red when no endpoint is selected', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ status: 'Up 2 minutes (unhealthy)', endpoints: [] })} />);
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(tile()).toHaveClass('tile--unhealthy');
+      expect(tile()).not.toHaveClass('tile--dashed');
+    });
 
-      renderWithQuery(<ContainerTile container={container} />);
+    it('shows ambiguous published ports in the chooser', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(443)] })} />);
+      fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
+      expect(screen.getAllByText('Port')).not.toHaveLength(0);
+    });
 
-      fireEvent.click(screen.getByRole('button', { name: /^Open / }));
-
+    it('should open settings modal from the menu button without navigating', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer()} />);
+      openSettings();
+      expect(screen.getByText('test-container')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Image' })).toBeInTheDocument();
       expect(window.open).not.toHaveBeenCalled();
     });
 
-    it('should show settings modal when container has multiple ports and no preference', () => {
-      const container = createMockContainer({
-        endpoints: [publishedEndpoint(80), publishedEndpoint(443)],
-        hasEndpoints: true,
-      });
-
-      renderWithQuery(<ContainerTile container={container} />);
-
-      fireEvent.click(screen.getByRole('button', { name: /^Open / }));
-
-      expect(screen.getByText('Published Ports')).toBeInTheDocument();
-    });
-  });
-
-  describe('Settings button', () => {
-    it('should open settings modal when clicked', () => {
-      const container = createMockContainer();
-
-      renderWithQuery(<ContainerTile container={container} />);
-
-      fireEvent.click(screen.getByTitle('Container Settings'));
-
-      expect(screen.getByText(container.name)).toBeInTheDocument();
-      expect(screen.getByText('Version Updates')).toBeInTheDocument();
-    });
-
-    it('should not trigger card click when settings button is clicked', () => {
-      const container = createMockContainer({
-        endpoints: [publishedEndpoint(8080)],
-        hasEndpoints: true,
-      });
-
-      renderWithQuery(<ContainerTile container={container} />);
-
-      fireEvent.click(screen.getByTitle('Container Settings'));
-
-      expect(window.open).not.toHaveBeenCalled();
-      expect(screen.getByText('Version Updates')).toBeInTheDocument();
+    it('allows settings and version controls on a tile without endpoints', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [], hasEndpoints: false })} />);
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
+      fireEvent.click(screen.getByRole('checkbox'));
+      expect(localStorage.getItem('version_check_v2_["local","test-container"]')).toBe('false');
     });
   });
 
   describe('Update indicator', () => {
-    it('shows embedded updates without a version request', () => {
-      const version = { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true };
-      renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
-      expect(screen.getByText('⚠️')).toHaveAttribute('title', 'Image update available');
-      expect(api.fetchContainerVersion).not.toHaveBeenCalled();
+    it('labels an update in purple when the badge preference is on', () => {
+      renderWithQuery(<ContainerTile container={createMockContainer({ version: update })} />);
+      expect(screen.getByText('Update')).toHaveClass('label-update');
+      expect(screen.getByTitle('Update available')).toHaveClass('update-badge');
+      expect(dot()).toHaveClass('dot-ok');
+      expect(dot()).toHaveAttribute('title', 'Running');
     });
 
-    it.each([null, '1.0.0'])('uses truthful wording for a tag change with catalogue version %s', latestVersion => {
-      const version = { currentVersion: '2.0.0', latestVersion, updateAvailable: true };
+    it.each([null, { currentVersion: '1.0', latestVersion: '1.0', updateAvailable: false }])('shows no badge for version %s', version => {
       renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
-      expect(screen.getByText('⚠️')).toHaveAttribute('title', 'Image update available');
-    });
-
-    it.each([null, { currentVersion: '1.0', latestVersion: '1.0', updateAvailable: false }])('shows no warning or spinner for version %s', version => {
-      renderWithQuery(<ContainerTile container={createMockContainer({ version })} />);
-      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
-      expect(screen.queryByTitle('Checking for updates...')).not.toBeInTheDocument();
-      expect(api.fetchContainerVersion).not.toHaveBeenCalled();
+      expect(screen.queryByTitle('Update available')).not.toBeInTheDocument();
+      expect(screen.queryByText('Update')).not.toBeInTheDocument();
     });
 
     it('rerenders new embedded results when other container metadata is unchanged', () => {
       const container = createMockContainer({ version: null });
       const view = renderWithQuery(<ContainerTile container={container} />);
-      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
-      const updated = { ...container, version: { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true } };
+      expect(screen.queryByTitle('Update available')).not.toBeInTheDocument();
+      const updated = { ...container, version: update };
       view.rerender(<ContainerTile container={updated} />);
-      expect(screen.getByText('⚠️')).toBeInTheDocument();
-      view.rerender(<ContainerTile container={{ ...updated, version: { ...updated.version, updateAvailable: false } }} />);
-      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+      expect(screen.getByTitle('Update available')).toBeInTheDocument();
+      view.rerender(<ContainerTile container={{ ...updated, version: { ...update, updateAvailable: false } }} />);
+      expect(screen.queryByTitle('Update available')).not.toBeInTheDocument();
     });
 
     it('keeps the stored preference for hiding update notifications', () => {
-      localStorage.setItem( 'version_check_v2_["local","test-container"]' , 'false');
-      renderWithQuery(<ContainerTile container={createMockContainer({ version: { currentVersion: '1.0', latestVersion: '2.0', updateAvailable: true } })} />);
-      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
-      fireEvent.click(screen.getByTitle('Container Settings'));
+      localStorage.setItem('version_check_v2_["local","test-container"]', 'false');
+      renderWithQuery(<ContainerTile container={createMockContainer({ version: update })} />);
+      expect(screen.queryByTitle('Update available')).not.toBeInTheDocument();
+      openSettings();
       fireEvent.click(screen.getByRole('checkbox'));
-      expect(screen.getByText('⚠️')).toBeInTheDocument();
+      // The tile and the open dialog's icon both carry the badge.
+      expect(screen.getAllByTitle('Update available')).toHaveLength(2);
     });
   });
 
-  describe('Disabled state', () => {
-    it('disables the tile when no endpoint is selected and lets settings restore a URL', async () => {
+  describe('No web UI choice', () => {
+    it('turns the tile into a settings button and lets settings restore a URL', async () => {
       const user = userEvent.setup();
-      const container = createMockContainer({ endpoints: [publishedEndpoint(53)] });
-      renderWithQuery(<ContainerTile container={container} />);
-      const launch = screen.getByRole('button', { name: /^Open / });
-      const card = launch.closest('.card');
-      await user.click(screen.getByTitle('Container Settings'));
-      await user.click(screen.getByRole('radio', { name: 'No endpoint' }));
-      expect(launch).toBeDisabled();
-      expect(card).toHaveClass('disabled');
-      expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
-      expect(localStorage.getItem( 'endpoint_pref_v2_["local","test-container"]' )).toBe('"none"');
-      await user.keyboard('{Escape}');
-      await user.click(launch);
-      expect(window.open).not.toHaveBeenCalled();
-
-      await user.click(screen.getByTitle('Container Settings'));
-      expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
+      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(53)] })} />);
+      await user.click(screen.getByRole('button', { name: settingsName }));
+      await user.click(screen.getByRole('radio', { name: 'No web UI' }));
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(tile()).not.toHaveClass('tile--dashed');
+      expect(localStorage.getItem('endpoint_pref_v2_["local","test-container"]')).toBe('"none"');
       await user.click(screen.getByRole('checkbox'));
-      expect(localStorage.getItem( 'version_check_v2_["local","test-container"]' )).toBe('false');
+      expect(localStorage.getItem('version_check_v2_["local","test-container"]')).toBe('false');
       await user.click(screen.getByRole('radio', { name: 'http://localhost:53/' }));
-      expect(launch).toBeEnabled();
-      expect(card).not.toHaveClass('disabled');
       await user.keyboard('{Escape}');
-      await user.click(launch);
-      expect(window.open).toHaveBeenCalledExactlyOnceWith('http://localhost:53/', '_blank');
+      expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://localhost:53/');
+      expect(tile()).not.toHaveClass('tile--dashed');
     });
 
-    it('skips a tile with a saved no endpoint choice while keeping settings accessible', async () => {
-      localStorage.setItem( 'endpoint_pref_v2_["local","test-container"]' , '"none"');
+    it('opens the saved no endpoint choice from the main button', async () => {
+      localStorage.setItem('endpoint_pref_v2_["local","test-container"]', '"none"');
       const user = userEvent.setup();
       renderWithQuery(<ContainerTile container={createMockContainer()} />);
-      expect(screen.getByRole('button', { name: /^Open / })).toBeDisabled();
       await user.tab();
-      expect(screen.getByTitle('Container Settings')).toHaveFocus();
+      expect(screen.getAllByRole('button', { name: settingsName })[0]).toHaveFocus();
       await user.keyboard('{Enter}');
-      expect(screen.getByRole('radio', { name: 'No endpoint' })).toBeChecked();
-      expect(window.open).not.toHaveBeenCalled();
-    });
-
-    it('should have disabled class when no public ports', () => {
-      const container = createMockContainer({
-        hasEndpoints: false,
-        endpoints: [],
-      });
-
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const card = screen.getByRole('img').closest('.card');
-      expect(card).toHaveClass('disabled');
-    });
-
-    it('should not have disabled class when has public ports', () => {
-      const container = createMockContainer({
-        hasEndpoints: true,
-      });
-
-      renderWithQuery(<ContainerTile container={container} />);
-
-      const card = screen.getByRole('img').closest('.card');
-      expect(card).not.toHaveClass('disabled');
+      expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked();
     });
   });
+
   it('opens Traefik by default and a saved published port when explicitly selected', () => {
     const root = { id: 'proxy', source: 'traefik', url: 'https://transmission.example.com/' };
-    const container = createMockContainer({ endpoints: [publishedEndpoint(51413), root] });
-    renderWithQuery(<ContainerTile container={container} />);
-    fireEvent.click(screen.getByRole('button', { name: /^Open / }));
-    expect(window.open).toHaveBeenLastCalledWith(root.url, '_blank');
-    fireEvent.click(screen.getByTitle('Container Settings'));
+    renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(51413), root] })} />);
+    expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', root.url);
+    openSettings();
     fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:51413/' }));
     fireEvent.keyDown(document, { key: 'Escape' });
-    fireEvent.click(screen.getByRole('button', { name: /^Open / }));
-    expect(window.open).toHaveBeenLastCalledWith('http://localhost:51413/', '_blank');
+    expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://localhost:51413/');
   });
 
   it('uses a refreshed URL even when the endpoint ID is unchanged', () => {
@@ -364,28 +317,43 @@ describe('ContainerTile', () => {
     const container = createMockContainer();
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
     view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, endpoints: [{ ...container.endpoints[0], url: 'http://other.example.com:8080/' }] }} /></QueryClientProvider>);
-    fireEvent.click(screen.getByRole('button', { name: /^Open / }));
-    expect(window.open).toHaveBeenLastCalledWith('http://other.example.com:8080/', '_blank');
+    expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://other.example.com:8080/');
+    expect(screen.getByText('other.example.com:8080')).toHaveClass('tile-host');
   });
 
-  it('allows settings and version controls on a disabled tile', () => {
-    renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [], hasEndpoints: false })} />);
-    fireEvent.click(screen.getByTitle('Container Settings'));
-    fireEvent.click(screen.getByRole('checkbox'));
-    expect(localStorage.getItem( 'version_check_v2_["local","test-container"]' )).toBe('false');
-    expect(window.open).not.toHaveBeenCalled();
+  it('rerenders when the offline state, source name or host tag changes', () => {
+    const container = createMockContainer();
+    const view = renderWithQuery(<ContainerTile container={container} sourceOnline hostTag="A" />);
+    expect(screen.getByRole('link')).toBeInTheDocument();
+    view.rerender(<ContainerTile container={container} sourceOnline={false} hostTag="A" />);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    view.rerender(<ContainerTile container={container} sourceOnline={false} hostTag="B" />);
+    expect(screen.getByText('B')).toHaveClass('tile-tag');
   });
 
   it('launches the new name preference after a rename with the same Docker ID', () => {
     const root = { id: 'proxy', source: 'traefik', url: 'https://app.example.com/' };
     const container = createMockContainer({ endpoints: [publishedEndpoint(8080), root] });
-    localStorage.setItem( 'endpoint_pref_v2_["local","test-container"]' , JSON.stringify('published-port:8080'));
-    localStorage.setItem( 'endpoint_pref_v2_["local","renamed"]' , JSON.stringify(root.id));
+    localStorage.setItem('endpoint_pref_v2_["local","test-container"]', JSON.stringify('published-port:8080'));
+    localStorage.setItem('endpoint_pref_v2_["local","renamed"]', JSON.stringify(root.id));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
     view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed' }} /></QueryClientProvider>);
-    fireEvent.click(screen.getByRole('button', { name: /^Open / }));
-    expect(window.open).toHaveBeenLastCalledWith(root.url, '_blank');
+    expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', root.url);
   });
 
+  it('keeps long names on one line inside tile-name', () => {
+    const name = 'n'.repeat(80);
+    renderWithQuery(<ContainerTile container={createMockContainer({ displayName: name })} />);
+    expect(document.querySelector('.tile-name')).toHaveTextContent(name);
+  });
+
+  it('syncs two tiles of the same container in the same tab', () => {
+    const container = createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(8080)] });
+    renderWithQuery(<><ContainerTile container={container} /><ContainerTile container={container} /></>);
+    fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
+    fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:8080/' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getAllByRole('link', { name: /Test Container/ })).toHaveLength(2);
+  });
 });

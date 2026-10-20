@@ -22,7 +22,7 @@ class DockerConfigTest {
         assertThatThrownBy(() -> new DockerSourceRegistry(emptySources)).isInstanceOf(IllegalArgumentException.class);
         var client = mock(DockerClient.class);
         var source = new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), client);
+                "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), true, client);
         var duplicateSources = List.of(source, source);
         assertThatThrownBy(() -> new DockerSourceRegistry(duplicateSources))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -38,9 +38,9 @@ class DockerConfigTest {
         doThrow(new java.io.IOException("second")).when(b).close();
         var sources = new DockerSourceRegistry(List.of(
                 new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                        "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), a),
+                        "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), true, a),
                 new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                        "b", "B", null, Duration.ofSeconds(5), Duration.ofSeconds(60), b)));
+                        "b", "B", null, Duration.ofSeconds(5), Duration.ofSeconds(60), true, b)));
         assertThatThrownBy(sources::close)
                 .hasMessage("first")
                 .satisfies(e -> assertThat(e.getSuppressed())
@@ -68,6 +68,28 @@ class DockerConfigTest {
     }
 
     @Test
+    void marksUnixSocketSourcesAsLocalAndTcpSourcesAsRemote() throws Exception {
+        var client = mock(DockerClient.class);
+        var tcp = new DockerConnectionProperties(
+                "remote",
+                "Remote",
+                "tcp://docker.example.com:2375",
+                null,
+                Duration.ofSeconds(5),
+                Duration.ofSeconds(60));
+        var config = new DockerConfig(new DockerProperties(List.of(connection("a"), tcp))) {
+            @Override
+            DockerClient createClient(DockerConnectionProperties p) {
+                return client;
+            }
+        };
+        try (var sources = config.dockerSources()) {
+            assertThat(sources.require("a").local()).isTrue();
+            assertThat(sources.require("remote").local()).isFalse();
+        }
+    }
+
+    @Test
     void cleansUpPartialConstruction() throws Exception {
         var client = mock(DockerClient.class);
         var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
@@ -88,9 +110,9 @@ class DockerConfigTest {
         doThrow(new java.io.IOException("close failed")).when(a).close();
         var sources = new DockerSourceRegistry(List.of(
                 new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                        "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), a),
+                        "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), true, a),
                 new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                        "b", "B", null, Duration.ofSeconds(5), Duration.ofSeconds(60), b)));
+                        "b", "B", null, Duration.ofSeconds(5), Duration.ofSeconds(60), true, b)));
         assertThatThrownBy(sources::close).hasMessage("close failed");
         verify(b).close();
     }

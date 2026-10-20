@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { useLocalStorage, useStorageRevision } from '../../hooks/useLocalStorage';
 
 describe('useLocalStorage', () => {
   beforeEach(() => {
@@ -166,7 +166,7 @@ describe('useLocalStorage', () => {
 
   it('should handle localStorage quota exceeded gracefully', () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    localStorage.setItem.mockImplementation(() => {
+    localStorage.setItem.mockImplementationOnce(() => {
       throw new Error('QuotaExceededError');
     });
     
@@ -180,5 +180,51 @@ describe('useLocalStorage', () => {
     expect(consoleWarnSpy).toHaveBeenCalled();
     
     consoleWarnSpy.mockRestore();
+  });
+
+  it('syncs two hooks with the same key in the same tab', () => {
+    const store = {};
+    localStorage.getItem.mockImplementation(key => store[key] ?? null);
+    localStorage.setItem.mockImplementation((key, value) => { store[key] = value; });
+    const a = renderHook(() => useLocalStorage('k', 1));
+    const b = renderHook(() => useLocalStorage('k', 1));
+    act(() => a.result.current[1](2));
+    expect(b.result.current[0]).toBe(2);
+  });
+
+  it('does not touch hooks with another key in the same tab', () => {
+    const a = renderHook(() => useLocalStorage('k', 1));
+    const other = renderHook(() => useLocalStorage('other', 1));
+    act(() => a.result.current[1](2));
+    expect(other.result.current[0]).toBe(1);
+  });
+
+  it('announces a same-tab write as a porthole:storage event for its key', () => {
+    const seen = [];
+    const listener = event => seen.push(event.detail.key);
+    window.addEventListener('porthole:storage', listener);
+    try {
+      const { result } = renderHook(() => useLocalStorage('announced', 1));
+      act(() => result.current[1](2));
+      expect(seen).toEqual(['announced']);
+    } finally {
+      window.removeEventListener('porthole:storage', listener);
+    }
+  });
+
+  describe('useStorageRevision', () => {
+    it('increments on same-tab and cross-tab events and stops after unmount', () => {
+      const { result, unmount } = renderHook(() => useStorageRevision());
+      const start = result.current;
+      act(() => { window.dispatchEvent(new CustomEvent('porthole:storage', { detail: { key: 'x' } })); });
+      expect(result.current).toBe(start + 1);
+      act(() => { window.dispatchEvent(new StorageEvent('storage', { key: 'x' })); });
+      expect(result.current).toBe(start + 2);
+      const remove = vi.spyOn(window, 'removeEventListener');
+      unmount();
+      expect(remove).toHaveBeenCalledWith('porthole:storage', expect.any(Function));
+      expect(remove).toHaveBeenCalledWith('storage', expect.any(Function));
+      remove.mockRestore();
+    });
   });
 });

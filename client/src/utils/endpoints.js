@@ -1,3 +1,5 @@
+import { STORAGE_KEYS } from '../constants';
+
 export const NO_ENDPOINT_ID = 'none';
 
 export const resolveEndpointSelection = (endpoints, savedId) => {
@@ -15,10 +17,20 @@ export const resolveEndpointSelection = (endpoints, savedId) => {
   return endpoints.length === 1 ? endpoints[0] : null;
 };
 
+const titleCase = (source) => source.split(/[-_]+/).filter(Boolean).map(word => word[0].toUpperCase() + word.slice(1)).join(' ');
+
 const sourceTitle = (source) => {
   if (source === 'traefik') return 'Traefik URLs';
   if (source === 'published-port') return 'Published Ports';
-  return `${source.split(/[-_]+/).filter(Boolean).map(word => word[0].toUpperCase() + word.slice(1)).join(' ')} URLs`;
+  return `${titleCase(source)} URLs`;
+};
+
+export const endpointLabel = (url) => url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').replace(/\/$/, '');
+
+export const endpointTag = (source) => {
+  if (source === 'traefik') return 'Traefik';
+  if (source === 'published-port') return 'Port';
+  return titleCase(source);
 };
 
 const sourceOrder = (source) => {
@@ -35,4 +47,15 @@ export const groupEndpointsBySource = (endpoints) => {
   });
   return [...groups].sort(([a], [b]) => sourceOrder(a) - sourceOrder(b) || a.localeCompare(b))
     .map(([source, candidates]) => ({ source, title: sourceTitle(source), endpoints: candidates }));
+};
+
+/** True when the container has no web UI: no endpoints, or "No web UI" chosen in its settings. */
+export const isHeadless = (container) => {
+  if (!container.hasEndpoints) return true;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.ENDPOINT_PREF(container.sourceId, container.name));
+    return stored !== null && JSON.parse(stored) === NO_ENDPOINT_ID;
+  } catch {
+    return false;
+  }
 };

@@ -31,6 +31,7 @@ public class DockerConfig {
                         p.publishedHost(),
                         p.connectionTimeout(),
                         p.responseTimeout(),
+                        p.host().startsWith("unix://"),
                         createClient(p)));
             }
             return new DockerSourceRegistry(sources);

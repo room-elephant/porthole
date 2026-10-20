@@ -11,6 +11,6 @@ public final class DockerTestSources {
         return new com.roomelephant.porthole.outbound.docker.DockerJavaOperations(
                 new com.roomelephant.porthole.outbound.docker.DockerSourceRegistry(
                         List.of(new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                                "local", "Local", null, Duration.ofSeconds(5), Duration.ofSeconds(60), client))));
+                                "local", "Local", null, Duration.ofSeconds(5), Duration.ofSeconds(60), true, client))));
     }
 }
