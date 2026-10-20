@@ -6,9 +6,10 @@ on:
     paths:
       - 'client/**'
   pull_request:
-    branches: [ main ]
     paths:
       - 'client/**'
+      - '.github/workflows/ci-client.yml'
+      - '.github/workflows/reusable-client.yml'
 
 jobs:
   client:

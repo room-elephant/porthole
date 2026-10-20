@@ -6,9 +6,10 @@ on:
     paths:
       - 'docker/**'
   pull_request:
-    branches: [ main ]
     paths:
       - 'docker/**'
+      - '.github/workflows/ci-docker.yml'
+      - '.github/workflows/reusable-docker.yml'
 
 jobs:
   docker:

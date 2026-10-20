@@ -6,9 +6,10 @@ on:
     paths:
       - 'server/**'
   pull_request:
-    branches: [ main ]
     paths:
       - 'server/**'
+      - '.github/workflows/ci-server.yml'
+      - '.github/workflows/reusable-server.yml'
 
 jobs:
   server:
