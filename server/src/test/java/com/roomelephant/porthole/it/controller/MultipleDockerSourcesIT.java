@@ -7,8 +7,8 @@ import static org.awaitility.Awaitility.await;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.http.Fault;
-import com.roomelephant.porthole.controller.model.*;
-import com.roomelephant.porthole.domain.model.SourceStatus;
+import com.roomelephant.porthole.core.model.SourceStatus;
+import com.roomelephant.porthole.inbound.web.dto.*;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
 import java.time.Duration;
 import java.util.*;
@@ -44,7 +44,7 @@ class MultipleDockerSourcesIT {
         app = new PortholeContainer(registry.port());
         connection(0, "walker", walker.port(), "192.168.50.6");
         connection(1, "mike", mike.port(), "192.168.50.5");
-        app.withEnv("REGISTRY_CACHE_TTL", "1h");
+        app.withEnv("PORTHOLE_REGISTRY_CACHE_TTL", "1h");
         app.start();
     }
 

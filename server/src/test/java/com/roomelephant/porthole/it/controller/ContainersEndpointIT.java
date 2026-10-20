@@ -3,8 +3,8 @@ package com.roomelephant.porthole.it.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpStatus.OK;
 
-import com.roomelephant.porthole.controller.model.ContainerDTO;
-import com.roomelephant.porthole.controller.model.EndpointDTO;
+import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
+import com.roomelephant.porthole.inbound.web.dto.EndpointDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import java.util.Arrays;
 import java.util.Map;

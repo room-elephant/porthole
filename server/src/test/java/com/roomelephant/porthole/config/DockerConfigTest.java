@@ -5,7 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.github.dockerjava.api.DockerClient;
 import com.roomelephant.porthole.config.properties.*;
-import com.roomelephant.porthole.domain.component.DockerSourceRegistry;
+import com.roomelephant.porthole.outbound.docker.DockerSourceRegistry;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -18,10 +18,10 @@ class DockerConfigTest {
 
     @Test
     void registryRejectsEmptyDuplicateAndUnknownSources() {
-        List<com.roomelephant.porthole.domain.model.DockerSource> emptySources = List.of();
+        List<com.roomelephant.porthole.outbound.docker.DockerConnection> emptySources = List.of();
         assertThatThrownBy(() -> new DockerSourceRegistry(emptySources)).isInstanceOf(IllegalArgumentException.class);
         var client = mock(DockerClient.class);
-        var source = new com.roomelephant.porthole.domain.model.DockerSource(
+        var source = new com.roomelephant.porthole.outbound.docker.DockerConnection(
                 "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), client);
         var duplicateSources = List.of(source, source);
         assertThatThrownBy(() -> new DockerSourceRegistry(duplicateSources))
@@ -37,9 +37,9 @@ class DockerConfigTest {
         doThrow(new java.io.IOException("first")).when(a).close();
         doThrow(new java.io.IOException("second")).when(b).close();
         var sources = new DockerSourceRegistry(List.of(
-                new com.roomelephant.porthole.domain.model.DockerSource(
+                new com.roomelephant.porthole.outbound.docker.DockerConnection(
                         "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), a),
-                new com.roomelephant.porthole.domain.model.DockerSource(
+                new com.roomelephant.porthole.outbound.docker.DockerConnection(
                         "b", "B", null, Duration.ofSeconds(5), Duration.ofSeconds(60), b)));
         assertThatThrownBy(sources::close)
                 .hasMessage("first")
@@ -52,16 +52,12 @@ class DockerConfigTest {
     void doesNotPingDuringStartupAndClosesEveryClient() throws Exception {
         var a = mock(DockerClient.class);
         var b = mock(DockerClient.class);
-        var config =
-                new DockerConfig(
-                        new DockerProperties(List.of(connection("a"), connection("b"))),
-                        new EndpointProperties(null),
-                        new org.springframework.mock.env.MockEnvironment()) {
-                    @Override
-                    DockerClient createClient(DockerConnectionProperties p) {
-                        return p.id().equals("a") ? a : b;
-                    }
-                };
+        var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
+            @Override
+            DockerClient createClient(DockerConnectionProperties p) {
+                return p.id().equals("a") ? a : b;
+            }
+        };
         try (var sources = config.dockerSources()) {
             assertThat(sources.sources()).extracting(s -> s.id()).containsExactly("a", "b");
             assertThat(sources.require("b").client()).isSameAs(b);
@@ -74,17 +70,13 @@ class DockerConfigTest {
     @Test
     void cleansUpPartialConstruction() throws Exception {
         var client = mock(DockerClient.class);
-        var config =
-                new DockerConfig(
-                        new DockerProperties(List.of(connection("a"), connection("b"))),
-                        new EndpointProperties(null),
-                        new org.springframework.mock.env.MockEnvironment()) {
-                    @Override
-                    DockerClient createClient(DockerConnectionProperties p) {
-                        if (p.id().equals("b")) throw new IllegalStateException("failed");
-                        return client;
-                    }
-                };
+        var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
+            @Override
+            DockerClient createClient(DockerConnectionProperties p) {
+                if (p.id().equals("b")) throw new IllegalStateException("failed");
+                return client;
+            }
+        };
         assertThatThrownBy(config::dockerSources).hasMessage("failed");
         verify(client).close();
     }
@@ -95,9 +87,9 @@ class DockerConfigTest {
         var b = mock(DockerClient.class);
         doThrow(new java.io.IOException("close failed")).when(a).close();
         var sources = new DockerSourceRegistry(List.of(
-                new com.roomelephant.porthole.domain.model.DockerSource(
+                new com.roomelephant.porthole.outbound.docker.DockerConnection(
                         "a", "A", null, Duration.ofSeconds(5), Duration.ofSeconds(60), a),
-                new com.roomelephant.porthole.domain.model.DockerSource(
+                new com.roomelephant.porthole.outbound.docker.DockerConnection(
                         "b", "B", null, Duration.ofSeconds(5), Duration.ofSeconds(60), b)));
         assertThatThrownBy(sources::close).hasMessage("close failed");
         verify(b).close();

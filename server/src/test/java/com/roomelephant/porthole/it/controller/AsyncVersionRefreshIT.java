@@ -8,7 +8,7 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.ServeEventListener;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
-import com.roomelephant.porthole.controller.model.ContainerDTO;
+import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
 import com.roomelephant.porthole.it.infra.IntegrationTestBase;
 import java.time.Duration;
 import java.util.Arrays;
@@ -81,7 +81,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
     @Test
     void listingReturnsWhileRegistryCheckIsBlocked() throws Exception {
         block = true;
-        porthole.withEnv("REGISTRY_TIMEOUT_READ", "30s");
+        porthole.withEnv("PORTHOLE_REGISTRY_TIMEOUT_READ", "30s");
         startPorthole();
         try {
             assertThat(entered.await(20, TimeUnit.SECONDS)).isTrue();
@@ -101,8 +101,8 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
     @Test
     void manualRefreshBypassesIntervalAndRegistryCache() {
         porthole.withEnv("PORTHOLE_VERSIONS_REFRESHINTERVAL", "1h")
-                .withEnv("REGISTRY_CACHE_TTL", "1h")
-                .withEnv("REGISTRY_CACHE_VERSION_MAX_SIZE", "1000");
+                .withEnv("PORTHOLE_REGISTRY_CACHE_TTL", "1h")
+                .withEnv("PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE", "1000");
         assertThat(fetchCachedVersion(fixture.getContainerId()).latestVersion()).isEqualTo("2.0");
         wireMockClient()
                 .stubFor(get(urlEqualTo(TAGS)).atPriority(1).willReturn(okJson("{\"results\":[{\"name\":\"3.0\"}]}")));

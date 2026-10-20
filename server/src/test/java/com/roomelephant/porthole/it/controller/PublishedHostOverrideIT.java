@@ -2,8 +2,8 @@ package com.roomelephant.porthole.it.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.roomelephant.porthole.controller.model.ContainerDTO;
-import com.roomelephant.porthole.controller.model.EndpointDTO;
+import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
+import com.roomelephant.porthole.inbound.web.dto.EndpointDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
 import java.util.Arrays;
@@ -13,12 +13,13 @@ import org.springframework.web.client.RestTemplate;
 class PublishedHostOverrideIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldUseConfiguredPublishedHost() {
-        try (PortholeContainer app = porthole.withEnv("PORTHOLE_ENDPOINTS_PUBLISHEDHOST", "docker.example.com")) {
+        try (PortholeContainer app =
+                porthole.withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST", "docker.example.com")) {
             app.start();
             ContainerDTO[] containers = new RestTemplate()
                     .getForObject(
                             app.baseUrl() + "/api/containers",
-                            com.roomelephant.porthole.controller.model.ContainerInventoryDTO.class)
+                            com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO.class)
                     .containers()
                     .toArray(ContainerDTO[]::new);
             ContainerDTO container = Arrays.stream(containers)
