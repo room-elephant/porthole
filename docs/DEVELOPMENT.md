@@ -72,7 +72,8 @@ Run this after adding new features that use reflection, proxies, or JNI. Require
 make server-native-hints
 ```
 
-Every IT application instance records separately under `server/target/native-hints/`. After the tests pass, GraalVM merges all recordings into `reachability-metadata.json`; incomplete recordings fail generation rather than silently losing coverage.
+Every IT application instance records separately under `server/target/native-hints/`. After the tests pass, GraalVM merges all recordings into
+`server/src/main/resources/META-INF/native-image/com.roomelephant/porthole-agent/reachability-metadata.json`; incomplete recordings fail generation rather than silently losing coverage.
 
 Commit the updated `reachability-metadata.json` and rebuild the native image. If a class isn't reached by the ITs, register it explicitly in `DockerNativeConfig` using `RuntimeHints` or `@RegisterReflectionForBinding` rather than editing the generated file by hand.
 

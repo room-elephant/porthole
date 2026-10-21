@@ -36,8 +36,13 @@ The final Docker image runs a single native binary with no JVM required.
 GraalVM native compilation requires explicit configuration for reflection, proxies, JNI, and resource access that cannot be statically inferred. These hints live in:
 
 ```
-server/src/main/resources/META-INF/native-image/com.roomelephant/porthole/reachability-metadata.json
+server/src/main/resources/META-INF/native-image/com.roomelephant/porthole-agent/reachability-metadata.json
 ```
+
+The agent metadata uses the `porthole-agent` directory so it remains separate from
+Spring AOT metadata generated under `com.roomelephant/porthole`. Both directories
+are packaged on the native-image classpath; AOT generation must preserve the agent
+recordings rather than overwrite them.
 
 ### Automated generation
 

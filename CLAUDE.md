@@ -34,7 +34,7 @@ For server package layout and integration test infrastructure, see [Architecture
 
 GraalVM requires explicit reflection/proxy/JNI configuration. Hints live in:
 ```
-server/src/main/resources/META-INF/native-image/com.roomelephant/porthole/reachability-metadata.json
+server/src/main/resources/META-INF/native-image/com.roomelephant/porthole-agent/reachability-metadata.json
 ```
 
 Regenerate with `make server-native-hints` after adding features that use reflection. For types not reached by ITs, register them manually in `DockerNativeConfig` using `RuntimeHints` or `@RegisterReflectionForBinding` — do not hand-edit the generated JSON.

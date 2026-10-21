@@ -374,7 +374,7 @@
                                         <argument>com.roomelephant.porthole.it.infra.NativeHintsMerger</argument>
                                         <argument>merge</argument>
                                         <argument>${project.build.directory}/native-hints</argument>
-                                        <argument>${project.basedir}/src/main/resources/META-INF/native-image/com.roomelephant/porthole</argument>
+                                        <argument>${project.basedir}/src/main/resources/META-INF/native-image/com.roomelephant/porthole-agent</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
