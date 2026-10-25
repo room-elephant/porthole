@@ -61,6 +61,15 @@
       "type": "com.fasterxml.jackson.databind.deser.BeanDeserializerModifier[]"
     },
     {
+      "type": "com.fasterxml.jackson.databind.deser.Deserializers[]"
+    },
+    {
+      "type": "com.fasterxml.jackson.databind.deser.KeyDeserializers[]"
+    },
+    {
+      "type": "com.fasterxml.jackson.databind.deser.ValueInstantiators[]"
+    },
+    {
       "type": "com.fasterxml.jackson.databind.ext.Java7SupportImpl",
       "methods": [
         {
@@ -68,6 +77,12 @@
           "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "com.fasterxml.jackson.databind.ser.BeanSerializerModifier[]"
+    },
+    {
+      "type": "com.fasterxml.jackson.databind.ser.Serializers[]"
     },
     {
       "type": "com.fasterxml.jackson.dataformat.cbor.CBORFactory"
@@ -85,7 +100,16 @@
       "type": "com.fasterxml.jackson.datatype.jdk8.Jdk8Module"
     },
     {
-      "type": "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule"
+      "type": "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.fasterxml.jackson.module.kotlin.KotlinModule"
     },
     {
       "type": "com.fasterxml.jackson.module.paramnames.ParameterNamesModule"
@@ -1207,6 +1231,9 @@
       "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.core5.http.impl.io.HttpRequestExecutor"
     },
     {
+      "type": "com.github.therapi.runtimejavadoc.CommentFormatter"
+    },
+    {
       "type": "com.google.gson.Gson"
     },
     {
@@ -1241,6 +1268,12 @@
           "name": "iconSettings",
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.DashboardProperties"
+          ]
+        },
+        {
+          "name": "selfContainer",
+          "parameterTypes": [
+            "com.roomelephant.porthole.config.properties.SelfProperties"
           ]
         },
         {
@@ -1436,10 +1469,6 @@
         {
           "name": "isIdsUnique",
           "parameterTypes": []
-        },
-        {
-          "name": "isPublishedHostsConfigured",
-          "parameterTypes": []
         }
       ]
     },
@@ -1556,6 +1585,17 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.config.properties.SelfProperties",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.config.properties.VersionProperties",
       "fields": [
         {
@@ -1660,6 +1700,32 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.core.enrichment.icon.IconEnricher",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.enrichment.icon.IconResolver"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.icon.IconResolver",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.util.Map",
+            "com.roomelephant.porthole.core.enrichment.icon.IconSettings"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.icon.IconSettings"
+    },
+    {
       "type": "com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter",
       "methods": [
         {
@@ -1716,6 +1782,9 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.core.model.SelfContainer"
+    },
+    {
       "type": "com.roomelephant.porthole.core.model.SourceStatus"
     },
     {
@@ -1755,26 +1824,9 @@
       "methods": [
         {
           "name": "<init>",
-          "parameterTypes": [
-            "com.roomelephant.porthole.core.presentation.icon.IconResolver"
-          ]
+          "parameterTypes": []
         }
       ]
-    },
-    {
-      "type": "com.roomelephant.porthole.core.presentation.icon.IconResolver",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.util.Map",
-            "com.roomelephant.porthole.core.presentation.icon.IconSettings"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "com.roomelephant.porthole.core.presentation.icon.IconSettings"
     },
     {
       "type": "com.roomelephant.porthole.core.service.ContainerService",
@@ -1784,7 +1836,8 @@
           "parameterTypes": [
             "com.roomelephant.porthole.core.service.DockerDiscoveryService",
             "com.roomelephant.porthole.core.presentation.ContainerPresentation",
-            "com.roomelephant.porthole.core.enrichment.ContainerEnrichment"
+            "com.roomelephant.porthole.core.enrichment.ContainerEnrichment",
+            "com.roomelephant.porthole.core.model.SelfContainer"
           ]
         }
       ]
@@ -1844,8 +1897,7 @@
           "name": "getContainers",
           "parameterTypes": [
             "boolean",
-            "boolean",
-            "jakarta.servlet.http.HttpServletRequest"
+            "boolean"
           ]
         }
       ]
@@ -1913,6 +1965,10 @@
         },
         {
           "name": "project",
+          "parameterTypes": []
+        },
+        {
+          "name": "self",
           "parameterTypes": []
         },
         {
@@ -2368,6 +2424,96 @@
     },
     {
       "type": "io.smallrye.mutiny.Multi"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.ExternalDocumentation"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.OpenAPI31"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.OpenAPIDefinition"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.Operation"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.Parameter"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.StringToClassMapItem"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.extensions.Extension"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.extensions.ExtensionProperty"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.headers.Header"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.info.Contact"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.info.Info"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.info.License"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.links.Link"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.links.LinkParameter"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.ArraySchema"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.Content"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.DependentRequired"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.DependentSchema"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.DiscriminatorMapping"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.Encoding"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.ExampleObject"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.Schema"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.media.SchemaProperty"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.parameters.RequestBody"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.responses.ApiResponse"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.security.SecurityRequirement"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.security.SecurityRequirementEntry"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.servers.Server"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.servers.ServerVariable"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.tags.Tag"
     },
     {
       "type": "jakarta.annotation.PostConstruct"
@@ -2986,6 +3132,9 @@
       "type": "java.util.Enumeration"
     },
     {
+      "type": "java.util.EventListener"
+    },
+    {
       "type": "java.util.HashSet"
     },
     {
@@ -3136,7 +3285,13 @@
       "type": "kotlin.Metadata"
     },
     {
+      "type": "kotlin.coroutines.Continuation"
+    },
+    {
       "type": "kotlin.reflect.full.KClasses"
+    },
+    {
+      "type": "kotlinx.coroutines.flow.Flow"
     },
     {
       "type": "kotlinx.coroutines.reactor.MonoKt"
@@ -3471,6 +3626,75 @@
     },
     {
       "type": "org.slf4j.spi.LocationAwareLogger"
+    },
+    {
+      "type": "org.springdoc.core.conditions.MultipleOpenApiSupportCondition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.springdoc.core.conditions.SpecPropertiesCondition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.springdoc.core.configuration.SpringDocWebServerConfiguration$EmbeddedWebServerConfiguration",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "webServerPortProvider",
+          "parameterTypes": [
+            "org.springframework.beans.factory.ObjectProvider"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.springdoc.core.configuration.SpringDocWebServerConfiguration$EmbeddedWebServerConfiguration$SpringDocWebServerPortListener"
+    },
+    {
+      "type": "org.springdoc.core.configuration.SpringDocWebServerConfiguration$SpringDocWebServerContext"
+    },
+    {
+      "type": "org.springdoc.core.properties.SpringDocConfigProperties",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "getApiDocs",
+          "parameterTypes": []
+        },
+        {
+          "name": "setApiDocs",
+          "parameterTypes": [
+            "org.springdoc.core.properties.SpringDocConfigProperties$ApiDocs"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.springdoc.core.properties.SpringDocConfigProperties$ApiDocs",
+      "methods": [
+        {
+          "name": "setEnabled",
+          "parameterTypes": [
+            "boolean"
+          ]
+        }
+      ]
     },
     {
       "type": "org.springframework.aop.framework.AbstractAdvisingBeanPostProcessor"
@@ -4203,6 +4427,9 @@
       "type": "org.springframework.boot.autoconfigure.condition.ConditionalOnClass"
     },
     {
+      "type": "org.springframework.boot.autoconfigure.condition.ConditionalOnExpression"
+    },
+    {
       "type": "org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean"
     },
     {
@@ -4243,6 +4470,15 @@
     },
     {
       "type": "org.springframework.boot.autoconfigure.condition.OnClassCondition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.springframework.boot.autoconfigure.condition.OnExpressionCondition",
       "methods": [
         {
           "name": "<init>",
@@ -6544,6 +6780,9 @@
       "type": "org.springframework.boot.web.server.context.WebServerApplicationContext"
     },
     {
+      "type": "org.springframework.boot.web.server.context.WebServerInitializedEvent"
+    },
+    {
       "type": "org.springframework.boot.web.server.reactive.context.ReactiveWebServerApplicationContextFactory",
       "methods": [
         {
@@ -7041,6 +7280,9 @@
       "type": "org.springframework.boot.webmvc.error.ErrorController"
     },
     {
+      "type": "org.springframework.cloud.function.web.function.FunctionEndpointInitializer"
+    },
+    {
       "type": "org.springframework.context.ApplicationContextAware"
     },
     {
@@ -7182,6 +7424,9 @@
       "type": "org.springframework.core.annotation.AnnotationAttributes[]"
     },
     {
+      "type": "org.springframework.core.annotation.MergedAnnotation[]"
+    },
+    {
       "type": "org.springframework.core.annotation.Order"
     },
     {
@@ -7209,6 +7454,15 @@
       "type": "org.springframework.dao.DataAccessException"
     },
     {
+      "type": "org.springframework.data.domain.Pageable"
+    },
+    {
+      "type": "org.springframework.data.domain.Sort"
+    },
+    {
+      "type": "org.springframework.data.rest.core.config.RepositoryRestConfiguration"
+    },
+    {
       "type": "org.springframework.data.rest.webmvc.alps.AlpsJacksonJsonHttpMessageConverter"
     },
     {
@@ -7219,6 +7473,9 @@
     },
     {
       "type": "org.springframework.format.support.FormattingConversionService"
+    },
+    {
+      "type": "org.springframework.hateoas.server.LinkRelationProvider"
     },
     {
       "type": "org.springframework.hateoas.server.mvc.TypeConstrainedJacksonJsonHttpMessageConverter"
@@ -7290,6 +7547,9 @@
     },
     {
       "type": "org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler"
+    },
+    {
+      "type": "org.springframework.security.web.SecurityFilterChain"
     },
     {
       "type": "org.springframework.stereotype.Component"
@@ -8516,6 +8776,12 @@
       "glob": "com/roomelephant/porthole/core/enrichment/endpointavailability/EndpointAvailabilityFilter.class"
     },
     {
+      "glob": "com/roomelephant/porthole/core/enrichment/icon/IconEnricher.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/enrichment/icon/IconResolver.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/core/enrichment/state/ContainerStateFilter.class"
     },
     {
@@ -8541,9 +8807,6 @@
     },
     {
       "glob": "com/roomelephant/porthole/core/presentation/ContainerPresentation.class"
-    },
-    {
-      "glob": "com/roomelephant/porthole/core/presentation/icon/IconResolver.class"
     },
     {
       "glob": "com/roomelephant/porthole/core/service/ContainerService$Result.class"
@@ -8604,6 +8867,9 @@
     },
     {
       "glob": "icons.yml"
+    },
+    {
+      "glob": "io/swagger/v3/oas/annotations/tags/Tag.class"
     },
     {
       "glob": "jakarta/servlet/LocalStrings.properties"
@@ -8775,6 +9041,69 @@
     },
     {
       "glob": "org/publicsuffix/list/effective_tld_names.dat"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocDataRestConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocFunctionCatalogConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocGroovyConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocHateoasConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocJacksonKotlinModuleConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocJavadocConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocKotlinConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocKotlinxConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocPageableConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocSecurityConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocSortConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocSpecPropertiesConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration$DeployedWebServerConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration$EmbeddedWebServerConfiguration$SpringDocWebServerPortListener.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration$EmbeddedWebServerConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration/DeployedWebServerConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration/EmbeddedWebServerConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/core/properties/SpringDocConfigProperties.class"
+    },
+    {
+      "glob": "org/springdoc/webmvc/core/configuration/MultipleOpenApiSupportConfiguration.class"
+    },
+    {
+      "glob": "org/springdoc/webmvc/core/configuration/SpringDocWebMvcConfiguration.class"
     },
     {
       "glob": "org/springframework/aot/hint/RuntimeHintsRegistrar.class"
@@ -9474,6 +9803,9 @@
     },
     {
       "glob": "public/api/containers/non-existent-id/version"
+    },
+    {
+      "glob": "public/index.html"
     },
     {
       "glob": "resources/api/containers/non-existent-id/version"

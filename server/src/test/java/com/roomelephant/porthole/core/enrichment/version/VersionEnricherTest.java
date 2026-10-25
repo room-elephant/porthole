@@ -24,7 +24,7 @@ class VersionEnricherTest {
                 "app",
                 "app",
                 "nginx:1.0",
-                new Container.Details(Set.of(), Map.of(), "icon", null, "running", "Up"),
+                new Container.Details(Set.of(), Map.of(), null, "running", "Up"),
                 List.of());
     }
 

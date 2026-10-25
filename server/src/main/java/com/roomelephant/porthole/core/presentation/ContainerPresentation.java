@@ -1,7 +1,6 @@
 package com.roomelephant.porthole.core.presentation;
 
 import com.roomelephant.porthole.core.model.*;
-import com.roomelephant.porthole.core.presentation.icon.IconResolver;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -11,12 +10,7 @@ import org.springframework.stereotype.Component;
 @Component
 @NullMarked
 public class ContainerPresentation {
-    private final IconResolver icons;
     private final DisplayNameResolver names = new DisplayNameResolver();
-
-    public ContainerPresentation(IconResolver icons) {
-        this.icons = icons;
-    }
 
     public List<Container> toModels(List<ContainerSnapshot> snapshots, String sourceId) {
         List<ContainerSnapshot> identified =
@@ -45,7 +39,6 @@ public class ContainerPresentation {
                 new Container.Details(
                         c.publishedPorts(),
                         c.labels(),
-                        icons.resolveIcon(ImageUtils.extractName(c.image())),
                         c.labels().get("com.docker.compose.project"),
                         c.state(),
                         c.status()),

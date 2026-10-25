@@ -13,7 +13,7 @@ final class EndpointFixtures {
                 "transmission",
                 "transmission",
                 "transmission:latest",
-                new Container.Details(ports, labels, "icon", null, "running", "Up"),
+                new Container.Details(ports, labels, null, "running", "Up"),
                 List.of());
     }
 }

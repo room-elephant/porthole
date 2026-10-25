@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.presentation.icon;
+package com.roomelephant.porthole.core.enrichment.icon;
 
 import static org.junit.jupiter.api.Assertions.*;
 

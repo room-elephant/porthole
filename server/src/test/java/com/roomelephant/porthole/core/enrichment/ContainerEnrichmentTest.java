@@ -155,7 +155,7 @@ class ContainerEnrichmentTest {
                 "app",
                 "app",
                 "app:latest",
-                new Container.Details(ports, labels, "icon", null, state, "Up"),
+                new Container.Details(ports, labels, null, state, "Up"),
                 List.of());
     }
 
