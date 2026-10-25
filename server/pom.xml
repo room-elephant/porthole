@@ -282,7 +282,6 @@
                 <spotless.check.skip>true</spotless.check.skip>
             </properties>
             <build>
-                <directory>${project.basedir}/target/openapi</directory>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -296,7 +295,7 @@
                                 </goals>
                                 <configuration>
                                     <target>
-                                        <delete file="${project.build.directory}/openapi.yml" failonerror="true"/>
+                                        <delete file="${project.build.directory}/openapi/openapi.yml" failonerror="true"/>
                                     </target>
                                 </configuration>
                             </execution>
@@ -309,7 +308,7 @@
                                 <configuration>
                                     <target>
                                         <!-- A missing export fails only after the application has stopped. -->
-                                        <copy file="${project.build.directory}/openapi.yml"
+                                        <copy file="${project.build.directory}/openapi/openapi.yml"
                                               tofile="${project.basedir}/../docs/openapi.yml" overwrite="true"/>
                                     </target>
                                 </configuration>
@@ -360,7 +359,7 @@
                         <configuration>
                             <apiDocsUrl>http://127.0.0.1:${openapi.port}/v3/api-docs.yaml</apiDocsUrl>
                             <outputFileName>openapi.yml</outputFileName>
-                            <outputDir>${project.build.directory}</outputDir>
+                            <outputDir>${project.build.directory}/openapi</outputDir>
                             <!-- Let post-integration-test stop the app before verify checks the export. -->
                             <failOnError>false</failOnError>
                         </configuration>
