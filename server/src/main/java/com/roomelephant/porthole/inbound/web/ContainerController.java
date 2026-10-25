@@ -6,7 +6,6 @@ import com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO;
 import com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -38,20 +37,7 @@ public class ContainerController {
             description = "Returns the status of every configured Docker source and a combined container inventory. "
                     + "By default, excludes stopped containers and containers without discovered service endpoints. "
                     + "A failed source is reported as DOWN or ERROR in sources without discarding other sources' containers. "
-                    + "Image version information comes from the background refresh cache and may initially be null.",
-            parameters =
-                    @Parameter(
-                            name = "Host",
-                            in = ParameterIn.HEADER,
-                            description =
-                                    "Request host and optional port, supplied by the HTTP client from the request URL. "
-                                            + "For a single Docker source without published-host, the servlet-resolved hostname is used "
-                                            + "for published-port URLs with the container's published port. "
-                                            + "An explicit published-host takes precedence. Traefik URLs retain their own hosts. "
-                                            + "X-Forwarded-Host is ignored by default; the resolved hostname follows the server's "
-                                            + "forwarded-header configuration when enabled. "
-                                            + "Browsers set Host automatically; HTTP/2 uses :authority instead.",
-                            schema = @Schema(type = "string", example = "dashboard.example.com:9753")))
+                    + "Image version information comes from the background refresh cache and may initially be null.")
     @ApiResponse(
             responseCode = "200",
             description = "Container inventory and source statuses, including any source failures.",
