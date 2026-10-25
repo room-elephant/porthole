@@ -23,7 +23,6 @@
         <jacoco.version>0.8.15</jacoco.version>
         <spotless.version>3.10.4</spotless.version>
         <springdoc.version>3.2.0</springdoc.version>
-        <openapi.port>19753</openapi.port>
         <testcontainers.version>2.0.5</testcontainers.version>
         <testcontainers-junit.version>1.21.4</testcontainers-junit.version>
         <wiremock.version>3.13.2</wiremock.version>
@@ -276,6 +275,7 @@
             <id>openapi</id>
             <properties>
                 <springdoc-maven-plugin.version>1.5</springdoc-maven-plugin.version>
+                <openapi.port>19753</openapi.port>
                 <openapi.jmx-port>19754</openapi.jmx-port>
                 <jacoco.skip>true</jacoco.skip>
             </properties>
