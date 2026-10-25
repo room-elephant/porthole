@@ -37,7 +37,12 @@ public class ContainerController {
             description = "Returns the status of every configured Docker source and a combined container inventory. "
                     + "By default, excludes stopped containers and containers without discovered service endpoints. "
                     + "A failed source is reported as DOWN or ERROR in sources without discarding other sources' containers. "
-                    + "Image version information comes from the background refresh cache and may initially be null.")
+                    + "Image version information comes from the background refresh cache and may initially be null. "
+                    + "For a single Docker source without published-host, published-port URLs use the servlet-resolved "
+                    + "hostname of the incoming HTTP request and the container's published port. "
+                    + "An explicit published-host takes precedence. Traefik URLs retain their own hosts. "
+                    + "X-Forwarded-Host is ignored by default; the resolved hostname follows the server's "
+                    + "forwarded-header configuration when enabled.")
     @ApiResponse(
             responseCode = "200",
             description = "Container inventory and source statuses, including any source failures.",

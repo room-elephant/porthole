@@ -20,7 +20,12 @@ paths:
         \ without discovered service endpoints. A failed source is reported as DOWN\
         \ or ERROR in sources without discarding other sources' containers. Image\
         \ version information comes from the background refresh cache and may initially\
-        \ be null."
+        \ be null. For a single Docker source without published-host, published-port\
+        \ URLs use the servlet-resolved hostname of the incoming HTTP request and\
+        \ the container's published port. An explicit published-host takes precedence.\
+        \ Traefik URLs retain their own hosts. X-Forwarded-Host is ignored by default;\
+        \ the resolved hostname follows the server's forwarded-header configuration\
+        \ when enabled."
       operationId: getContainers
       parameters:
       - description: Include containers without any published-port or Traefik service
