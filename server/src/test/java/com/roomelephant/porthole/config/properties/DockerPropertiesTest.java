@@ -58,12 +58,21 @@ class DockerPropertiesTest {
     }
 
     @Test
-    void rejectsDuplicateIdsAndMissingPublishedHosts() {
+    void rejectsDuplicateIds() {
         source().withPropertyValues(
                         "porthole.docker.connections[1].id=walker",
                         "porthole.docker.connections[1].name=Other",
                         "porthole.docker.connections[1].host=unix:///other.sock")
                 .run(c -> assertThat(c).hasFailed());
+    }
+
+    @Test
+    void acceptsMultipleConnectionsWithoutPublishedHosts() {
+        source().withPropertyValues(
+                        "porthole.docker.connections[1].id=other",
+                        "porthole.docker.connections[1].name=Other",
+                        "porthole.docker.connections[1].host=unix:///other.sock")
+                .run(c -> assertThat(c).hasNotFailed());
     }
 
     @Test

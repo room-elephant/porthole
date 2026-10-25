@@ -60,7 +60,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(List.of(app));
 
         com.roomelephant.porthole.core.model.Container result = containerService
-                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "192.168.50.6"))
+                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                 .containers()
                 .getFirst();
 
@@ -75,7 +75,7 @@ class ContainerServiceTest {
         assertThat(result.labels()).isEqualTo(labels);
         assertThat(result.publishedPorts()).isEqualTo(Set.of(8080));
         assertThat(result.urlCandidates())
-                .containsExactly(new Endpoint("published-port:8080", "published-port", "http://192.168.50.6:8080/"));
+                .containsExactly(new Endpoint("published-port:8080", "published-port", "http://127.0.0.1:8080/"));
         verify(listContainersCmd).withShowAll(true);
     }
 
@@ -86,8 +86,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(List.of(sonarr, worker));
 
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::displayName)
                 .containsExactly("sonarr", "authentik-worker");
@@ -103,8 +102,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(containers);
 
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::displayName)
                 .containsExactly("sonarr-1", "sonarr-2", "radarr");
@@ -120,8 +118,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(containers);
 
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::displayName)
                 .containsExactly("web-1", "web-2", "web-1-1");
@@ -135,8 +132,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(containers);
 
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::displayName)
                 .containsExactly("sonarr", "sonarr");
@@ -150,8 +146,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(containers);
 
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::displayName)
                 .containsExactly("sonarr", "sonarr-1");
@@ -167,8 +162,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(containers);
 
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::displayName)
                 .containsExactly("standalone-1", "custom-1", "authentik-worker");
@@ -183,13 +177,12 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(List.of(visible, hidden));
 
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::displayName)
                 .containsExactly("sonarr-1");
         assertThat(containerService
-                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::displayName)
                 .containsExactly("sonarr-1", "sonarr-2");
@@ -201,13 +194,11 @@ class ContainerServiceTest {
         when(app.getState()).thenReturn("exited");
         when(listContainersCmd.exec()).thenReturn(List.of(app));
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                         .containers())
                 .isEmpty();
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(false, true, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, true))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::name)
                 .containsExactly("stopped");
@@ -217,7 +208,7 @@ class ContainerServiceTest {
     void shouldIncludeStoppedContainersWhenRequested() {
         when(listContainersCmd.exec()).thenReturn(List.of());
         assertThat(containerService
-                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true))
                         .containers())
                 .isEmpty();
         verify(listContainersCmd).withShowAll(true);
@@ -231,7 +222,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(List.of(proxy, internal));
 
         List<com.roomelephant.porthole.core.model.Container> results = containerService
-                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"))
+                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                 .containers();
 
         assertThat(results)
@@ -248,7 +239,7 @@ class ContainerServiceTest {
         Container internal = container("internal", null, Map.of());
         when(listContainersCmd.exec()).thenReturn(List.of(internal));
         com.roomelephant.porthole.core.model.Container result = containerService
-                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false, "localhost"))
+                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false))
                 .containers()
                 .getFirst();
         assertThat(result.name()).isEqualTo("internal");
@@ -258,8 +249,8 @@ class ContainerServiceTest {
     @Test
     void sourceConnectionFailuresDoNotThrowOrLeakDetails() {
         when(listContainersCmd.exec()).thenThrow(new RuntimeException("secret", new SocketException("private path")));
-        var result = containerService.getContainers(
-                new com.roomelephant.porthole.core.model.ContainerQuery(true, false, "localhost"));
+        var result =
+                containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false));
         assertThat(result.containers()).isEmpty();
         assertThat(result.sources().getFirst().status())
                 .isEqualTo(com.roomelephant.porthole.core.model.SourceStatus.DOWN);
@@ -270,8 +261,7 @@ class ContainerServiceTest {
     void otherSourceFailuresHaveErrorStatus() {
         when(listContainersCmd.exec()).thenThrow(new RuntimeException("private path"));
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(true, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false))
                         .sources()
                         .getFirst()
                         .status())
@@ -282,8 +272,7 @@ class ContainerServiceTest {
     void shouldReturnEmptyListWhenDockerHasNoContainers() {
         when(listContainersCmd.exec()).thenReturn(List.of());
         assertThat(containerService
-                        .getContainers(
-                                new com.roomelephant.porthole.core.model.ContainerQuery(true, false, "localhost"))
+                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false))
                         .containers())
                 .isEmpty();
     }
@@ -293,8 +282,7 @@ class ContainerServiceTest {
         Container app = container("app", 8080, Map.of());
         when(listContainersCmd.exec()).thenReturn(List.of(app));
         com.roomelephant.porthole.core.model.Container result = service("docker.example.com")
-                .getContainers(
-                        new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "proxy.example.com"))
+                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false))
                 .containers()
                 .getFirst();
         assertThat(result.urlCandidates())
@@ -303,23 +291,12 @@ class ContainerServiceTest {
     }
 
     @Test
-    void shouldResolveIndependentContextsForEachRequestHostname() {
+    void shouldDefaultPublishedPortUrlsToLoopback() {
         Container app = container("app", 8080, Map.of());
         when(listContainersCmd.exec()).thenReturn(List.of(app));
-        com.roomelephant.porthole.core.model.Container first = containerService
-                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "192.168.50.6"))
-                .containers()
-                .getFirst();
-        com.roomelephant.porthole.core.model.Container second = containerService
-                .getContainers(
-                        new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "other.example.com"))
-                .containers()
-                .getFirst();
-        assertThat(first.urlCandidates())
-                .containsExactly(new Endpoint("published-port:8080", "published-port", "http://192.168.50.6:8080/"));
-        assertThat(second.urlCandidates())
-                .containsExactly(
-                        new Endpoint("published-port:8080", "published-port", "http://other.example.com:8080/"));
+        var result = containerService.getContainers(new ContainerQuery(false, false));
+        assertThat(result.containers().getFirst().urlCandidates())
+                .containsExactly(new Endpoint("published-port:8080", "published-port", "http://127.0.0.1:8080/"));
     }
 
     @Test
@@ -330,7 +307,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(List.of(self, other));
 
         assertThat(service(null, new SelfContainer("abcdef123456"), true)
-                        .getContainers(new ContainerQuery(false, false, "localhost"))
+                        .getContainers(new ContainerQuery(false, false))
                         .containers())
                 .extracting(c -> c.name() + "=" + c.isSelf())
                 .containsExactly("porthole=true", "other=false");
@@ -343,7 +320,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(List.of(self));
 
         assertThat(service(null, new SelfContainer("abcdef123456"), false)
-                        .getContainers(new ContainerQuery(false, false, "localhost"))
+                        .getContainers(new ContainerQuery(false, false))
                         .containers())
                 .extracting(com.roomelephant.porthole.core.model.Container::isSelf)
                 .containsExactly(false);
@@ -358,7 +335,7 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(List.of(self, other));
 
         assertThat(service(null, new SelfContainer(fullId), false)
-                        .getContainers(new ContainerQuery(false, false, "localhost"))
+                        .getContainers(new ContainerQuery(false, false))
                         .containers())
                 .extracting(c -> c.name() + "=" + c.isSelf())
                 .containsExactly("porthole=true", "other=false");

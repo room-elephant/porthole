@@ -66,8 +66,7 @@ class ContainerControllerTest {
             Container dto2 = createContainer("container2");
             List<Container> containerDTOs = List.of(dto1, dto2);
 
-            when(containerService.getContainers(
-                            new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost")))
+            when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                     .thenReturn(inventory(containerDTOs));
 
             mockMvc.perform(get("/api/containers"))
@@ -77,7 +76,7 @@ class ContainerControllerTest {
                     .andExpect(jsonPath("$.containers[1].name").value("container2"));
 
             verify(containerService)
-                    .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"));
+                    .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false));
         }
 
         @Test
@@ -86,8 +85,7 @@ class ContainerControllerTest {
             Container dtoWithPort = createContainer("c1");
             Container dtoNoPort = createContainer("c2", Collections.emptySet());
 
-            when(containerService.getContainers(
-                            new com.roomelephant.porthole.core.model.ContainerQuery(true, false, "localhost")))
+            when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false)))
                     .thenReturn(inventory(List.of(dtoWithPort, dtoNoPort)));
 
             mockMvc.perform(get("/api/containers").param("includeWithoutEndpoints", "true"))
@@ -95,28 +93,26 @@ class ContainerControllerTest {
                     .andExpect(jsonPath("$.containers.length()").value(2));
 
             verify(containerService)
-                    .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false, "localhost"));
+                    .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false));
         }
 
         @Test
         @DisplayName("should pass includeStopped parameter")
         void shouldPassIncludeStoppedParameter() throws Exception {
-            when(containerService.getContainers(
-                            new com.roomelephant.porthole.core.model.ContainerQuery(false, true, "localhost")))
+            when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, true)))
                     .thenReturn(inventory(Collections.emptyList()));
 
             mockMvc.perform(get("/api/containers").param("includeStopped", "true"))
                     .andExpect(status().isOk());
 
             verify(containerService)
-                    .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, true, "localhost"));
+                    .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, true));
         }
 
         @Test
         @DisplayName("should pass both parameters")
         void shouldPassBothParameters() throws Exception {
-            when(containerService.getContainers(
-                            new com.roomelephant.porthole.core.model.ContainerQuery(true, true, "localhost")))
+            when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true)))
                     .thenReturn(inventory(Collections.emptyList()));
 
             mockMvc.perform(get("/api/containers")
@@ -124,15 +120,13 @@ class ContainerControllerTest {
                             .param("includeStopped", "true"))
                     .andExpect(status().isOk());
 
-            verify(containerService)
-                    .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true, "localhost"));
+            verify(containerService).getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, true));
         }
 
         @Test
         @DisplayName("should return empty array when no containers")
         void shouldReturnEmptyArrayWhenNoContainers() throws Exception {
-            when(containerService.getContainers(
-                            new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost")))
+            when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                     .thenReturn(inventory(Collections.emptyList()));
 
             mockMvc.perform(get("/api/containers"))
@@ -145,8 +139,7 @@ class ContainerControllerTest {
     void shouldIncludeCachedVersionInContainersResponse() throws Exception {
         Container container = createContainer("app");
         container.setVersion(new VersionInfo("1.0", "2.0", true));
-        when(containerService.getContainers(
-                        new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost")))
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(container)));
         mockMvc.perform(get("/api/containers"))
                 .andExpect(jsonPath("$.containers[0].version.currentVersion").value("1.0"))
@@ -156,8 +149,7 @@ class ContainerControllerTest {
 
     @Test
     void shouldExposeNullVersionBeforeResolution() throws Exception {
-        when(containerService.getContainers(
-                        new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost")))
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(createContainer("app"))));
         mockMvc.perform(get("/api/containers"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("\"version\":null")));
@@ -170,8 +162,7 @@ class ContainerControllerTest {
 
     @Test
     void shouldSerializeEndpointContractOnly() throws Exception {
-        when(containerService.getContainers(
-                        new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost")))
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(createContainer("app"))));
         mockMvc.perform(get("/api/containers"))
                 .andExpect(jsonPath("$.containers[0].sourceId").value("local"))
@@ -189,33 +180,27 @@ class ContainerControllerTest {
     }
 
     @Test
-    void shouldPassEachRequestHostnameToService() throws Exception {
-        when(containerService.getContainers(any(com.roomelephant.porthole.core.model.ContainerQuery.class)))
-                .thenAnswer(call -> {
-                    String hostname = call.getArgument(0, com.roomelephant.porthole.core.model.ContainerQuery.class)
-                            .requestHostname();
-                    return inventory(List.of(createContainer(
-                            "app",
-                            List.of(new Endpoint(
-                                    "published-port:51413", "published-port", "http://" + hostname + ":51413/")))));
-                });
+    void shouldIgnoreRequestHostnameAndForwardedHost() throws Exception {
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
+                .thenReturn(inventory(List.of(createContainer("app"))));
         for (String hostname : List.of("192.168.50.6", "other.example.com")) {
             mockMvc.perform(get("http://" + hostname + ":9753/api/containers")
-                            .header("X-Forwarded-Host", "ignored.example.com"))
-                    .andExpect(jsonPath("$.containers[0].endpoints[0].url").value("http://" + hostname + ":51413/"))
-                    .andExpect(jsonPath("$.containers[0].endpoints[0].id").value("published-port:51413"));
+                            .header("Host", "untrusted.example.com")
+                            .header("X-Forwarded-Host", "forwarded.example.com"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.containers[0].name").value("app"));
         }
+        verify(containerService, times(2))
+                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false));
     }
 
     @Test
     void shouldNotAliasOldQueryParameter() throws Exception {
-        when(containerService.getContainers(
-                        new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost")))
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of()));
         mockMvc.perform(get("/api/containers").param("includeWithoutPorts", "true"))
                 .andExpect(status().isOk());
-        verify(containerService)
-                .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false, "localhost"));
+        verify(containerService).getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false));
     }
 
     private com.roomelephant.porthole.core.model.ContainerInventory inventory(List<Container> containers) {

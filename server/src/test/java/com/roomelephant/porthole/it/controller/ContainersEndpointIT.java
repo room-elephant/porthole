@@ -169,12 +169,37 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
     }
 
     @Test
+    void shouldIgnoreRequestHostForDefaultPublishedPortUrls() {
+        startPorthole();
+        for (String hostname : java.util.List.of("localhost", "127.0.0.1")) {
+            var headers = new org.springframework.http.HttpHeaders();
+            headers.set("X-Forwarded-Host", "forwarded.example.com");
+            var response = new org.springframework.web.client.RestTemplate()
+                    .exchange(
+                            "http://" + hostname + ":" + porthole.getMappedPort(9753) + "/api/containers",
+                            org.springframework.http.HttpMethod.GET,
+                            new org.springframework.http.HttpEntity<>(headers),
+                            com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO.class)
+                    .getBody();
+            assertThat(response).isNotNull();
+            var container = response.containers().stream()
+                    .filter(candidate -> candidate.name().equals(TEST_APP_CONTAINER_NAME))
+                    .findFirst()
+                    .orElseThrow();
+            int port = testAppContainer.getMappedPort(8080);
+            assertThat(container.endpoints())
+                    .containsExactly(new EndpointDTO(
+                            "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/"));
+        }
+    }
+
+    @Test
     void shouldReturnProxyAndPublishedPortCandidates() {
         ContainerDTO container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
         int port = mixedContainer.getMappedPort(51413);
         assertThat(container.endpoints())
                 .contains(
-                        new EndpointDTO("published-port:" + port, "published-port", "http://localhost:" + port + "/"));
+                        new EndpointDTO("published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/"));
         assertThat(container.endpoints()).extracting(EndpointDTO::source).contains("traefik", "published-port");
     }
 

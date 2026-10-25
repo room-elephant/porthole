@@ -213,7 +213,7 @@ The frontend polls one aggregate request every 30 seconds, replaces failed-sourc
 and does not use actuator health to suppress otherwise usable results.
 
 `DockerSourceRegistry` owns each client's lifecycle. Mapping and enrichment receive
-a source-specific `EnrichmentContext` containing request host, effective published
+a source-specific `EnrichmentContext` containing the configured published
 host, source ID, and the existing flags. Display-name collision detection operates
 on each source's complete inventory before filtering. The frontend namespaces
 React keys and stored endpoint/update preferences by source.
@@ -275,7 +275,7 @@ The production handlers run in this order:
 
 To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` in its own concern package under `core/enrichment/` and declare its order with `@Order` (for example, `@Order(400)` to run after the existing handlers). Spring includes it automatically without changes to the service or chain.
 
-The controller extracts the request server name and passes a core `ContainerQuery` containing that hostname and the query flags through the `GetContainers` inbound port. The service builds an immutable `EnrichmentContext` per source containing its ID, effective published host, raw request host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to apply the configured hostname override without changing the shared request context. Servlet request handling remains in `inbound/web/`; core components receive no servlet objects and retain no request state.
+The controller passes a core `ContainerQuery` containing the query flags through the `GetContainers` inbound port. The service builds an immutable `EnrichmentContext` per source containing its ID, configured published host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to resolve the configured host, defaulting to `127.0.0.1` when absent. Request hostnames and forwarded headers do not affect endpoint discovery.
 
 The service returns a domain `ContainerInventory` containing source outcomes and domain containers. `ContainerController` maps these through `inbound/web/mapper/ContainerDTOMapper` into `inbound/web/dto/ContainerDTO` and `EndpointDTO`. The API exposes domain URL candidates as `endpoints`, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
 
@@ -299,7 +299,7 @@ public final class MyProxyEndpointProvider implements EndpointProvider {
 
 Place implementations and URL helpers in `core/enrichment/endpoint/`; shared endpoint values live in `core/model/`. Each enrichment handler owns a concern package: `state`, `endpoint`, `endpointavailability`, or `version`. The published hostname is bound per connection in `config/properties/DockerConnectionProperties` and passed into the source enrichment context; there is no global endpoint-host setting. New reflectively accessed types require Spring AOT binding hints; generated reachability metadata must not be edited by hand.
 
-Published-port IDs use `published-port:<port>` independently of the request hostname. Traefik IDs use `traefik:<normalized-url>`. The client opens the API URL directly, resolves saved IDs before Traefik defaults, and keeps automatic defaults out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
+Published-port IDs use `published-port:<port>` independently of the configured hostname. Traefik IDs use `traefik:<normalized-url>`. The client opens the API URL directly, resolves saved IDs before Traefik defaults, and keeps automatic defaults out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
 
 ## Directory Structure
 
