@@ -14,6 +14,7 @@ public final class Container {
     private final String displayName;
     private final String image;
     private final Details details;
+    private String iconUrl = "";
     private List<Endpoint> urlCandidates;
     private @Nullable VersionInfo version;
     private boolean self;
@@ -21,7 +22,6 @@ public final class Container {
     public record Details(
             Set<Integer> publishedPorts,
             Map<String, String> labels,
-            String iconUrl,
             @Nullable String project,
             @Nullable String state,
             @Nullable String status) {
@@ -97,7 +97,11 @@ public final class Container {
     }
 
     public String iconUrl() {
-        return details.iconUrl();
+        return iconUrl;
+    }
+
+    public void setIconUrl(String iconUrl) {
+        this.iconUrl = iconUrl;
     }
 
     public @Nullable String project() {

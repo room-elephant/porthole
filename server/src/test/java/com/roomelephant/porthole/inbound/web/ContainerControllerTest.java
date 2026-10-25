@@ -211,15 +211,16 @@ class ContainerControllerTest {
     }
 
     private Container createContainer(String name, List<Endpoint> endpoints) {
-        return new Container(
+        Container container = new Container(
                 name + "-id",
                 "local",
                 name,
                 name,
                 "nginx:latest",
-                new Container.Details(
-                        Set.of(), Map.of("secret", "internal-only"), "icon", "test-project", "running", "Up"),
+                new Container.Details(Set.of(), Map.of("secret", "internal-only"), "test-project", "running", "Up"),
                 endpoints);
+        container.setIconUrl("icon");
+        return container;
     }
 
     private Container createContainer(String name) {
@@ -227,21 +228,17 @@ class ContainerControllerTest {
     }
 
     private Container createContainer(String name, Set<Integer> ports) {
-        return new Container(
+        Container container = new Container(
                 name + "-id",
                 "local",
                 name,
                 name,
                 "nginx:latest",
-                new Container.Details(
-                        ports,
-                        Map.of("secret", "internal-only"),
-                        "https://example.com/nginx.png",
-                        "test-project",
-                        "running",
-                        "Up 1 hour"),
+                new Container.Details(ports, Map.of("secret", "internal-only"), "test-project", "running", "Up 1 hour"),
                 ports.stream()
                         .map(port -> new Endpoint("published-port:" + port, "published-port", "http://localhost/"))
                         .toList());
+        container.setIconUrl("https://example.com/nginx.png");
+        return container;
     }
 }

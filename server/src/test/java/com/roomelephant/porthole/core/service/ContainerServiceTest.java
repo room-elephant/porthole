@@ -12,12 +12,13 @@ import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.endpoint.EndpointDiscovery;
 import com.roomelephant.porthole.core.enrichment.endpoint.UrlCandidateEnricher;
 import com.roomelephant.porthole.core.enrichment.endpointavailability.EndpointAvailabilityFilter;
+import com.roomelephant.porthole.core.enrichment.icon.IconEnricher;
+import com.roomelephant.porthole.core.enrichment.icon.IconResolver;
 import com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter;
 import com.roomelephant.porthole.core.model.ContainerQuery;
 import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.core.presentation.ContainerPresentation;
-import com.roomelephant.porthole.core.presentation.icon.IconResolver;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
@@ -361,11 +362,12 @@ class ContainerServiceTest {
                                         java.time.Duration.ofSeconds(60),
                                         local,
                                         dockerClient))))),
-                new ContainerPresentation(icon),
+                new ContainerPresentation(),
                 new ContainerEnrichment(List.of(
                         new ContainerStateFilter(),
                         new UrlCandidateEnricher(discovery),
-                        new EndpointAvailabilityFilter())),
+                        new EndpointAvailabilityFilter(),
+                        new IconEnricher(icon))),
                 self);
     }
 

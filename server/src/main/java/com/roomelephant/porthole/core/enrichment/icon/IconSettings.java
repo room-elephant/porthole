@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.presentation.icon;
+package com.roomelephant.porthole.core.enrichment.icon;
 
 import org.jspecify.annotations.NullMarked;
 

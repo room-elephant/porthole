@@ -20,8 +20,7 @@ class ContainerTest {
                 "app",
                 "app",
                 "app:latest",
-                new Container.Details(
-                        Set.of(8080), Map.of("custom.metadata", "retained"), "icon", null, "running", "Up"),
+                new Container.Details(Set.of(8080), Map.of("custom.metadata", "retained"), null, "running", "Up"),
                 initial);
         initial.clear();
         assertThat(container.urlCandidates()).containsExactly(original);
