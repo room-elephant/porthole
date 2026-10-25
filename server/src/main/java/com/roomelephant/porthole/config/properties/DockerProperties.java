@@ -25,9 +25,4 @@ public record DockerProperties(@NotEmpty List<@Valid DockerConnectionProperties>
                         .count()
                 == connections.size();
     }
-
-    @AssertTrue(message = "Every connection requires published-host when multiple Docker sources are configured")
-    public boolean isPublishedHostsConfigured() {
-        return connections.size() < 2 || connections.stream().allMatch(c -> c.publishedHost() != null);
-    }
 }

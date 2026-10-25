@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,9 +52,8 @@ public class ContainerController {
                             description =
                                     "Include stopped containers; containers without endpoints still require includeWithoutEndpoints=true.")
                     @RequestParam(defaultValue = "false")
-                    boolean includeStopped,
-            HttpServletRequest request) {
-        return containerDTOMapper.toDTO(containerService.getContainers(
-                new ContainerQuery(includeWithoutEndpoints, includeStopped, request.getServerName())));
+                    boolean includeStopped) {
+        return containerDTOMapper.toDTO(
+                containerService.getContainers(new ContainerQuery(includeWithoutEndpoints, includeStopped)));
     }
 }

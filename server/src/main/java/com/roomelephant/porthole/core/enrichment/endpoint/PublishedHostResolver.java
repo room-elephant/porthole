@@ -9,6 +9,6 @@ import org.springframework.stereotype.Component;
 public class PublishedHostResolver {
     public String resolve(EnrichmentContext context) {
         String publishedHost = context.publishedHost();
-        return publishedHost == null ? context.host() : publishedHost;
+        return publishedHost == null ? "127.0.0.1" : publishedHost;
     }
 }

@@ -15,7 +15,7 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 
 class VersionEnricherTest {
-    private final EnrichmentContext context = new EnrichmentContext("local", "localhost", null, false, false);
+    private final EnrichmentContext context = new EnrichmentContext("local", "localhost", false, false);
 
     private Container container() {
         return new Container(

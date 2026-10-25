@@ -60,7 +60,7 @@ class MultipleSourcesTest {
                         new DockerSourceRegistry(List.of(source("walker", client(), Duration.ofSeconds(1))))),
                 new ContainerEnrichment(List.of()));
         discoveries.getFirst().close();
-        var query = new ContainerQuery(true, true, "proxy");
+        var query = new ContainerQuery(true, true);
         assertThatThrownBy(() -> service.getContainers(query)).isInstanceOf(IllegalStateException.class);
     }
 
@@ -69,7 +69,7 @@ class MultipleSourcesTest {
         var registry = new DockerJavaOperations(new DockerSourceRegistry(List.of(
                 source("walker", client(), Duration.ofSeconds(1)), source("mike", client(), Duration.ofSeconds(1)))));
         var service = service(registry, new ContainerEnrichment(List.of()));
-        var result = service.getContainers(new ContainerQuery(true, true, "proxy"));
+        var result = service.getContainers(new ContainerQuery(true, true));
         assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker", "mike");
         assertThat(result.containers()).extracting(Container::id).containsExactly("same-id", "same-id");
         assertThat(result.sources()).extracting(SourceState::status).containsExactly(SourceStatus.UP, SourceStatus.UP);
@@ -89,7 +89,7 @@ class MultipleSourcesTest {
         var service = service(registry, new ContainerEnrichment(List.of()));
         try {
             var result = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
-                    Duration.ofSeconds(2), () -> service.getContainers(new ContainerQuery(true, true, "proxy")));
+                    Duration.ofSeconds(2), () -> service.getContainers(new ContainerQuery(true, true)));
             assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker");
             assertThat(result.sources())
                     .extracting(SourceState::status)
@@ -119,7 +119,7 @@ class MultipleSourcesTest {
                         new DockerSourceRegistry(List.of(source("walker", client(), Duration.ofMillis(100))))),
                 new ContainerEnrichment(List.of(slowEnricher)));
         try (var caller = Executors.newVirtualThreadPerTaskExecutor()) {
-            var response = caller.submit(() -> service.getContainers(new ContainerQuery(true, true, "proxy")));
+            var response = caller.submit(() -> service.getContainers(new ContainerQuery(true, true)));
             try {
                 assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
                 assertThatThrownBy(() -> response.get(500, TimeUnit.MILLISECONDS))
@@ -143,7 +143,7 @@ class MultipleSourcesTest {
                 new DockerJavaOperations(
                         new DockerSourceRegistry(List.of(source("walker", client, Duration.ofSeconds(1))))),
                 new ContainerEnrichment(List.of()));
-        var result = service.getContainers(new ContainerQuery(true, true, "proxy"));
+        var result = service.getContainers(new ContainerQuery(true, true));
         assertThat(result.containers()).isEmpty();
         assertThat(result.sources().getFirst().status()).isEqualTo(SourceStatus.DOWN);
         assertThat(result.sources().getFirst().error()).isEqualTo("Docker is not reachable");
@@ -160,7 +160,7 @@ class MultipleSourcesTest {
             return Optional.of(container);
         };
         var service = service(registry, new ContainerEnrichment(List.of(failingEnricher)));
-        var result = service.getContainers(new ContainerQuery(true, true, "proxy"));
+        var result = service.getContainers(new ContainerQuery(true, true));
         assertThat(result.sources())
                 .extracting(SourceState::status)
                 .containsExactly(SourceStatus.ERROR, SourceStatus.UP);

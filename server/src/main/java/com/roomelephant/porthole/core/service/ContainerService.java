@@ -44,11 +44,7 @@ public class ContainerService implements GetContainers {
         DockerSource source = result.source();
         try {
             EnrichmentContext context = new EnrichmentContext(
-                    source.id(),
-                    query.requestHostname(),
-                    source.publishedHost(),
-                    query.includeWithoutEndpoints(),
-                    query.includeStopped());
+                    source.id(), source.publishedHost(), query.includeWithoutEndpoints(), query.includeStopped());
             List<Container> containers = mapper.toModels(result.containers(), source.id()).stream()
                     .map(c -> enrichment.enrich(c, context))
                     .flatMap(Optional::stream)

@@ -9,16 +9,14 @@ class PublishedHostResolverTest {
     private final PublishedHostResolver resolver = new PublishedHostResolver();
 
     @Test
-    void connectionHostOverridesRequestHost() {
-        assertThat(resolver.resolve(new EnrichmentContext("local", "proxy.example.com", "192.168.50.5", false, false)))
+    void usesConfiguredConnectionHost() {
+        assertThat(resolver.resolve(new EnrichmentContext("local", "192.168.50.5", false, false)))
                 .isEqualTo("192.168.50.5");
     }
 
     @Test
-    void usesEachRequestHostnameWhenConnectionHasNoPublishedHost() {
-        assertThat(resolver.resolve(new EnrichmentContext("local", "192.168.50.6", null, false, false)))
-                .isEqualTo("192.168.50.6");
-        assertThat(resolver.resolve(new EnrichmentContext("local", "other.example.com", null, false, false)))
-                .isEqualTo("other.example.com");
+    void defaultsToLoopbackWhenConnectionHasNoPublishedHost() {
+        assertThat(resolver.resolve(new EnrichmentContext("local", null, false, false)))
+                .isEqualTo("127.0.0.1");
     }
 }
