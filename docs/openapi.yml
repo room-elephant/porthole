@@ -1,0 +1,157 @@
+openapi: 3.1.0
+info:
+  description: "Discover Docker containers, their service endpoints, and cached image\
+    \ version updates."
+  title: Porthole API
+  version: 0.0.1-SNAPSHOT
+servers:
+- description: Current Porthole instance
+  url: /
+tags:
+- description: Container inventory and service endpoint discovery across Docker sources.
+  name: Containers
+- description: Background image version refreshes.
+  name: Versions
+paths:
+  /api/containers:
+    get:
+      description: "Returns the status of every configured Docker source and a combined\
+        \ container inventory. By default, excludes stopped containers and containers\
+        \ without discovered service endpoints. A failed source is reported as DOWN\
+        \ or ERROR in sources without discarding other sources' containers. Image\
+        \ version information comes from the background refresh cache and may initially\
+        \ be null."
+      operationId: getContainers
+      parameters:
+      - description: Include containers without any published-port or Traefik service
+          endpoints.
+        in: query
+        name: includeWithoutEndpoints
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - description: Include stopped containers; containers without endpoints still
+          require includeWithoutEndpoints=true.
+        in: query
+        name: includeStopped
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContainerInventoryDTO"
+          description: "Container inventory and source statuses, including any source\
+            \ failures."
+      summary: List discovered containers
+      tags:
+      - Containers
+  /api/versions/refresh:
+    post:
+      description: Queues an immediate background scan across all configured Docker
+        sources. Returns without waiting for Docker or registry checks to finish.
+        Read GET /api/containers for cached results while the refresh runs and updated
+        results afterward. Repeated requests are coalesced while a source scan is
+        queued or running.
+      operationId: refreshVersions
+      responses:
+        "202":
+          description: Refresh queued; the response has no body.
+      summary: Request an image version refresh
+      tags:
+      - Versions
+components:
+  schemas:
+    ContainerDTO:
+      type: object
+      properties:
+        displayName:
+          type: string
+        endpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/EndpointDTO"
+        hasEndpoints:
+          type: boolean
+        iconUrl:
+          type: string
+        id:
+          type: string
+        image:
+          type: string
+        name:
+          type: string
+        project:
+          type:
+          - string
+          - "null"
+        self:
+          type: boolean
+        sourceId:
+          type: string
+        state:
+          type:
+          - string
+          - "null"
+        status:
+          type:
+          - string
+          - "null"
+        version:
+          oneOf:
+          - $ref: "#/components/schemas/VersionInfo"
+          - type: "null"
+    ContainerInventoryDTO:
+      type: object
+      properties:
+        containers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContainerDTO"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceDTO"
+    EndpointDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+    SourceDTO:
+      type: object
+      properties:
+        error:
+          type:
+          - string
+          - "null"
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - UP
+          - DOWN
+          - ERROR
+    VersionInfo:
+      type: object
+      properties:
+        currentVersion:
+          type:
+          - string
+          - "null"
+        latestVersion:
+          type:
+          - string
+          - "null"
+        updateAvailable:
+          type: boolean

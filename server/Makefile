@@ -1,4 +1,4 @@
-.PHONY: format-check format build test test-one package it native-hints native dev
+.PHONY: format-check format build test test-one package it native-hints native dev openapi
 
 MVN ?= mvn
 
@@ -28,6 +28,9 @@ it:
 
 native-hints:
 	$(MVN) verify -Pgenerate-native-hints -Dspotless.check.skip=true
+
+openapi:
+	$(MVN) verify -Popenapi
 
 native:
 	$(MVN) -Pnative package native:compile -DskipTests -Dspotless.check.skip=true

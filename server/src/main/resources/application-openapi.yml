@@ -1,0 +1,23 @@
+server:
+  address: 127.0.0.1
+  # Maven filtering keeps this in sync with the plugin's apiDocsUrl.
+  port: "@openapi.port@"
+
+springdoc:
+  api-docs:
+    enabled: true
+  paths-to-match: /api/**
+  writer-with-order-by-keys: true
+  model-converters:
+    java-nullable-property-customizer:
+      enabled: true
+
+porthole:
+  docker:
+    # Spec generation only inspects controllers; it needs no running Docker daemon.
+    connections:
+      - id: openapi
+        name: OpenAPI
+        host: tcp://127.0.0.1:1
+        connection-timeout: 100ms
+        response-timeout: 100ms

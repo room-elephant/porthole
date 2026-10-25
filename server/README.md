@@ -44,6 +44,14 @@ make it MVN='mvn -Dporthole.it.image=porthole-native-validation:latest'
 
 Under `make native-hints`, every application instance records native-agent hints, including hostname-override and resilience fixtures. Each writes to its own directory under `target/native-hints/`. Recording JVMs stop gracefully, then GraalVM merges all outputs after the tests pass. Ordinary JVM/native component runs do not attach the agent.
 
+## OpenAPI
+
+```bash
+make openapi   # generate ../docs/openapi.yml using the Springdoc Maven plugin
+```
+
+Requires Java 25 and Maven; Docker is not required. See [OpenAPI generation](../docs/DEVELOPMENT.md#regenerating-the-openapi-specification).
+
 ## Format
 
 ```bash

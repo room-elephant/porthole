@@ -17,6 +17,10 @@ server:
     mime-types: application/json,text/html,text/plain
     min-response-size: 1024
 
+springdoc:
+  api-docs:
+    enabled: false
+
 management:
   endpoints:
     web:

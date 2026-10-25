@@ -64,6 +64,24 @@ For test commands, see the per-component READMEs:
 - [`docker/README.md`](../docker/README.md) — entrypoint tests
 
 
+## Regenerating the OpenAPI Specification
+
+The generated [OpenAPI specification](openapi.yml) documents the REST API. Regenerate it after changing controllers or response DTOs:
+
+```bash
+make -C server openapi
+# Equivalent Maven command:
+mvn -f server/pom.xml verify -Popenapi
+```
+
+The `openapi` Maven profile uses the Springdoc Maven plugin to generate YAML. It starts a temporary JVM application with the Spring `openapi` profile, fetches `/v3/api-docs.yaml` into `server/target/openapi/openapi.yml`, stops the application, and copies the completed export to `docs/openapi.yml` during `verify`. A failed export fails the build after shutdown and preserves the existing documentation. Spring Boot automatically loads `server/src/main/resources/application-openapi.yml` for this profile; it holds the HTTP settings, Springdoc settings, and temporary Docker connection. Docker is not required. Maven retains the build lifecycle, output path, and shared HTTP/JMX ports; the HTTP port is filtered into `application-openapi.yml`.
+
+The Maven profile skips tests and formatting checks by default; CI runs them separately. Override with `-DskipTests=false -Dspotless.check.skip=false` when combining those checks with generation.
+
+Document operations, query parameters, and responses using Swagger annotations on the controllers. The application defines the API title, version, and relative server URL with `@OpenAPIDefinition`. The Springdoc WebMVC starter supplies the annotations transitively, so no separate Swagger annotations dependency is needed. API documentation endpoints are disabled by default and enabled by the Spring `openapi` profile for generation.
+
+Commit the regenerated specification with API changes. CI regenerates it and checks for drift. The temporary HTTP and JMX ports can be overridden with `-Dopenapi.port=...` and `-Dopenapi.jmx-port=...`.
+
 ## Regenerating Native Image Hints
 
 Run this after adding new features that use reflection, proxies, or JNI. Requires Java 25, Maven, and Docker. The recording agent and merge tool run in GraalVM containers.
