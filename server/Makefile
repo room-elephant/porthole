@@ -30,7 +30,7 @@ native-hints:
 	$(MVN) verify -Pgenerate-native-hints -Dspotless.check.skip=true
 
 openapi:
-	$(MVN) verify -Popenapi -DskipTests -Dspotless.check.skip=true
+	$(MVN) verify -Popenapi
 
 native:
 	$(MVN) -Pnative package native:compile -DskipTests -Dspotless.check.skip=true

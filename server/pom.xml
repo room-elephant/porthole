@@ -278,6 +278,8 @@
                 <openapi.port>19753</openapi.port>
                 <openapi.jmx-port>19754</openapi.jmx-port>
                 <jacoco.skip>true</jacoco.skip>
+                <skipTests>true</skipTests>
+                <spotless.check.skip>true</spotless.check.skip>
             </properties>
             <build>
                 <directory>${project.basedir}/target/openapi</directory>
