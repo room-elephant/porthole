@@ -67,6 +67,12 @@ jobs:
         working-directory: server
         run: make package
 
+      - name: Check generated OpenAPI specification
+        run: |
+          make -C server openapi
+          git ls-files --error-unmatch docs/openapi.yml > /dev/null
+          git diff --exit-code -- docs/openapi.yml
+
       - name: Build JVM Docker image
         run: make -C docker jvm-image
 

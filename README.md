@@ -70,6 +70,7 @@ See [Configuration Guide](docs/CONFIGURATION.md) for all options.
 |-------|-------------|
 | [Configuration](docs/CONFIGURATION.md) | Customize icons, Docker host, registry settings, and more |
 | [Development](docs/DEVELOPMENT.md) | Build from source, run tests, and contribute |
+| [OpenAPI specification](docs/openapi.yml) | Generated REST API paths, parameters, and response schemas |
 
 ## License
 
