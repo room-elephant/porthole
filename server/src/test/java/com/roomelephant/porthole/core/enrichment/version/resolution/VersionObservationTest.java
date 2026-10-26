@@ -7,6 +7,7 @@ import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.*;
 import java.util.*;
 import org.junit.jupiter.api.*;
+import tools.jackson.databind.json.JsonMapper;
 
 class VersionObservationTest {
     private static final ContainerKey KEY = new ContainerKey("local", "app");
@@ -118,8 +119,7 @@ class VersionObservationTest {
                 new com.roomelephant.porthole.config.properties.RegistryProperties.Ghcr(
                         "https://ghcr/", "https://ghcr-auth/"));
         var adapter = new com.roomelephant.porthole.outbound.registry.RegistryOperationsAdapter(
-                List.of(config.dockerHubClient(http, new com.fasterxml.jackson.databind.ObjectMapper(), props)),
-                props.cache());
+                List.of(config.dockerHubClient(http, JsonMapper.builder().build(), props)), props.cache());
         server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
                         "https://catalogue/library/nginx/tags?page_size=100"))
                 .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(

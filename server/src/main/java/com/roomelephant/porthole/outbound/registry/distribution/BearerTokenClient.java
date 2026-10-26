@@ -1,13 +1,13 @@
 package com.roomelephant.porthole.outbound.registry.distribution;
 
-import com.fasterxml.jackson.databind.*;
 import com.github.benmanes.caffeine.cache.*;
 import com.roomelephant.porthole.core.model.ImageReference;
-import java.io.*;
 import java.time.*;
 import java.util.function.Function;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.web.client.*;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.*;
 
 /** Anonymous token state owned by one configured registry provider. */
 @NullMarked
@@ -62,13 +62,13 @@ public final class BearerTokenClient {
             if (body == null) throw new RegistryProtocolException("Missing registry token response");
             JsonNode response = objectMapper.readTree(body);
             JsonNode token = response.has("token") ? response.get("token") : response.path("access_token");
-            if (!token.isTextual() || token.asText().isBlank())
+            if (!token.isString() || token.asString().isBlank())
                 throw new RegistryProtocolException("Missing anonymous registry token");
-            return new Token(token.asText(), expiresAt(response, requestedAt));
+            return new Token(token.asString(), expiresAt(response, requestedAt));
         } catch (org.springframework.web.client.RestClientException
                 | org.springframework.http.InvalidMediaTypeException e) {
             throw new RegistryProtocolException("Registry authentication unavailable", e);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             throw new RegistryProtocolException("Invalid registry token response", e);
         }
     }
@@ -79,10 +79,10 @@ public final class BearerTokenClient {
                 && (!lifetime.isIntegralNumber() || !lifetime.canConvertToLong() || lifetime.longValue() < 0))
             throw new RegistryProtocolException("Invalid registry token lifetime");
         JsonNode issuedAt = response.get("issued_at");
-        if (issuedAt != null && !issuedAt.isTextual())
+        if (issuedAt != null && !issuedAt.isString())
             throw new RegistryProtocolException("Invalid registry token issue time");
         try {
-            Instant issued = issuedAt == null ? requestedAt : Instant.parse(issuedAt.asText());
+            Instant issued = issuedAt == null ? requestedAt : Instant.parse(issuedAt.asString());
             return issued.plusSeconds(lifetime == null ? 60 : lifetime.longValue());
         } catch (DateTimeException | ArithmeticException e) {
             throw new RegistryProtocolException("Invalid registry token expiry", e);

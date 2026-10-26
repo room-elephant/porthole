@@ -1,14 +1,14 @@
 package com.roomelephant.porthole.outbound.registry.distribution;
 
-import com.fasterxml.jackson.databind.*;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.outbound.registry.*;
-import java.io.IOException;
 import java.net.URI;
 import java.util.*;
 import org.jspecify.annotations.*;
 import org.springframework.http.*;
 import org.springframework.web.client.RestClient;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.*;
 
 @NullMarked
 public final class DistributionClient {
@@ -44,8 +44,8 @@ public final class DistributionClient {
         if (!values.isArray()) throw new RegistryProtocolException("Missing registry tag list");
         List<String> tags = new ArrayList<>();
         for (JsonNode value : values) {
-            if (!value.isTextual()) throw new RegistryProtocolException("Invalid registry tag entry");
-            tags.add(value.asText());
+            if (!value.isString()) throw new RegistryProtocolException("Invalid registry tag entry");
+            tags.add(value.asString());
         }
         String next = LinkHeaderParser.next(response.getHeaders().getOrEmpty(HttpHeaders.LINK));
         return new TagPage(tags, next == null ? null : TagPagination.resolve(page, next));
@@ -82,7 +82,7 @@ public final class DistributionClient {
             JsonNode result = json.readTree(body);
             if (result == null) throw new RegistryProtocolException("Missing registry response");
             return result;
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             throw new RegistryProtocolException("Invalid registry JSON", e);
         }
     }

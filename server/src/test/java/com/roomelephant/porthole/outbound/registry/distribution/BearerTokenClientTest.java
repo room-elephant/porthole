@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.*;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 class BearerTokenClientTest {
     private static final String DIGEST = "sha256:" + "a".repeat(64);
@@ -28,7 +29,7 @@ class BearerTokenClientTest {
         var builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
         http = builder.build();
-        client = new BearerTokenClient(http, new com.fasterxml.jackson.databind.ObjectMapper(), "https://auth/", clock);
+        client = new BearerTokenClient(http, JsonMapper.builder().build(), "https://auth/", clock);
     }
 
     @ParameterizedTest

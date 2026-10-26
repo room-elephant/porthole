@@ -1,6 +1,5 @@
 package com.roomelephant.porthole.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.port.outbound.RegistryOperations;
 import com.roomelephant.porthole.outbound.registry.*;
@@ -15,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 @Configuration(proxyBeanMethods = false)
 public class RegistryConfig {
@@ -27,7 +27,7 @@ public class RegistryConfig {
 
     @Bean
     public @NonNull DockerHubClient dockerHubClient(
-            @NonNull RestClient client, @NonNull ObjectMapper json, @NonNull RegistryProperties properties) {
+            @NonNull RestClient client, @NonNull JsonMapper json, @NonNull RegistryProperties properties) {
         DistributionClient distribution = new DistributionClient(
                 client,
                 json,
@@ -39,18 +39,13 @@ public class RegistryConfig {
 
     @Bean
     public @NonNull GhcrClient ghcrClient(
-            @NonNull RestClient client, @NonNull ObjectMapper json, @NonNull RegistryProperties properties) {
+            @NonNull RestClient client, @NonNull JsonMapper json, @NonNull RegistryProperties properties) {
         DistributionClient distribution = new DistributionClient(
                 client,
                 json,
                 properties.ghcr().registryUrl(),
                 new BearerTokenClient(client, json, properties.ghcr().authUrl(), Clock.systemUTC()));
         return new GhcrClient(properties.ghcr(), properties.timeout().read(), distribution);
-    }
-
-    @Bean
-    public @NonNull ObjectMapper registryJsonMapper() {
-        return new ObjectMapper();
     }
 
     @Bean

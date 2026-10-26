@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roomelephant.porthole.core.model.*;
 import java.time.Clock;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +13,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.*;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 class DistributionClientTest {
     private static final ImageReference IMAGE =
@@ -27,7 +27,7 @@ class DistributionClientTest {
         var builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
         var http = builder.build();
-        var json = new ObjectMapper();
+        var json = JsonMapper.builder().build();
         client = new DistributionClient(
                 http, json, "https://registry/", new BearerTokenClient(http, json, "https://auth/", Clock.systemUTC()));
     }
@@ -68,7 +68,7 @@ class DistributionClientTest {
         var builder = RestClient.builder();
         var otherServer = MockRestServiceServer.bindTo(builder).build();
         var http = builder.build();
-        var json = new ObjectMapper();
+        var json = JsonMapper.builder().build();
         otherServer.expect(requestTo("https://auth/acme/app:pull")).andRespond(withResourceNotFound());
         var other = new DistributionClient(
                 http, json, "https://registry/", new BearerTokenClient(http, json, "https://auth/", Clock.systemUTC()));
