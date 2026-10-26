@@ -24,7 +24,7 @@ public class DockerHealthIndicator implements HealthIndicator {
     public Health health() {
         DockerAvailability result = availability.checkAvailability();
         Map<String, Object> details = new LinkedHashMap<>();
-        result.sources().forEach((id, up) -> details.put(id, Boolean.TRUE.equals(up) ? UP_DETAILS : DOWN_DETAILS));
+        result.sources().forEach((id, up) -> details.put(id, up ? UP_DETAILS : DOWN_DETAILS));
         return (result.anyAvailable() ? Health.up() : Health.down())
                 .withDetail("sources", details)
                 .build();

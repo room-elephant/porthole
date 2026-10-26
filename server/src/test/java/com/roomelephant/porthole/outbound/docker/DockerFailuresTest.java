@@ -41,9 +41,8 @@ class DockerFailuresTest {
     @Test
     void causeCycleDoesNotHangClassification() {
         var a = new RuntimeException();
-        var b = new RuntimeException();
+        var b = new RuntimeException(a);
         a.initCause(b);
-        b.initCause(a);
         assertThat(DockerFailures.isTransportFailure(a)).isFalse();
     }
 }

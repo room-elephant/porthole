@@ -25,7 +25,7 @@ public final class RegistryOperationsAdapter implements RegistryOperations {
     public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
         RegistryClient client = clientFor(image);
         if (client == null) return new RegistryLookup.Unsupported<>();
-        AtomicReference<RegistryLookup<TagCatalogue>> fetched = new AtomicReference<>();
+        AtomicReference<@Nullable RegistryLookup<TagCatalogue>> fetched = new AtomicReference<>();
         @Nullable
         TagCatalogue catalogue = catalogues.get(image.canonicalRepository(), key -> {
             RegistryLookup<TagCatalogue> result = client.listTags(image);

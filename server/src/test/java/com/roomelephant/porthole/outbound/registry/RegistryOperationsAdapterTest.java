@@ -6,6 +6,7 @@ import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.model.*;
 import java.time.Duration;
 import java.util.*;
+import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Test;
 
 class RegistryOperationsAdapterTest {
@@ -85,6 +86,7 @@ class RegistryOperationsAdapterTest {
         assertEquals(provider.result, adapter.listTags(ref("quay.io/acme/app:1.0")));
     }
 
+    @NullMarked
     private static final class Provider implements RegistryClient {
         private final String registry;
         private RegistryLookup<TagCatalogue> result;

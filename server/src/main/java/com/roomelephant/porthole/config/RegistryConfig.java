@@ -10,6 +10,7 @@ import com.roomelephant.porthole.outbound.registry.ghcr.GhcrClient;
 import java.net.http.HttpClient;
 import java.time.Clock;
 import java.util.List;
+import org.jspecify.annotations.NonNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -19,12 +20,14 @@ import org.springframework.web.client.RestClient;
 public class RegistryConfig {
 
     @Bean
-    public RegistryOperations registryOperations(List<RegistryClient> clients, RegistryProperties properties) {
+    public @NonNull RegistryOperations registryOperations(
+            @NonNull List<RegistryClient> clients, @NonNull RegistryProperties properties) {
         return new RegistryOperationsAdapter(clients, properties.cache());
     }
 
     @Bean
-    public DockerHubClient dockerHubClient(RestClient client, ObjectMapper json, RegistryProperties properties) {
+    public @NonNull DockerHubClient dockerHubClient(
+            @NonNull RestClient client, @NonNull ObjectMapper json, @NonNull RegistryProperties properties) {
         DistributionClient distribution = new DistributionClient(
                 client,
                 json,
@@ -35,7 +38,8 @@ public class RegistryConfig {
     }
 
     @Bean
-    public GhcrClient ghcrClient(RestClient client, ObjectMapper json, RegistryProperties properties) {
+    public @NonNull GhcrClient ghcrClient(
+            @NonNull RestClient client, @NonNull ObjectMapper json, @NonNull RegistryProperties properties) {
         DistributionClient distribution = new DistributionClient(
                 client,
                 json,
@@ -45,12 +49,12 @@ public class RegistryConfig {
     }
 
     @Bean
-    public ObjectMapper registryJsonMapper() {
+    public @NonNull ObjectMapper registryJsonMapper() {
         return new ObjectMapper();
     }
 
     @Bean
-    public RestClient restClient(RegistryProperties properties) {
+    public @NonNull RestClient restClient(@NonNull RegistryProperties properties) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(properties.timeout().connect())
                 .build();

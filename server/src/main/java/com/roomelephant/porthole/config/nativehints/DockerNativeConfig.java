@@ -25,7 +25,8 @@ class DockerNativeConfig implements RuntimeHintsRegistrar {
         tryRegisterClass(hints, loader, "com.github.dockerjava.core.DockerContextMetaFile");
     }
 
-    private void registerPackage(RuntimeHints hints, ClassLoader classLoader, String basePackage) {
+    private void registerPackage(
+            @NonNull RuntimeHints hints, @NonNull ClassLoader classLoader, @NonNull String basePackage) {
         ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AssignableTypeFilter(Object.class));
         for (BeanDefinition bd : scanner.findCandidateComponents(basePackage)) {
@@ -33,7 +34,7 @@ class DockerNativeConfig implements RuntimeHintsRegistrar {
         }
     }
 
-    private void tryRegisterClass(RuntimeHints hints, ClassLoader classLoader, String name) {
+    private void tryRegisterClass(@NonNull RuntimeHints hints, @NonNull ClassLoader classLoader, String name) {
         try {
             registerClass(hints, classLoader.loadClass(name));
         } catch (ClassNotFoundException _) {
@@ -41,7 +42,7 @@ class DockerNativeConfig implements RuntimeHintsRegistrar {
         }
     }
 
-    private void registerClass(RuntimeHints hints, Class<?> clazz) {
+    private void registerClass(@NonNull RuntimeHints hints, @NonNull Class<?> clazz) {
         if (clazz.getCanonicalName() == null) {
             return; // skip anonymous and local classes — they have no canonical name
         }

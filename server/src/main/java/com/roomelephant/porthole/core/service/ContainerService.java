@@ -5,14 +5,16 @@ import com.roomelephant.porthole.core.mapping.ContainerMapper;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.inbound.GetContainers;
 import java.util.*;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
-@Slf4j
 @NullMarked
 public class ContainerService implements GetContainers {
+    private static final Logger log = LoggerFactory.getLogger(ContainerService.class);
+
     private final DockerDiscoveryService discovery;
     private final ContainerMapper mapper;
     private final ContainerEnrichment enrichment;
