@@ -6,11 +6,9 @@ import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.ImageUtils;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
-@Order(250)
 @NullMarked
 public class IconEnricher implements ContainerEnricher {
     private final IconResolver icons;

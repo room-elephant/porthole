@@ -3,45 +3,39 @@ package com.roomelephant.porthole.core.enrichment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+import com.roomelephant.porthole.config.EnrichmentConfiguration;
 import com.roomelephant.porthole.core.enrichment.endpoint.*;
-import com.roomelephant.porthole.core.enrichment.endpointavailability.EndpointAvailabilityFilter;
 import com.roomelephant.porthole.core.enrichment.icon.*;
-import com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher;
-import com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter;
-import com.roomelephant.porthole.core.enrichment.version.VersionEnricher;
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.type.filter.AssignableTypeFilter;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class PipelineWiringTest {
+    @Test
+    void shouldIncludeEveryEnricherExactlyOnce() {
+        try (var context = context(mock(VersionRefreshService.class))) {
+            assertThat(ReflectionTestUtils.getField(context.getBean(ContainerEnrichment.class), "enrichers"))
+                    .asInstanceOf(InstanceOfAssertFactories.LIST)
+                    .containsExactlyInAnyOrderElementsOf(
+                            context.getBeansOfType(ContainerEnricher.class).values());
+        }
+    }
+
     @Test
     void productionStagesNameTheWholeInventoryAndEnrichOnlyRetainedContainers() {
         var versions = mock(VersionRefreshService.class);
         var version = new VersionInfo("1.0", "2.0", true);
         when(versions.getCachedVersionAndRefresh(any())).thenReturn(version);
-        try (var context = new AnnotationConfigApplicationContext()) {
-            context.registerBean(VersionRefreshService.class, () -> versions);
-            context.registerBean(
-                    EndpointDiscovery.class,
-                    () -> new EndpointDiscovery(
-                            List.of(new PublishedPortEndpointProvider(new PublishedHostResolver()))));
-            context.registerBean(
-                    IconResolver.class,
-                    () -> new IconResolver(Map.of(), new IconSettings("https://icons.example.com", ".svg")));
-            context.register(
-                    ContainerEnrichment.class,
-                    ContainerStateFilter.class,
-                    UrlCandidateEnricher.class,
-                    EndpointAvailabilityFilter.class,
-                    IconEnricher.class,
-                    DisplayNameEnricher.class,
-                    VersionEnricher.class);
-            context.refresh();
+        try (var context = context(versions)) {
             var stopped = container("project-web-2", "exited", Set.of(8082));
             var web = container("project-web-1", "running", Set.of(8080));
             var internal = container("project-worker-1", "running", Set.of());
@@ -64,6 +58,26 @@ class PipelineWiringTest {
             assertThat(stopped.version()).isNull();
             assertThat(internal.version()).isNull();
         }
+    }
+
+    private AnnotationConfigApplicationContext context(VersionRefreshService versions) {
+        var context = new AnnotationConfigApplicationContext();
+        context.registerBean(VersionRefreshService.class, () -> versions);
+        context.registerBean(
+                EndpointDiscovery.class,
+                () -> new EndpointDiscovery(List.of(new PublishedPortEndpointProvider(new PublishedHostResolver()))));
+        context.registerBean(
+                IconResolver.class,
+                () -> new IconResolver(Map.of(), new IconSettings("https://icons.example.com", ".svg")));
+        // Discover implementations independently so a new handler cannot be omitted from both lists.
+        var scanner = new ClassPathScanningCandidateComponentProvider(false);
+        scanner.addIncludeFilter(new AssignableTypeFilter(ContainerEnricher.class));
+        for (var candidate : scanner.findCandidateComponents(ContainerEnricher.class.getPackageName())) {
+            context.registerBeanDefinition(candidate.getBeanClassName(), candidate);
+        }
+        context.register(EnrichmentConfiguration.class);
+        context.refresh();
+        return context;
     }
 
     private Container container(String name, String state, Set<Integer> ports) {

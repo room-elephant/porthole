@@ -5,11 +5,9 @@ import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.model.Container;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
-@Order(200)
 @NullMarked
 public class EndpointAvailabilityFilter implements ContainerEnricher {
     @Override
