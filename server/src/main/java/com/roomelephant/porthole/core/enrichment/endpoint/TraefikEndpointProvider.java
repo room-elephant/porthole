@@ -11,14 +11,16 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 @NullMarked
-@Slf4j
 public final class TraefikEndpointProvider implements EndpointProvider {
+    private static final Logger log = LoggerFactory.getLogger(TraefikEndpointProvider.class);
+
     private static final String RULE_SUFFIX = ".rule";
     private static final String ROUTER_PREFIX = "traefik.http.routers.";
     private final TraefikRuleParser parser;

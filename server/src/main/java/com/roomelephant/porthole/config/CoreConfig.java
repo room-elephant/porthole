@@ -6,12 +6,14 @@ import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshS
 import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.outbound.runtime.SelfContainerResolver;
 import java.nio.file.Path;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.*;
 
-@Slf4j
 @Configuration(proxyBeanMethods = false)
 public class CoreConfig {
+    private static final Logger log = LoggerFactory.getLogger(CoreConfig.class);
+
     @Bean
     SelfContainer selfContainer(SelfProperties p) {
         SelfContainer self = new SelfContainerResolver(

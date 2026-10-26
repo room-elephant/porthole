@@ -24,9 +24,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -34,9 +35,10 @@ import org.springframework.stereotype.Service;
 
 /** Owns background resolution; no Docker or registry work occurs in cache readers. */
 @Service
-@Slf4j
 @NullMarked
 public class VersionRefreshService implements RefreshVersions, AutoCloseable {
+    private static final Logger log = LoggerFactory.getLogger(VersionRefreshService.class);
+
     private final DockerOperations sources;
     private final VersionResolver versionResolver;
     private final VersionRefreshSettings properties;

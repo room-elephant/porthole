@@ -4,7 +4,8 @@ import com.roomelephant.porthole.core.model.exception.DockerUnavailableException
 import com.roomelephant.porthole.core.model.exception.NotFoundException;
 import com.roomelephant.porthole.core.model.exception.UnexpectedException;
 import java.net.URI;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -12,8 +13,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
-@Slf4j
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     private static final URI ABOUT_BLANK = URI.create("about:blank");
 
     @ExceptionHandler(DockerUnavailableException.class)

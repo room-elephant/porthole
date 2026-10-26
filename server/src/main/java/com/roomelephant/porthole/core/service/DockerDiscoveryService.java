@@ -5,14 +5,16 @@ import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import jakarta.annotation.PreDestroy;
 import java.util.*;
 import java.util.concurrent.*;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
-@Slf4j
 @NullMarked
 public class DockerDiscoveryService implements AutoCloseable {
+    private static final Logger log = LoggerFactory.getLogger(DockerDiscoveryService.class);
+
     private final DockerOperations sources;
     private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService deadlines = Executors.newSingleThreadScheduledExecutor(

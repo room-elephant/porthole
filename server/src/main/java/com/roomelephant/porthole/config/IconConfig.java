@@ -8,7 +8,8 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -16,8 +17,8 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 
 @Configuration(proxyBeanMethods = false)
-@Slf4j
 public class IconConfig {
+    private static final Logger log = LoggerFactory.getLogger(IconConfig.class);
 
     public static final String FILE_NAME = "icons.yml";
 
