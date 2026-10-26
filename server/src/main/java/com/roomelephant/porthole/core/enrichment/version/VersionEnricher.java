@@ -6,11 +6,9 @@ import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshS
 import com.roomelephant.porthole.core.model.Container;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
-@Order(300)
 @NullMarked
 public class VersionEnricher implements ContainerEnricher {
     private final VersionRefreshService versions;

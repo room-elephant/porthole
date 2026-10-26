@@ -5,11 +5,9 @@ import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.model.Container;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
-@Order(-50)
 @NullMarked
 public class DisplayNameEnricher implements ContainerEnricher {
     private final DisplayNameResolver names = new DisplayNameResolver();

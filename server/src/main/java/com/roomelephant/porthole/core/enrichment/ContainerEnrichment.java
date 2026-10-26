@@ -3,9 +3,7 @@ package com.roomelephant.porthole.core.enrichment;
 import com.roomelephant.porthole.core.model.Container;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
-import org.springframework.stereotype.Component;
 
-@Component
 @NullMarked
 public class ContainerEnrichment {
     private final List<ContainerEnricher> enrichers;

@@ -19,11 +19,10 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.annotation.Order;
 
 class ContainerEnrichmentTest {
     @Test
-    void shouldDiscoverAndOrderHandlersAndPassEnrichedOutputToTheNextHandler() {
+    void shouldPassEnrichedOutputToTheNextHandler() {
         try (AnnotationConfigApplicationContext context =
                 new AnnotationConfigApplicationContext(ChainConfiguration.class)) {
             Container raw = container("running", Set.of(8080), Map.of("custom.metadata", "retained"));
@@ -157,15 +156,18 @@ class ContainerEnrichmentTest {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @Import({
-        ContainerEnrichment.class,
-        ContainerStateFilter.class,
-        UrlCandidateEnricher.class,
-        EndpointAvailabilityFilter.class
-    })
+    @Import({ContainerStateFilter.class, UrlCandidateEnricher.class, EndpointAvailabilityFilter.class})
     static class ChainConfiguration {
         @Bean
-        @Order(300)
+        ContainerEnrichment containerEnrichment(
+                ContainerStateFilter state,
+                UrlCandidateEnricher urls,
+                EndpointAvailabilityFilter availability,
+                ContainerEnricher laterEnricher) {
+            return new ContainerEnrichment(List.of(state, urls, availability, laterEnricher));
+        }
+
+        @Bean
         ContainerEnricher laterEnricher() {
             return (containers, context) -> {
                 for (Container container : containers) {
