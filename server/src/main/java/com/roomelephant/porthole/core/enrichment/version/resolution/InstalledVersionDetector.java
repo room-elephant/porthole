@@ -30,7 +30,7 @@ public final class InstalledVersionDetector {
                 .orElse(null);
     }
 
-    private @Nullable String getVersionFromEnvVars(List<String> envs, @NonNull String imageName) {
+    private @Nullable String getVersionFromEnvVars(List<String> envs, String imageName) {
 
         String targetEnv = imageName.toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9]", "_") + "_VERSION=";
         String generic = null;

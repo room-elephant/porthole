@@ -31,10 +31,10 @@ public final class TraefikEndpointProvider implements EndpointProvider {
 
     @Override
     public List<Endpoint> discover(Container container, EnrichmentContext context) {
-        TreeMap<String, String> labels = new TreeMap<String, String>();
+        TreeMap<String, String> labels = new TreeMap<>();
         container.labels().forEach((key, value) -> labels.put(key.toLowerCase(Locale.ROOT), value));
         if (labels.getOrDefault("traefik.enable", "").strip().equalsIgnoreCase("false")) return List.of();
-        ArrayList<Endpoint> endpoints = new ArrayList<Endpoint>();
+        ArrayList<Endpoint> endpoints = new ArrayList<>();
         labels.forEach((key, rule) -> {
             if (!key.startsWith(ROUTER_PREFIX)
                     || !key.endsWith(RULE_SUFFIX)

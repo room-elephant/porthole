@@ -51,7 +51,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     private long revision;
     private boolean started;
     private boolean closed;
-    private final Map<String, CompletableFuture<Void>> currentScans = new HashMap<>();
+    private final Map<String, CompletableFuture<@Nullable Void>> currentScans = new HashMap<>();
 
     @Autowired
     public VersionRefreshService(
@@ -129,7 +129,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
                         });
             }
         } catch (RejectedExecutionException e) {
-            forcedScans.removeAll(pending);
+            pending.forEach(forcedScans::remove);
             throw e;
         }
     }
@@ -139,12 +139,12 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     }
 
     /** Called on a coordinator, never by HTTP handlers. Completion includes all checks in this scan. */
-    CompletableFuture<Void> refreshSource(String sourceId) {
+    CompletableFuture<@Nullable Void> refreshSource(String sourceId) {
         return refreshSource(sourceId, false);
     }
 
-    private CompletableFuture<Void> refreshSource(String sourceId, boolean force) {
-        CompletableFuture<Void> scan;
+    private CompletableFuture<@Nullable Void> refreshSource(String sourceId, boolean force) {
+        CompletableFuture<@Nullable Void> scan;
         long scanRevision;
         synchronized (this) {
             if (closed) return CompletableFuture.completedFuture(null);
@@ -155,7 +155,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
         }
         try {
             List<ContainerSnapshot> containers = sources.listContainers(sourceId);
-            List<CompletableFuture<Void>> checks = new ArrayList<>();
+            List<CompletableFuture<@Nullable Void>> checks = new ArrayList<>();
             synchronized (this) {
                 if (!closed) {
                     Set<ContainerKey> present = new HashSet<>();
@@ -184,21 +184,21 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
         return scan;
     }
 
-    private synchronized void completeScan(String sourceId, CompletableFuture<Void> scan) {
+    private synchronized void completeScan(String sourceId, CompletableFuture<@Nullable Void> scan) {
         currentScans.remove(sourceId, scan);
         scan.complete(null);
     }
 
     // Callers hold this monitor only for state transitions and task submission, never remote I/O.
-    private CompletableFuture<Void> submitIfDue(ContainerKey id, Entry entry) {
-        return submitIfDue(id, entry, false);
+    private void submitIfDue(ContainerKey id, Entry entry) {
+        submitIfDue(id, entry, false);
     }
 
-    private CompletableFuture<Void> submitIfDue(ContainerKey id, Entry entry, boolean force) {
+    private CompletableFuture<@Nullable Void> submitIfDue(ContainerKey id, Entry entry, boolean force) {
         if (entry.inFlight != null) return entry.inFlight;
         if (!force && entry.retryAt != null && clock.instant().isBefore(entry.retryAt))
             return CompletableFuture.completedFuture(null);
-        CompletableFuture<Void> check = new CompletableFuture<>();
+        CompletableFuture<@Nullable Void> check = new CompletableFuture<>();
         entry.inFlight = check;
         try {
             workers.execute(() -> resolve(id, entry, check));
@@ -210,7 +210,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
         return check;
     }
 
-    private void resolve(ContainerKey id, Entry entry, CompletableFuture<Void> check) {
+    private void resolve(ContainerKey id, Entry entry, CompletableFuture<@Nullable Void> check) {
         try {
             VersionObservation previous;
             synchronized (this) {
@@ -252,7 +252,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
             if (entry.inFlight != null) entry.inFlight.complete(null);
         }
         entries.clear();
-        for (CompletableFuture<Void> scan : currentScans.values()) scan.complete(null);
+        for (CompletableFuture<@Nullable Void> scan : currentScans.values()) scan.complete(null);
         currentScans.clear();
         forcedScans.clear();
     }
@@ -261,7 +261,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
         private @Nullable VersionObservation observation;
         private @Nullable VersionInfo value;
         private @Nullable Instant retryAt;
-        private @Nullable CompletableFuture<Void> inFlight;
+        private @Nullable CompletableFuture<@Nullable Void> inFlight;
         private long observedRevision;
     }
 }

@@ -37,7 +37,7 @@ public final class SelfContainerResolver {
             return new SelfContainer(override.trim().toLowerCase(Locale.ROOT));
         }
         return findInMountinfo()
-                .or(() -> find(cgroup, CGROUP_ID))
+                .or(this::findInCgroup)
                 .or(this::hostname)
                 .map(SelfContainer::new)
                 .orElseGet(SelfContainer::none);
@@ -63,12 +63,12 @@ public final class SelfContainerResolver {
         }
     }
 
-    private Optional<String> find(Path file, Pattern pattern) {
-        String content = read(file).orElse(null);
+    private Optional<String> findInCgroup() {
+        String content = read(cgroup).orElse(null);
         if (content == null) {
             return Optional.empty();
         }
-        Matcher matcher = pattern.matcher(content);
+        Matcher matcher = CGROUP_ID.matcher(content);
         return matcher.find() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 

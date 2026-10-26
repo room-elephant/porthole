@@ -103,7 +103,7 @@ public record ImageReference(
                 .map(ImageReference::tryParse)
                 .flatMap(Optional::stream)
                 .filter(ref -> ref.canonicalRepository().equals(canonicalRepository()) && ref.digest != null)
-                .map(ref -> ref.digest)
+                .flatMap(ref -> Optional.ofNullable(ref.digest).stream())
                 .distinct()
                 .toList();
     }

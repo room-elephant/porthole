@@ -19,7 +19,7 @@ public class EndpointDiscovery {
     }
 
     public List<Endpoint> discover(Container container, EnrichmentContext context) {
-        LinkedHashMap<String, Endpoint> endpoints = new LinkedHashMap<String, Endpoint>();
+        LinkedHashMap<String, Endpoint> endpoints = new LinkedHashMap<>();
         for (EndpointProvider provider : providers) {
             for (Endpoint endpoint : provider.discover(container, context)) {
                 endpoints.putIfAbsent(endpoint.id(), endpoint);
