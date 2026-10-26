@@ -6,6 +6,7 @@ import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshS
 import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.outbound.runtime.SelfContainerResolver;
 import java.nio.file.Path;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.*;
@@ -15,7 +16,8 @@ public class CoreConfig {
     private static final Logger log = LoggerFactory.getLogger(CoreConfig.class);
 
     @Bean
-    SelfContainer selfContainer(SelfProperties p) {
+    @NonNull
+    SelfContainer selfContainer(@NonNull SelfProperties p) {
         SelfContainer self = new SelfContainerResolver(
                         System::getenv, Path.of("/proc/self/mountinfo"), Path.of("/proc/self/cgroup"))
                 .resolve(p.selfContainerId());
@@ -24,12 +26,14 @@ public class CoreConfig {
     }
 
     @Bean
-    VersionRefreshSettings versionRefreshSettings(VersionProperties p) {
+    @NonNull
+    VersionRefreshSettings versionRefreshSettings(@NonNull VersionProperties p) {
         return new VersionRefreshSettings(p.refreshInterval());
     }
 
     @Bean
-    IconSettings iconSettings(DashboardProperties p) {
+    @NonNull
+    IconSettings iconSettings(@NonNull DashboardProperties p) {
         return new IconSettings(p.icons().url(), p.icons().extension());
     }
 }

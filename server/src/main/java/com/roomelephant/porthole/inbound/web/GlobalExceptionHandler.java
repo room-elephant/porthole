@@ -4,6 +4,7 @@ import com.roomelephant.porthole.core.model.exception.DockerUnavailableException
 import com.roomelephant.porthole.core.model.exception.NotFoundException;
 import com.roomelephant.porthole.core.model.exception.UnexpectedException;
 import java.net.URI;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -19,7 +20,7 @@ public class GlobalExceptionHandler {
     private static final URI ABOUT_BLANK = URI.create("about:blank");
 
     @ExceptionHandler(DockerUnavailableException.class)
-    public ProblemDetail handleDockerUnavailable(DockerUnavailableException ex) {
+    public @NonNull ProblemDetail handleDockerUnavailable(DockerUnavailableException ex) {
         log.error("Docker is not reachable", ex);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, "Docker is not reachable");
         problem.setTitle("Bad Gateway");
@@ -28,7 +29,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NotFoundException.class)
-    public ProblemDetail handleNotFound(NotFoundException ex) {
+    public @NonNull ProblemDetail handleNotFound(@NonNull NotFoundException ex) {
         log.debug("Container not found: {}", ex.getContainerId());
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Container not found: " + ex.getContainerId());
@@ -38,7 +39,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(UnexpectedException.class)
-    public ProblemDetail handleUnexpected(UnexpectedException ex) {
+    public @NonNull ProblemDetail handleUnexpected(UnexpectedException ex) {
         log.error("Failed to inspect container", ex);
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to inspect container");
@@ -48,7 +49,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
+    public @NonNull ProblemDetail handleIllegalArgument(@NonNull IllegalArgumentException ex) {
         log.warn("Bad request: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
         problem.setTitle("Bad Request");
@@ -57,12 +58,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ProblemDetail handleMissingResource(NoResourceFoundException ex) {
+    public @NonNull ProblemDetail handleMissingResource(@NonNull NoResourceFoundException ex) {
         return ex.getBody();
     }
 
     @ExceptionHandler(Exception.class)
-    public ProblemDetail handleGenericException(Exception ex) {
+    public @NonNull ProblemDetail handleGenericException(@NonNull Exception ex) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);
         ProblemDetail problem =
                 ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
