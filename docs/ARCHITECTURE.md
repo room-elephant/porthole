@@ -262,17 +262,18 @@ For names matching `<project>-<name>`, `displayName` removes the project prefix 
 
 ### Endpoint Provider Extension
 
-`DockerDiscoveryService` calls the core-owned `DockerOperations` port and returns per-source snapshots and retrieval status in `DockerDiscoveryResult`. Its outbound `DockerJavaOperations` implementation maps docker-java responses into `ContainerSnapshot` records. `ContainerService` maps those discovery results with `ContainerMapper`, prepares an `EnrichmentContext` with display names resolved from each complete source list, then runs request-specific enrichment. `DisplayNameEnricher` applies the prepared names through the enrichment chain, preserving collisions involving filtered containers. Mapping and enrichment failures produce a source `ERROR` without discarding other sources. Docker metadata fields such as identity, name, and image are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `displayName`, `iconUrl`, and `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
+`DockerDiscoveryService` calls the core-owned `DockerOperations` port and returns per-source snapshots and retrieval status in `DockerDiscoveryResult`. Its outbound `DockerJavaOperations` implementation maps docker-java responses into `ContainerSnapshot` records. `ContainerService` maps those discovery results with `ContainerMapper`, builds an `EnrichmentContext` containing only source and request settings, then passes each source inventory once to the enrichment chain. `DisplayNameEnricher` resolves and applies names to the complete batch before filtering, preserving collisions involving filtered containers. Mapping and enrichment failures produce a source `ERROR` without discarding other sources. Docker metadata fields such as identity, name, and image are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `displayName`, `iconUrl`, and `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
 
-The service then applies the `ContainerEnrichment` chain. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the container and the request-specific `EnrichmentContext`, and returns `Optional<Container>`. An empty result rejects the container and stops its chain. A present result passes to the next handler; enrichment handlers update the same container instance, and filters retain it without changing it. An empty chain retains the input, and handler failures propagate to the existing exception handling.
+The service applies the `ContainerEnrichment` chain once per source. Spring injects an ordered `List<ContainerEnricher>`; each handler receives the current `List<Container>` and the request-specific `EnrichmentContext`, and returns the batch for the next stage. Each stage finishes across the batch before the next starts. Enrichment handlers update the same container objects; filters return retained objects in encounter order without structurally modifying the input list. An empty batch stops the chain, an empty chain retains the input, and handler failures propagate to the existing source-level exception handling. Handlers keep request data local rather than retaining batches in singleton fields.
 
 The production handlers run in this order:
 
-1. `ContainerStateFilter` (`@Order(0)`) rejects stopped containers unless `includeStopped` is enabled.
-2. `UrlCandidateEnricher` (`@Order(100)`) discovers URL candidates through the registered endpoint providers.
-3. `EndpointAvailabilityFilter` (`@Order(200)`) rejects containers without URL candidates unless `includeWithoutEndpoints` is enabled. This filter runs after discovery so label-only services remain discoverable.
-4. `IconEnricher` (`@Order(250)`) assigns the icon URL from the image name using configured mappings and icon settings.
-5. `VersionEnricher` (`@Order(300)`) attaches cached version information and queues a background check for an eligible cache miss without waiting for resolution.
+1. `DisplayNameEnricher` (`@Order(-50)`) resolves and applies display names using the full source inventory.
+2. `ContainerStateFilter` (`@Order(0)`) removes stopped containers unless `includeStopped` is enabled.
+3. `UrlCandidateEnricher` (`@Order(100)`) discovers URL candidates through the registered endpoint providers.
+4. `EndpointAvailabilityFilter` (`@Order(200)`) removes containers without URL candidates unless `includeWithoutEndpoints` is enabled. This filter runs after discovery so label-only services remain discoverable.
+5. `IconEnricher` (`@Order(250)`) assigns each retained container's icon URL from the image name using configured mappings and icon settings.
+6. `VersionEnricher` (`@Order(300)`) attaches cached version information to retained containers and queues background checks for eligible cache misses without waiting for resolution.
 
 To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` in its own concern package under `core/enrichment/` and declare its order with `@Order` (for example, `@Order(400)` to run after the existing handlers). Spring includes it automatically without changes to the service or chain.
 
@@ -326,7 +327,7 @@ Published-port IDs use `published-port:<port>` independently of the configured h
 - `core/enrichment/version/resolution/` — `VersionResolver` gathers version evidence; installed-version detection, retained observations, release selection, update policy, and numeric comparison live alongside it.
 - `core/model/` — application-owned container/source metadata, outcomes, queries, image references, version values, and exceptions. Ports never expose SDK objects or client handles.
 - `core/mapping/` — `ContainerMapper` converts discovery snapshots to core containers.
-- `core/enrichment/name/` — `DisplayNameResolver` resolves source-wide name collisions; `DisplayNameEnricher` applies the names prepared in the context.
+- `core/enrichment/name/` — `DisplayNameResolver` resolves source-wide name collisions; `DisplayNameEnricher` resolves and applies names before filters run.
 - `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`.
 - `inbound/health/` — translates `CheckDockerAvailability` results into actuator health responses; probing and timeout handling belong to the core service.
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.

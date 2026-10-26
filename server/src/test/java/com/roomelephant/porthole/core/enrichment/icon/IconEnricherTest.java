@@ -6,6 +6,7 @@ import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.mapping.ContainerMapper;
 import com.roomelephant.porthole.core.model.ContainerSnapshot;
 import com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -32,9 +33,9 @@ class IconEnricherTest {
         var resolver = new IconResolver(
                 Map.of("postgres", "postgresql"), new IconSettings("https://cdn.example.com/icons", ".svg"));
         var enriched = new IconEnricher(resolver)
-                .enrich(container, new EnrichmentContext("local", null, true, false, java.util.Map.of()));
+                .enrich(List.of(container), new EnrichmentContext("local", null, true, false));
 
-        assertThat(enriched).hasValueSatisfying(result -> {
+        assertThat(enriched).singleElement().satisfies(result -> {
             assertThat(result).isSameAs(container);
             assertThat(result.iconUrl()).isEqualTo("https://cdn.example.com/icons/" + expectedIcon + ".svg");
             assertThat(new ContainerDTOMapper().toDTO(result).iconUrl()).isEqualTo(result.iconUrl());

@@ -44,16 +44,9 @@ public class ContainerService implements GetContainers {
         DockerSource source = result.source();
         try {
             List<Container> mapped = mapper.toModels(result.containers(), source.id());
-            EnrichmentContext context = EnrichmentContext.forContainers(
-                    source.id(),
-                    source.publishedHost(),
-                    query.includeWithoutEndpoints(),
-                    query.includeStopped(),
-                    mapped);
-            List<Container> containers = mapped.stream()
-                    .map(c -> enrichment.enrich(c, context))
-                    .flatMap(Optional::stream)
-                    .toList();
+            EnrichmentContext context = new EnrichmentContext(
+                    source.id(), source.publishedHost(), query.includeWithoutEndpoints(), query.includeStopped());
+            List<Container> containers = enrichment.enrich(mapped, context);
             containers.forEach(c -> c.setSelf(self.matches(c.id(), source.local())));
             return new Result(result.state(), containers);
         } catch (RuntimeException e) {

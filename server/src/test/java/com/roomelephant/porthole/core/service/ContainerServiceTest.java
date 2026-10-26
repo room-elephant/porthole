@@ -365,8 +365,8 @@ class ContainerServiceTest {
                                         dockerClient))))),
                 new ContainerMapper(),
                 new ContainerEnrichment(List.of(
-                        new ContainerStateFilter(),
                         new DisplayNameEnricher(),
+                        new ContainerStateFilter(),
                         new UrlCandidateEnricher(discovery),
                         new EndpointAvailabilityFilter(),
                         new IconEnricher(icon))),

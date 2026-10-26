@@ -15,8 +15,7 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 
 class VersionEnricherTest {
-    private final EnrichmentContext context =
-            new EnrichmentContext("local", "localhost", false, false, java.util.Map.of());
+    private final EnrichmentContext context = new EnrichmentContext("local", "localhost", false, false);
 
     private Container container() {
         return new Container(
@@ -36,7 +35,8 @@ class VersionEnricherTest {
         when(cache.getCachedVersionAndRefresh(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
                 .thenReturn(version);
         var container = container();
-        assertThat(new VersionEnricher(cache).enrich(container, context)).containsSame(container);
+        assertThat(new VersionEnricher(cache).enrich(List.of(container), context))
+                .containsExactly(container);
         assertThat(container.version()).isEqualTo(version);
     }
 
@@ -58,10 +58,11 @@ class VersionEnricherTest {
             var container = container();
             assertTimeoutPreemptively(
                     Duration.ofSeconds(1),
-                    () -> assertThat(enricher.enrich(container, context)).containsSame(container));
+                    () -> assertThat(enricher.enrich(List.of(container), context))
+                            .containsExactly(container));
             assertThat(running.await(5, TimeUnit.SECONDS)).isTrue();
             assertThat(container.version()).isNull();
-            assertTimeoutPreemptively(Duration.ofSeconds(1), () -> enricher.enrich(container, context));
+            assertTimeoutPreemptively(Duration.ofSeconds(1), () -> enricher.enrich(List.of(container), context));
         } finally {
             release.countDown();
         }

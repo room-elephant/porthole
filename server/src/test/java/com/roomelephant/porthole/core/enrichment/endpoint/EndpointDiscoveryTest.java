@@ -29,7 +29,7 @@ class EndpointDiscoveryTest {
                                             Map.of(
                                                     "traefik.http.routers.app.rule", "Host(`app.example.com`)",
                                                     "traefik.http.routers.app.tls", "true")),
-                                    new EnrichmentContext("local", "192.168.50.6", false, false, java.util.Map.of())))
+                                    new EnrichmentContext("local", "192.168.50.6", false, false)))
                     .containsExactly(
                             new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/"),
                             new Endpoint("traefik:https://app.example.com/", "traefik", "https://app.example.com/"));
@@ -48,9 +48,7 @@ class EndpointDiscoveryTest {
                         "traefik.http.routers.path.tls", "true"));
         assertThat(new EndpointDiscovery(
                                 List.of(proxy, proxy, new PublishedPortEndpointProvider(new PublishedHostResolver())))
-                        .discover(
-                                container,
-                                new EnrichmentContext("local", "localhost", false, false, java.util.Map.of())))
+                        .discover(container, new EnrichmentContext("local", "localhost", false, false)))
                 .extracting(Endpoint::url)
                 .containsExactly("https://app.example.com/", "https://app.example.com/z/");
     }

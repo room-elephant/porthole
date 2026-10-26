@@ -3,7 +3,7 @@ package com.roomelephant.porthole.core.enrichment.state;
 import com.roomelephant.porthole.core.enrichment.ContainerEnricher;
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.model.Container;
-import java.util.Optional;
+import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -13,11 +13,16 @@ import org.springframework.stereotype.Component;
 @NullMarked
 public class ContainerStateFilter implements ContainerEnricher {
     @Override
-    public Optional<Container> enrich(Container container, EnrichmentContext context) {
-        boolean stopped = switch (container.state()) {
-            case "created", "exited", "dead", "removing" -> true;
-            case null, default -> false;
+    public List<Container> enrich(List<Container> containers, EnrichmentContext context) {
+        return context.includeStopped()
+                ? containers
+                : containers.stream().filter(this::isActive).toList();
+    }
+
+    private boolean isActive(Container container) {
+        return switch (container.state()) {
+            case "created", "exited", "dead", "removing" -> false;
+            case null, default -> true;
         };
-        return context.includeStopped() || !stopped ? Optional.of(container) : Optional.empty();
     }
 }
