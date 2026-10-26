@@ -20,7 +20,7 @@ public final class NativeHintsMerger {
 
     private NativeHintsMerger() {}
 
-    public static void main(String[] arguments) throws Exception {
+    static void main(String[] arguments) throws Exception {
         if (arguments.length == 2 && arguments[0].equals("prepare")) {
             prepare(Path.of(arguments[1]));
         } else if (arguments.length == 3 && arguments[0].equals("merge")) {
