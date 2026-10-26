@@ -17,17 +17,19 @@ class PublishedPortEndpointProviderTest {
     void shouldBuildCompletePublishedPortUrl() {
         assertThat(provider.discover(
                         EndpointFixtures.container(Set.of(51413), Map.of()),
-                        new EnrichmentContext("local", "192.168.50.6", false, false)))
+                        new EnrichmentContext("local", "192.168.50.6", false, false, java.util.Map.of())))
                 .containsExactly(new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/"));
     }
 
     @Test
     void shouldPreservePortIdAcrossHostnames() {
         Container container = EndpointFixtures.container(Set.of(51413), Map.of());
-        Endpoint first = provider.discover(container, new EnrichmentContext("local", "192.168.50.6", false, false))
+        Endpoint first = provider.discover(
+                        container, new EnrichmentContext("local", "192.168.50.6", false, false, java.util.Map.of()))
                 .getFirst();
         Endpoint second = provider.discover(
-                        container, new EnrichmentContext("local", "docker.example.com", false, false))
+                        container,
+                        new EnrichmentContext("local", "docker.example.com", false, false, java.util.Map.of()))
                 .getFirst();
         assertThat(second.id()).isEqualTo("published-port:51413");
         assertThat(first.url()).isEqualTo("http://192.168.50.6:51413/");
@@ -38,7 +40,7 @@ class PublishedPortEndpointProviderTest {
     void shouldReturnNoCandidatesWithoutPublishedPorts() {
         assertThat(provider.discover(
                         EndpointFixtures.container(Set.of(), Map.of()),
-                        new EnrichmentContext("local", "localhost", false, false)))
+                        new EnrichmentContext("local", "localhost", false, false, java.util.Map.of())))
                 .isEmpty();
     }
 }

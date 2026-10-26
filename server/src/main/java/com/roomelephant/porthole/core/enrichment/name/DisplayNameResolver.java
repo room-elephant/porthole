@@ -1,6 +1,6 @@
-package com.roomelephant.porthole.core.presentation;
+package com.roomelephant.porthole.core.enrichment.name;
 
-import com.roomelephant.porthole.core.model.ContainerSnapshot;
+import com.roomelephant.porthole.core.model.Container;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -10,13 +10,13 @@ import org.jspecify.annotations.*;
 public final class DisplayNameResolver {
     private static final Pattern REPLICA_SUFFIX = Pattern.compile("-\\d+$");
 
-    public List<String> resolve(List<ContainerSnapshot> containers) {
+    public List<String> resolve(List<Container> containers) {
         Set<DisplayNameKey> collisions = new HashSet<>();
         boolean changed;
         do {
             Map<DisplayNameKey, Long> counts = containers.stream()
                     .map(c -> {
-                        String project = c.labels().get("com.docker.compose.project");
+                        String project = c.project();
                         return new DisplayNameKey(project, resolveDisplayName(c.name(), project, collisions));
                     })
                     .collect(Collectors.groupingBy(k -> k, Collectors.counting()));
@@ -26,7 +26,7 @@ public final class DisplayNameResolver {
                     .collect(Collectors.toSet()));
         } while (changed);
         return containers.stream()
-                .map(c -> resolveDisplayName(c.name(), c.labels().get("com.docker.compose.project"), collisions))
+                .map(c -> resolveDisplayName(c.name(), c.project(), collisions))
                 .toList();
     }
 

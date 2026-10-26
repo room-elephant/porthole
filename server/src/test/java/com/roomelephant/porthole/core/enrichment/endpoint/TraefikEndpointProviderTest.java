@@ -14,7 +14,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class TraefikEndpointProviderTest {
     private final TraefikEndpointProvider provider = new TraefikEndpointProvider(new TraefikRuleParser());
-    private final EnrichmentContext context = new EnrichmentContext("local", "192.168.50.6", false, false);
+    private final EnrichmentContext context =
+            new EnrichmentContext("local", "192.168.50.6", false, false, java.util.Map.of());
 
     @Test
     void shouldDiscoverHostOnlyTlsRouter() {

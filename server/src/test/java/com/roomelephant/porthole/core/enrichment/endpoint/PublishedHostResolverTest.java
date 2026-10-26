@@ -10,13 +10,13 @@ class PublishedHostResolverTest {
 
     @Test
     void usesConfiguredConnectionHost() {
-        assertThat(resolver.resolve(new EnrichmentContext("local", "192.168.50.5", false, false)))
+        assertThat(resolver.resolve(new EnrichmentContext("local", "192.168.50.5", false, false, java.util.Map.of())))
                 .isEqualTo("192.168.50.5");
     }
 
     @Test
     void defaultsToLoopbackWhenConnectionHasNoPublishedHost() {
-        assertThat(resolver.resolve(new EnrichmentContext("local", null, false, false)))
+        assertThat(resolver.resolve(new EnrichmentContext("local", null, false, false, java.util.Map.of())))
                 .isEqualTo("127.0.0.1");
     }
 }

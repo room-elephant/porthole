@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.presentation;
+package com.roomelephant.porthole.core.mapping;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -17,14 +17,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ContainerPresentation")
+@DisplayName("ContainerMapper")
 class ContainerMapperTest {
 
-    private ContainerPresentation containerMapper;
+    private ContainerMapper containerMapper;
 
     @BeforeEach
     void setUp() {
-        containerMapper = new ContainerPresentation();
+        containerMapper = new ContainerMapper();
     }
 
     @Test
@@ -136,8 +136,8 @@ class ContainerMapperTest {
         }
 
         @Test
-        @DisplayName("should strip project prefix from display name")
-        void shouldStripProjectPrefixFromDisplayName() {
+        @DisplayName("should preserve original name before display-name enrichment")
+        void shouldPreserveOriginalNameBeforeDisplayNameEnrichment() {
             Container container = createMockContainer(
                     "abc123",
                     "/my-project-web",
@@ -152,7 +152,7 @@ class ContainerMapperTest {
                     "local");
 
             assertEquals("my-project-web", dto.name());
-            assertEquals("web", dto.displayName());
+            assertEquals("my-project-web", dto.displayName());
         }
 
         @Test
@@ -223,7 +223,7 @@ class ContainerMapperTest {
                 new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container), "local");
         labels.clear();
 
-        assertEquals("jellyfin", model.displayName());
+        assertEquals("smh-jellyfin", model.displayName());
         assertEquals(Set.of(8096), model.publishedPorts());
         assertEquals(
                 Map.of(

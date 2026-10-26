@@ -11,7 +11,7 @@ public final class Container {
     private final String id;
     private final String sourceId;
     private final String name;
-    private final String displayName;
+    private String displayName;
     private final String image;
     private final Details details;
     private String iconUrl = "";
@@ -62,6 +62,10 @@ public final class Container {
 
     public String displayName() {
         return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public String image() {

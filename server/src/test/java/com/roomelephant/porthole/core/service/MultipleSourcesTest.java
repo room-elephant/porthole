@@ -6,9 +6,9 @@ import static org.mockito.Mockito.*;
 import com.github.dockerjava.api.*;
 import com.github.dockerjava.api.command.*;
 import com.roomelephant.porthole.core.enrichment.*;
+import com.roomelephant.porthole.core.mapping.*;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.DockerOperations;
-import com.roomelephant.porthole.core.presentation.*;
 import com.roomelephant.porthole.outbound.docker.*;
 import java.time.Duration;
 import java.util.*;
@@ -45,7 +45,7 @@ class MultipleSourcesTest {
     private ContainerService service(DockerOperations operations, ContainerEnrichment enrichment) {
         var discovery = new DockerDiscoveryService(operations);
         discoveries.add(discovery);
-        return new ContainerService(discovery, new ContainerPresentation(), enrichment, SelfContainer.none());
+        return new ContainerService(discovery, new ContainerMapper(), enrichment, SelfContainer.none());
     }
 
     @Test

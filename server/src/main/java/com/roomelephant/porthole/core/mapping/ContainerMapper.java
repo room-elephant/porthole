@@ -1,31 +1,22 @@
-package com.roomelephant.porthole.core.presentation;
+package com.roomelephant.porthole.core.mapping;
 
 import com.roomelephant.porthole.core.model.*;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.IntStream;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
 
 @Component
 @NullMarked
-public class ContainerPresentation {
-    private final DisplayNameResolver names = new DisplayNameResolver();
-
+public class ContainerMapper {
     public List<Container> toModels(List<ContainerSnapshot> snapshots, String sourceId) {
-        List<ContainerSnapshot> identified =
-                snapshots.stream().filter(c -> c.id() != null).toList();
-        List<String> displayNames = names.resolve(identified);
-        return IntStream.range(0, identified.size())
-                .mapToObj(i -> toModel(identified.get(i), sourceId, displayNames.get(i)))
+        return snapshots.stream()
+                .filter(c -> c.id() != null)
+                .map(c -> toModel(c, sourceId))
                 .toList();
     }
 
-    public Container toModel(ContainerSnapshot snapshot, String sourceId) {
-        return toModels(List.of(snapshot), sourceId).getFirst();
-    }
-
-    private Container toModel(ContainerSnapshot c, String sourceId, String displayName) {
+    public Container toModel(ContainerSnapshot c, String sourceId) {
         String image = c.image();
         if (image == null) {
             image = ImageUtils.UNKNOWN_IMAGE_NAME;
@@ -34,7 +25,7 @@ public class ContainerPresentation {
                 Objects.requireNonNull(c.id()),
                 sourceId,
                 c.name(),
-                displayName,
+                c.name(),
                 image,
                 new Container.Details(
                         c.publishedPorts(),
