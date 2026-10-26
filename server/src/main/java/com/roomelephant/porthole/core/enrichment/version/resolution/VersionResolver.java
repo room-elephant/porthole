@@ -35,8 +35,8 @@ public class VersionResolver {
                 repoDigests == null ? List.of() : reference.get().matchingDigests(repoDigests);
         if (matching.isEmpty())
             return new VersionObservation(image, inspection.imageId(), current, matching, null, null);
-        @Nullable TagCatalogue catalogue = null;
-        @Nullable ManifestEvidence conclusive = null;
+        TagCatalogue catalogue = null;
+        ManifestEvidence conclusive = null;
         if (previous != null && previous.belongsTo(image, inspection.imageId())) {
             catalogue = previous.catalogue();
             conclusive = previous.manifests();

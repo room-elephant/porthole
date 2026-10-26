@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,8 +18,8 @@ public class TraefikRuleParser {
     }
 
     private Optional<Route> route(List<Matcher> matchers) {
-        @Nullable String host = null;
-        @Nullable String path = null;
+        String host = null;
+        String path = null;
         for (Matcher matcher : matchers) {
             if (matcher.name().equals("Host")) {
                 if (host != null || !EndpointUrls.isValidHost(matcher.value())) return Optional.empty();

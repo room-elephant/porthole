@@ -30,7 +30,7 @@ public final class DisplayNameResolver {
                 .toList();
     }
 
-    private @NonNull String computeDisplayName(String name, @Nullable String project) {
+    private String computeDisplayName(String name, @Nullable String project) {
         if (project != null && name.startsWith(project + "-")) {
             String displayName = stripProjectPrefix(name, project);
             String shortName = REPLICA_SUFFIX.matcher(displayName).replaceFirst("");

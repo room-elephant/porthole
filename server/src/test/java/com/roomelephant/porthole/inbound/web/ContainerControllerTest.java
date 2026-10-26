@@ -210,19 +210,6 @@ class ContainerControllerTest {
                 containers);
     }
 
-    private Container createContainer(String name, List<Endpoint> endpoints) {
-        Container container = new Container(
-                name + "-id",
-                "local",
-                name,
-                name,
-                "nginx:latest",
-                new Container.Details(Set.of(), Map.of("secret", "internal-only"), "test-project", "running", "Up"),
-                endpoints);
-        container.setIconUrl("icon");
-        return container;
-    }
-
     private Container createContainer(String name) {
         return createContainer(name, Set.of(80));
     }

@@ -7,7 +7,6 @@ import java.time.Duration;
 import java.util.*;
 import java.util.function.LongSupplier;
 import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
 import org.springframework.web.client.HttpClientErrorException;
 
 @NullMarked
@@ -44,7 +43,7 @@ public final class TagPagination {
             }
             tags.addAll(result.tags());
             checkBudget(nanos, started, budget);
-            @Nullable URI following = result.next();
+            URI following = result.next();
             if (following == null) return new TagCatalogue(tags);
             next = following;
         }

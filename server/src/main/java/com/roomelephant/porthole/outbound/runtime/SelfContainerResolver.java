@@ -8,7 +8,7 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
@@ -22,11 +22,11 @@ public final class SelfContainerResolver {
     private static final Pattern CGROUP_ID = Pattern.compile("([0-9a-f]{64})");
     private static final Pattern HOSTNAME_ID = Pattern.compile("[0-9a-f]{12,64}");
 
-    private final Function<String, @Nullable String> env;
+    private final UnaryOperator<@Nullable String> env;
     private final Path mountinfo;
     private final Path cgroup;
 
-    public SelfContainerResolver(Function<String, @Nullable String> env, Path mountinfo, Path cgroup) {
+    public SelfContainerResolver(UnaryOperator<@Nullable String> env, Path mountinfo, Path cgroup) {
         this.env = env;
         this.mountinfo = mountinfo;
         this.cgroup = cgroup;
@@ -37,7 +37,7 @@ public final class SelfContainerResolver {
             return new SelfContainer(override.trim().toLowerCase(Locale.ROOT));
         }
         return findInMountinfo()
-                .or(() -> find(cgroup, CGROUP_ID))
+                .or(this::findInCgroup)
                 .or(this::hostname)
                 .map(SelfContainer::new)
                 .orElseGet(SelfContainer::none);
@@ -63,12 +63,12 @@ public final class SelfContainerResolver {
         }
     }
 
-    private Optional<String> find(Path file, Pattern pattern) {
-        String content = read(file).orElse(null);
+    private Optional<String> findInCgroup() {
+        String content = read(cgroup).orElse(null);
         if (content == null) {
             return Optional.empty();
         }
-        Matcher matcher = pattern.matcher(content);
+        Matcher matcher = CGROUP_ID.matcher(content);
         return matcher.find() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 

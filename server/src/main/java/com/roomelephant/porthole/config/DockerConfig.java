@@ -10,6 +10,7 @@ import com.roomelephant.porthole.outbound.docker.DockerConnection;
 import com.roomelephant.porthole.outbound.docker.DockerJavaOperations;
 import com.roomelephant.porthole.outbound.docker.DockerSourceRegistry;
 import java.util.ArrayList;
+import org.jspecify.annotations.NonNull;
 import org.springframework.context.annotation.*;
 
 @Configuration(proxyBeanMethods = false)
@@ -21,7 +22,7 @@ public class DockerConfig {
     }
 
     @Bean
-    public DockerSourceRegistry dockerSources() {
+    public @NonNull DockerSourceRegistry dockerSources() {
         ArrayList<DockerConnection> sources = new ArrayList<>();
         try {
             for (DockerConnectionProperties p : properties.connections()) {
@@ -47,11 +48,11 @@ public class DockerConfig {
     }
 
     @Bean
-    public DockerOperations dockerOperations(DockerSourceRegistry sources) {
+    public @NonNull DockerOperations dockerOperations(@NonNull DockerSourceRegistry sources) {
         return new DockerJavaOperations(sources);
     }
 
-    DockerClient createClient(DockerConnectionProperties p) {
+    DockerClient createClient(@NonNull DockerConnectionProperties p) {
         DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(p.host())
                 .build();
