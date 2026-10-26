@@ -78,12 +78,12 @@ function StatusSection({ container, status }) {
     return (
         <section className="settings-section">
             <h3 className="settings-heading status-heading">Status</h3>
-            <div role="status" className={`status-row status-row--${tone}`}>
+            <output className={`status-row status-row--${tone}`}>
                 <span className={`status-row-dot dot-${status.dot}`} aria-hidden="true"></span>
                 <span className="status-row-title">{title}</span>
                 {health && <span className="status-row-health">· {health}</span>}
                 {time && <span className="status-row-time">{time}</span>}
-            </div>
+            </output>
             {note && <p className="status-row-note">{note}</p>}
         </section>
     );

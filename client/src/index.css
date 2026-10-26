@@ -1149,13 +1149,6 @@ input:checked + .toggle-slider::before {
   box-shadow: var(--focus-ring);
 }
 
-.status-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--text-2);
-}
-
 .status-row .status-spinner {
   animation: spin 1s linear infinite;
 }
@@ -1717,6 +1710,7 @@ input:checked + .toggle-slider::before {
   display: flex;
   align-items: center;
   gap: 10px;
+  color: var(--text-2);
   min-height: 48px;
   box-sizing: border-box;
   margin-top: 10px;
