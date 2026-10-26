@@ -379,7 +379,13 @@
           "name": "destination"
         },
         {
+          "name": "driver"
+        },
+        {
           "name": "mode"
+        },
+        {
+          "name": "name"
         },
         {
           "name": "rw"
@@ -627,7 +633,13 @@
           "name": "destination"
         },
         {
+          "name": "driver"
+        },
+        {
           "name": "mode"
+        },
+        {
+          "name": "name"
         },
         {
           "name": "propagation"
@@ -1726,6 +1738,15 @@
       "type": "com.roomelephant.porthole.core.enrichment.icon.IconSettings"
     },
     {
+      "type": "com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter",
       "methods": [
         {
@@ -1782,6 +1803,15 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.core.mapping.ContainerMapper",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.core.model.SelfContainer"
     },
     {
@@ -1820,22 +1850,13 @@
       "type": "com.roomelephant.porthole.core.port.outbound.RegistryOperations"
     },
     {
-      "type": "com.roomelephant.porthole.core.presentation.ContainerPresentation",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
       "type": "com.roomelephant.porthole.core.service.ContainerService",
       "methods": [
         {
           "name": "<init>",
           "parameterTypes": [
             "com.roomelephant.porthole.core.service.DockerDiscoveryService",
-            "com.roomelephant.porthole.core.presentation.ContainerPresentation",
+            "com.roomelephant.porthole.core.mapping.ContainerMapper",
             "com.roomelephant.porthole.core.enrichment.ContainerEnrichment",
             "com.roomelephant.porthole.core.model.SelfContainer"
           ]
@@ -8782,6 +8803,9 @@
       "glob": "com/roomelephant/porthole/core/enrichment/icon/IconResolver.class"
     },
     {
+      "glob": "com/roomelephant/porthole/core/enrichment/name/DisplayNameEnricher.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/core/enrichment/state/ContainerStateFilter.class"
     },
     {
@@ -8797,6 +8821,9 @@
       "glob": "com/roomelephant/porthole/core/enrichment/version/resolution/VersionResolver.class"
     },
     {
+      "glob": "com/roomelephant/porthole/core/mapping/ContainerMapper.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/core/port/inbound/CheckDockerAvailability.class"
     },
     {
@@ -8804,9 +8831,6 @@
     },
     {
       "glob": "com/roomelephant/porthole/core/port/inbound/RefreshVersions.class"
-    },
-    {
-      "glob": "com/roomelephant/porthole/core/presentation/ContainerPresentation.class"
     },
     {
       "glob": "com/roomelephant/porthole/core/service/ContainerService$Result.class"

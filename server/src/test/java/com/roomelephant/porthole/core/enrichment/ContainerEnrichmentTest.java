@@ -10,7 +10,6 @@ import com.roomelephant.porthole.core.model.Endpoint;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -29,8 +28,8 @@ class ContainerEnrichmentTest {
                 new AnnotationConfigApplicationContext(ChainConfiguration.class)) {
             Container raw = container("running", Set.of(8080), Map.of("custom.metadata", "retained"));
             Container enriched = context.getBean(ContainerEnrichment.class)
-                    .enrich(raw, new EnrichmentContext("local", "192.168.50.6", false, false))
-                    .orElseThrow();
+                    .enrich(List.of(raw), new EnrichmentContext("local", "192.168.50.6", false, false))
+                    .getFirst();
             assertThat(enriched.urlCandidates())
                     .containsExactly(
                             new Endpoint("published-port:8080", "published-port", "http://192.168.50.6:8080/"),
@@ -48,7 +47,7 @@ class ContainerEnrichmentTest {
                 new AnnotationConfigApplicationContext(ChainConfiguration.class)) {
             Container raw = container(state, Set.of(8080), Map.of());
             assertThat(context.getBean(ContainerEnrichment.class)
-                            .enrich(raw, new EnrichmentContext("local", "localhost", true, false)))
+                            .enrich(List.of(raw), new EnrichmentContext("local", "localhost", true, false)))
                     .isEmpty();
         }
     }
@@ -58,10 +57,9 @@ class ContainerEnrichmentTest {
     @NullSource
     void shouldKeepActiveOrUnknownStateContainers(String state) {
         ContainerStateFilter filter = new ContainerStateFilter();
-        assertThat(filter.enrich(
-                        container(state, Set.of(8080), Map.of()),
-                        new EnrichmentContext("local", "localhost", false, false)))
-                .isPresent();
+        Container raw = container(state, Set.of(8080), Map.of());
+        assertThat(filter.enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .containsExactly(raw);
     }
 
     @Test
@@ -70,8 +68,8 @@ class ContainerEnrichmentTest {
                 new AnnotationConfigApplicationContext(ChainConfiguration.class)) {
             Container raw = container("exited", Set.of(8080), Map.of());
             assertThat(context.getBean(ContainerEnrichment.class)
-                            .enrich(raw, new EnrichmentContext("local", "localhost", false, true)))
-                    .isPresent();
+                            .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, true)))
+                    .containsExactly(raw);
         }
     }
 
@@ -82,8 +80,8 @@ class ContainerEnrichmentTest {
             Container raw =
                     container("running", Set.of(), Map.of("traefik.http.routers.app.rule", "Host(`app.example.com`)"));
             Container enriched = context.getBean(ContainerEnrichment.class)
-                    .enrich(raw, new EnrichmentContext("local", "localhost", false, false))
-                    .orElseThrow();
+                    .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false))
+                    .getFirst();
             assertThat(enriched.urlCandidates())
                     .extracting(Endpoint::url)
                     .containsExactly("http://app.example.com/", "http://app.example.com/later");
@@ -96,7 +94,7 @@ class ContainerEnrichmentTest {
                 new AnnotationConfigApplicationContext(ChainConfiguration.class)) {
             assertThat(context.getBean(ContainerEnrichment.class)
                             .enrich(
-                                    container("running", Set.of(), Map.of()),
+                                    List.of(container("running", Set.of(), Map.of())),
                                     new EnrichmentContext("local", "localhost", false, false)))
                     .isEmpty();
         }
@@ -105,45 +103,44 @@ class ContainerEnrichmentTest {
     @Test
     void shouldIncludeContainersWithoutUrlsWhenRequested() {
         ContainerEnrichment chain = new ContainerEnrichment(List.of(new EndpointAvailabilityFilter()));
-        assertThat(chain.enrich(
-                        container("running", Set.of(), Map.of()),
-                        new EnrichmentContext("local", "localhost", true, false)))
-                .isPresent();
+        Container raw = container("running", Set.of(), Map.of());
+        assertThat(chain.enrich(List.of(raw), new EnrichmentContext("local", "localhost", true, false)))
+                .containsExactly(raw);
     }
 
     @Test
-    void shouldReturnTheContainerWhenThereAreNoHandlers() {
+    void shouldReturnTheBatchWhenThereAreNoHandlers() {
         Container raw = container("running", Set.of(), Map.of());
         assertThat(new ContainerEnrichment(List.of())
-                        .enrich(raw, new EnrichmentContext("local", "localhost", false, false)))
-                .containsSame(raw);
+                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .containsExactly(raw);
     }
 
     @Test
     void shouldContinueAfterAHandlerThatMakesNoChanges() {
-        ContainerEnricher noChange = (container, context) -> Optional.of(container);
-        ContainerEnricher next = (container, context) -> {
-            container.setUrlCandidates(
-                    List.of(new Endpoint("next", "next", "https://" + context.publishedHost() + "/")));
-            return Optional.of(container);
+        ContainerEnricher noChange = (containers, context) -> containers;
+        ContainerEnricher next = (containers, context) -> {
+            containers.forEach(container -> container.setUrlCandidates(
+                    List.of(new Endpoint("next", "next", "https://" + context.publishedHost() + "/"))));
+            return containers;
         };
         Container enriched = new ContainerEnrichment(List.of(noChange, next))
                 .enrich(
-                        container("running", Set.of(), Map.of()),
+                        List.of(container("running", Set.of(), Map.of())),
                         new EnrichmentContext("local", "app.example.com", false, false))
-                .orElseThrow();
+                .getFirst();
         assertThat(enriched.urlCandidates()).containsExactly(new Endpoint("next", "next", "https://app.example.com/"));
     }
 
     @Test
-    void shouldStopTheChainWhenAnyHandlerRejectsAContainer() {
-        ContainerEnricher reject = (container, context) -> Optional.empty();
-        ContainerEnricher later = (container, context) -> {
+    void shouldStopTheChainWhenAHandlerRemovesEveryContainer() {
+        ContainerEnricher reject = (containers, context) -> List.of();
+        ContainerEnricher later = (containers, context) -> {
             throw new AssertionError("Rejected containers must not reach later handlers");
         };
         assertThat(new ContainerEnrichment(List.of(reject, later))
                         .enrich(
-                                container("running", Set.of(), Map.of()),
+                                List.of(container("running", Set.of(), Map.of())),
                                 new EnrichmentContext("local", "localhost", false, false)))
                 .isEmpty();
     }
@@ -170,12 +167,14 @@ class ContainerEnrichmentTest {
         @Bean
         @Order(300)
         ContainerEnricher laterEnricher() {
-            return (container, context) -> {
-                if (container.urlCandidates().isEmpty()) return Optional.of(container);
-                List<Endpoint> urls = new ArrayList<>(container.urlCandidates());
-                urls.add(new Endpoint("later", "later", urls.getFirst().url() + "later"));
-                container.setUrlCandidates(urls);
-                return Optional.of(container);
+            return (containers, context) -> {
+                for (Container container : containers) {
+                    if (container.urlCandidates().isEmpty()) continue;
+                    List<Endpoint> urls = new ArrayList<>(container.urlCandidates());
+                    urls.add(new Endpoint("later", "later", urls.getFirst().url() + "later"));
+                    container.setUrlCandidates(urls);
+                }
+                return containers;
             };
         }
 

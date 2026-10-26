@@ -6,9 +6,9 @@ import static org.mockito.Mockito.*;
 import com.github.dockerjava.api.*;
 import com.github.dockerjava.api.command.*;
 import com.roomelephant.porthole.core.enrichment.*;
+import com.roomelephant.porthole.core.mapping.*;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.DockerOperations;
-import com.roomelephant.porthole.core.presentation.*;
 import com.roomelephant.porthole.outbound.docker.*;
 import java.time.Duration;
 import java.util.*;
@@ -45,7 +45,7 @@ class MultipleSourcesTest {
     private ContainerService service(DockerOperations operations, ContainerEnrichment enrichment) {
         var discovery = new DockerDiscoveryService(operations);
         discoveries.add(discovery);
-        return new ContainerService(discovery, new ContainerPresentation(), enrichment, SelfContainer.none());
+        return new ContainerService(discovery, new ContainerMapper(), enrichment, SelfContainer.none());
     }
 
     @Test
@@ -68,6 +68,27 @@ class MultipleSourcesTest {
         assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker", "mike");
         assertThat(result.containers()).extracting(Container::id).containsExactly("same-id", "same-id");
         assertThat(result.sources()).extracting(SourceState::status).containsExactly(SourceStatus.UP, SourceStatus.UP);
+    }
+
+    @Test
+    void resolvesNameCollisionsSeparatelyForEachSource() {
+        var first = client();
+        var second = client();
+        for (var client : List.of(first, second)) {
+            var container = client.listContainersCmd().withShowAll(true).exec().getFirst();
+            when(container.getNames()).thenReturn(new String[] {"/project-web-1"});
+            when(container.getLabels()).thenReturn(Map.of("com.docker.compose.project", "project"));
+        }
+        var registry = new DockerJavaOperations(new DockerSourceRegistry(List.of(
+                source("walker", first, Duration.ofSeconds(1)), source("mike", second, Duration.ofSeconds(1)))));
+        var service = service(
+                registry,
+                new ContainerEnrichment(
+                        List.of(new com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher())));
+
+        assertThat(service.getContainers(new ContainerQuery(true, true)).containers())
+                .extracting(Container::displayName)
+                .containsExactly("web", "web");
     }
 
     @Test
@@ -99,7 +120,7 @@ class MultipleSourcesTest {
     void dockerDeadlineDoesNotCancelEnrichment() throws Exception {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
-        ContainerEnricher slowEnricher = (container, context) -> {
+        ContainerEnricher slowEnricher = (containers, context) -> {
             entered.countDown();
             try {
                 if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Enrichment was not released");
@@ -107,7 +128,7 @@ class MultipleSourcesTest {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException(e);
             }
-            return Optional.of(container);
+            return containers;
         };
         var service = service(
                 new DockerJavaOperations(
@@ -148,11 +169,11 @@ class MultipleSourcesTest {
     void enrichmentFailureDoesNotDiscardOtherSourcesOrReportDockerAsDown() {
         var registry = new DockerJavaOperations(new DockerSourceRegistry(List.of(
                 source("walker", client(), Duration.ofSeconds(1)), source("mike", client(), Duration.ofSeconds(1)))));
-        ContainerEnricher failingEnricher = (container, context) -> {
-            if (container.sourceId().equals("walker"))
+        ContainerEnricher failingEnricher = (containers, context) -> {
+            if (containers.getFirst().sourceId().equals("walker"))
                 throw new com.roomelephant.porthole.core.model.exception.DockerUnavailableException(
                         new java.net.SocketException("private details"));
-            return Optional.of(container);
+            return containers;
         };
         var service = service(registry, new ContainerEnrichment(List.of(failingEnricher)));
         var result = service.getContainers(new ContainerQuery(true, true));

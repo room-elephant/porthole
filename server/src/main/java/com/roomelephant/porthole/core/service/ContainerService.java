@@ -1,9 +1,9 @@
 package com.roomelephant.porthole.core.service;
 
 import com.roomelephant.porthole.core.enrichment.*;
+import com.roomelephant.porthole.core.mapping.ContainerMapper;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.inbound.GetContainers;
-import com.roomelephant.porthole.core.presentation.ContainerPresentation;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
@@ -14,13 +14,13 @@ import org.springframework.stereotype.Service;
 @NullMarked
 public class ContainerService implements GetContainers {
     private final DockerDiscoveryService discovery;
-    private final ContainerPresentation mapper;
+    private final ContainerMapper mapper;
     private final ContainerEnrichment enrichment;
     private final SelfContainer self;
 
     public ContainerService(
             DockerDiscoveryService discovery,
-            ContainerPresentation mapper,
+            ContainerMapper mapper,
             ContainerEnrichment enrichment,
             SelfContainer self) {
         this.discovery = discovery;
@@ -43,12 +43,10 @@ public class ContainerService implements GetContainers {
         if (result.state().status() != SourceStatus.UP) return new Result(result.state(), List.of());
         DockerSource source = result.source();
         try {
+            List<Container> mapped = mapper.toModels(result.containers(), source.id());
             EnrichmentContext context = new EnrichmentContext(
                     source.id(), source.publishedHost(), query.includeWithoutEndpoints(), query.includeStopped());
-            List<Container> containers = mapper.toModels(result.containers(), source.id()).stream()
-                    .map(c -> enrichment.enrich(c, context))
-                    .flatMap(Optional::stream)
-                    .toList();
+            List<Container> containers = enrichment.enrich(mapped, context);
             containers.forEach(c -> c.setSelf(self.matches(c.id(), source.local())));
             return new Result(result.state(), containers);
         } catch (RuntimeException e) {

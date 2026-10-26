@@ -4,7 +4,7 @@ import com.roomelephant.porthole.core.enrichment.ContainerEnricher;
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.ImageUtils;
-import java.util.Optional;
+import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -20,8 +20,10 @@ public class IconEnricher implements ContainerEnricher {
     }
 
     @Override
-    public Optional<Container> enrich(Container container, EnrichmentContext context) {
-        container.setIconUrl(icons.resolveIcon(ImageUtils.extractName(container.image())));
-        return Optional.of(container);
+    public List<Container> enrich(List<Container> containers, EnrichmentContext context) {
+        for (Container container : containers) {
+            container.setIconUrl(icons.resolveIcon(ImageUtils.extractName(container.image())));
+        }
+        return containers;
     }
 }
