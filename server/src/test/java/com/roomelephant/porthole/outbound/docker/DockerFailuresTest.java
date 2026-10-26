@@ -43,6 +43,6 @@ class DockerFailuresTest {
         var a = new RuntimeException();
         var b = new RuntimeException(a);
         a.initCause(b);
-      assertThat(DockerFailures.isTransportFailure(a)).isFalse();
+        assertThat(DockerFailures.isTransportFailure(a)).isFalse();
     }
 }

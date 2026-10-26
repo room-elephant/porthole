@@ -11,7 +11,7 @@ import org.jspecify.annotations.*;
 @NullMarked
 public final class RegistryOperationsAdapter implements RegistryOperations {
     private final List<RegistryClient> clients;
-    private final Cache<String, TagCatalogue> catalogues;
+    private final Cache<String, @Nullable TagCatalogue> catalogues;
 
     public RegistryOperationsAdapter(List<RegistryClient> clients, RegistryProperties.Cache cache) {
         this.clients = List.copyOf(clients);
@@ -26,6 +26,7 @@ public final class RegistryOperationsAdapter implements RegistryOperations {
         RegistryClient client = clientFor(image);
         if (client == null) return new RegistryLookup.Unsupported<>();
         AtomicReference<@Nullable RegistryLookup<TagCatalogue>> fetched = new AtomicReference<>();
+        @Nullable
         TagCatalogue catalogue = catalogues.get(image.canonicalRepository(), key -> {
             RegistryLookup<TagCatalogue> result = client.listTags(image);
             fetched.set(result);

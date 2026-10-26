@@ -8,6 +8,7 @@ import com.roomelephant.porthole.config.properties.*;
 import com.roomelephant.porthole.outbound.docker.DockerSourceRegistry;
 import java.time.Duration;
 import java.util.List;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
 
 class DockerConfigTest {
@@ -54,7 +55,7 @@ class DockerConfigTest {
         var b = mock(DockerClient.class);
         var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
             @Override
-            DockerClient createClient(DockerConnectionProperties p) {
+            DockerClient createClient(@NonNull DockerConnectionProperties p) {
                 return p.id().equals("a") ? a : b;
             }
         };
@@ -79,7 +80,7 @@ class DockerConfigTest {
                 Duration.ofSeconds(60));
         var config = new DockerConfig(new DockerProperties(List.of(connection("a"), tcp))) {
             @Override
-            DockerClient createClient(DockerConnectionProperties p) {
+            DockerClient createClient(@NonNull DockerConnectionProperties p) {
                 return client;
             }
         };
@@ -94,7 +95,7 @@ class DockerConfigTest {
         var client = mock(DockerClient.class);
         var config = new DockerConfig(new DockerProperties(List.of(connection("a"), connection("b")))) {
             @Override
-            DockerClient createClient(DockerConnectionProperties p) {
+            DockerClient createClient(@NonNull DockerConnectionProperties p) {
                 if (p.id().equals("b")) throw new IllegalStateException("failed");
                 return client;
             }
