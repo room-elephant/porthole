@@ -52,7 +52,9 @@ The dedicated `generate-native-hints` Maven profile runs every component test ag
 make server-native-hints
 ```
 
-The profile prepares an empty recording directory before the tests. `PortholeContainer` attaches the native-image agent whenever the profile supplies `native.agent.output.dir`. Recording instances stop gracefully so their agents flush metadata; a JUnit launcher-session listener stops the shared recording instance before JVM shutdown and Testcontainers cleanup.
+The profile prepares an empty recording directory before the tests. Preparation refuses to clear a directory that still holds a `.lock` from an earlier run — failing with `Previous native hint recordings are still locked` — rather than deleting output an agent may still be writing. `PortholeContainer` attaches the native-image agent whenever the profile supplies `native.agent.output.dir`. Recording instances stop gracefully so their agents flush metadata; a JUnit launcher-session listener stops the shared recording instance before JVM shutdown and Testcontainers cleanup.
+
+`PortholeContainer` bind-mounts each `app-<random>` recording directory to the agent's `/tmp/native-hints` output path. The host directory is made world-readable, writable, and executable so resilience containers running as UID 65532 can write to it. The agent flushes every ten seconds (`config-write-period-secs=10`) and on graceful shutdown. Periodic writes limit data loss after a crash, but recordings with an unreleased `.lock` are still rejected.
 
 After Failsafe verifies that the tests passed, `NativeHintsMerger` checks every instance produced metadata and released its lock. It runs the official `native-image-configure generate` tool from `ghcr.io/graalvm/native-image-community:25` with every recording as an input. The merged metadata is staged separately and replaces the source-tree `reachability-metadata.json` only after successful merging. Failed tests, missing recordings, active locks, or merge failures leave the published metadata unchanged. Locks are never deleted to bypass an active agent.
 
