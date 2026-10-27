@@ -1,7 +1,5 @@
 package com.roomelephant.porthole.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.roomelephant.porthole.config.properties.DashboardProperties;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,6 +14,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.dataformat.yaml.YAMLMapper;
 
 @Configuration(proxyBeanMethods = false)
 public class IconConfig {
@@ -38,7 +39,7 @@ public class IconConfig {
         try (InputStream input = resource.getInputStream()) {
             Map<String, String> mappings = new YAMLMapper().readValue(input, new TypeReference<>() {});
             return mappings == null ? Map.of() : mappings;
-        } catch (IOException e) {
+        } catch (IOException | JacksonException e) {
             log.error("Failed to load icon config from {}: {}", resource, e.getMessage());
             return Map.of();
         }

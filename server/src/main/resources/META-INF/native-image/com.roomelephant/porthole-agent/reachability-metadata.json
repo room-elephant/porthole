@@ -46,28 +46,10 @@
       "type": "com.fasterxml.jackson.core.JsonGenerator"
     },
     {
-      "type": "com.fasterxml.jackson.core.ObjectCodec"
-    },
-    {
-      "type": "com.fasterxml.jackson.core.TreeCodec"
-    },
-    {
-      "type": "com.fasterxml.jackson.core.Versioned"
-    },
-    {
       "type": "com.fasterxml.jackson.databind.ObjectMapper"
     },
     {
       "type": "com.fasterxml.jackson.databind.deser.BeanDeserializerModifier[]"
-    },
-    {
-      "type": "com.fasterxml.jackson.databind.deser.Deserializers[]"
-    },
-    {
-      "type": "com.fasterxml.jackson.databind.deser.KeyDeserializers[]"
-    },
-    {
-      "type": "com.fasterxml.jackson.databind.deser.ValueInstantiators[]"
     },
     {
       "type": "com.fasterxml.jackson.databind.ext.Java7SupportImpl",
@@ -77,12 +59,6 @@
           "parameterTypes": []
         }
       ]
-    },
-    {
-      "type": "com.fasterxml.jackson.databind.ser.BeanSerializerModifier[]"
-    },
-    {
-      "type": "com.fasterxml.jackson.databind.ser.Serializers[]"
     },
     {
       "type": "com.fasterxml.jackson.dataformat.cbor.CBORFactory"
@@ -100,16 +76,7 @@
       "type": "com.fasterxml.jackson.datatype.jdk8.Jdk8Module"
     },
     {
-      "type": "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "com.fasterxml.jackson.module.kotlin.KotlinModule"
+      "type": "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule"
     },
     {
       "type": "com.fasterxml.jackson.module.paramnames.ParameterNamesModule"
@@ -379,13 +346,7 @@
           "name": "destination"
         },
         {
-          "name": "driver"
-        },
-        {
           "name": "mode"
-        },
-        {
-          "name": "name"
         },
         {
           "name": "rw"
@@ -633,13 +594,7 @@
           "name": "destination"
         },
         {
-          "name": "driver"
-        },
-        {
           "name": "mode"
-        },
-        {
-          "name": "name"
         },
         {
           "name": "propagation"
@@ -881,6 +836,9 @@
         },
         {
           "name": "groupAdd"
+        },
+        {
+          "name": "init"
         },
         {
           "name": "ioMaximumBandwidth"
@@ -1243,9 +1201,6 @@
       "type": "com.github.dockerjava.zerodep.shaded.org.apache.hc.core5.http.impl.io.HttpRequestExecutor"
     },
     {
-      "type": "com.github.therapi.runtimejavadoc.CommentFormatter"
-    },
-    {
       "type": "com.google.gson.Gson"
     },
     {
@@ -1318,6 +1273,26 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.config.EnrichmentConfiguration",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "containerEnrichment",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher",
+            "com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter",
+            "com.roomelephant.porthole.core.enrichment.endpoint.UrlCandidateEnricher",
+            "com.roomelephant.porthole.core.enrichment.endpointavailability.EndpointAvailabilityFilter",
+            "com.roomelephant.porthole.core.enrichment.icon.IconEnricher",
+            "com.roomelephant.porthole.core.enrichment.version.VersionEnricher"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.config.IconConfig",
       "methods": [
         {
@@ -1343,7 +1318,7 @@
           "name": "dockerHubClient",
           "parameterTypes": [
             "org.springframework.web.client.RestClient",
-            "com.fasterxml.jackson.databind.ObjectMapper",
+            "tools.jackson.databind.json.JsonMapper",
             "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
         },
@@ -1351,13 +1326,9 @@
           "name": "ghcrClient",
           "parameterTypes": [
             "org.springframework.web.client.RestClient",
-            "com.fasterxml.jackson.databind.ObjectMapper",
+            "tools.jackson.databind.json.JsonMapper",
             "com.roomelephant.porthole.config.properties.RegistryProperties"
           ]
-        },
-        {
-          "name": "registryJsonMapper",
-          "parameterTypes": []
         },
         {
           "name": "registryOperations",
@@ -1627,15 +1598,7 @@
       "type": "com.roomelephant.porthole.core.enrichment.ContainerEnricher"
     },
     {
-      "type": "com.roomelephant.porthole.core.enrichment.ContainerEnrichment",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.util.List"
-          ]
-        }
-      ]
+      "type": "com.roomelephant.porthole.core.enrichment.ContainerEnrichment"
     },
     {
       "type": "com.roomelephant.porthole.core.enrichment.endpoint.EndpointDiscovery",
@@ -2255,15 +2218,6 @@
       "type": "com.sun.management.internal.VirtualThreadSchedulerImpls$VirtualThreadSchedulerImpl"
     },
     {
-      "type": "com.sun.org.apache.xalan.internal.xsltc.trax.TransformerFactoryImpl",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
       "type": "double[]"
     },
     {
@@ -2579,9 +2533,6 @@
       "type": "jakarta.servlet.Filter"
     },
     {
-      "type": "jakarta.servlet.GenericFilter"
-    },
-    {
       "type": "jakarta.servlet.GenericServlet"
     },
     {
@@ -2809,10 +2760,6 @@
       "type": "java.lang.Class",
       "methods": [
         {
-          "name": "getRecordComponents",
-          "parameterTypes": []
-        },
-        {
           "name": "isRecord",
           "parameterTypes": []
         }
@@ -2828,9 +2775,6 @@
     },
     {
       "type": "java.lang.Class[]"
-    },
-    {
-      "type": "java.lang.Comparable"
     },
     {
       "type": "java.lang.Comparable[]"
@@ -3041,19 +2985,6 @@
       ]
     },
     {
-      "type": "java.lang.reflect.RecordComponent",
-      "methods": [
-        {
-          "name": "getName",
-          "parameterTypes": []
-        },
-        {
-          "name": "getType",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
       "type": "java.lang.reflect.Type"
     },
     {
@@ -3074,9 +3005,6 @@
     },
     {
       "type": "java.math.BigInteger"
-    },
-    {
-      "type": "java.net.URI"
     },
     {
       "type": "java.net.UnixDomainSocketAddress",
@@ -3151,9 +3079,6 @@
     },
     {
       "type": "java.util.Enumeration"
-    },
-    {
-      "type": "java.util.EventListener"
     },
     {
       "type": "java.util.HashSet"
@@ -3306,13 +3231,7 @@
       "type": "kotlin.Metadata"
     },
     {
-      "type": "kotlin.coroutines.Continuation"
-    },
-    {
       "type": "kotlin.reflect.full.KClasses"
-    },
-    {
-      "type": "kotlinx.coroutines.flow.Flow"
     },
     {
       "type": "kotlinx.coroutines.reactor.MonoKt"
@@ -3356,6 +3275,27 @@
     },
     {
       "type": "org.apache.catalina.util.CharsetMapper",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.apache.commons.logging.LogFactory"
+    },
+    {
+      "type": "org.apache.commons.logging.impl.Slf4jLogFactory",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.apache.commons.logging.impl.WeakHashtable",
       "methods": [
         {
           "name": "<init>",
@@ -3431,6 +3371,15 @@
       "type": "org.apache.logging.log4j.core.impl.Log4jContextFactory"
     },
     {
+      "type": "org.apache.logging.log4j.util.EnvironmentPropertySource"
+    },
+    {
+      "type": "org.apache.logging.log4j.util.SystemPropertiesPropertySource"
+    },
+    {
+      "type": "org.apache.logging.slf4j.SLF4JProvider"
+    },
+    {
       "type": "org.apache.tomcat.util.net.AbstractEndpoint",
       "methods": [
         {
@@ -3443,9 +3392,6 @@
     },
     {
       "type": "org.apache.tomcat.util.net.NioEndpoint"
-    },
-    {
-      "type": "org.apache.tomcat.websocket.server.WsFilter"
     },
     {
       "type": "org.apache.tomcat.websocket.server.WsSci"
@@ -3637,6 +3583,9 @@
       "type": "org.jspecify.annotations.NullMarked"
     },
     {
+      "type": "org.osgi.framework.FrameworkUtil"
+    },
+    {
       "type": "org.reactivestreams.Publisher"
     },
     {
@@ -3646,76 +3595,10 @@
       "type": "org.slf4j.bridge.SLF4JBridgeHandler"
     },
     {
+      "type": "org.slf4j.helpers.Log4jLoggerFactory"
+    },
+    {
       "type": "org.slf4j.spi.LocationAwareLogger"
-    },
-    {
-      "type": "org.springdoc.core.conditions.MultipleOpenApiSupportCondition",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.springdoc.core.conditions.SpecPropertiesCondition",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.springdoc.core.configuration.SpringDocWebServerConfiguration$EmbeddedWebServerConfiguration",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        },
-        {
-          "name": "webServerPortProvider",
-          "parameterTypes": [
-            "org.springframework.beans.factory.ObjectProvider"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.springdoc.core.configuration.SpringDocWebServerConfiguration$EmbeddedWebServerConfiguration$SpringDocWebServerPortListener"
-    },
-    {
-      "type": "org.springdoc.core.configuration.SpringDocWebServerConfiguration$SpringDocWebServerContext"
-    },
-    {
-      "type": "org.springdoc.core.properties.SpringDocConfigProperties",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        },
-        {
-          "name": "getApiDocs",
-          "parameterTypes": []
-        },
-        {
-          "name": "setApiDocs",
-          "parameterTypes": [
-            "org.springdoc.core.properties.SpringDocConfigProperties$ApiDocs"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.springdoc.core.properties.SpringDocConfigProperties$ApiDocs",
-      "methods": [
-        {
-          "name": "setEnabled",
-          "parameterTypes": [
-            "boolean"
-          ]
-        }
-      ]
     },
     {
       "type": "org.springframework.aop.framework.AbstractAdvisingBeanPostProcessor"
@@ -4448,9 +4331,6 @@
       "type": "org.springframework.boot.autoconfigure.condition.ConditionalOnClass"
     },
     {
-      "type": "org.springframework.boot.autoconfigure.condition.ConditionalOnExpression"
-    },
-    {
       "type": "org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean"
     },
     {
@@ -4491,15 +4371,6 @@
     },
     {
       "type": "org.springframework.boot.autoconfigure.condition.OnClassCondition",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.springframework.boot.autoconfigure.condition.OnExpressionCondition",
       "methods": [
         {
           "name": "<init>",
@@ -5926,6 +5797,9 @@
       ]
     },
     {
+      "type": "org.springframework.boot.logging.log4j2.SpringBootPropertySource"
+    },
+    {
       "type": "org.springframework.boot.logging.logback.LogbackLoggingSystem$Factory",
       "methods": [
         {
@@ -6530,23 +6404,7 @@
       ]
     },
     {
-      "type": "org.springframework.boot.tomcat.autoconfigure.TomcatWebServerConfiguration$TomcatWebSocketConfiguration",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        },
-        {
-          "name": "webSocketWebServerCustomizer",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
       "type": "org.springframework.boot.tomcat.autoconfigure.TomcatWebServerFactoryCustomizer"
-    },
-    {
-      "type": "org.springframework.boot.tomcat.autoconfigure.WebSocketTomcatWebServerFactoryCustomizer"
     },
     {
       "type": "org.springframework.boot.tomcat.autoconfigure.metrics.TomcatMetricsAutoConfiguration",
@@ -6799,9 +6657,6 @@
     },
     {
       "type": "org.springframework.boot.web.server.context.WebServerApplicationContext"
-    },
-    {
-      "type": "org.springframework.boot.web.server.context.WebServerInitializedEvent"
     },
     {
       "type": "org.springframework.boot.web.server.reactive.context.ReactiveWebServerApplicationContextFactory",
@@ -7301,9 +7156,6 @@
       "type": "org.springframework.boot.webmvc.error.ErrorController"
     },
     {
-      "type": "org.springframework.cloud.function.web.function.FunctionEndpointInitializer"
-    },
-    {
       "type": "org.springframework.context.ApplicationContextAware"
     },
     {
@@ -7475,15 +7327,6 @@
       "type": "org.springframework.dao.DataAccessException"
     },
     {
-      "type": "org.springframework.data.domain.Pageable"
-    },
-    {
-      "type": "org.springframework.data.domain.Sort"
-    },
-    {
-      "type": "org.springframework.data.rest.core.config.RepositoryRestConfiguration"
-    },
-    {
       "type": "org.springframework.data.rest.webmvc.alps.AlpsJacksonJsonHttpMessageConverter"
     },
     {
@@ -7494,9 +7337,6 @@
     },
     {
       "type": "org.springframework.format.support.FormattingConversionService"
-    },
-    {
-      "type": "org.springframework.hateoas.server.LinkRelationProvider"
     },
     {
       "type": "org.springframework.hateoas.server.mvc.TypeConstrainedJacksonJsonHttpMessageConverter"
@@ -7568,9 +7408,6 @@
     },
     {
       "type": "org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler"
-    },
-    {
-      "type": "org.springframework.security.web.SecurityFilterChain"
     },
     {
       "type": "org.springframework.stereotype.Component"
@@ -8671,10 +8508,13 @@
       "glob": "META-INF/services/java.util.spi.ResourceBundleControlProvider"
     },
     {
-      "glob": "META-INF/services/javax.xml.transform.TransformerFactory"
+      "glob": "META-INF/services/org.apache.commons.logging.LogFactory"
     },
     {
       "glob": "META-INF/services/org.apache.juli.logging.Log"
+    },
+    {
+      "glob": "META-INF/services/org.apache.logging.log4j.util.PropertySource"
     },
     {
       "glob": "META-INF/services/org.slf4j.spi.SLF4JServiceProvider"
@@ -8749,6 +8589,9 @@
       "glob": "com/roomelephant/porthole/config/DockerConfig.class"
     },
     {
+      "glob": "com/roomelephant/porthole/config/EnrichmentConfiguration.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/config/IconConfig.class"
     },
     {
@@ -8759,9 +8602,6 @@
     },
     {
       "glob": "com/roomelephant/porthole/core/enrichment/ContainerEnricher.class"
-    },
-    {
-      "glob": "com/roomelephant/porthole/core/enrichment/ContainerEnrichment.class"
     },
     {
       "glob": "com/roomelephant/porthole/core/enrichment/endpoint/EndpointDiscovery.class"
@@ -8860,6 +8700,9 @@
       "glob": "com/roomelephant/porthole/inbound/web/mapper/ContainerDTOMapper.class"
     },
     {
+      "glob": "commons-logging.properties"
+    },
+    {
       "glob": "config/application-default.properties"
     },
     {
@@ -8915,6 +8758,15 @@
     },
     {
       "glob": "jndi.properties"
+    },
+    {
+      "glob": "log4j2.StatusLogger.properties"
+    },
+    {
+      "glob": "log4j2.component.properties"
+    },
+    {
+      "glob": "log4j2.system.properties"
     },
     {
       "glob": "logback-spring.groovy"
@@ -9055,79 +8907,10 @@
       "glob": "org/apache/tomcat/util/threads/LocalStrings.properties"
     },
     {
-      "glob": "org/apache/tomcat/websocket/LocalStrings.properties"
-    },
-    {
-      "glob": "org/apache/tomcat/websocket/server/LocalStrings.properties"
-    },
-    {
       "glob": "org/jspecify/annotations/NullMarked.class"
     },
     {
       "glob": "org/publicsuffix/list/effective_tld_names.dat"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocDataRestConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocFunctionCatalogConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocGroovyConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocHateoasConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocJacksonKotlinModuleConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocJavadocConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocKotlinConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocKotlinxConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocPageableConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocSecurityConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocSortConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocSpecPropertiesConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration$DeployedWebServerConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration$EmbeddedWebServerConfiguration$SpringDocWebServerPortListener.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration$EmbeddedWebServerConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration/DeployedWebServerConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/configuration/SpringDocWebServerConfiguration/EmbeddedWebServerConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/core/properties/SpringDocConfigProperties.class"
-    },
-    {
-      "glob": "org/springdoc/webmvc/core/configuration/MultipleOpenApiSupportConfiguration.class"
-    },
-    {
-      "glob": "org/springdoc/webmvc/core/configuration/SpringDocWebMvcConfiguration.class"
     },
     {
       "glob": "org/springframework/aot/hint/RuntimeHintsRegistrar.class"
@@ -9829,9 +9612,6 @@
       "glob": "public/api/containers/non-existent-id/version"
     },
     {
-      "glob": "public/index.html"
-    },
-    {
       "glob": "resources/api/containers/non-existent-id/version"
     },
     {
@@ -9939,12 +9719,6 @@
     },
     {
       "bundle": "org.apache.tomcat.util.threads.LocalStrings"
-    },
-    {
-      "bundle": "org.apache.tomcat.websocket.LocalStrings"
-    },
-    {
-      "bundle": "org.apache.tomcat.websocket.server.LocalStrings"
     }
   ]
 }

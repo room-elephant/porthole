@@ -1,16 +1,16 @@
 package com.roomelephant.porthole.outbound.registry.dockerhub;
 
-import com.fasterxml.jackson.databind.*;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.outbound.registry.*;
 import com.roomelephant.porthole.outbound.registry.distribution.*;
-import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.*;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.web.client.RestClient;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.*;
 
 @NullMarked
 public final class DockerHubClient implements RegistryClient {
@@ -54,14 +54,14 @@ public final class DockerHubClient implements RegistryClient {
             List<String> tags = new ArrayList<>();
             for (JsonNode result : response.path("results")) {
                 JsonNode name = result.path("name");
-                if (!name.isTextual()) throw new RegistryProtocolException("Invalid registry tag entry");
-                tags.add(name.asText());
+                if (!name.isString()) throw new RegistryProtocolException("Invalid registry tag entry");
+                tags.add(name.asString());
             }
             JsonNode next = response.get("next");
             if (next == null || next.isNull()) return new TagPage(tags, null);
-            if (!next.isTextual() || next.asText().isBlank()) throw new RegistryProtocolException("Invalid next page");
-            return new TagPage(tags, TagPagination.resolve(page, next.asText()));
-        } catch (IOException e) {
+            if (!next.isString() || next.asString().isBlank()) throw new RegistryProtocolException("Invalid next page");
+            return new TagPage(tags, TagPagination.resolve(page, next.asString()));
+        } catch (JacksonException e) {
             throw new RegistryProtocolException("Invalid tag response", e);
         }
     }

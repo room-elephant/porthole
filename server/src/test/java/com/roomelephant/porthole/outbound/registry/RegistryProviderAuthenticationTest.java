@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roomelephant.porthole.config.RegistryConfig;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.model.*;
@@ -15,6 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.*;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 class RegistryProviderAuthenticationTest {
     private static final String DIGEST = "sha256:" + "a".repeat(64);
@@ -31,8 +31,8 @@ class RegistryProviderAuthenticationTest {
     private RegistryClient client(String provider) {
         var config = new RegistryConfig();
         return provider.equals("hub")
-                ? config.dockerHubClient(http, new ObjectMapper(), properties)
-                : config.ghcrClient(http, new ObjectMapper(), properties);
+                ? config.dockerHubClient(http, JsonMapper.builder().build(), properties)
+                : config.ghcrClient(http, JsonMapper.builder().build(), properties);
     }
 
     private static ImageReference image(String provider) {

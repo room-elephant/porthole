@@ -78,7 +78,7 @@ The `openapi` Maven profile uses the Springdoc Maven plugin to generate YAML. It
 
 The Maven profile skips tests and formatting checks by default; CI runs them separately. Override with `-DskipTests=false -Dspotless.check.skip=false` when combining those checks with generation.
 
-Document operations, query parameters, and responses using Swagger annotations on the controllers. The application defines the API title, version, and relative server URL with `@OpenAPIDefinition`. The Springdoc WebMVC starter supplies the annotations transitively, so no separate Swagger annotations dependency is needed. API documentation endpoints are disabled by default and enabled by the Spring `openapi` profile for generation.
+Document operations, query parameters, and responses using Swagger annotations on the controllers. The application defines the API title, version, and relative server URL with `@OpenAPIDefinition`. Swagger annotations are a direct dependency; the Springdoc WebMVC generator is included only by the Maven `openapi` profile. Normal JVM and native packages do not contain the generator or expose API documentation endpoints. Generation requires both the Maven profile to include Springdoc and the Spring `openapi` profile to enable its endpoints; the command above activates both.
 
 Commit the regenerated specification with API changes. CI regenerates it and checks for drift. The temporary HTTP and JMX ports can be overridden with `-Dopenapi.port=...` and `-Dopenapi.jmx-port=...`.
 
