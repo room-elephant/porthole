@@ -29,19 +29,59 @@ The gear icon groups candidates under **Traefik URLs**, **Published Ports**, and
 
 ## Quick Start
 
-Run Porthole with a single Docker command:
+### Docker run — one host
+
+Replace `docker.example.com` with your Docker host's IP address or hostname:
 
 ```bash
 docker run -d \
   -p 9753:9753 \
   -v /var/run/docker.sock:/var/run/docker.sock \
+  -e PORTHOLE_DOCKER_CONNECTIONS_0_ID=local \
+  -e PORTHOLE_DOCKER_CONNECTIONS_0_NAME=Local \
+  -e PORTHOLE_DOCKER_CONNECTIONS_0_HOST=unix:///var/run/docker.sock \
+  -e PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST=docker.example.com \
   --name porthole \
   ghcr.io/room-elephant/porthole:latest
 ```
 
-**Note**: The default source requires mounting `/var/run/docker.sock`. To use other or multiple already-reachable Docker endpoints, configure a [connection list](docs/CONFIGURATION.md#docker-connections).
+Open `http://docker.example.com:9753`. Published-port links use the configured host address.
 
-Open [http://localhost:9753](http://localhost:9753) to view your dashboard.
+### Docker Compose — two hosts
+
+Create a `compose.yml` to discover containers on the local Docker host and a second host.
+Replace `docker.example.com` and `docker2.example.com` with their respective addresses:
+
+```yaml
+services:
+  porthole:
+    image: ghcr.io/room-elephant/porthole:latest
+    ports:
+      - "9753:9753"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      PORTHOLE_DOCKER_CONNECTIONS_0_ID: local
+      PORTHOLE_DOCKER_CONNECTIONS_0_NAME: Local
+      PORTHOLE_DOCKER_CONNECTIONS_0_HOST: unix:///var/run/docker.sock
+      PORTHOLE_DOCKER_CONNECTIONS_0_PUBLISHEDHOST: docker.example.com
+      PORTHOLE_DOCKER_CONNECTIONS_1_ID: remote
+      PORTHOLE_DOCKER_CONNECTIONS_1_NAME: Remote
+      PORTHOLE_DOCKER_CONNECTIONS_1_HOST: tcp://docker2.example.com:2375
+      PORTHOLE_DOCKER_CONNECTIONS_1_PUBLISHEDHOST: docker2.example.com
+```
+
+The second host's Docker API must already be reachable from Porthole at the configured
+TCP address. See [Docker connections](docs/CONFIGURATION.md#docker-connections) for
+connection requirements and alternatives.
+
+```bash
+docker compose up -d
+```
+
+Open `http://docker.example.com:9753`. Both hosts appear in the dashboard, with
+published-port links using each host's configured address. Each connection requires
+its own `ID`, `NAME`, and `HOST`; a configured list replaces the default connection.
 
 ## Configuration
 
