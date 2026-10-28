@@ -96,6 +96,67 @@ describe('source sections', () => {
   expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveFocus();
  });
 
+ it.each(['tile-to-chip', 'chip-to-custom-tile'])('restores focus after %s save confirms after the dialog closes', async direction => {
+  let confirm;
+  selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
+   confirm = () => resolve({ sourceId, containerName, preferences: { selectedEndpoint } });
+  }));
+  const startsAsChip = direction === 'chip-to-custom-tile';
+  renderSection([mk(startsAsChip ? { endpoints: [], hasEndpoints: false } : {})]);
+  const opener = screen.getByRole('button', { name: 'Test Container settings' });
+  opener.focus();
+  fireEvent.click(opener);
+  if (startsAsChip) {
+   fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
+   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
+   fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
+  } else {
+   fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  }
+  await waitFor(() => expect(selectContainerEndpoint).toHaveBeenCalledTimes(1));
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(opener).toHaveFocus();
+  await act(async () => confirm());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass(startsAsChip ? 'tile-menu' : 'chip'));
+  expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveFocus();
+ });
+
+ it('does not steal focus when the user moves to another container before a closed-dialog save confirms', async () => {
+  let confirm;
+  selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
+   confirm = () => resolve({ sourceId, containerName, preferences: { selectedEndpoint } });
+  }));
+  renderSection([mk(), mk({ id: 'other', name: 'other', displayName: 'Other' })]);
+  const opener = screen.getByRole('button', { name: 'Test Container settings' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  await waitFor(() => expect(selectContainerEndpoint).toHaveBeenCalledTimes(1));
+  fireEvent.keyDown(document, { key: 'Escape' });
+  const other = screen.getByRole('button', { name: 'Other settings' });
+  other.focus();
+  await act(async () => confirm());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
+  expect(other).toHaveFocus();
+ });
+
+ it('releases a pending handoff when the sole open container disappears', async () => {
+  let confirm;
+  selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
+   confirm = () => resolve({ sourceId, containerName, preferences: { selectedEndpoint } });
+  }));
+  const { queryClient } = renderSection([mk()]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  await waitFor(() => expect(selectContainerEndpoint).toHaveBeenCalledTimes(1));
+  await act(async () => queryClient.setQueriesData({ queryKey: ['containers'] }, inventory => ({ ...inventory, containers: [] })));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await act(async () => confirm());
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Nothing running on Walker yet' })).toBeInTheDocument();
+ });
+
  it('releases the freeze when the open container disappears and later returns', () => {
   const other = mk({ id: 'other', name: 'other', displayName: 'Other' });
   const sources = [source];
