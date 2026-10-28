@@ -2,6 +2,7 @@ package com.roomelephant.porthole.config;
 
 import com.roomelephant.porthole.config.properties.PreferencesProperties;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
+import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import com.roomelephant.porthole.outbound.preferences.JsonContainerPreferencesStore;
@@ -14,7 +15,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 @NullMarked
 @Configuration(proxyBeanMethods = false)
-@RegisterReflectionForBinding({StoredContainerPreferences.class, ContainerPreferences.class, SelectedEndpoint.class})
+@RegisterReflectionForBinding({
+    StoredContainerPreferences.class,
+    ContainerPreferences.class,
+    ContainerPreferencesKey.class,
+    SelectedEndpoint.class
+})
 public class PreferencesConfiguration {
     @Bean
     public ContainerPreferencesStore containerPreferencesStore(PreferencesProperties properties, JsonMapper mapper) {

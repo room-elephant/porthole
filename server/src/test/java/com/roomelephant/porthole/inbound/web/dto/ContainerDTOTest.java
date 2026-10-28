@@ -25,7 +25,8 @@ class ContainerDTOTest {
                 "running",
                 "Up 2 hours",
                 null,
-                false);
+                false,
+                new ContainerPreferencesDTO(null));
 
         assertTrue(dto.hasEndpoints());
     }
@@ -45,9 +46,38 @@ class ContainerDTOTest {
                 "running",
                 "Up 2 hours",
                 null,
-                false);
+                false,
+                new ContainerPreferencesDTO(null));
 
         assertFalse(dto.hasEndpoints());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("selectionsWithoutAvailableEndpoint")
+    void shouldNotCountUnavailableSelectionsAsEndpoints(SelectedEndpointDTO selection) {
+        var dto = new ContainerDTO(
+                "app-id",
+                "local",
+                "app",
+                "app",
+                "nginx",
+                List.of(),
+                "",
+                null,
+                "running",
+                "Up",
+                null,
+                false,
+                new ContainerPreferencesDTO(selection));
+        assertFalse(dto.hasEndpoints());
+    }
+
+    static java.util.stream.Stream<SelectedEndpointDTO> selectionsWithoutAvailableEndpoint() {
+        return java.util.stream.Stream.of(
+                null,
+                new SelectedEndpointDTO("none", "none", null),
+                new SelectedEndpointDTO("missing", "traefik", null),
+                new SelectedEndpointDTO("custom", "custom", "javascript:alert(1)"));
     }
 
     @Test
@@ -65,7 +95,8 @@ class ContainerDTOTest {
                 "running",
                 "Up 1 hour",
                 null,
-                true);
+                true,
+                new ContainerPreferencesDTO(null));
 
         assertEquals("abc123", dto.id());
         assertEquals("test-container", dto.name());
@@ -96,7 +127,8 @@ class ContainerDTOTest {
                 "running",
                 "Up",
                 null,
-                true);
+                true,
+                new ContainerPreferencesDTO(null));
 
         String json = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(dto);
 

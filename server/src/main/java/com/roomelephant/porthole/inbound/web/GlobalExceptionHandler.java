@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -60,6 +61,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public @NonNull ProblemDetail handleMissingResource(@NonNull NoResourceFoundException ex) {
         return ex.getBody();
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public @NonNull ProblemDetail handleUnreadableRequest() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid request body");
     }
 
     @ExceptionHandler(Exception.class)
