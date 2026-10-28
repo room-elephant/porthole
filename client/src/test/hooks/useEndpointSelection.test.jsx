@@ -1,124 +1,109 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { useEndpointSelection } from '../../hooks/useEndpointSelection';
+import { selectContainerEndpoint } from '../../api';
+import { createMockContainer } from '../testUtils';
 
+vi.mock('../../api', () => ({ selectContainerEndpoint: vi.fn() }));
 const port = { id: 'published-port:80', source: 'published-port', url: 'http://192.168.50.6/' };
 const root = { id: 'traefik:root', source: 'traefik', url: 'https://app.example.com/' };
-const endpoints = [port, root];
-const key = 'endpoint_pref_v2_["local","app"]';
+const none = { id: 'none', source: 'none' };
+const key = ['containers', { showAll: true, showStopped: false }];
+const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
+const container = (selection = null, overrides = {}) => createMockContainer({ name: 'app', endpoints: [port, root], preferences: { selectedEndpoint: selection && selection.source !== 'custom' ? { id: selection.id, source: selection.source } : selection }, ...overrides });
+const inventory = containers => ({ sources: [{ id: 'local', name: 'Local', status: 'UP', error: null }], containers });
+const setup = (initial = container()) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  client.setQueryData(key, inventory([initial]));
+  const wrapper = ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const useSelection = () => {
+    const { data } = useQuery({ queryKey: key, queryFn: () => inventory([initial]) });
+    return useEndpointSelection(data.containers[0]);
+  };
+  return { client, wrapper, useSelection };
+};
 
-describe('useEndpointSelection', () => {
-  beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); });
-
-
-  it('uses the saved endpoint selection', () => {
-    localStorage.setItem(key, JSON.stringify(root.id));
-    const { result } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-    expect(result.current.selectedEndpoint).toBe(root);
-    expect(localStorage.getItem(key)).toBe(JSON.stringify(root.id));
-  });
-
-
-  it('falls back when the saved preference is malformed', () => {
-    localStorage.setItem(key, 'bad json');
-    const { result } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-    expect(result.current.selectedEndpoint).toBe(root);
-    expect(localStorage.getItem(key)).toBe('bad json');
-  });
-
-  it('does not persist an automatic default', () => {
-    const { result } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-    expect(result.current.selectedEndpoint).toBe(root);
+beforeEach(() => { vi.clearAllMocks(); });
+describe('shared endpoint selection', () => {
+  it.each([port, none, { id: 'custom', source: 'custom', url: 'https://custom.example.com/' }])('reads inventory preference $id without browser storage', selection => {
+    const { wrapper, useSelection } = setup(container(selection));
+    const { result } = renderHook(useSelection, { wrapper });
+    expect(result.current.selectedEndpoint).toEqual(selection.id === 'none' ? null : selection.id === port.id ? port : selection);
+    expect(result.current.selectedEndpointId).toBe(selection.id);
+    expect(localStorage.getItem).not.toHaveBeenCalled();
     expect(localStorage.setItem).not.toHaveBeenCalled();
   });
 
-  it('uses automatic endpoint selection when all storage reads are blocked', () => {
-    const getItem = localStorage.getItem.getMockImplementation();
-    try {
-      localStorage.getItem.mockImplementation(() => { throw new DOMException('Storage is blocked', 'SecurityError'); });
-      const { result } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-      expect(result.current.selectedEndpoint).toBe(root);
-      expect(localStorage.setItem).not.toHaveBeenCalled();
-    } finally {
-      localStorage.getItem.mockImplementation(getItem);
-    }
+  it.each([null, { id: 'removed', source: 'traefik' }])('uses automatic fallback without saving when preference is %s', selection => {
+    const { wrapper, useSelection } = setup(container(selection));
+    expect(renderHook(useSelection, { wrapper }).result.current.selectedEndpoint).toEqual(root);
+    expect(selectContainerEndpoint).not.toHaveBeenCalled();
   });
 
+  it('applies confirmed replacements across every inventory without adding absent containers or changing another source', async () => {
+    const { client, wrapper, useSelection } = setup(container({ id: 'custom', source: 'custom', url: 'https://old/' }));
+    const alternate = ['containers', { showAll: false, showStopped: true }];
+    client.setQueryData(alternate, inventory([container(null, { id: 'recreated' }), container(null, { sourceId: 'other' })]));
+    client.setQueryData(['containers', 'empty'], inventory([]));
+    client.getQueryCache().build(client, { queryKey: ['containers', 'not-loaded'] });
+    selectContainerEndpoint.mockResolvedValue({ sourceId: 'local', containerName: 'app', preferences: { selectedEndpoint: { id: port.id, source: port.source } } });
+    const { result } = renderHook(useSelection, { wrapper });
+    act(() => result.current.selectEndpoint({ id: port.id, source: port.source }));
+    await waitFor(() => expect(result.current.selectedEndpoint).toEqual(port));
+    expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'local', containerName: 'app', selectedEndpoint: { id: port.id, source: port.source } });
+    expect(client.getQueryData(alternate).containers[0].preferences).toEqual({ selectedEndpoint: { id: port.id, source: port.source } });
+    expect(client.getQueryData(alternate).containers[1].preferences.selectedEndpoint).toBeNull();
+    expect(client.getQueryData(['containers', 'empty']).containers).toEqual([]);
+    expect(client.getQueryData(['containers', 'not-loaded'])).toBeUndefined();
+    expect(localStorage.setItem).not.toHaveBeenCalled();
+  });
 
-  it('persists no endpoint across remounts and endpoint changes', () => {
-    const { result, unmount } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-    act(() => result.current.selectEndpoint('none'));
+  it('keeps the confirmed selection and exposes errors when saving fails', async () => {
+    const { wrapper, useSelection } = setup(container(port));
+    const request = deferred();
+    selectContainerEndpoint.mockReturnValue(request.promise);
+    const { result } = renderHook(useSelection, { wrapper });
+    act(() => result.current.selectEndpoint(none));
+    await waitFor(() => expect(result.current.isSaving).toBe(true));
+    expect(result.current.selectedEndpoint).toEqual(port);
+    await act(async () => request.resolve(Promise.reject(new Error('Disk is full'))));
+    await waitFor(() => expect(result.current.saveError?.message).toBe('Disk is full'));
+    expect(result.current.selectedEndpoint).toEqual(port);
+    expect(result.current.isSaving).toBe(false);
+  });
+
+  it('cancels inventory requests started before and during saving so old responses cannot undo confirmation', async () => {
+    const { client, wrapper, useSelection } = setup();
+    const old = deferred();
+    const during = deferred();
+    const save = deferred();
+    const signals = [];
+    const fetchOld = (request, queryKey) => client.fetchQuery({ queryKey, staleTime: 0, queryFn: ({ signal }) => { signals.push(signal); return request.promise; } }).catch(() => {});
+    const beforeRequest = fetchOld(old, key);
+    selectContainerEndpoint.mockReturnValue(save.promise);
+    const { result } = renderHook(useSelection, { wrapper });
+    act(() => result.current.selectEndpoint(none));
+    await waitFor(() => expect(selectContainerEndpoint).toHaveBeenCalledTimes(1));
+    const duringRequest = fetchOld(during, key);
+    await act(async () => save.resolve({ sourceId: 'local', containerName: 'app', preferences: { selectedEndpoint: none } }));
+    await waitFor(() => expect(result.current.selectedEndpointId).toBe('none'));
+    await act(async () => { old.resolve(inventory([container()])); during.resolve(inventory([container()])); await Promise.all([beforeRequest, duringRequest]); });
+    expect(signals.every(signal => signal.aborted)).toBe(true);
+    expect(client.getQueryData(key).containers[0].preferences.selectedEndpoint).toEqual(none);
     expect(result.current.selectedEndpoint).toBeNull();
-    expect(result.current.selectedEndpointId).toBe('none');
-    expect(localStorage.getItem(key)).toBe('"none"');
-    unmount();
-
-    const next = renderHook(({ candidates }) => useEndpointSelection('local', 'app', candidates), { initialProps: { candidates: [] } });
-    expect(next.result.current.selectedEndpoint).toBeNull();
-    expect(next.result.current.selectedEndpointId).toBe('none');
-    next.rerender({ candidates: [root] });
-    expect(next.result.current.selectedEndpoint).toBeNull();
-    act(() => next.result.current.selectEndpoint(root.id));
-    expect(next.result.current.selectedEndpoint).toBe(root);
-    expect(next.result.current.selectedEndpointId).toBe(root.id);
   });
 
-  it('honors a saved no endpoint choice', () => {
-    localStorage.setItem(key, '"none"');
-    const { result } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-    expect(result.current.selectedEndpoint).toBeNull();
-    expect(localStorage.getItem(key)).toBe('"none"');
+  it('blocks overlapping saves across hook instances while different containers save independently', async () => {
+    const { wrapper } = setup();
+    const save = deferred();
+    selectContainerEndpoint.mockReturnValue(save.promise);
+    const { result } = renderHook(() => ({ first: useEndpointSelection(container()), second: useEndpointSelection(container()), other: useEndpointSelection(container(null, { sourceId: 'remote' })) }), { wrapper });
+    act(() => { result.current.first.selectEndpoint(none); result.current.second.selectEndpoint(port); result.current.other.selectEndpoint(null); });
+    await waitFor(() => expect(selectContainerEndpoint).toHaveBeenCalledTimes(2));
+    expect(result.current.second.isSaving).toBe(true);
+    expect(selectContainerEndpoint.mock.calls.map(([request]) => request.sourceId)).toEqual(['local', 'remote']);
+    await act(async () => save.resolve({ sourceId: 'local', containerName: 'app', preferences: { selectedEndpoint: none } }));
+    await waitFor(() => expect(result.current.first.isSaving).toBe(false));
   });
-
-  it('synchronizes no endpoint from another tab and restores defaults when cleared', () => {
-    const { result } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-    act(() => window.dispatchEvent(new StorageEvent('storage', { key, newValue: '"none"' })));
-    expect(result.current.selectedEndpoint).toBeNull();
-    expect(result.current.selectedEndpointId).toBe('none');
-    act(() => window.dispatchEvent(new StorageEvent('storage', { key, newValue: null })));
-    expect(result.current.selectedEndpoint).toBe(root);
-    expect(result.current.selectedEndpointId).toBe(root.id);
-  });
-
-  it('falls back when a saved endpoint disappears', () => {
-    localStorage.setItem(key, JSON.stringify(port.id));
-    const { result, rerender } = renderHook(({ candidates }) => useEndpointSelection('local', 'app', candidates), { initialProps: { candidates: endpoints } });
-    expect(result.current.selectedEndpoint).toBe(port);
-    rerender({ candidates: [root] });
-    expect(result.current.selectedEndpoint).toBe(root);
-  });
-
-  it('synchronizes explicit selection from another tab', () => {
-    const { result } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-    act(() => window.dispatchEvent(new StorageEvent('storage', { key, newValue: JSON.stringify(port.id) })));
-    expect(result.current.selectedEndpoint).toBe(port);
-  });
-
-  it('keeps explicit selection in memory when storage is unavailable', () => {
-    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { result } = renderHook(() => useEndpointSelection('local', 'app', endpoints));
-    localStorage.setItem.mockImplementationOnce(() => { throw new Error('quota'); });
-    act(() => result.current.selectEndpoint(port.id));
-    expect(result.current.selectedEndpoint).toBe(port);
-    expect(warning).toHaveBeenCalled();
-    warning.mockRestore();
-  });
-  it('reads the renamed container preference without carrying the old saved ID', () => {
-    localStorage.setItem(key, JSON.stringify(port.id));
-    localStorage.setItem( 'endpoint_pref_v2_["local","renamed"]' , JSON.stringify(root.id));
-    const { result, rerender } = renderHook(({ name }) => useEndpointSelection('local', name, endpoints), { initialProps: { name: 'app' } });
-    expect(result.current.selectedEndpoint).toBe(port);
-    rerender({ name: 'renamed' });
-    expect(result.current.selectedEndpoint).toBe(root);
-  });
-
-  it('uses automatic selection when a renamed container has no saved preference', () => {
-    localStorage.setItem(key, JSON.stringify(port.id));
-    const { result, rerender } = renderHook(({ name }) => useEndpointSelection('local', name, endpoints), { initialProps: { name: 'app' } });
-    rerender({ name: 'renamed' });
-    expect(result.current.selectedEndpoint).toBe(root);
-    expect(localStorage.getItem( 'endpoint_pref_v2_["local","renamed"]' )).toBeNull();
-  });
-
-
 });

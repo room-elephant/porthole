@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, within, fireEvent } from '@testing-library/react';
+import { screen, within, fireEvent, waitFor, act } from '@testing-library/react';
 import SourceSection, { OfflineBanner } from '../../components/SourceSection';
-import { renderWithQuery, createMockContainer } from '../testUtils';
-import { renderHook, act } from '@testing-library/react';
-import { useEndpointSelection } from '../../hooks/useEndpointSelection';
+import { renderWithQuery, createMockContainer, renderInventory } from '../testUtils';
+import { selectContainerEndpoint } from '../../api';
+vi.mock('../../api', () => ({ selectContainerEndpoint: vi.fn() }));
 import { buildSections } from '../../utils/containers';
 import { GROUP_BY } from '../../constants';
 
@@ -12,15 +12,16 @@ const mike = { id: 'mike', name: 'Mike', status: 'UP', error: null };
 const mk = (overrides) => createMockContainer({ sourceId: 'walker', ...overrides });
 
 const renderSection = (containers, { sources = [source], groupBy = GROUP_BY.HOST_STACK, showAll = true, showStopped = true, index = 0 } = {}) => {
-  const sections = buildSections({ sources, containers, groupBy });
   const sourcesById = Object.fromEntries(sources.map(s => [s.id, s]));
-  return renderWithQuery(
-    <SourceSection section={sections[index]} sourcesById={sourcesById} showAll={showAll} showStopped={showStopped} />
-  );
+  return renderInventory(inventory => (
+    <SourceSection section={buildSections({ ...inventory, groupBy })[index]} sourcesById={sourcesById} showAll={showAll} showStopped={showStopped} />
+  ), { sources, containers });
 };
 
 describe('source sections', () => {
- beforeEach(() => {localStorage.clear();vi.clearAllMocks();});
+ beforeEach(() => {localStorage.clear();vi.clearAllMocks();
+  selectContainerEndpoint.mockImplementation(async ({ sourceId, containerName, selectedEndpoint }) => ({ sourceId, containerName, preferences: { selectedEndpoint } }));
+ });
 
  it('shows host heading meta with container and stack counts', () => {
   renderSection([mk({ id: '1' }), mk({ id: '2', project: 'smh' }), mk({ id: '3', project: 'media' })]);
@@ -56,10 +57,11 @@ describe('source sections', () => {
   expect(document.querySelector('.tile-grid .tile-name')).toHaveTextContent('Web');
  });
 
- it('keeps the dialog open and the tile in place while choosing No web UI, then moves it to a chip on close', () => {
+ it('keeps the dialog open and the tile in place while choosing No web UI, then moves it to a chip on close', async () => {
   renderSection([mk()]);
   fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
   fireEvent.click(screen.getByRole('radio', { name: /No (endpoint|web UI)/ }));
+  await waitFor(() => expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked());
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(document.querySelector('.tile-grid .tile')).not.toBeNull();
   expect(document.querySelector('.chip')).toBeNull();
@@ -70,17 +72,28 @@ describe('source sections', () => {
   expect(document.activeElement).toBe(chip);
  });
 
- it('keeps the dialog open while a chip gains an endpoint, then moves it to a tile and focuses its menu', () => {
-  localStorage.setItem('endpoint_pref_v2_' + JSON.stringify(['walker', 'test-container']), '"none"');
-  renderSection([mk()]);
+ it('keeps the dialog open while a chip gains an endpoint, then moves it to a tile and focuses its menu', async () => {
+  renderSection([mk({ preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
   fireEvent.click(screen.getByRole('radio', { name: /localhost:8080/ }));
+  await waitFor(() => expect(screen.getByRole('radio', { name: /localhost:8080/ })).toBeChecked());
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(document.querySelector('.chip')).not.toBeNull();
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(document.querySelector('.chip')).toBeNull();
   expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
   expect(document.activeElement).toHaveClass('tile-menu');
+ });
+
+ it('restores focus using the latest confirmed cache when closed before the inventory rerenders', async () => {
+  const { queryClient } = renderSection([mk()]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  act(() => {
+   queryClient.setQueriesData({ queryKey: ['containers'] }, inventory => ({ ...inventory, containers: [mk({ preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })] }));
+   fireEvent.keyDown(document, { key: 'Escape' });
+  });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
+  expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveFocus();
  });
 
  it('releases the freeze when the open container disappears and later returns', () => {
@@ -93,8 +106,7 @@ describe('source sections', () => {
   const view = renderWithQuery(render([mk(), other]));
   fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
   view.rerender(render([other]));
-  localStorage.setItem('endpoint_pref_v2_' + JSON.stringify(['walker', 'test-container']), '"none"');
-  view.rerender(render([mk(), other]));
+  view.rerender(render([mk({ preferences: { selectedEndpoint: { id: 'none', source: 'none' } } }), other]));
   expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip');
   expect(document.querySelectorAll('.chip')).toHaveLength(1);
  });
@@ -193,11 +205,36 @@ describe('source sections', () => {
   if (alternative) expect(message).toHaveTextContent(alternative);
  });
 
- it('keeps endpoint preferences separate for matching container names on different sources', () => {
-  const endpoints=[{id:'published-port:80',source:'published-port',url:'http://example.com/'},{id:'traefik:test',source:'traefik',url:'https://example.com/'}];
-  const {result}=renderHook(() => ({walker:useEndpointSelection('walker','same',endpoints),mike:useEndpointSelection('mike','same',endpoints)}));
-  act(() => result.current.walker.selectEndpoint('none'));
-  expect(result.current.walker.selectedEndpoint).toBeNull();
-  expect(result.current.mike.selectedEndpoint.id).toBe('traefik:test');
+ it('renders a custom-only container as a linked tile', () => {
+  renderSection([mk({ endpoints: [], hasEndpoints: false, preferences: { selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://custom.example.com/' } } })]);
+  expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'https://custom.example.com/');
+  expect(document.querySelector('.chip')).toBeNull();
+ });
+
+ it('saves a custom URL on a chip without closing its dialog, then moves to a linked tile with focus', async () => {
+  renderSection([mk({ endpoints: [], hasEndpoints: false })]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
+  await waitFor(() => expect(screen.queryByText('Saving selection…')).not.toBeInTheDocument());
+  expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'walker', containerName: 'test-container', selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://custom.example.com/' } });
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(document.querySelector('.chip')).not.toBeNull();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(await screen.findByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'https://custom.example.com/');
+  expect(document.activeElement).toHaveClass('tile-menu');
+ });
+
+ it('shows failed saves without closing the dialog or changing the confirmed tile', async () => {
+  selectContainerEndpoint.mockRejectedValue(new Error('Read-only filesystem'));
+  renderSection([mk()]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Read-only filesystem');
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: /localhost:8080/ })).toBeChecked();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
  });
 });

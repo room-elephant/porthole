@@ -1,7 +1,6 @@
 import { useId, useState, useRef, useCallback, useEffect } from 'react';
 import ContainerTile from './ContainerTile';
 import ContainerChip from './ContainerChip';
-import { useStorageRevision } from '../hooks/useLocalStorage';
 import { isHeadless } from '../utils/endpoints';
 import { plural } from '../utils/containers';
 import { ASSETS } from '../constants';
@@ -73,7 +72,6 @@ function HostMeta({ section }) {
 const keyOf = container => JSON.stringify([container.sourceId, container.id]);
 
 function Group({ group, section, sourcesById }) {
-  useStorageRevision();
   const groupRef = useRef(null);
   // While a settings dialog is open its card keeps its tile/chip slot, so the dialog
   // (owned by the card) is not unmounted when the selection changes its partition.
@@ -90,15 +88,17 @@ function Group({ group, section, sourcesById }) {
     const held = frozenRef.current;
     frozenRef.current = null;
     setFrozen(null);
-    if (held && isHeadless(container) !== held.headless) focusKeyRef.current = held.key;
+    if (held && isHeadless(container) !== held.headless) focusKeyRef.current = { key: held.key, headless: isHeadless(container) };
   }, []);
 
   // After the card has moved, put focus on its settings control (the dialog restored it to a stale node).
   useEffect(() => {
-    const key = focusKeyRef.current;
-    if (key === null) return;
+    const target = focusKeyRef.current;
+    if (target === null) return;
+    const slot = [...groupRef.current.querySelectorAll('[data-container-key]')].find(el => el.dataset.containerKey === target.key);
+    // Wait if the cache confirmation has not reached this group's inventory props yet.
+    if (slot && Boolean(slot.querySelector('.chip')) !== target.headless) return;
     focusKeyRef.current = null;
-    const slot = [...groupRef.current.querySelectorAll('[data-container-key]')].find(el => el.dataset.containerKey === key);
     slot?.querySelector('.chip, .tile-menu')?.focus();
   });
 

@@ -1,9 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import ContainerTile from '../../components/ContainerTile';
-import { createMockContainer, publishedEndpoint } from '../testUtils';
+import { createMockContainer, publishedEndpoint, renderInventory } from '../testUtils';
+
+import { selectContainerEndpoint } from '../../api';
+vi.mock('../../api', () => ({ selectContainerEndpoint: vi.fn() }));
+
+const renderLiveTile = container => renderInventory(({ containers }) => <ContainerTile container={containers[0]} />, { sources: [], containers: [container] });
 
 const renderWithQuery = (ui) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -22,6 +27,7 @@ describe('ContainerTile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    selectContainerEndpoint.mockImplementation(async ({ sourceId, containerName, selectedEndpoint }) => ({ sourceId, containerName, preferences: { selectedEndpoint } }));
   });
 
   it('should render container name and image', () => {
@@ -65,7 +71,7 @@ describe('ContainerTile', () => {
     expect(screen.getByText('Walker')).toHaveClass('tile-tag');
   });
 
-  it('renders and lets settings change the launch URL when storage access is blocked', () => {
+  it('renders and lets settings change the launch URL when storage access is blocked', async () => {
     const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
@@ -73,9 +79,10 @@ describe('ContainerTile', () => {
         configurable: true,
         get: () => { throw new DOMException('Storage is blocked', 'SecurityError'); },
       });
-      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(8080)] })} />);
+      renderLiveTile(createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(8080)] }));
       fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
       fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:8080/' }));
+      await waitFor(() => expect(screen.getByRole('link')).toHaveAttribute('href', 'http://localhost:8080/'));
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://localhost:8080/');
     } finally {
@@ -277,12 +284,12 @@ describe('ContainerTile', () => {
   describe('No web UI choice', () => {
     it('turns the tile into a settings button and lets settings restore a URL', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(53)] })} />);
+      renderLiveTile(createMockContainer({ endpoints: [publishedEndpoint(53)] }));
       await user.click(screen.getByRole('button', { name: settingsName }));
       await user.click(screen.getByRole('radio', { name: 'No web UI' }));
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
       expect(tile()).not.toHaveClass('tile--dashed');
-      expect(localStorage.getItem('endpoint_pref_v2_["local","test-container"]')).toBe('"none"');
+      expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'local', containerName: 'test-container', selectedEndpoint: { id: 'none', source: 'none' } });
       await user.click(screen.getByRole('checkbox'));
       expect(localStorage.getItem('version_check_v2_["local","test-container"]')).toBe('false');
       await user.click(screen.getByRole('radio', { name: 'http://localhost:53/' }));
@@ -292,9 +299,8 @@ describe('ContainerTile', () => {
     });
 
     it('opens the saved no endpoint choice from the main button', async () => {
-      localStorage.setItem('endpoint_pref_v2_["local","test-container"]', '"none"');
       const user = userEvent.setup();
-      renderWithQuery(<ContainerTile container={createMockContainer()} />);
+      renderWithQuery(<ContainerTile container={createMockContainer({ preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })} />);
       await user.tab();
       expect(screen.getAllByRole('button', { name: settingsName })[0]).toHaveFocus();
       await user.keyboard('{Enter}');
@@ -302,14 +308,24 @@ describe('ContainerTile', () => {
     });
   });
 
-  it('opens Traefik by default and a saved published port when explicitly selected', () => {
+  it('opens Traefik by default and a saved published port when explicitly selected', async () => {
     const root = { id: 'proxy', source: 'traefik', url: 'https://transmission.example.com/' };
-    renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(51413), root] })} />);
+    renderLiveTile(createMockContainer({ endpoints: [publishedEndpoint(51413), root] }));
     expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', root.url);
     openSettings();
     fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:51413/' }));
+    await waitFor(() => expect(screen.getByRole('link')).toHaveAttribute('href', 'http://localhost:51413/'));
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://localhost:51413/');
+  });
+
+  it('updates a memoized tile when only the confirmed preference changes', () => {
+    const container = createMockContainer();
+    const view = renderWithQuery(<ContainerTile container={container} />);
+    view.rerender(<ContainerTile container={{ ...container, preferences: { selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://first.example.com/' } } }} />);
+    expect(screen.getByRole('link')).toHaveAttribute('href', 'https://first.example.com/');
+    view.rerender(<ContainerTile container={{ ...container, preferences: { selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://edited.example.com/' } } }} />);
+    expect(screen.getByRole('link')).toHaveAttribute('href', 'https://edited.example.com/');
   });
 
   it('uses a refreshed URL even when the endpoint ID is unchanged', () => {
@@ -333,12 +349,10 @@ describe('ContainerTile', () => {
 
   it('launches the new name preference after a rename with the same Docker ID', () => {
     const root = { id: 'proxy', source: 'traefik', url: 'https://app.example.com/' };
-    const container = createMockContainer({ endpoints: [publishedEndpoint(8080), root] });
-    localStorage.setItem('endpoint_pref_v2_["local","test-container"]', JSON.stringify('published-port:8080'));
-    localStorage.setItem('endpoint_pref_v2_["local","renamed"]', JSON.stringify(root.id));
+    const container = createMockContainer({ endpoints: [publishedEndpoint(8080), root], preferences: { selectedEndpoint: { id: 'published-port:8080', source: 'published-port' } } });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
-    view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed' }} /></QueryClientProvider>);
+    view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed', preferences: { selectedEndpoint: { id: root.id, source: root.source } } }} /></QueryClientProvider>);
     expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', root.url);
   });
 
@@ -348,11 +362,12 @@ describe('ContainerTile', () => {
     expect(document.querySelector('.tile-name')).toHaveTextContent(name);
   });
 
-  it('syncs two tiles of the same container in the same tab', () => {
+  it('syncs two tiles of the same container in the same tab', async () => {
     const container = createMockContainer({ endpoints: [publishedEndpoint(80), publishedEndpoint(8080)] });
-    renderWithQuery(<><ContainerTile container={container} /><ContainerTile container={container} /></>);
+    renderInventory(({ containers }) => <><ContainerTile container={containers[0]} /><ContainerTile container={containers[0]} /></>, { sources: [], containers: [container] });
     fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
     fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:8080/' }));
+    await waitFor(() => expect(screen.getAllByRole('link', { name: /Test Container/ })).toHaveLength(2));
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.getAllByRole('link', { name: /Test Container/ })).toHaveLength(2);
   });

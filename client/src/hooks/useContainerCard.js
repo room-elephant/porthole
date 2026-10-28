@@ -1,4 +1,5 @@
 import { createElement, useState, useCallback, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useContainerPrefs } from './useContainerPrefs';
 import ContainerSettings from '../components/ContainerSettings';
 import { containerStatus } from '../utils/status';
@@ -9,6 +10,7 @@ import { containerStatus } from '../utils/status';
  */
 export const useContainerCard = (container, { sourceOnline = true, sourceName, onSettingsOpenChange } = {}) => {
   const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
   // Latest values for the unmount cleanup below.
   const latest = useRef({});
   useEffect(() => {
@@ -29,8 +31,12 @@ export const useContainerCard = (container, { sourceOnline = true, sourceName, o
   }, [onSettingsOpenChange, container]);
   const closeSettings = useCallback(() => {
     setOpen(false);
-    onSettingsOpenChange?.(container, false);
-  }, [onSettingsOpenChange, container]);
+    // A confirmation can reach the cache before React delivers the updated inventory props.
+    const confirmed = queryClient.getQueriesData({ queryKey: ['containers'] })
+      .flatMap(([, inventory]) => inventory?.containers ?? [])
+      .find(candidate => candidate.sourceId === container.sourceId && candidate.name === container.name);
+    onSettingsOpenChange?.(confirmed ?? container, false);
+  }, [onSettingsOpenChange, container, queryClient]);
 
   const settingsDialog = open
     ? createElement(ContainerSettings, {
@@ -40,6 +46,8 @@ export const useContainerCard = (container, { sourceOnline = true, sourceName, o
       showUpdate,
       selectedEndpointId: prefs.selectedEndpointId,
       checkUpdates: prefs.checkUpdates,
+      isSaving: prefs.isSaving,
+      saveError: prefs.saveError,
       onClose: closeSettings,
       onSelectEndpoint: prefs.selectEndpoint,
       onToggleCheckUpdates: prefs.setCheckUpdates,

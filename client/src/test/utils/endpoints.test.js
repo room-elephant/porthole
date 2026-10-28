@@ -7,7 +7,7 @@ const path = { id: 'traefik:dl', source: 'traefik', url: 'https://transmission.e
 const other = { id: 'ngnext:app', source: 'ngnext', url: 'https://app.example.com/' };
 
 describe('endpoint selection', () => {
-  it('honors a saved port over Traefik', () => expect(resolveEndpointSelection([port, root], port.id)).toBe(port));
+  it('honors a saved port over Traefik', () => expect(resolveEndpointSelection([port, root], { id: port.id, source: port.source })).toBe(port));
   it('prefers a sole Traefik URL over other sources', () => expect(resolveEndpointSelection([port, root, other])).toBe(root));
   it('prefers the unique root Traefik route', () => expect(resolveEndpointSelection([path, root, port])).toBe(root));
   it('leaves multiple root routes ambiguous', () => expect(resolveEndpointSelection([root, { ...root, id: 'second', url: 'https://other.example.com/' }])).toBeNull());
@@ -18,7 +18,7 @@ describe('endpoint selection', () => {
   });
   it('leaves multiple candidates without Traefik ambiguous', () => expect(resolveEndpointSelection([port, other])).toBeNull());
   it('returns null for no endpoints', () => expect(resolveEndpointSelection([])).toBeNull());
-  it('falls back from an unavailable saved ID', () => expect(resolveEndpointSelection([root], 'removed')).toBe(root));
+  it('falls back from an unavailable saved ID', () => expect(resolveEndpointSelection([root], { id: 'removed', source: 'traefik' })).toBe(root));
 });
 
 describe('endpoint groups', () => {

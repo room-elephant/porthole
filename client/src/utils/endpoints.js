@@ -1,11 +1,10 @@
-import { STORAGE_KEYS } from '../constants';
-
 export const NO_ENDPOINT_ID = 'none';
 
-export const resolveEndpointSelection = (endpoints, savedId) => {
-  if (savedId === NO_ENDPOINT_ID) return null;
+export const resolveEndpointSelection = (endpoints, selection) => {
+  if (selection?.id === NO_ENDPOINT_ID) return null;
+  if (selection?.source === 'custom') return selection;
 
-  const saved = endpoints.find(endpoint => endpoint.id === savedId);
+  const saved = endpoints.find(endpoint => endpoint.id === selection?.id && endpoint.source === selection?.source);
   if (saved) return saved;
 
   const traefik = endpoints.filter(endpoint => endpoint.source === 'traefik');
@@ -49,13 +48,9 @@ export const groupEndpointsBySource = (endpoints) => {
     .map(([source, candidates]) => ({ source, title: sourceTitle(source), endpoints: candidates }));
 };
 
-/** True when the container has no web UI: no endpoints, or "No web UI" chosen in its settings. */
+/** Custom-only containers have a web UI even when discovery has no candidates. */
 export const isHeadless = (container) => {
-  if (!container.hasEndpoints) return true;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEYS.ENDPOINT_PREF(container.sourceId, container.name));
-    return stored !== null && JSON.parse(stored) === NO_ENDPOINT_ID;
-  } catch {
-    return false;
-  }
+  const selected = container.preferences?.selectedEndpoint;
+  if (selected?.id === NO_ENDPOINT_ID) return true;
+  return !container.hasEndpoints && selected?.source !== 'custom';
 };

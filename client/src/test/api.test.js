@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Create mock axios instance before importing api
 const mockGet = vi.fn();
 const mockPost = vi.fn();
+const mockPut = vi.fn();
 const mockAxiosInstance = {
   get: mockGet,
   post: mockPost,
+  put: mockPut,
   interceptors: {
     response: {
       use: vi.fn(),
@@ -20,7 +22,7 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchDockerHealth, refreshVersions } = await import('../api');
+const { fetchContainers, fetchDockerHealth, refreshVersions, selectContainerEndpoint } = await import('../api');
 
 describe('api', () => {
   beforeEach(() => {
@@ -31,6 +33,17 @@ describe('api', () => {
     mockPost.mockResolvedValue({ status: 202 });
     await refreshVersions();
     expect(mockPost).toHaveBeenCalledWith('/api/versions/refresh');
+  });
+
+  it('replaces the shared selection and returns confirmed preferences', async () => {
+    const selection = { id: 'custom', source: 'custom', url: 'https://app.example.com/' };
+    const confirmed = { sourceId: 'remote', containerName: 'app', preferences: { selectedEndpoint: selection } };
+    mockPut.mockResolvedValue({ data: confirmed });
+    expect(await selectContainerEndpoint({ sourceId: 'remote', containerName: 'app', selectedEndpoint: selection })).toEqual(confirmed);
+    expect(mockPut).toHaveBeenCalledWith('/api/containers/selected-url', confirmed);
+    mockPut.mockResolvedValue({ data: { ...confirmed, preferences: { selectedEndpoint: null } } });
+    await selectContainerEndpoint({ sourceId: 'remote', containerName: 'app', selectedEndpoint: null });
+    expect(mockPut).toHaveBeenLastCalledWith('/api/containers/selected-url', { ...confirmed, preferences: { selectedEndpoint: null } });
   });
 
   describe('fetchContainers', () => {

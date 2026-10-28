@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 
 /**
@@ -40,7 +40,7 @@ export const renderWithQuery = (ui, options = {}) => {
     </QueryClientProvider>
   );
 
-  return render(ui, { wrapper: Wrapper, ...options });
+  return { ...render(ui, { wrapper: Wrapper, ...options }), queryClient };
 };
 
 /**
@@ -57,9 +57,24 @@ export const createMockContainer = (overrides = {}) => ({
   project: null,
   endpoints: [publishedEndpoint(8080)],
   hasEndpoints: true,
+  preferences: { selectedEndpoint: null },
   iconUrl: 'https://example.com/icon.png',
   self: false,
   ...overrides,
 });
 
 export const publishedEndpoint = port => ({ id: `published-port:${port}`, source: 'published-port', url: `http://localhost:${port}/` });
+
+/** Render the real inventory-to-component flow so confirmed cache updates reach props. */
+export const renderInventory = (children, inventory) => {
+  function InventoryView() {
+    const { data } = useQuery({
+      queryKey: ['containers', { showAll: true, showStopped: true }],
+      queryFn: () => inventory,
+      initialData: inventory,
+      staleTime: Infinity,
+    });
+    return children(data);
+  }
+  return renderWithQuery(<InventoryView />);
+};
