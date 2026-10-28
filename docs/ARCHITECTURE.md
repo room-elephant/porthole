@@ -16,7 +16,7 @@ Porthole is designed as a monolithic, single-artifact application for simplicity
 - **Framework**: React
 - **Bundler**: Vite
 - **Styling**: Vanilla CSS (Modern, Variables-based)
-- **State**: React Query + LocalStorage (for user preferences)
+- **State**: React Query inventory with shared endpoint preferences; LocalStorage for layout and update notifications
 - **Testing**: Vitest + React Testing Library
 
 ## Build Process
@@ -174,6 +174,7 @@ This is required because the Docker Registry API expects the full path:
 | Endpoint                                | Method | Description                                                                                 |
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
 | `/api/containers`                       | GET    | Returns source outcomes and containers from every configured connection. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
+| `/api/containers/selected-url`          | PUT    | Replaces the shared endpoint choice for `(sourceId, containerName)` and returns confirmed preferences |
 | `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
 
 ### Container Endpoint Contract
@@ -273,9 +274,10 @@ The production handlers run in this order:
 1. `DisplayNameEnricher` resolves and applies display names using the full source inventory.
 2. `ContainerStateFilter` removes stopped containers unless `includeStopped` is enabled.
 3. `UrlCandidateEnricher` discovers URL candidates through the registered endpoint providers.
-4. `EndpointAvailabilityFilter` removes containers without URL candidates unless `includeWithoutEndpoints` is enabled. This filter runs after discovery so label-only services remain discoverable.
-5. `IconEnricher` assigns each retained container's icon URL from the image name using configured mappings and icon settings.
-6. `VersionEnricher` attaches cached version information to retained containers and queues background checks for eligible cache misses without waiting for resolution.
+4. `ContainerPreferencesEnricher` attaches the in-memory preference snapshot by `(sourceId, containerName)`, after discovery and before availability filtering.
+5. `EndpointAvailabilityFilter` removes containers without URL candidates or a saved custom URL unless `includeWithoutEndpoints` is enabled. Label-only and custom-only services remain discoverable.
+6. `IconEnricher` assigns each retained container's icon URL from the image name using configured mappings and icon settings.
+7. `VersionEnricher` attaches cached version information to retained containers and queues background checks for eligible cache misses without waiting for resolution.
 
 To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` in its own concern package under `core/enrichment/` and add it to the explicit list in `EnrichmentConfiguration` at the desired position. `PipelineWiringTest` discovers handler implementations independently and verifies that the configured chain includes every handler bean exactly once.
 
@@ -305,6 +307,16 @@ Place implementations and URL helpers in `core/enrichment/endpoint/`; shared end
 
 Published-port IDs use `published-port:<port>` independently of the configured hostname. Traefik IDs use `traefik:<normalized-url>`. The client opens the API URL directly, resolves saved IDs before Traefik defaults, and keeps automatic defaults out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
 
+### Shared Endpoint Preferences
+
+`ContainerPreferencesKey(sourceId, containerName)` identifies preferences independently of Docker container IDs and display names. Core owns the immutable preference values, `ContainerPreferencesStore` outbound port, and `SelectContainerEndpoint` inbound use case. `ContainerPreferencesService` validates replacements; `JsonContainerPreferencesStore` is the filesystem adapter wired by `PreferencesConfiguration`. Core performs no filesystem work.
+
+The adapter loads one JSON file at startup into immutable snapshots. Updates are serialized under a lock, written to a temporary file in the same directory, and atomically replace the prior file before publishing the new memory snapshot. Failed writes preserve both prior state and file. Records for absent containers are retained. There is no schema version field. One Porthole instance owns the file; external edits require a restart. Missing files mean empty preferences, while malformed or unreadable existing files fail startup.
+
+`GET /api/containers` includes `preferences: { selectedEndpoint: null }` when no choice is saved. The separate `endpoints` array remains discovery output. `PUT /api/containers/selected-url` accepts `sourceId`, `containerName`, and `preferences.selectedEndpoint`; it returns those identities and confirmed preferences. The selection object replaces the previous object entirely. Explicit null restores automatic selection; a missing selection field is invalid. Discovered selections store `id` and provider `source` without resolved URLs, `custom` stores an absolute HTTP(S) URL, and `none` stores no URL. Replacing custom discards its URL. Temporarily unavailable discovered selections remain saved while the client applies its automatic fallback.
+
+The browser reads preferences in its existing inventory requests, without a separate fetch or polling timer. Confirmed saves update matching containers in every cached inventory query; canceling older reads prevents stale responses undoing a save. Save controls serialize changes and expose pending/error state. Layout and update notifications remain browser-local, and existing local endpoint choices are not migrated. See [preference persistence](CONFIGURATION.md#preference-file-and-persistence) for paths, named volumes, and nonroot bind-mount permissions.
+
 ## Directory Structure
 
 ```
@@ -319,8 +331,8 @@ Published-port IDs use `published-port:<port>` independently of the configured h
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `core/port/inbound/` — `GetContainers`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
-- `core/port/outbound/` — `DockerOperations` and `RegistryOperations`, implemented by outbound integrations.
+- `core/port/inbound/` — `GetContainers`, `SelectContainerEndpoint`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
+- `core/port/outbound/` — `DockerOperations`, `RegistryOperations`, and `ContainerPreferencesStore`, implemented by outbound integrations.
 - `core/service/` — `ContainerService` coordinates mapping, enrichment, and response assembly. `DockerDiscoveryService` owns concurrent Docker retrieval, per-source deadlines, cancellation, and retrieval failure translation. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `name/`, `endpoint/`, `endpointavailability/`, `icon/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
 - `core/enrichment/icon/` — `IconEnricher` assigns icons using `IconResolver` and `IconSettings`.
@@ -333,6 +345,7 @@ Published-port IDs use `published-port:<port>` independently of the configured h
 - `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`.
 - `inbound/health/` — translates `CheckDockerAvailability` results into actuator health responses; probing and timeout handling belong to the core service.
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
+- `outbound/preferences/` — JSON preference loading, immutable snapshots, and atomic file replacement.
 - `outbound/registry/` — `RegistryOperationsAdapter` implements the core port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares authenticated tag/manifest protocol, token lifecycle, and Link parsing. Numeric selection and update decisions belong to `core.enrichment.version.resolution`.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
 - `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`.

@@ -40,6 +40,12 @@
       "type": "com.fasterxml.jackson.annotation.JacksonAnnotation"
     },
     {
+      "type": "com.fasterxml.jackson.annotation.JsonInclude"
+    },
+    {
+      "type": "com.fasterxml.jackson.annotation.JsonInclude$Include"
+    },
+    {
       "type": "com.fasterxml.jackson.annotation.JsonProperty"
     },
     {
@@ -1285,6 +1291,7 @@
             "com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher",
             "com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter",
             "com.roomelephant.porthole.core.enrichment.endpoint.UrlCandidateEnricher",
+            "com.roomelephant.porthole.core.enrichment.preferences.ContainerPreferencesEnricher",
             "com.roomelephant.porthole.core.enrichment.endpointavailability.EndpointAvailabilityFilter",
             "com.roomelephant.porthole.core.enrichment.icon.IconEnricher",
             "com.roomelephant.porthole.core.enrichment.version.VersionEnricher"
@@ -1303,6 +1310,22 @@
           "name": "iconMappings",
           "parameterTypes": [
             "com.roomelephant.porthole.config.properties.DashboardProperties"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.config.PreferencesConfiguration",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "containerPreferencesStore",
+          "parameterTypes": [
+            "com.roomelephant.porthole.config.properties.PreferencesProperties",
+            "tools.jackson.databind.json.JsonMapper"
           ]
         }
       ]
@@ -1452,6 +1475,17 @@
         {
           "name": "isIdsUnique",
           "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.config.properties.PreferencesProperties",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.nio.file.Path"
+          ]
         }
       ]
     },
@@ -1710,6 +1744,17 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.core.enrichment.preferences.ContainerPreferencesEnricher",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter",
       "methods": [
         {
@@ -1775,6 +1820,37 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.core.model.ContainerPreferences"
+    },
+    {
+      "type": "com.roomelephant.porthole.core.model.ContainerPreferencesKey"
+    },
+    {
+      "type": "com.roomelephant.porthole.core.model.SelectedEndpoint",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "id",
+          "parameterTypes": []
+        },
+        {
+          "name": "source",
+          "parameterTypes": []
+        },
+        {
+          "name": "url",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.core.model.SelfContainer"
     },
     {
@@ -1807,10 +1883,27 @@
       "type": "com.roomelephant.porthole.core.port.inbound.RefreshVersions"
     },
     {
+      "type": "com.roomelephant.porthole.core.port.inbound.SelectContainerEndpoint"
+    },
+    {
+      "type": "com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore"
+    },
+    {
       "type": "com.roomelephant.porthole.core.port.outbound.DockerOperations"
     },
     {
       "type": "com.roomelephant.porthole.core.port.outbound.RegistryOperations"
+    },
+    {
+      "type": "com.roomelephant.porthole.core.service.ContainerPreferencesService",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore"
+          ]
+        }
+      ]
     },
     {
       "type": "com.roomelephant.porthole.core.service.ContainerService",
@@ -1874,7 +1967,8 @@
           "name": "<init>",
           "parameterTypes": [
             "com.roomelephant.porthole.core.port.inbound.GetContainers",
-            "com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper"
+            "com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper",
+            "com.roomelephant.porthole.core.port.inbound.SelectContainerEndpoint"
           ]
         },
         {
@@ -1882,6 +1976,12 @@
           "parameterTypes": [
             "boolean",
             "boolean"
+          ]
+        },
+        {
+          "name": "selectEndpoint",
+          "parameterTypes": [
+            "com.roomelephant.porthole.inbound.web.dto.SelectContainerEndpointRequest"
           ]
         }
       ]
@@ -1948,6 +2048,10 @@
           "parameterTypes": []
         },
         {
+          "name": "preferences",
+          "parameterTypes": []
+        },
+        {
           "name": "project",
           "parameterTypes": []
         },
@@ -1990,6 +2094,21 @@
       ]
     },
     {
+      "type": "com.roomelephant.porthole.inbound.web.dto.ContainerPreferencesDTO",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.inbound.web.dto.SelectedEndpointDTO"
+          ]
+        },
+        {
+          "name": "selectedEndpoint",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "com.roomelephant.porthole.inbound.web.dto.EndpointDTO",
       "methods": [
         {
@@ -2008,6 +2127,61 @@
     },
     {
       "type": "com.roomelephant.porthole.inbound.web.dto.EndpointDTO[]"
+    },
+    {
+      "type": "com.roomelephant.porthole.inbound.web.dto.SelectContainerEndpointRequest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String",
+            "com.roomelephant.porthole.inbound.web.dto.ContainerPreferencesDTO"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.inbound.web.dto.SelectContainerEndpointResponse",
+      "methods": [
+        {
+          "name": "containerName",
+          "parameterTypes": []
+        },
+        {
+          "name": "preferences",
+          "parameterTypes": []
+        },
+        {
+          "name": "sourceId",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.inbound.web.dto.SelectedEndpointDTO",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "id",
+          "parameterTypes": []
+        },
+        {
+          "name": "source",
+          "parameterTypes": []
+        },
+        {
+          "name": "url",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "com.roomelephant.porthole.inbound.web.dto.SourceDTO",
@@ -2044,6 +2218,37 @@
     },
     {
       "type": "com.roomelephant.porthole.outbound.docker.DockerSourceRegistry"
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.preferences.JsonContainerPreferencesStore"
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.preferences.StoredContainerPreferences",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String",
+            "tools.jackson.databind.node.ObjectNode"
+          ]
+        },
+        {
+          "name": "containerName",
+          "parameterTypes": []
+        },
+        {
+          "name": "preferences",
+          "parameterTypes": []
+        },
+        {
+          "name": "sourceId",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.outbound.preferences.StoredContainerPreferences[]"
     },
     {
       "type": "com.roomelephant.porthole.outbound.registry.RegistryClient"
@@ -2467,6 +2672,9 @@
       "type": "io.swagger.v3.oas.annotations.media.Schema"
     },
     {
+      "type": "io.swagger.v3.oas.annotations.media.Schema$RequiredMode"
+    },
+    {
       "type": "io.swagger.v3.oas.annotations.media.SchemaProperty"
     },
     {
@@ -2474,6 +2682,9 @@
     },
     {
       "type": "io.swagger.v3.oas.annotations.responses.ApiResponse"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.responses.ApiResponses"
     },
     {
       "type": "io.swagger.v3.oas.annotations.security.SecurityRequirement"
@@ -3103,6 +3314,9 @@
     },
     {
       "type": "java.util.ImmutableCollections$MapN"
+    },
+    {
+      "type": "java.util.LinkedHashMap$LinkedValues"
     },
     {
       "type": "java.util.List"
@@ -4034,7 +4248,9 @@
       "methods": [
         {
           "name": "<init>",
-          "parameterTypes": []
+          "parameterTypes": [
+            "java.lang.ClassLoader"
+          ]
         }
       ]
     },
@@ -6472,7 +6688,9 @@
       "methods": [
         {
           "name": "<init>",
-          "parameterTypes": []
+          "parameterTypes": [
+            "org.springframework.beans.factory.BeanFactory"
+          ]
         }
       ]
     },
@@ -6639,7 +6857,9 @@
       "methods": [
         {
           "name": "<init>",
-          "parameterTypes": []
+          "parameterTypes": [
+            "org.springframework.beans.factory.BeanFactory"
+          ]
         }
       ]
     },
@@ -7477,6 +7697,9 @@
     },
     {
       "type": "org.springframework.web.bind.annotation.PostMapping"
+    },
+    {
+      "type": "org.springframework.web.bind.annotation.PutMapping"
     },
     {
       "type": "org.springframework.web.bind.annotation.RequestBody"
@@ -8595,6 +8818,9 @@
       "glob": "com/roomelephant/porthole/config/IconConfig.class"
     },
     {
+      "glob": "com/roomelephant/porthole/config/PreferencesConfiguration.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/config/RegistryConfig.class"
     },
     {
@@ -8646,6 +8872,9 @@
       "glob": "com/roomelephant/porthole/core/enrichment/name/DisplayNameEnricher.class"
     },
     {
+      "glob": "com/roomelephant/porthole/core/enrichment/preferences/ContainerPreferencesEnricher.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/core/enrichment/state/ContainerStateFilter.class"
     },
     {
@@ -8671,6 +8900,12 @@
     },
     {
       "glob": "com/roomelephant/porthole/core/port/inbound/RefreshVersions.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/port/inbound/SelectContainerEndpoint.class"
+    },
+    {
+      "glob": "com/roomelephant/porthole/core/service/ContainerPreferencesService.class"
     },
     {
       "glob": "com/roomelephant/porthole/core/service/ContainerService$Result.class"
@@ -8919,10 +9154,13 @@
       "glob": "org/springframework/aot/hint/annotation/Reflective.class"
     },
     {
-      "glob": "org/springframework/beans/factory/Aware.class"
+      "glob": "org/springframework/aot/hint/annotation/RegisterReflection.class"
     },
     {
-      "glob": "org/springframework/beans/factory/BeanFactoryAware.class"
+      "glob": "org/springframework/aot/hint/annotation/RegisterReflectionForBinding.class"
+    },
+    {
+      "glob": "org/springframework/beans/factory/Aware.class"
     },
     {
       "glob": "org/springframework/beans/factory/SmartInitializingSingleton.class"

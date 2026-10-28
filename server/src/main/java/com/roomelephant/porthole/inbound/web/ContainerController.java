@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.jspecify.annotations.NullMarked;
+import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -83,10 +84,18 @@ public class ContainerController {
                             schema = @Schema(implementation = SelectContainerEndpointResponse.class)))
     @ApiResponse(
             responseCode = "400",
-            description = "Missing identity, preferences, or selectedEndpoint, or an invalid selection")
+            description = "Missing identity, preferences, or selectedEndpoint, or an invalid selection",
+            content =
+                    @Content(
+                            mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(
             responseCode = "500",
-            description = "Failed to persist preferences; the prior selection remains confirmed")
+            description = "Failed to persist preferences; the prior selection remains confirmed",
+            content =
+                    @Content(
+                            mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
     public SelectContainerEndpointResponse selectEndpoint(@RequestBody SelectContainerEndpointRequest request) {
         var preferences = selectContainerEndpoint.select(
                 new ContainerPreferencesKey(request.sourceId(), request.containerName()),
