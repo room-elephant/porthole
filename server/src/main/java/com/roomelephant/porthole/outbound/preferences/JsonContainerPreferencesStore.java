@@ -2,6 +2,7 @@ package com.roomelephant.porthole.outbound.preferences;
 
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
+import com.roomelephant.porthole.core.model.ContainerPreferencesValidation;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import java.io.IOException;
@@ -84,7 +85,9 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
                     || record.preferences() == null) {
                 throw new IllegalArgumentException("Incomplete container preference record");
             }
-            loaded.put(new ContainerPreferencesKey(record.sourceId(), record.containerName()), record);
+            var key = new ContainerPreferencesKey(record.sourceId(), record.containerName());
+            preferencesOf(key, record);
+            loaded.put(key, record);
         }
         return loaded;
     }
@@ -92,16 +95,16 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
     private Map<ContainerPreferencesKey, ContainerPreferences> snapshotOf(
             Map<ContainerPreferencesKey, StoredContainerPreferences> stored) {
         var values = new LinkedHashMap<ContainerPreferencesKey, ContainerPreferences>();
-        stored.forEach((key, record) -> {
-            var node = record.preferences().get("selectedEndpoint");
-            SelectedEndpoint selection =
-                    node == null || node.isNull() ? null : mapper.treeToValue(node, SelectedEndpoint.class);
-            if (selection != null && (selection.id() == null || selection.source() == null)) {
-                throw new IllegalArgumentException("Incomplete selected endpoint");
-            }
-            values.put(key, new ContainerPreferences(selection));
-        });
+        stored.forEach((key, record) -> values.put(key, preferencesOf(key, record)));
         return Map.copyOf(values);
+    }
+
+    private ContainerPreferences preferencesOf(ContainerPreferencesKey key, StoredContainerPreferences record) {
+        var node = record.preferences().get("selectedEndpoint");
+        SelectedEndpoint selection =
+                node == null || node.isNull() ? null : mapper.treeToValue(node, SelectedEndpoint.class);
+        ContainerPreferencesValidation.validate(key, selection);
+        return new ContainerPreferences(selection);
     }
 
     private void persist(Map<ContainerPreferencesKey, StoredContainerPreferences> updated) {

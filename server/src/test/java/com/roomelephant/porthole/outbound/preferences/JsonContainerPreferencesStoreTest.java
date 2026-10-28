@@ -166,16 +166,73 @@ class JsonContainerPreferencesStoreTest {
                 "[{\"sourceId\":\"local\",\"containerName\":\"grafana\",\"preferences\":null}]",
                 "[{\"sourceId\":\"local\",\"preferences\":{}}]",
                 "[{\"containerName\":\"grafana\",\"preferences\":{}}]",
+                "[{\"sourceId\":\"\",\"containerName\":\"grafana\",\"preferences\":{}}]",
+                "[{\"sourceId\":\" \",\"containerName\":\"grafana\",\"preferences\":{}}]",
+                "[{\"sourceId\":\"local\",\"containerName\":\"\",\"preferences\":{}}]",
+                "[{\"sourceId\":\"local\",\"containerName\":\" \",\"preferences\":{}}]",
                 "[{\"sourceId\":\"local\",\"containerName\":\"grafana\",\"preferences\":{\"selectedEndpoint\":{}}}]",
                 "[{\"sourceId\":\"local\",\"containerName\":\"grafana\",\"preferences\":{\"selectedEndpoint\":{\"id\":\"none\"}}}]"
             })
     void malformedFileFailsWithoutOverwritingIt(String contents) throws IOException {
         var path = directory.resolve("preferences.json");
         Files.writeString(path, contents);
+        var originalBytes = Files.readAllBytes(path);
         assertThatThrownBy(() -> new JsonContainerPreferencesStore(path, mapper))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(path.toString());
-        assertThat(Files.readString(path)).isEqualTo(contents);
+        assertThat(Files.readAllBytes(path)).isEqualTo(originalBytes);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "{\"id\":\"\",\"source\":\"traefik\"}",
+                "{\"id\":\" \",\"source\":\"traefik\"}",
+                "{\"id\":\"app\",\"source\":\"\"}",
+                "{\"id\":\"app\",\"source\":\" \",\"url\":null}",
+                "{\"id\":\"custom\",\"source\":\"custom\"}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":null}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"\"}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"/relative\"}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"//app.example\"}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https:/no-host\"}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"ftp://app.example\"}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https://bad host\"}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https://user:pass@app.example\"}",
+                "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https://user@app.example\"}",
+                "{\"id\":\"custom\",\"source\":\"traefik\",\"url\":\"https://app.example\"}",
+                "{\"id\":\"app\",\"source\":\"custom\",\"url\":\"https://app.example\"}",
+                "{\"id\":\"none\",\"source\":\"traefik\"}",
+                "{\"id\":\"app\",\"source\":\"none\"}",
+                "{\"id\":\"none\",\"source\":\"none\",\"url\":\"https://app.example\"}",
+                "{\"id\":\"traefik:app\",\"source\":\"traefik\",\"url\":\"https://app.example\"}"
+            })
+    void invalidLoadedSelectionFailsWithoutChangingFileBytes(String selection) throws IOException {
+        var path = directory.resolve("preferences.json");
+        Files.writeString(path, """
+                [{"sourceId":"local","containerName":"grafana","preferences":{
+                  "futureField":{"nested":"preserve"},"selectedEndpoint":%s}}]
+                """.formatted(selection));
+        var originalBytes = Files.readAllBytes(path);
+        assertThatThrownBy(() -> new JsonContainerPreferencesStore(path, mapper))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(path.toString());
+        assertThat(Files.readAllBytes(path)).isEqualTo(originalBytes);
+    }
+
+    @Test
+    void invalidRecordCannotBeHiddenByLaterRecordForTheSameContainer() throws IOException {
+        var path = directory.resolve("preferences.json");
+        Files.writeString(path, """
+                [{"sourceId":"local","containerName":"grafana","preferences":{
+                   "selectedEndpoint":{"id":"custom","source":"custom"}}},
+                 {"sourceId":"local","containerName":"grafana","preferences":{"selectedEndpoint":null}}]
+                """);
+        var originalBytes = Files.readAllBytes(path);
+        assertThatThrownBy(() -> new JsonContainerPreferencesStore(path, mapper))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(path.toString());
+        assertThat(Files.readAllBytes(path)).isEqualTo(originalBytes);
     }
 
     @Test
