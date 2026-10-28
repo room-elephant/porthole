@@ -6,13 +6,16 @@ import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.endpointavailability.*;
 import com.roomelephant.porthole.core.enrichment.state.*;
 import com.roomelephant.porthole.core.model.Container;
+import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -105,6 +108,64 @@ class ContainerEnrichmentTest {
         Container raw = container("running", Set.of(), Map.of());
         assertThat(chain.enrich(List.of(raw), new EnrichmentContext("local", "localhost", true, false)))
                 .containsExactly(raw);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"https://app.example.com", "http://localhost:8080/path", "HTTPS://app.example.com"})
+    void shouldKeepCustomOnlyContainersWhenEndpointsAreRequired(String url) {
+        var raw = container("running", Set.of(), Map.of());
+        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint("custom", "custom", url)));
+
+        assertThat(new EndpointAvailabilityFilter()
+                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .containsExactly(raw);
+        assertThat(raw.urlCandidates()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(
+            strings = {
+                "",
+                "relative/path",
+                "//app.example.com",
+                "ftp://app.example.com",
+                "https:///path",
+                "https://",
+                "https://bad host",
+                "https://user:secret@app.example.com"
+            })
+    void shouldRejectCustomSelectionsWithoutAnAbsoluteHttpUrl(String url) {
+        var raw = container("running", Set.of(), Map.of());
+        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint("custom", "custom", url)));
+
+        assertThat(new EndpointAvailabilityFilter()
+                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"none,none", "custom,traefik", "traefik:app,custom", "published-port:8080,published-port"})
+    void shouldRequireDiscoveryForSelectionsOtherThanCustom(String id, String source) {
+        var raw = container("running", Set.of(), Map.of());
+        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint(id, source, "https://app.example.com")));
+
+        assertThat(new EndpointAvailabilityFilter()
+                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .isEmpty();
+    }
+
+    @Test
+    void shouldKeepDiscoveredContainersWithExplicitNoWebUiSelection() {
+        var raw = container("running", Set.of(), Map.of());
+        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint("none", "none", null)));
+        raw.setUrlCandidates(List.of(new Endpoint("published-port:8080", "published-port", "http://localhost:8080/")));
+
+        assertThat(new EndpointAvailabilityFilter()
+                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .containsExactly(raw);
+        assertThat(raw.preferences().selectedEndpoint()).isEqualTo(new SelectedEndpoint("none", "none", null));
+        assertThat(raw.urlCandidates()).hasSize(1);
     }
 
     @Test

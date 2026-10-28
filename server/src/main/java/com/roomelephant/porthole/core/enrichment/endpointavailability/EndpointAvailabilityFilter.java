@@ -14,6 +14,11 @@ public class EndpointAvailabilityFilter implements ContainerEnricher {
     public List<Container> enrich(List<Container> containers, EnrichmentContext context) {
         return context.includeWithoutEndpoints()
                 ? containers
-                : containers.stream().filter(c -> !c.urlCandidates().isEmpty()).toList();
+                : containers.stream()
+                        .filter(c -> {
+                            var selection = c.preferences().selectedEndpoint();
+                            return !c.urlCandidates().isEmpty() || (selection != null && selection.hasValidCustomUrl());
+                        })
+                        .toList();
     }
 }
