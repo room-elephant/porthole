@@ -31,8 +31,8 @@ export const useContainerCard = (container, { sourceOnline = true, sourceName, o
   }, [onSettingsOpenChange, container]);
   const closeSettings = useCallback(() => {
     setOpen(false);
-    // A confirmation can reach the cache before React delivers the updated inventory props.
-    const confirmed = queryClient.getQueriesData({ queryKey: ['containers'] })
+    // Active confirmation can reach the cache before React delivers updated inventory props.
+    const confirmed = queryClient.getQueriesData({ queryKey: ['containers'], type: 'active' })
       .flatMap(([, inventory]) => inventory?.containers ?? [])
       .find(candidate => candidate.sourceId === container.sourceId && candidate.name === container.name);
     onSettingsOpenChange?.(confirmed ?? container, false);
@@ -48,6 +48,7 @@ export const useContainerCard = (container, { sourceOnline = true, sourceName, o
       checkUpdates: prefs.checkUpdates,
       isSaving: prefs.isSaving,
       saveError: prefs.saveError,
+      refreshError: prefs.refreshError,
       onClose: closeSettings,
       onSelectEndpoint: prefs.selectEndpoint,
       onToggleCheckUpdates: prefs.setCheckUpdates,

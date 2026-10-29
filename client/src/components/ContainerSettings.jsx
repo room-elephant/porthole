@@ -70,13 +70,13 @@ function CustomUrlForm({ savedUrl, onSelectEndpoint }) {
     );
 }
 
-function EndpointSelection({ container, selectedEndpointId, onSelectEndpoint, isSaving, saveError }) {
+function EndpointSelection({ container, selectedEndpointId, onSelectEndpoint, isSaving, saveError, refreshError }) {
     const selectionName = useId();
     const [editingCustom, setEditingCustom] = useState(false);
-    const endpoints = groupEndpointsBySource(container.endpoints).flatMap(group => group.endpoints);
+    const endpoints = groupEndpointsBySource(container.endpoints.filter(endpoint => endpoint.source !== 'custom')).flatMap(group => group.endpoints);
     const effectiveEndpointId = editingCustom ? 'custom' : endpoints.length === 0 && selectedEndpointId !== 'custom' ? NO_ENDPOINT_ID : selectedEndpointId;
     const custom = container.preferences?.selectedEndpoint;
-    const savedUrl = custom?.source === 'custom' ? custom.url : '';
+    const savedUrl = (custom?.source === 'custom' ? custom.url : container.endpoints.find(endpoint => endpoint.source === 'custom')?.url) ?? '';
     const select = selection => { setEditingCustom(false); onSelectEndpoint(selection); };
     return (
         <fieldset className="settings-section endpoint-selection" disabled={isSaving} aria-busy={isSaving}>
@@ -96,6 +96,7 @@ function EndpointSelection({ container, selectedEndpointId, onSelectEndpoint, is
                 <CustomUrlForm savedUrl={savedUrl} onSelectEndpoint={onSelectEndpoint} />
             )}
             {isSaving && <p className="selection-pending" role="status">Saving selection…</p>}
+            {refreshError && <p className="selection-error" role="alert">Selection saved, but containers could not be refreshed. Reload to see the change.</p>}
             {saveError && <p className="selection-error" role="alert">Could not save selection: {saveError.message}</p>}
         </fieldset>
     );
@@ -157,7 +158,7 @@ function StatusSection({ container, status }) {
     );
 }
 
-function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates, isSaving = false, saveError = null }) {
+function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates, isSaving = false, saveError = null, refreshError = null }) {
     const updateToggleId = useId();
     const subtitle = [container.name, sourceName].filter(Boolean).join(' · ') + (container.project ? ` / ${container.project}` : '');
 
@@ -173,7 +174,7 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
             <div className="settings-divider" />
 
             <EndpointSelection container={container} selectedEndpointId={selectedEndpointId}
-                onSelectEndpoint={onSelectEndpoint} isSaving={isSaving} saveError={saveError} />
+                onSelectEndpoint={onSelectEndpoint} isSaving={isSaving} saveError={saveError} refreshError={refreshError} />
             <div className="settings-divider" />
 
             <div className="settings-section">

@@ -1,21 +1,5 @@
 export const NO_ENDPOINT_ID = 'none';
 
-export const resolveEndpointSelection = (endpoints, selection) => {
-  if (selection?.id === NO_ENDPOINT_ID) return null;
-  if (selection?.source === 'custom') return selection;
-
-  const saved = endpoints.find(endpoint => endpoint.id === selection?.id && endpoint.source === selection?.source);
-  if (saved) return saved;
-
-  const traefik = endpoints.filter(endpoint => endpoint.source === 'traefik');
-  if (traefik.length === 1) return traefik[0];
-  if (traefik.length > 1) {
-    const roots = traefik.filter(endpoint => new URL(endpoint.url).pathname === '/');
-    return roots.length === 1 ? roots[0] : null;
-  }
-  return endpoints.length === 1 ? endpoints[0] : null;
-};
-
 const titleCase = (source) => source.split(/[-_]+/).filter(Boolean).map(word => word[0].toUpperCase() + word.slice(1)).join(' ');
 
 const sourceTitle = (source) => {
@@ -48,9 +32,8 @@ export const groupEndpointsBySource = (endpoints) => {
     .map(([source, candidates]) => ({ source, title: sourceTitle(source), endpoints: candidates }));
 };
 
-/** Custom-only containers have a web UI even when discovery has no candidates. */
+/** Ambiguous choices stay tiles; explicit none uses a chip. */
 export const isHeadless = (container) => {
-  const selected = container.preferences?.selectedEndpoint;
-  if (selected?.id === NO_ENDPOINT_ID) return true;
-  return !container.hasEndpoints && selected?.source !== 'custom';
+  if (container.endpoints.some(endpoint => endpoint.selected)) return false;
+  return container.preferences?.selectedEndpoint?.id === NO_ENDPOINT_ID || !container.hasEndpoints;
 };

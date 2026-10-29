@@ -122,7 +122,8 @@ function Group({ group, section, sourcesById }) {
   useEffect(() => {
     const target = focusKeyRef.current;
     if (target === null || !groupRef.current) return;
-    const confirmed = queryClient.getQueriesData({ queryKey: ['containers'] })
+    // Inactive filtered variants remain stale after saving and cannot confirm a move.
+    const confirmed = queryClient.getQueriesData({ queryKey: ['containers'], type: 'active' })
       .flatMap(([, inventory]) => inventory?.containers ?? [])
       .find(candidate => candidate.sourceId === target.container.sourceId && candidate.name === target.container.name);
     const headless = isHeadless(confirmed ?? target.container);

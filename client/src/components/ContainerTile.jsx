@@ -6,7 +6,7 @@ import { endpointLabel } from '../utils/endpoints';
 import { getHealthStatus } from '../utils/status';
 
 const arraysEqual = (a, b) =>
-    a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
+    a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url && v.selected === b[i].selected);
 
 const hostText = (container, selectedEndpoint) => {
     if (selectedEndpoint) return endpointLabel(selectedEndpoint.url);

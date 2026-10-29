@@ -68,7 +68,7 @@ describe('ContainerSettings', () => {
     const onSelectEndpoint = vi.fn();
     const user = userEvent.setup();
     render(<ContainerSettings {...defaultProps} selectedEndpointId="none" onSelectEndpoint={onSelectEndpoint} container={{ ...defaultProps.container, endpoints: [
-      { id: 'root', source: 'traefik', url: 'https://app.example.com/' },
+      { id: 'root', source: 'traefik', url: 'https://app.example.com/', selected: false },
       publishedEndpoint(80),
     ] }} />);
 
@@ -153,7 +153,7 @@ describe('ContainerSettings', () => {
   it('lists endpoints with Traefik/Port tags in order, then No web UI', () => {
     render(<ContainerSettings {...defaultProps} container={{ ...defaultProps.container, endpoints: [
       publishedEndpoint(8080),
-      { id: 'root', source: 'traefik', url: 'https://a/' },
+      { id: 'root', source: 'traefik', url: 'https://a/', selected: false },
     ] }} />);
 
     const labels = screen.getAllByRole('radio').map(radio => radio.closest('label').textContent);
@@ -215,11 +215,11 @@ describe('ContainerSettings', () => {
     const onSelectEndpoint = vi.fn();
     const user = userEvent.setup();
     render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} container={{ ...defaultProps.container, endpoints: [
-      { id: 'root', source: 'traefik', url: 'https://app.example.com/' },
-      { id: 'dl', source: 'traefik', url: 'https://app.example.com/dl/' },
+      { id: 'root', source: 'traefik', url: 'https://app.example.com/', selected: false },
+      { id: 'dl', source: 'traefik', url: 'https://app.example.com/dl/', selected: false },
       publishedEndpoint(80),
-      { id: 'ngnext', source: 'ngnext', url: 'https://custom.example.com/' },
-      { id: 'proto', source: '__proto__', url: 'https://proto.example.com/' },
+      { id: 'ngnext', source: 'ngnext', url: 'https://custom.example.com/', selected: false },
+      { id: 'proto', source: '__proto__', url: 'https://proto.example.com/', selected: false },
     ] }} />);
     expect(screen.getAllByRole('radio').map(radio => radio.value)).toEqual(['root', 'dl', 'published-port:80', 'proto', 'ngnext', 'none', 'custom']);
     expect(screen.getByRole('group', { name: 'Tile opens' })).toBeInTheDocument();
@@ -261,7 +261,7 @@ describe('ContainerSettings', () => {
   it('edits an existing custom URL and clears its draft when a confirmed discovered choice replaces it', () => {
     const onSelectEndpoint = vi.fn();
     const custom = { id: 'custom', source: 'custom', url: 'https://old.example.com/' };
-    const container = { ...defaultProps.container, preferences: { selectedEndpoint: custom } };
+    const container = { ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, { ...custom, selected: true }], preferences: { selectedEndpoint: custom } };
     const view = render(<ContainerSettings {...defaultProps} container={container} selectedEndpointId="custom" onSelectEndpoint={onSelectEndpoint} />);
     expect(screen.getByRole('radio', { name: 'Custom URL' })).toBeChecked();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://new.example.com/' } });
@@ -280,12 +280,12 @@ describe('ContainerSettings', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: custom.url } });
     screen.getByRole('button', { name: 'Save custom URL' }).focus();
-    view.rerender(<ContainerSettings {...defaultProps} selectedEndpointId="custom" container={{ ...defaultProps.container, preferences: { selectedEndpoint: custom } }} />);
+    view.rerender(<ContainerSettings {...defaultProps} selectedEndpointId="custom" container={{ ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, { ...custom, selected: true }], preferences: { selectedEndpoint: custom } }} />);
     expect(screen.getByRole('button', { name: 'Save custom URL' })).toHaveFocus();
   });
 
   it('disables selection controls while saving and exposes pending and error feedback', () => {
-    const container = { ...defaultProps.container, endpoints: [], preferences: { selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://example.com/' } } };
+    const container = { ...defaultProps.container, endpoints: [{ id: 'custom', source: 'custom', url: 'https://example.com/', selected: true }], preferences: { selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://example.com/' } } };
     const view = render(<ContainerSettings {...defaultProps} container={container} selectedEndpointId="custom" isSaving />);
     expect(screen.getByText('Saving selection…')).toHaveAttribute('role', 'status');
     screen.getAllByRole('radio').forEach(radio => expect(radio).toBeDisabled());
@@ -295,6 +295,20 @@ describe('ContainerSettings', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/could not save.*Disk is full/i);
     expect(screen.getByRole('textbox')).toHaveValue('https://example.com/');
     expect(screen.getByRole('radio', { name: 'Custom URL' })).toBeChecked();
+  });
+
+  it('uses one custom control and pre-fills a server-resolved custom endpoint without saved metadata', () => {
+    const custom = { id: 'custom', source: 'custom', url: 'https://resolved.example.com/', selected: true };
+    render(<ContainerSettings {...defaultProps} selectedEndpointId="custom" container={{ ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, custom] }} />);
+    expect(screen.getAllByRole('radio', { name: 'Custom URL' })).toHaveLength(1);
+    expect(screen.queryByRole('radio', { name: custom.url })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveValue(custom.url);
+  });
+
+  it('reports a saved selection whose refresh failed without calling it a save failure', () => {
+    render(<ContainerSettings {...defaultProps} refreshError={new Error('Offline')} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Selection saved, but containers could not be refreshed. Reload to see the change.');
+    expect(screen.queryByText(/Could not save selection/)).not.toBeInTheDocument();
   });
 
   describe('status section', () => {
