@@ -1,0 +1,59 @@
+package com.roomelephant.porthole.core.enrichment.preferences;
+
+import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.core.model.SelectedEndpoint;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.IntStream;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+
+/** Resolves effective selection without changing discovered candidates or stored preferences. */
+@NullMarked
+public final class EndpointSelectionResolver {
+    public List<Endpoint> resolve(List<Endpoint> discovered, @Nullable SelectedEndpoint selection) {
+        var resolved = new ArrayList<Endpoint>();
+        for (var endpoint : discovered) {
+            resolved.add(new Endpoint(endpoint.id(), endpoint.source(), endpoint.url(), false));
+        }
+        if (selection != null && "none".equals(selection.id())) return List.copyOf(resolved);
+        if (selection != null && "custom".equals(selection.source())) {
+            resolved.add(
+                    new Endpoint(selection.id(), selection.source(), Objects.requireNonNull(selection.url()), true));
+            return List.copyOf(resolved);
+        }
+        int selectedIndex = discoveredSelection(discovered, selection);
+        if (selectedIndex >= 0) {
+            var endpoint = resolved.get(selectedIndex);
+            resolved.set(selectedIndex, new Endpoint(endpoint.id(), endpoint.source(), endpoint.url(), true));
+        }
+        return List.copyOf(resolved);
+    }
+
+    private int discoveredSelection(List<Endpoint> discovered, @Nullable SelectedEndpoint selection) {
+        if (selection != null) {
+            for (int index = 0; index < discovered.size(); index++) {
+                var candidate = discovered.get(index);
+                if (candidate.id().equals(selection.id()) && candidate.source().equals(selection.source()))
+                    return index;
+            }
+        }
+        var traefik = IntStream.range(0, discovered.size())
+                .filter(index -> "traefik".equals(discovered.get(index).source()))
+                .boxed()
+                .toList();
+        if (traefik.isEmpty()) return discovered.size() == 1 ? 0 : -1;
+        if (traefik.size() == 1) return traefik.getFirst();
+        var roots = traefik.stream()
+                .filter(index -> isRoot(discovered.get(index).url()))
+                .toList();
+        return roots.size() == 1 ? roots.getFirst() : -1;
+    }
+
+    private boolean isRoot(String url) {
+        String path = URI.create(url).getPath();
+        return path.isEmpty() || "/".equals(path);
+    }
+}

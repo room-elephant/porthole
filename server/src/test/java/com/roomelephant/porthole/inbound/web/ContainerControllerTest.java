@@ -363,7 +363,8 @@ class ContainerControllerTest {
                 "nginx:latest",
                 new Container.Details(ports, Map.of("secret", "internal-only"), "test-project", "running", "Up 1 hour"),
                 ports.stream()
-                        .map(port -> new Endpoint("published-port:" + port, "published-port", "http://localhost/"))
+                        .map(port ->
+                                new Endpoint("published-port:" + port, "published-port", "http://localhost/", false))
                         .toList());
         container.setIconUrl("https://example.com/nginx.png");
         return container;

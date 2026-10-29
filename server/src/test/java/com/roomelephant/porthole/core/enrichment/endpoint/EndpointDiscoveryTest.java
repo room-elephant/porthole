@@ -31,8 +31,9 @@ class EndpointDiscoveryTest {
                                                     "traefik.http.routers.app.tls", "true")),
                                     new EnrichmentContext("local", "192.168.50.6", false, false)))
                     .containsExactly(
-                            new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/"),
-                            new Endpoint("traefik:https://app.example.com/", "traefik", "https://app.example.com/"));
+                            new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/", false),
+                            new Endpoint(
+                                    "traefik:https://app.example.com/", "traefik", "https://app.example.com/", false));
         }
     }
 

@@ -27,7 +27,10 @@ class TraefikEndpointProviderTest {
                 "9091");
         assertThat(provider.discover(EndpointFixtures.container(Set.of(51413), labels), context))
                 .containsExactly(new Endpoint(
-                        "traefik:https://transmission.example.com/", "traefik", "https://transmission.example.com/"));
+                        "traefik:https://transmission.example.com/",
+                        "traefik",
+                        "https://transmission.example.com/",
+                        false));
     }
 
     @Test

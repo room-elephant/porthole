@@ -47,7 +47,7 @@ public final class TraefikEndpointProvider implements EndpointProvider {
             }
             String url = EndpointUrls.routeUrl(
                     scheme(labels, router), route.get().host(), route.get().path());
-            endpoints.add(new Endpoint("traefik:" + url, "traefik", url));
+            endpoints.add(new Endpoint("traefik:" + url, "traefik", url, false));
         });
         return endpoints.stream()
                 .distinct()

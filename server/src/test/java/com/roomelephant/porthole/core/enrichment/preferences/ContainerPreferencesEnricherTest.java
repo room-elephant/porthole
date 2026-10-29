@@ -53,7 +53,10 @@ class ContainerPreferencesEnricherTest {
     void shouldRetainUnavailableDiscoveredSelectionWithoutChangingCandidates() {
         var saved = new ContainerPreferences(new SelectedEndpoint("published-port:9000", "published-port", null));
         var container = container(
-                "id", "local", "app", List.of(new Endpoint("traefik:app", "traefik", "https://app.example.com")));
+                "id",
+                "local",
+                "app",
+                List.of(new Endpoint("traefik:app", "traefik", "https://app.example.com", false)));
         var candidates = container.urlCandidates();
 
         new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)))

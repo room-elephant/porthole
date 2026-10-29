@@ -23,7 +23,8 @@ public final class PublishedPortEndpointProvider implements EndpointProvider {
                 .map(port -> new Endpoint(
                         "published-port:" + port,
                         "published-port",
-                        EndpointUrls.publishedPortUrl(hostResolver.resolve(context), port)))
+                        EndpointUrls.publishedPortUrl(hostResolver.resolve(context), port),
+                        false))
                 .toList();
     }
 }

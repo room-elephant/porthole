@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class ContainerTest {
     @Test
     void shouldReplaceUrlCandidatesWithoutSharingMutableLists() {
-        Endpoint original = new Endpoint("original", "traefik", "https://original.example.com/");
+        Endpoint original = new Endpoint("original", "traefik", "https://original.example.com/", false);
         List<Endpoint> initial = new ArrayList<>(List.of(original));
         Container container = new Container(
                 "id",
@@ -26,7 +26,7 @@ class ContainerTest {
         assertThat(container.urlCandidates()).containsExactly(original);
         List<Endpoint> beforeEnrichment = container.urlCandidates();
 
-        Endpoint discovered = new Endpoint("discovered", "traefik", "https://app.example.com/");
+        Endpoint discovered = new Endpoint("discovered", "traefik", "https://app.example.com/", false);
         List<Endpoint> candidates = new ArrayList<>(List.of(discovered));
         container.setUrlCandidates(candidates);
         candidates.clear();
