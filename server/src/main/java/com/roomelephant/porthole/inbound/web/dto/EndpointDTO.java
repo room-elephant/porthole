@@ -13,6 +13,7 @@ public record EndpointDTO(
         String url,
 
         @Schema(
+                requiredMode = Schema.RequiredMode.REQUIRED,
                 description =
                         "Whether this is the effective endpoint for navigation; at most one candidate is selected")
         boolean selected) {}
