@@ -17,14 +17,15 @@ paths:
     get:
       description: "Returns the status of every configured Docker source and a combined\
         \ container inventory. By default, excludes stopped containers and containers\
-        \ without discovered service endpoints or a valid custom URL. A failed source\
-        \ is reported as DOWN or ERROR in sources without discarding other sources'\
-        \ containers. Image version information comes from the background refresh\
-        \ cache and may initially be null."
+        \ without resolved service endpoint candidates. Endpoints include the configured\
+        \ custom URL and selected flags for navigation; shared preferences remain\
+        \ settings metadata. Explicit none keeps available candidates with all selected\
+        \ flags false. A failed source is reported as DOWN or ERROR in sources without\
+        \ discarding other sources' containers. Image version information comes from\
+        \ the background refresh cache and may initially be null."
       operationId: getContainers
       parameters:
-      - description: Include containers without discovered service endpoints or a
-          valid custom URL.
+      - description: Include containers without resolved service endpoint candidates.
         in: query
         name: includeWithoutEndpoints
         required: false
@@ -169,9 +170,15 @@ components:
       - selectedEndpoint
     EndpointDTO:
       type: object
+      description: "Resolved service endpoint candidate, including the saved custom\
+        \ URL while configured"
       properties:
         id:
           type: string
+        selected:
+          type: boolean
+          description: Whether this is the effective endpoint for navigation; at most
+            one candidate is selected
         source:
           type: string
         url:

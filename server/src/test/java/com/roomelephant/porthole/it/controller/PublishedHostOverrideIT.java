@@ -32,7 +32,7 @@ class PublishedHostOverrideIT extends ContainerAwareIntegrationTestBase {
                             "published-port:" + port,
                             "published-port",
                             "http://docker.example.com:" + port + "/",
-                            false));
+                            true));
             ContainerDTO proxy = Arrays.stream(containers)
                     .filter(candidate -> candidate.name().equals(TEST_PROXY_CONTAINER_NAME))
                     .findFirst()

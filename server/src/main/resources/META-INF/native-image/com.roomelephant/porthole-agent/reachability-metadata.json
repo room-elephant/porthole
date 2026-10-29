@@ -2116,6 +2116,10 @@
           "parameterTypes": []
         },
         {
+          "name": "selected",
+          "parameterTypes": []
+        },
+        {
           "name": "source",
           "parameterTypes": []
         },
@@ -9848,6 +9852,9 @@
     },
     {
       "glob": "public/api/containers/non-existent-id/version"
+    },
+    {
+      "glob": "public/index.html"
     },
     {
       "glob": "resources/api/containers/non-existent-id/version"

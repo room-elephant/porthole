@@ -46,10 +46,15 @@ class ContainerPreferencesIT {
     }
 
     private void inventoryFixture(String id) {
-        docker.stubFor(get(urlPathMatching("/(?:v[0-9.]+/)?containers/json")).willReturn(okJson("""
+        inventoryFixture(id, "{}", "[]");
+    }
+
+    private void inventoryFixture(String id, String labels, String ports) {
+        docker.stubFor(get(urlPathMatching("/(?:v[0-9.]+/)?containers/json"))
+                .willReturn(okJson("""
                         [{"Id":"%s","Names":["/shared-app"],"Image":"local-app:latest",
-                        "ImageID":"local-image","State":"running","Status":"Up","Labels":{},"Ports":[]}]
-                        """.formatted(id))));
+                        "ImageID":"local-image","State":"running","Status":"Up","Labels":%s,"Ports":%s}]
+                        """.formatted(id, labels, ports))));
     }
 
     private void startReplacement() {
@@ -129,7 +134,9 @@ class ContainerPreferencesIT {
                 .isEqualTo(new SelectedEndpointDTO("custom", "custom", "https://shared.example.com/app"));
         assertThat(inventory(false).containers()).singleElement().satisfies(container -> {
             assertThat(container.sourceId()).isEqualTo("walker");
-            assertThat(container.endpoints()).isEmpty();
+            assertThat(container.endpoints())
+                    .containsExactly(new EndpointDTO("custom", "custom", "https://shared.example.com/app", true));
+            assertThat(container.hasEndpoints()).isTrue();
             assertThat(container.preferences()).isEqualTo(saved.preferences());
         });
         assertThat(inventory(true).containers())
@@ -166,7 +173,11 @@ class ContainerPreferencesIT {
         assertThat(inventory(true).containers())
                 .filteredOn(c -> c.sourceId().equals("walker"))
                 .singleElement()
-                .satisfies(c -> assertThat(c.preferences()).isEqualTo(saved.preferences()));
+                .satisfies(c -> {
+                    assertThat(c.preferences()).isEqualTo(saved.preferences());
+                    assertThat(c.endpoints()).isEmpty();
+                    assertThat(c.hasEndpoints()).isFalse();
+                });
         var file = app.execInContainer("cat", "/app/data/preferences.json");
         assertThat(file.getExitCode()).isZero();
         assertThat(file.getStdout()).doesNotContain("https://shared.example.com/app");
@@ -182,8 +193,100 @@ class ContainerPreferencesIT {
         assertThat(app.getContainerId()).isNotEqualTo(previousContainer);
         assertThat(inventory(false).containers()).singleElement().satisfies(container -> {
             assertThat(container.id()).isEqualTo("recreated-id");
+            assertThat(container.endpoints())
+                    .containsExactly(new EndpointDTO("custom", "custom", "https://shared.example.com/app", true));
+            assertThat(container.hasEndpoints()).isTrue();
             assertThat(container.sourceId()).isEqualTo("walker");
             assertThat(container.preferences()).isEqualTo(saved.preferences());
         });
+    }
+
+    private static final String PUBLISHED_PORT = "[{\"PrivatePort\":8080,\"PublicPort\":8080,\"Type\":\"tcp\"}]";
+
+    @Test
+    void resolvedCandidatesRetainDiscoveredChoicesAcrossCustomNoneAndAutomaticSelection() {
+        inventoryFixture("original-id", "{}", PUBLISHED_PORT);
+        assertThat(inventory(false).containers()).hasSize(2).allSatisfy(container -> {
+            assertThat(container.endpoints())
+                    .containsExactly(
+                            new EndpointDTO("published-port:8080", "published-port", "http://127.0.0.1:8080/", true));
+            assertThat(container.preferences().selectedEndpoint()).isNull();
+        });
+        select("walker", CUSTOM);
+        assertThat(inventory(false).containers())
+                .filteredOn(c -> c.sourceId().equals("walker"))
+                .singleElement()
+                .satisfies(container -> assertThat(container.endpoints())
+                        .containsExactly(
+                                new EndpointDTO(
+                                        "published-port:8080", "published-port", "http://127.0.0.1:8080/", false),
+                                new EndpointDTO("custom", "custom", "https://shared.example.com/app", true)));
+        select("walker", "{\"id\":\"none\",\"source\":\"none\"}");
+        assertThat(inventory(false).containers())
+                .filteredOn(c -> c.sourceId().equals("walker"))
+                .singleElement()
+                .satisfies(container -> {
+                    assertThat(container.endpoints())
+                            .containsExactly(new EndpointDTO(
+                                    "published-port:8080", "published-port", "http://127.0.0.1:8080/", false));
+                    assertThat(container.hasEndpoints()).isTrue();
+                    assertThat(container.preferences().selectedEndpoint())
+                            .isEqualTo(new SelectedEndpointDTO("none", "none", null));
+                });
+        select("walker", "null");
+        assertThat(inventory(false).containers()).hasSize(2).allSatisfy(container -> {
+            assertThat(container.endpoints())
+                    .containsExactly(
+                            new EndpointDTO("published-port:8080", "published-port", "http://127.0.0.1:8080/", true));
+            assertThat(container.preferences().selectedEndpoint()).isNull();
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"published", "roots", "paths"})
+    void unavailableSavedChoiceFallsBackWithoutRewritingPreferences(String fallback) throws Exception {
+        inventoryFixture("original-id", "{}", PUBLISHED_PORT);
+        var saved = select("walker", "{\"id\":\"published-port:8080\",\"source\":\"published-port\"}");
+        assertThat(inventory(false).containers())
+                .filteredOn(c -> c.sourceId().equals("walker"))
+                .singleElement()
+                .satisfies(container -> assertThat(container.endpoints())
+                        .containsExactly(new EndpointDTO(
+                                "published-port:8080", "published-port", "http://127.0.0.1:8080/", true)));
+        String before = preferencesFile();
+        if (fallback.equals("published")) {
+            inventoryFixture("original-id", "{}", PUBLISHED_PORT.replace("8080", "9090"));
+        } else {
+            String first = fallback.equals("roots") ? "" : " && PathPrefix(`/one`)";
+            String second = fallback.equals("roots") ? "" : " && PathPrefix(`/two`)";
+            String labels = """
+                    {"traefik.http.routers.one.rule":"Host(`one.example.com`)%s",
+                     "traefik.http.routers.two.rule":"Host(`two.example.com`)%s"}
+                    """.formatted(first, second);
+            inventoryFixture("original-id", labels, "[]");
+        }
+        assertThat(inventory(false).containers())
+                .filteredOn(c -> c.sourceId().equals("walker"))
+                .singleElement()
+                .satisfies(container -> {
+                    assertThat(container.preferences()).isEqualTo(saved.preferences());
+                    assertThat(container.endpoints())
+                            .noneMatch(endpoint -> endpoint.id().equals("published-port:8080"));
+                    if (fallback.equals("published")) {
+                        assertThat(container.endpoints())
+                                .containsExactly(new EndpointDTO(
+                                        "published-port:9090", "published-port", "http://127.0.0.1:9090/", true));
+                    } else {
+                        assertThat(container.endpoints()).hasSize(2).allMatch(endpoint -> !endpoint.selected());
+                    }
+                });
+        assertThat(preferencesFile()).isEqualTo(before);
+        assertThat(before).doesNotContain("\"selected\"", "\"endpoints\"", "http://127.0.0.1");
+    }
+
+    private String preferencesFile() throws Exception {
+        var file = app.execInContainer("cat", "/app/data/preferences.json");
+        assertThat(file.getExitCode()).isZero();
+        return file.getStdout();
     }
 }
