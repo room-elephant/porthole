@@ -32,6 +32,8 @@ management:
       show-components: always
 
 porthole:
+  preferences:
+    path: data/preferences.json
   # Docker configuration
   docker:
     connections:
