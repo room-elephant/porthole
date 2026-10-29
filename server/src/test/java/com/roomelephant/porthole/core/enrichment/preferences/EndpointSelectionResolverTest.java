@@ -3,6 +3,7 @@ package com.roomelephant.porthole.core.enrichment.preferences;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.roomelephant.porthole.core.enrichment.endpoint.EndpointUrls;
 import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import java.util.ArrayList;
@@ -45,6 +46,51 @@ class EndpointSelectionResolverTest {
         assertThatThrownBy(() -> resolved.add(PORT)).isInstanceOf(UnsupportedOperationException.class);
         input.clear();
         assertThat(resolved).containsExactlyElementsOf(expected);
+    }
+
+    @ParameterizedTest(name = "{0}, saved={3}")
+    @MethodSource("browserRootCases")
+    void shouldClassifyDiscoveredPathsLikeTheBrowserWithoutChangingUrls(
+            String path, String expectedUrl, boolean root, SelectedEndpoint saved) {
+        String discoveredUrl = EndpointUrls.routeUrl("https", "app.example.com", path);
+        var candidate = new Endpoint("traefik:route", "traefik", discoveredUrl, false);
+
+        assertThat(resolver.resolve(List.of(candidate, OTHER_PATH), saved))
+                .containsExactly(new Endpoint("traefik:route", "traefik", expectedUrl, root), OTHER_PATH);
+        assertThat(resolver.resolve(List.of(candidate, ROOT), saved))
+                .containsExactly(
+                        new Endpoint("traefik:route", "traefik", expectedUrl, false),
+                        new Endpoint("traefik:root", "traefik", "https://app.example.com/", !root));
+        assertThat(candidate).isEqualTo(new Endpoint("traefik:route", "traefik", expectedUrl, false));
+    }
+
+    static Stream<Arguments> browserRootCases() {
+        return Stream.of(
+                        Arguments.of("/.", "https://app.example.com/.", true),
+                        Arguments.of("/..", "https://app.example.com/..", true),
+                        Arguments.of("/app/..", "https://app.example.com/app/..", true),
+                        Arguments.of("/app/admin/..", "https://app.example.com/app/admin/..", false),
+                        Arguments.of("/../..", "https://app.example.com/../..", true),
+                        Arguments.of("/app/.././", "https://app.example.com/app/.././", true),
+                        Arguments.of("/app/../..", "https://app.example.com/app/../..", true),
+                        Arguments.of("//.", "https://app.example.com//.", false),
+                        Arguments.of("/.//", "https://app.example.com/.//", false),
+                        Arguments.of("//..", "https://app.example.com//..", true),
+                        Arguments.of("/../admin/", "https://app.example.com/../admin/", false),
+                        Arguments.of("/app/./admin", "https://app.example.com/app/./admin", false),
+                        Arguments.of("/%2e", "https://app.example.com/%252e", false),
+                        Arguments.of("/%2F", "https://app.example.com/%252F", false))
+                .flatMap(arguments -> Stream.of(
+                        Arguments.of(
+                                arguments.get()[0],
+                                arguments.get()[1],
+                                arguments.get()[2],
+                                null),
+                        Arguments.of(
+                                arguments.get()[0],
+                                arguments.get()[1],
+                                arguments.get()[2],
+                                MISSING)));
     }
 
     static Stream<Arguments> selectionCases() {

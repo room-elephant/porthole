@@ -53,7 +53,22 @@ public final class EndpointSelectionResolver {
     }
 
     private boolean isRoot(String url) {
-        String path = URI.create(url).getPath();
-        return path.isEmpty() || "/".equals(path);
+        String path = URI.create(url).getRawPath();
+        if (path.isEmpty()) return true;
+        // Browser paths remove dot segments, retain repeated slashes, and stop parents at the root.
+        String[] segments = path.substring(1).split("/", -1);
+        int depth = 0;
+        for (int index = 0; index < segments.length - 1; index++) {
+            switch (segments[index]) {
+                case "." -> {}
+                case ".." -> depth = Math.max(0, depth - 1);
+                default -> depth++;
+            }
+        }
+        return switch (segments[segments.length - 1]) {
+            case "", "." -> depth == 0;
+            case ".." -> depth <= 1;
+            default -> false;
+        };
     }
 }
