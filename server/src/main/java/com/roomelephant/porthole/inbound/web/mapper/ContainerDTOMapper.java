@@ -32,7 +32,8 @@ public class ContainerDTOMapper {
                 container.displayName(),
                 container.image(),
                 container.urlCandidates().stream()
-                        .map(endpoint -> new EndpointDTO(endpoint.id(), endpoint.source(), endpoint.url()))
+                        .map(endpoint ->
+                                new EndpointDTO(endpoint.id(), endpoint.source(), endpoint.url(), endpoint.selected()))
                         .toList(),
                 container.iconUrl(),
                 container.project(),

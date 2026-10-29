@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,20 +51,20 @@ class ContainerPreferencesEnricherTest {
     }
 
     @Test
-    void shouldRetainUnavailableDiscoveredSelectionWithoutChangingCandidates() {
+    void shouldRetainUnavailableDiscoveredMetadataWhileSelectingFallback() {
         var saved = new ContainerPreferences(new SelectedEndpoint("published-port:9000", "published-port", null));
         var container = container(
                 "id",
                 "local",
                 "app",
                 List.of(new Endpoint("traefik:app", "traefik", "https://app.example.com", false)));
-        var candidates = container.urlCandidates();
 
         new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)))
                 .enrich(List.of(container), context);
 
         assertThat(container.preferences()).isEqualTo(saved);
-        assertThat(container.urlCandidates()).isSameAs(candidates);
+        assertThat(container.urlCandidates())
+                .containsExactly(new Endpoint("traefik:app", "traefik", "https://app.example.com", true));
     }
 
     @Test
@@ -94,6 +95,77 @@ class ContainerPreferencesEnricherTest {
         assertThat(second.preferences()).isEqualTo(saved);
         enricher.enrich(List.of(first), context);
         assertThat(first.preferences().selectedEndpoint()).isNull();
+    }
+
+    @Test
+    void shouldAppendSelectedCustomCandidateAndUnselectDiscoveredCandidates() {
+        var saved = new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://custom.example"));
+        var container = container(
+                "id",
+                "local",
+                "app",
+                List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", true)));
+
+        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)))
+                .enrich(List.of(container), context);
+
+        assertThat(container.preferences()).isEqualTo(saved);
+        assertThat(container.urlCandidates())
+                .containsExactly(
+                        new Endpoint("published-port:80", "published-port", "http://localhost/", false),
+                        new Endpoint("custom", "custom", "https://custom.example", true));
+    }
+
+    @Test
+    void shouldRetainCandidatesButClearSelectionForExplicitNone() {
+        var saved = new ContainerPreferences(new SelectedEndpoint("none", "none", null));
+        var container = container(
+                "id",
+                "local",
+                "app",
+                List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", true)));
+
+        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)))
+                .enrich(List.of(container), context);
+
+        assertThat(container.urlCandidates())
+                .containsExactly(new Endpoint("published-port:80", "published-port", "http://localhost/", false));
+    }
+
+    @Test
+    void shouldSelectTheAutomaticCandidateWithoutSavingMetadata() {
+        var container = container(
+                "id",
+                "local",
+                "app",
+                List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", false)));
+
+        new ContainerPreferencesEnricher(store(Map.of())).enrich(List.of(container), context);
+
+        assertThat(container.preferences().selectedEndpoint()).isNull();
+        assertThat(container.urlCandidates())
+                .containsExactly(new Endpoint("published-port:80", "published-port", "http://localhost/", true));
+    }
+
+    @Test
+    void shouldRemoveCustomCandidateOnTheNextDiscoveryAfterSelectionChanges() {
+        var snapshot = new HashMap<ContainerPreferencesKey, ContainerPreferences>();
+        var key = new ContainerPreferencesKey("local", "app");
+        snapshot.put(key, new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://custom.example")));
+        var enricher = new ContainerPreferencesEnricher(store(snapshot));
+        var discovery = List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", false));
+        var container = container("id", "local", "app", discovery);
+        enricher.enrich(List.of(container), context);
+        assertThat(container.urlCandidates()).extracting(Endpoint::source).containsExactly("published-port", "custom");
+
+        snapshot.put(key, new ContainerPreferences(new SelectedEndpoint("published-port:80", "published-port", null)));
+        // Each inventory discovers candidates anew before preferences are applied.
+        container.setUrlCandidates(discovery);
+        enricher.enrich(List.of(container), context);
+
+        assertThat(container.urlCandidates())
+                .containsExactly(new Endpoint("published-port:80", "published-port", "http://localhost/", true));
+        assertThat(container.preferences().selectedEndpoint().url()).isNull();
     }
 
     private ContainerPreferencesStore store(Map<ContainerPreferencesKey, ContainerPreferences> snapshot) {

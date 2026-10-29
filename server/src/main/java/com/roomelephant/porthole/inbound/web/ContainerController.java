@@ -46,7 +46,9 @@ public class ContainerController {
     @Operation(
             summary = "List discovered containers",
             description = "Returns the status of every configured Docker source and a combined container inventory. "
-                    + "By default, excludes stopped containers and containers without discovered service endpoints or a valid custom URL. "
+                    + "By default, excludes stopped containers and containers without resolved service endpoint candidates. "
+                    + "Endpoints include the configured custom URL and selected flags for navigation; shared preferences remain settings metadata. "
+                    + "Explicit none keeps available candidates with all selected flags false. "
                     + "A failed source is reported as DOWN or ERROR in sources without discarding other sources' containers. "
                     + "Image version information comes from the background refresh cache and may initially be null.")
     @ApiResponse(
@@ -57,7 +59,7 @@ public class ContainerController {
                             mediaType = "application/json",
                             schema = @Schema(implementation = ContainerInventoryDTO.class)))
     public ContainerInventoryDTO getContainers(
-            @Parameter(description = "Include containers without discovered service endpoints or a valid custom URL.")
+            @Parameter(description = "Include containers without resolved service endpoint candidates.")
                     @RequestParam(defaultValue = "false")
                     boolean includeWithoutEndpoints,
             @Parameter(

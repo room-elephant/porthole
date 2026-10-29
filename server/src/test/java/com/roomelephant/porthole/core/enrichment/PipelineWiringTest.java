@@ -10,6 +10,7 @@ import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshS
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
+import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
@@ -69,7 +70,7 @@ class PipelineWiringTest {
     }
 
     @Test
-    void shouldAttachPreferencesBeforeAvailabilityWithoutBypassingStateOrChangingDiscovery() {
+    void shouldResolvePreferencesBeforeAvailabilityWithoutBypassingState() {
         var custom = new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://worker.example.com"));
         var none = new ContainerPreferences(new SelectedEndpoint("none", "none", null));
         try (var context = context(
@@ -87,10 +88,13 @@ class PipelineWiringTest {
 
             assertThat(result).containsExactly(worker, web);
             assertThat(worker.preferences()).isEqualTo(custom);
-            assertThat(worker.urlCandidates()).isEmpty();
+            assertThat(worker.urlCandidates())
+                    .containsExactly(new Endpoint("custom", "custom", "https://worker.example.com", true));
             assertThat(worker.iconUrl()).isEqualTo("https://icons.example.com/nginx.svg");
             assertThat(web.preferences()).isEqualTo(none);
-            assertThat(web.urlCandidates()).extracting(e -> e.url()).containsExactly("http://localhost:8080/");
+            assertThat(web.urlCandidates())
+                    .containsExactly(
+                            new Endpoint("published-port:8080", "published-port", "http://localhost:8080/", false));
             assertThat(stopped.preferences().selectedEndpoint()).isNull();
         }
     }

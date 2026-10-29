@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 @NullMarked
 public class ContainerPreferencesEnricher implements ContainerEnricher {
     private final ContainerPreferencesStore store;
+    private final EndpointSelectionResolver resolver = new EndpointSelectionResolver();
 
     public ContainerPreferencesEnricher(ContainerPreferencesStore store) {
         this.store = store;
@@ -24,7 +25,9 @@ public class ContainerPreferencesEnricher implements ContainerEnricher {
         var snapshot = store.snapshot();
         for (var container : containers) {
             var key = new ContainerPreferencesKey(container.sourceId(), container.name());
-            container.setPreferences(snapshot.getOrDefault(key, new ContainerPreferences(null)));
+            var preferences = snapshot.getOrDefault(key, new ContainerPreferences(null));
+            container.setPreferences(preferences);
+            container.setUrlCandidates(resolver.resolve(container.urlCandidates(), preferences.selectedEndpoint()));
         }
         return containers;
     }

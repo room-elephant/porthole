@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -110,45 +109,21 @@ class ContainerEnrichmentTest {
                 .containsExactly(raw);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"https://app.example.com", "http://localhost:8080/path", "HTTPS://app.example.com"})
-    void shouldKeepCustomOnlyContainersWhenEndpointsAreRequired(String url) {
+    @Test
+    void shouldKeepCustomCandidatesWithoutConsultingStoredPreferences() {
         var raw = container("running", Set.of(), Map.of());
-        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint("custom", "custom", url)));
+        raw.setUrlCandidates(List.of(new Endpoint("custom", "custom", "https://app.example.com", true)));
 
         assertThat(new EndpointAvailabilityFilter()
                         .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
                 .containsExactly(raw);
-        assertThat(raw.urlCandidates()).isEmpty();
     }
 
-    @ParameterizedTest
-    @NullSource
-    @ValueSource(
-            strings = {
-                "",
-                "relative/path",
-                "//app.example.com",
-                "ftp://app.example.com",
-                "https:///path",
-                "https://",
-                "https://bad host",
-                "https://user:secret@app.example.com"
-            })
-    void shouldRejectCustomSelectionsWithoutAnAbsoluteHttpUrl(String url) {
+    @Test
+    void shouldRejectEmptyResolvedCandidatesEvenWithSavedCustomMetadata() {
         var raw = container("running", Set.of(), Map.of());
-        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint("custom", "custom", url)));
-
-        assertThat(new EndpointAvailabilityFilter()
-                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
-                .isEmpty();
-    }
-
-    @ParameterizedTest
-    @CsvSource({"none,none", "custom,traefik", "traefik:app,custom", "published-port:8080,published-port"})
-    void shouldRequireDiscoveryForSelectionsOtherThanCustom(String id, String source) {
-        var raw = container("running", Set.of(), Map.of());
-        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint(id, source, "https://app.example.com")));
+        raw.setPreferences(
+                new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://app.example.com")));
 
         assertThat(new EndpointAvailabilityFilter()
                         .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))

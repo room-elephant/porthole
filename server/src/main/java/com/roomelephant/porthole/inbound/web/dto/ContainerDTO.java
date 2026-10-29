@@ -1,7 +1,6 @@
 package com.roomelephant.porthole.inbound.web.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
@@ -39,10 +38,6 @@ public record ContainerDTO(
 
     @JsonProperty("hasEndpoints")
     public boolean hasEndpoints() {
-        var selection = preferences.selectedEndpoint();
-        return !endpoints.isEmpty()
-                || (selection != null
-                        && new SelectedEndpoint(selection.id(), selection.source(), selection.url())
-                                .hasValidCustomUrl());
+        return !endpoints.isEmpty();
     }
 }

@@ -165,7 +165,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         assertThat(container).isNotNull();
         assertThat(container.endpoints())
                 .containsExactly(new EndpointDTO(
-                        "traefik:https://jellyfin.example.com/", "traefik", "https://jellyfin.example.com/"));
+                        "traefik:https://jellyfin.example.com/", "traefik", "https://jellyfin.example.com/", false));
     }
 
     @Test
@@ -189,7 +189,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
             int port = testAppContainer.getMappedPort(8080);
             assertThat(container.endpoints())
                     .containsExactly(new EndpointDTO(
-                            "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/"));
+                            "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/", false));
         }
     }
 
@@ -198,8 +198,8 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         ContainerDTO container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
         int port = mixedContainer.getMappedPort(51413);
         assertThat(container.endpoints())
-                .contains(
-                        new EndpointDTO("published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/"));
+                .contains(new EndpointDTO(
+                        "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/", false));
         assertThat(container.endpoints()).extracting(EndpointDTO::source).contains("traefik", "published-port");
     }
 
@@ -213,11 +213,13 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
                         new EndpointDTO(
                                 "traefik:https://transmission.example.com/",
                                 "traefik",
-                                "https://transmission.example.com/"),
+                                "https://transmission.example.com/",
+                                false),
                         new EndpointDTO(
                                 "traefik:https://transmission.example.com/dl/",
                                 "traefik",
-                                "https://transmission.example.com/dl/"));
+                                "https://transmission.example.com/dl/",
+                                false));
     }
 
     @Test

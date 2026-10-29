@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
+import com.roomelephant.porthole.core.enrichment.preferences.ContainerPreferencesEnricher;
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
@@ -188,6 +190,7 @@ class ContainerControllerTest {
                 .andExpect(jsonPath("$.containers[0].endpoints[0].id").value("published-port:80"))
                 .andExpect(jsonPath("$.containers[0].endpoints[0].source").value("published-port"))
                 .andExpect(jsonPath("$.containers[0].endpoints[0].url").value("http://localhost/"))
+                .andExpect(jsonPath("$.containers[0].endpoints[0].selected").value(true))
                 .andExpect(jsonPath("$.containers[0].hasEndpoints").value(true))
                 .andExpect(jsonPath("$.containers[0].exposedPorts").doesNotExist())
                 .andExpect(jsonPath("$.containers[0].hasPublicPorts").doesNotExist())
@@ -241,7 +244,9 @@ class ContainerControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sourceId").value("local"))
                 .andExpect(jsonPath("$.containerName").value("app"))
-                .andExpect(jsonPath("$.preferences.selectedEndpoint.url").value("https://app.example"));
+                .andExpect(jsonPath("$.preferences.selectedEndpoint.url").value("https://app.example"))
+                .andExpect(jsonPath("$.preferences.selectedEndpoint.selected").doesNotExist())
+                .andExpect(jsonPath("$.endpoints").doesNotExist());
         verify(preferencesStore)
                 .replaceSelection(
                         new ContainerPreferencesKey("local", "app"),
@@ -314,10 +319,9 @@ class ContainerControllerTest {
     }
 
     @Test
-    void shouldKeepCustomSelectionSeparateFromDiscoveredEndpoints() throws Exception {
-        var container = createContainer("app", Set.of());
-        container.setPreferences(
-                new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://app.example")));
+    void shouldReturnResolvedCustomCandidateWithSettingsMetadata() throws Exception {
+        var container = createContainer("app");
+        resolveSelection(container, new SelectedEndpoint("custom", "custom", "https://app.example"));
         when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(container)));
         mockMvc.perform(get("/api/containers"))
@@ -327,19 +331,26 @@ class ContainerControllerTest {
                         .value("custom"))
                 .andExpect(jsonPath("$.containers[0].preferences.selectedEndpoint.url")
                         .value("https://app.example"))
-                .andExpect(jsonPath("$.containers[0].endpoints").isEmpty())
+                .andExpect(jsonPath("$.containers[0].endpoints.length()").value(2))
+                .andExpect(jsonPath("$.containers[0].endpoints[0].selected").value(false))
+                .andExpect(jsonPath("$.containers[0].endpoints[1].id").value("custom"))
+                .andExpect(jsonPath("$.containers[0].endpoints[1].source").value("custom"))
+                .andExpect(jsonPath("$.containers[0].endpoints[1].url").value("https://app.example"))
+                .andExpect(jsonPath("$.containers[0].endpoints[1].selected").value(true))
                 .andExpect(jsonPath("$.containers[0].hasEndpoints").value(true));
     }
 
     @Test
     void shouldKeepEndpointAvailabilitySeparateFromNoWebUiChoice() throws Exception {
         var container = createContainer("app");
-        container.setPreferences(new ContainerPreferences(new SelectedEndpoint("none", "none", null)));
+        resolveSelection(container, new SelectedEndpoint("none", "none", null));
         when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(container)));
         mockMvc.perform(get("/api/containers"))
                 .andExpect(jsonPath("$.containers[0].preferences.selectedEndpoint.id")
                         .value("none"))
+                .andExpect(jsonPath("$.containers[0].endpoints.length()").value(1))
+                .andExpect(jsonPath("$.containers[0].endpoints[0].selected").value(false))
                 .andExpect(jsonPath("$.containers[0].hasEndpoints").value(true));
     }
 
@@ -367,6 +378,25 @@ class ContainerControllerTest {
                                 new Endpoint("published-port:" + port, "published-port", "http://localhost/", false))
                         .toList());
         container.setIconUrl("https://example.com/nginx.png");
+        resolveSelection(container, null);
         return container;
+    }
+
+    private void resolveSelection(Container container, SelectedEndpoint selection) {
+        var store = new ContainerPreferencesStore() {
+            @Override
+            public Map<ContainerPreferencesKey, ContainerPreferences> snapshot() {
+                return Map.of(
+                        new ContainerPreferencesKey(container.sourceId(), container.name()),
+                        new ContainerPreferences(selection));
+            }
+
+            @Override
+            public ContainerPreferences replaceSelection(ContainerPreferencesKey key, SelectedEndpoint selected) {
+                throw new AssertionError("Inventory must not write preferences");
+            }
+        };
+        new ContainerPreferencesEnricher(store)
+                .enrich(List.of(container), new EnrichmentContext("local", "localhost", false, false));
     }
 }

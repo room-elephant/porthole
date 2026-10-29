@@ -19,7 +19,7 @@ class ContainerDTOTest {
                 "my-container",
                 "my-container",
                 "nginx:latest",
-                List.of(new EndpointDTO("a", "traefik", "https://example.com/")),
+                List.of(new EndpointDTO("a", "traefik", "https://example.com/", false)),
                 "https://example.com/nginx.png",
                 "my-project",
                 "running",
@@ -77,7 +77,8 @@ class ContainerDTOTest {
                 null,
                 new SelectedEndpointDTO("none", "none", null),
                 new SelectedEndpointDTO("missing", "traefik", null),
-                new SelectedEndpointDTO("custom", "custom", "javascript:alert(1)"));
+                new SelectedEndpointDTO("custom", "custom", "javascript:alert(1)"),
+                new SelectedEndpointDTO("custom", "custom", "https://app.example"));
     }
 
     @Test
@@ -89,7 +90,7 @@ class ContainerDTOTest {
                 "test-container",
                 "test",
                 "redis:7",
-                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/")),
+                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/", false)),
                 "https://example.com/redis.png",
                 "test-project",
                 "running",
@@ -103,7 +104,7 @@ class ContainerDTOTest {
         assertEquals("test", dto.displayName());
         assertEquals("redis:7", dto.image());
         assertEquals(
-                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/")),
+                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/", false)),
                 dto.endpoints());
         assertEquals("https://example.com/redis.png", dto.iconUrl());
         assertEquals("test-project", dto.project());
