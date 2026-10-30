@@ -76,7 +76,7 @@ describe('source sections', () => {
  });
 
  it('keeps the dialog open while a chip gains an endpoint, then moves it to a tile and focuses its menu', async () => {
-  renderSection([mk({ endpoints: [publishedEndpoint(8080, false)], preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })]);
+  renderSection([mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
   fireEvent.click(screen.getByRole('radio', { name: /localhost:8080/ }));
   await waitFor(() => expect(screen.getByRole('radio', { name: /localhost:8080/ })).toBeChecked());
@@ -92,7 +92,7 @@ describe('source sections', () => {
   const { queryClient } = renderSection([mk()]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
   act(() => {
-   queryClient.setQueriesData({ queryKey: ['containers'] }, inventory => ({ ...inventory, containers: [mk({ endpoints: [publishedEndpoint(8080, false)], preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })] }));
+   queryClient.setQueriesData({ queryKey: ['containers'] }, inventory => ({ ...inventory, containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] }));
    fireEvent.keyDown(document, { key: 'Escape' });
   });
   await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
@@ -101,7 +101,7 @@ describe('source sections', () => {
 
  it('uses the active confirmation instead of stale inactive variants for a closed-dialog focus handoff', async () => {
   const initial = { sources: [source], containers: [mk()] };
-  const confirmed = { sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })] };
+  const confirmed = { sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   queryClient.setQueryData(['containers', { showAll: false, showStopped: false }], initial);
   const activeKey = ['containers', { showAll: true, showStopped: true }];
@@ -232,7 +232,7 @@ describe('source sections', () => {
   const view = renderWithQuery(render([mk(), other]));
   fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
   view.rerender(render([other]));
-  view.rerender(render([mk({ endpoints: [publishedEndpoint(8080, false)], preferences: { selectedEndpoint: { id: 'none', source: 'none' } } }), other]));
+  view.rerender(render([mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false }), other]));
   expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip');
   expect(document.querySelectorAll('.chip')).toHaveLength(1);
  });
@@ -332,7 +332,7 @@ describe('source sections', () => {
  });
 
  it('renders a custom-only container as a linked tile', () => {
-  renderSection([mk({ endpoints: [{ id: 'custom', source: 'custom', url: 'https://custom.example.com/', selected: true }], hasEndpoints: true, preferences: { selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://custom.example.com/' } } })]);
+  renderSection([mk({ endpoints: [{ id: 'custom', source: 'custom', url: 'https://custom.example.com/', selected: true }], hasEndpoints: true })]);
   expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'https://custom.example.com/');
   expect(document.querySelector('.chip')).toBeNull();
  });
@@ -363,7 +363,7 @@ describe('source sections', () => {
   expect(screen.getByRole('radio', { name: /localhost:8080/ })).toBeChecked();
   expect(screen.getByRole('group', { name: 'Tile opens' })).not.toBeDisabled();
   expect(document.querySelector('.tile-main')).toHaveAttribute('href', 'http://localhost:8080/');
-  read.mockResolvedValue({ sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })] });
+  read.mockResolvedValue({ sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] });
   await act(async () => queryClient.refetchQueries({ queryKey: ['containers'] }));
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked();
@@ -373,13 +373,13 @@ describe('source sections', () => {
  it('keeps server ambiguity as an unlinked tile and explicit none as a chip', () => {
   renderSection([
    mk({ id: 'ambiguous', name: 'ambiguous', displayName: 'Ambiguous', endpoints: [publishedEndpoint(80, false), publishedEndpoint(443, false)] }),
-   mk({ id: 'none', name: 'none', displayName: 'None', endpoints: [publishedEndpoint(8080, false)], preferences: { selectedEndpoint: { id: 'none', source: 'none' } } }),
-   mk({ id: 'conflicting', name: 'conflicting', displayName: 'Conflicting', preferences: { selectedEndpoint: { id: 'none', source: 'none' } } }),
+   mk({ id: 'none', name: 'none', displayName: 'None', endpoints: [publishedEndpoint(8080, false)], hasWebUi: false }),
+   mk({ id: 'selected', name: 'selected', displayName: 'Selected' }),
   ]);
   expect(document.querySelector('.tile-grid')).toHaveTextContent('Ambiguous');
   expect(screen.getByText('Choose a URL')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'None settings' })).toHaveClass('chip');
-  expect(screen.getByRole('link', { name: /Conflicting/ })).toHaveAttribute('href', 'http://localhost:8080/');
+  expect(screen.getByRole('link', { name: /Selected/ })).toHaveAttribute('href', 'http://localhost:8080/');
  });
 
  it('shows failed saves without closing the dialog or changing the confirmed tile', async () => {

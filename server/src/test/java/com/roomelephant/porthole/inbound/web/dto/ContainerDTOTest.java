@@ -26,7 +26,7 @@ class ContainerDTOTest {
                 "Up 2 hours",
                 null,
                 false,
-                new ContainerPreferencesDTO(null));
+                true);
 
         assertTrue(dto.hasEndpoints());
     }
@@ -47,38 +47,18 @@ class ContainerDTOTest {
                 "Up 2 hours",
                 null,
                 false,
-                new ContainerPreferencesDTO(null));
+                true);
 
         assertFalse(dto.hasEndpoints());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.MethodSource("selectionsWithoutAvailableEndpoint")
-    void shouldNotCountUnavailableSelectionsAsEndpoints(SelectedEndpointDTO selection) {
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldKeepCandidatePresenceIndependentOfWebUiAvailability(boolean hasWebUi) {
         var dto = new ContainerDTO(
-                "app-id",
-                "local",
-                "app",
-                "app",
-                "nginx",
-                List.of(),
-                "",
-                null,
-                "running",
-                "Up",
-                null,
-                false,
-                new ContainerPreferencesDTO(selection));
+                "id", "local", "app", "app", "nginx", List.of(), "", null, "running", "Up", null, false, hasWebUi);
         assertFalse(dto.hasEndpoints());
-    }
-
-    static java.util.stream.Stream<SelectedEndpointDTO> selectionsWithoutAvailableEndpoint() {
-        return java.util.stream.Stream.of(
-                null,
-                new SelectedEndpointDTO("none", "none", null),
-                new SelectedEndpointDTO("missing", "traefik", null),
-                new SelectedEndpointDTO("custom", "custom", "javascript:alert(1)"),
-                new SelectedEndpointDTO("custom", "custom", "https://app.example"));
+        assertEquals(hasWebUi, dto.hasWebUi());
     }
 
     @Test
@@ -97,7 +77,7 @@ class ContainerDTOTest {
                 "Up 1 hour",
                 null,
                 true,
-                new ContainerPreferencesDTO(null));
+                true);
 
         assertEquals("abc123", dto.id());
         assertEquals("test-container", dto.name());
@@ -129,7 +109,7 @@ class ContainerDTOTest {
                 "Up",
                 null,
                 true,
-                new ContainerPreferencesDTO(null));
+                true);
 
         String json = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(dto);
 

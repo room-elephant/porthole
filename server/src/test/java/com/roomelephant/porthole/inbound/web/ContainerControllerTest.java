@@ -225,12 +225,32 @@ class ContainerControllerTest {
     }
 
     @Test
-    void shouldExposeAutomaticPreferencesInInventory() throws Exception {
+    void shouldExposeResolvedAvailabilityWithoutPreferencesInInventory() throws Exception {
         when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(createContainer("app"))));
         mockMvc.perform(get("/api/containers"))
-                .andExpect(jsonPath("$.containers[0].preferences").isMap())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"selectedEndpoint\":null")));
+                .andExpect(jsonPath("$.containers[0].preferences").doesNotHaveJsonPath())
+                .andExpect(jsonPath("$.containers[0].hasWebUi").value(true));
+    }
+
+    @Test
+    void shouldReturnBooleanAvailabilityForEmptyAndAmbiguousContainers() throws Exception {
+        var empty = createContainer("empty", Set.of());
+        var ambiguous = createContainer("ambiguous");
+        ambiguous.setUrlCandidates(List.of(
+                new Endpoint("one", "traefik", "https://one.example/", false),
+                new Endpoint("two", "traefik", "https://two.example/", false)));
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false)))
+                .thenReturn(inventory(List.of(empty, ambiguous)));
+        mockMvc.perform(get("/api/containers").param("includeWithoutEndpoints", "true"))
+                .andExpect(jsonPath("$.containers[0].hasWebUi").value(false))
+                .andExpect(jsonPath("$.containers[0].hasEndpoints").value(false))
+                .andExpect(jsonPath("$.containers[0].preferences").doesNotHaveJsonPath())
+                .andExpect(jsonPath("$.containers[1].hasWebUi").value(true))
+                .andExpect(jsonPath("$.containers[1].hasEndpoints").value(true))
+                .andExpect(jsonPath("$.containers[1].endpoints[*].selected")
+                        .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(false))))
+                .andExpect(jsonPath("$.containers[1].preferences").doesNotHaveJsonPath());
     }
 
     @Test
@@ -319,18 +339,14 @@ class ContainerControllerTest {
     }
 
     @Test
-    void shouldReturnResolvedCustomCandidateWithSettingsMetadata() throws Exception {
+    void shouldReturnResolvedCustomCandidateWithoutPreferences() throws Exception {
         var container = createContainer("app");
         resolveSelection(container, new SelectedEndpoint("custom", "custom", "https://app.example"));
         when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(container)));
         mockMvc.perform(get("/api/containers"))
-                .andExpect(jsonPath("$.containers[0].preferences.selectedEndpoint.id")
-                        .value("custom"))
-                .andExpect(jsonPath("$.containers[0].preferences.selectedEndpoint.source")
-                        .value("custom"))
-                .andExpect(jsonPath("$.containers[0].preferences.selectedEndpoint.url")
-                        .value("https://app.example"))
+                .andExpect(jsonPath("$.containers[0].preferences").doesNotHaveJsonPath())
+                .andExpect(jsonPath("$.containers[0].hasWebUi").value(true))
                 .andExpect(jsonPath("$.containers[0].endpoints.length()").value(2))
                 .andExpect(jsonPath("$.containers[0].endpoints[0].selected").value(false))
                 .andExpect(jsonPath("$.containers[0].endpoints[1].id").value("custom"))
@@ -347,8 +363,8 @@ class ContainerControllerTest {
         when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(container)));
         mockMvc.perform(get("/api/containers"))
-                .andExpect(jsonPath("$.containers[0].preferences.selectedEndpoint.id")
-                        .value("none"))
+                .andExpect(jsonPath("$.containers[0].preferences").doesNotHaveJsonPath())
+                .andExpect(jsonPath("$.containers[0].hasWebUi").value(false))
                 .andExpect(jsonPath("$.containers[0].endpoints.length()").value(1))
                 .andExpect(jsonPath("$.containers[0].endpoints[0].selected").value(false))
                 .andExpect(jsonPath("$.containers[0].hasEndpoints").value(true));

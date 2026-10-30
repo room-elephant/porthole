@@ -13,7 +13,7 @@ const custom = { id: 'custom', source: 'custom', url: 'https://custom.example.co
 const key = ['containers', { showAll: true, showStopped: false }];
 const alternate = ['containers', { showAll: false, showStopped: true }];
 const deferred = () => { let resolve; let reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
-const container = (selection = null, overrides = {}) => createMockContainer({ name: 'app', endpoints: [port, root], preferences: { selectedEndpoint: selection }, ...overrides });
+const container = (selection = null, overrides = {}) => createMockContainer({ name: 'app', endpoints: [port, root], hasWebUi: selection?.source !== 'none', ...overrides });
 const inventory = containers => ({ sources: [{ id: 'local', name: 'Local', status: 'UP', error: null }], containers });
 const noUi = () => container(none, { endpoints: [port, { ...root, selected: false }] });
 const confirmation = { sourceId: 'local', containerName: 'app', preferences: { selectedEndpoint: none } };
@@ -30,18 +30,17 @@ const setup = (initial = container(), fetch = vi.fn().mockResolvedValue(inventor
 
 beforeEach(() => { vi.clearAllMocks(); });
 describe('shared endpoint selection', () => {
-  it.each([null, { id: port.id, source: port.source }, none, { id: 'custom', source: 'custom', url: 'https://stale.example.com/' }])('uses server flags despite preference %s', selection => {
-    const { wrapper, useSelection } = setup(container(selection));
+  it('uses server flags without preference metadata', () => {
+    const { wrapper, useSelection } = setup(container());
     const { result } = renderHook(useSelection, { wrapper });
     expect(result.current.selectedEndpoint).toEqual(root);
     expect(result.current.selectedEndpointId).toBe(root.id);
     expect(localStorage.getItem).not.toHaveBeenCalled();
-    expect(localStorage.setItem).not.toHaveBeenCalled();
     expect(selectContainerEndpoint).not.toHaveBeenCalled();
   });
 
-  it.each([null, { id: port.id, source: port.source }, { id: 'custom', source: 'custom', url: 'https://stale.example.com/' }])('does not synthesize a selection when every flag is false and metadata is %s', selection => {
-    const { wrapper, useSelection } = setup(container(selection, { endpoints: [port] }));
+  it('leaves an ambiguous inventory unselected without preference metadata', () => {
+    const { wrapper, useSelection } = setup(container(null, { endpoints: [port, { ...root, selected: false }] }));
     const { result } = renderHook(useSelection, { wrapper });
     expect(result.current.selectedEndpoint).toBeNull();
     expect(result.current.selectedEndpointId).toBeNull();
@@ -88,7 +87,7 @@ describe('shared endpoint selection', () => {
     const filtered = renderHook(() => useQuery({ queryKey: alternate }), { wrapper });
     await waitFor(() => expect(filteredFetch).toHaveBeenCalledTimes(1));
     await act(async () => filteredRefresh.resolve(inventory([noUi(), remote])));
-    await waitFor(() => expect(filtered.result.current.data.containers[0].preferences.selectedEndpoint).toEqual(none));
+    await waitFor(() => expect(filtered.result.current.data.containers[0].hasWebUi).toBe(false));
     expect(filtered.result.current.data.containers[1]).toEqual(remote);
     expect(localStorage.setItem).not.toHaveBeenCalled();
   });
@@ -167,7 +166,7 @@ describe('shared endpoint selection', () => {
     await waitFor(() => expect(result.current.selectedEndpointId).toBe('none'));
     await act(async () => { old.resolve(inventory([container()])); during.resolve(inventory([container()])); await Promise.all([beforeRequest, duringRequest]); });
     expect(result.current.selectedEndpoint).toBeNull();
-    expect(client.getQueryData(key).containers[0].preferences.selectedEndpoint).toEqual(none);
+    expect(client.getQueryData(key).containers[0].hasWebUi).toBe(false);
   });
 
   it('keeps a container save locked when a different source starts saving during its confirmation GET', async () => {

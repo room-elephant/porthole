@@ -75,8 +75,7 @@ function EndpointSelection({ container, selectedEndpointId, onSelectEndpoint, is
     const [editingCustom, setEditingCustom] = useState(false);
     const endpoints = groupEndpointsBySource(container.endpoints.filter(endpoint => endpoint.source !== 'custom')).flatMap(group => group.endpoints);
     const effectiveEndpointId = editingCustom ? 'custom' : endpoints.length === 0 && selectedEndpointId !== 'custom' ? NO_ENDPOINT_ID : selectedEndpointId;
-    const custom = container.preferences?.selectedEndpoint;
-    const savedUrl = (custom?.source === 'custom' ? custom.url : container.endpoints.find(endpoint => endpoint.source === 'custom')?.url) ?? '';
+    const savedUrl = container.endpoints.find(endpoint => endpoint.source === 'custom')?.url ?? '';
     const select = selection => { setEditingCustom(false); onSelectEndpoint(selection); };
     return (
         <fieldset className="settings-section endpoint-selection" disabled={isSaving} aria-busy={isSaving}>

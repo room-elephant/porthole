@@ -57,7 +57,7 @@ export const createMockContainer = (overrides = {}) => ({
   project: null,
   endpoints: [publishedEndpoint(8080, true)],
   hasEndpoints: true,
-  preferences: { selectedEndpoint: null },
+  hasWebUi: overrides.hasEndpoints ?? true,
   iconUrl: 'https://example.com/icon.png',
   self: false,
   ...overrides,
@@ -87,6 +87,6 @@ export const inventoryWithSelection = (inventory, { sourceId, containerName, sel
     const endpoints = container.endpoints.filter(endpoint => endpoint.source !== 'custom')
       .map(endpoint => ({ ...endpoint, selected: endpoint.id === selectedEndpoint.id && endpoint.source === selectedEndpoint.source }));
     if (selectedEndpoint.source === 'custom') endpoints.push({ ...selectedEndpoint, selected: true });
-    return { ...container, endpoints, hasEndpoints: endpoints.length > 0, preferences: { ...container.preferences, selectedEndpoint } };
+    return { ...container, endpoints, hasEndpoints: endpoints.length > 0, hasWebUi: selectedEndpoint.source !== 'none' && endpoints.length > 0 };
   }),
 });

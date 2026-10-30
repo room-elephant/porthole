@@ -261,7 +261,7 @@ describe('ContainerSettings', () => {
   it('edits an existing custom URL and clears its draft when a confirmed discovered choice replaces it', () => {
     const onSelectEndpoint = vi.fn();
     const custom = { id: 'custom', source: 'custom', url: 'https://old.example.com/' };
-    const container = { ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, { ...custom, selected: true }], preferences: { selectedEndpoint: custom } };
+    const container = { ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, { ...custom, selected: true }] };
     const view = render(<ContainerSettings {...defaultProps} container={container} selectedEndpointId="custom" onSelectEndpoint={onSelectEndpoint} />);
     expect(screen.getByRole('radio', { name: 'Custom URL' })).toBeChecked();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://new.example.com/' } });
@@ -280,12 +280,12 @@ describe('ContainerSettings', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: custom.url } });
     screen.getByRole('button', { name: 'Save custom URL' }).focus();
-    view.rerender(<ContainerSettings {...defaultProps} selectedEndpointId="custom" container={{ ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, { ...custom, selected: true }], preferences: { selectedEndpoint: custom } }} />);
+    view.rerender(<ContainerSettings {...defaultProps} selectedEndpointId="custom" container={{ ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, { ...custom, selected: true }] }} />);
     expect(screen.getByRole('button', { name: 'Save custom URL' })).toHaveFocus();
   });
 
   it('disables selection controls while saving and exposes pending and error feedback', () => {
-    const container = { ...defaultProps.container, endpoints: [{ id: 'custom', source: 'custom', url: 'https://example.com/', selected: true }], preferences: { selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://example.com/' } } };
+    const container = { ...defaultProps.container, endpoints: [{ id: 'custom', source: 'custom', url: 'https://example.com/', selected: true }] };
     const view = render(<ContainerSettings {...defaultProps} container={container} selectedEndpointId="custom" isSaving />);
     expect(screen.getByText('Saving selection…')).toHaveAttribute('role', 'status');
     screen.getAllByRole('radio').forEach(radio => expect(radio).toBeDisabled());

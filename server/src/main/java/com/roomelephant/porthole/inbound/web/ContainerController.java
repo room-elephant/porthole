@@ -47,7 +47,7 @@ public class ContainerController {
             summary = "List discovered containers",
             description = "Returns the status of every configured Docker source and a combined container inventory. "
                     + "By default, excludes stopped containers and containers without resolved service endpoint candidates. "
-                    + "Endpoints include the configured custom URL and selected flags for navigation; shared preferences remain settings metadata. "
+                    + "Endpoints include the configured custom URL and selected flags for navigation; hasWebUi determines tile or chip availability. "
                     + "Explicit none keeps available candidates with all selected flags false. "
                     + "A failed source is reported as DOWN or ERROR in sources without discarding other sources' containers. "
                     + "Image version information comes from the background refresh cache and may initially be null.")

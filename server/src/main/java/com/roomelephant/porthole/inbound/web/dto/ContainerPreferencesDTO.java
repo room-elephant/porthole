@@ -6,7 +6,7 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 @NullMarked
-@Schema(description = "Shared container preferences included in the inventory")
+@Schema(description = "Shared container preferences for selection commands and confirmations")
 public record ContainerPreferencesDTO(
         @JsonProperty(value = "selectedEndpoint", required = true)
         @Schema(

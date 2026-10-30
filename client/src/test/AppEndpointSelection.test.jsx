@@ -8,7 +8,7 @@ vi.mock('../api', () => ({ fetchContainers: vi.fn(), selectContainerEndpoint: vi
 
 const source = { id: 'local', name: 'Local', status: 'UP', error: null };
 const initial = { sources: [source], containers: [createMockContainer()] };
-const refreshed = { sources: [source], containers: [createMockContainer({ endpoints: [publishedEndpoint(8080, false)], preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })] };
+const refreshed = { sources: [source], containers: [createMockContainer({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] };
 
 describe('App endpoint selection refresh', () => {
   it('keeps the dialog and prior inventory after a saved selection fails to refresh, then recovers through GET alone', async () => {

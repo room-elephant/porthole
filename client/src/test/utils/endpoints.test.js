@@ -7,19 +7,13 @@ const path = { id: 'traefik:dl', source: 'traefik', url: 'https://transmission.e
 const other = { id: 'ngnext:app', source: 'ngnext', url: 'https://app.example.com/', selected: false };
 
 describe('tile and chip partitioning', () => {
-  it('keeps ambiguous automatic choices as tiles', () => {
-    expect(isHeadless({ hasEndpoints: true, endpoints: [port, root], preferences: { selectedEndpoint: null } })).toBe(false);
-  });
-  it('uses explicit none only when no server endpoint is selected', () => {
-    const preferences = { selectedEndpoint: { id: 'none', source: 'none' } };
-    expect(isHeadless({ hasEndpoints: true, endpoints: [port], preferences })).toBe(true);
-    expect(isHeadless({ hasEndpoints: true, endpoints: [{ ...port, selected: true }], preferences })).toBe(false);
-  });
-  it('does not materialize a custom tile from metadata without server candidates', () => {
-    expect(isHeadless({ hasEndpoints: false, endpoints: [], preferences: { selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://stale/' } } })).toBe(true);
-  });
-  it('keeps server-resolved custom-only containers as tiles', () => {
-    expect(isHeadless({ hasEndpoints: true, endpoints: [{ id: 'custom', source: 'custom', url: 'https://custom/', selected: true }] })).toBe(false);
+  it.each([
+    [{ hasWebUi: true, hasEndpoints: true, endpoints: [port, root] }, false],
+    [{ hasWebUi: false, hasEndpoints: true, endpoints: [port] }, true],
+    [{ hasWebUi: false, hasEndpoints: false, endpoints: [] }, true],
+    [{ hasWebUi: true, hasEndpoints: true, endpoints: [{ id: 'custom', source: 'custom', url: 'https://custom/', selected: true }] }, false],
+  ])('partitions resolved inventory %s', (container, expected) => {
+    expect(isHeadless(container)).toBe(expected);
   });
 });
 

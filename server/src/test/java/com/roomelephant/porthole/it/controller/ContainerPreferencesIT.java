@@ -124,8 +124,7 @@ class ContainerPreferencesIT {
                 .containsPattern("Uid:\\s+65532\\s+65532\\s+65532\\s+65532");
         assertThat(inventory(false).containers()).isEmpty();
         assertThat(inventory(true).containers())
-                .allSatisfy(container ->
-                        assertThat(container.preferences().selectedEndpoint()).isNull());
+                .allSatisfy(container -> assertThat(container.hasWebUi()).isFalse());
         select("mike", "{\"id\":\"none\",\"source\":\"none\"}");
         var saved = select("walker", CUSTOM);
         assertThat(saved.sourceId()).isEqualTo("walker");
@@ -137,17 +136,17 @@ class ContainerPreferencesIT {
             assertThat(container.endpoints())
                     .containsExactly(new EndpointDTO("custom", "custom", "https://shared.example.com/app", true));
             assertThat(container.hasEndpoints()).isTrue();
-            assertThat(container.preferences()).isEqualTo(saved.preferences());
+            assertThat(container.hasWebUi()).isTrue();
         });
         assertThat(inventory(true).containers())
                 .filteredOn(c -> c.sourceId().equals("mike"))
                 .singleElement()
-                .satisfies(c -> assertThat(c.preferences().selectedEndpoint())
-                        .isEqualTo(new SelectedEndpointDTO("none", "none", null)));
+                .satisfies(c -> assertThat(c.hasWebUi()).isFalse());
         assertThat(select("walker", CUSTOM)).isEqualTo(saved);
         assertThat(inventory(false).containers())
                 .singleElement()
-                .satisfies(c -> assertThat(c.preferences()).isEqualTo(saved.preferences()));
+                .satisfies(c -> assertThat(c.endpoints())
+                        .containsExactly(new EndpointDTO("custom", "custom", "https://shared.example.com/app", true)));
     }
 
     @ParameterizedTest
@@ -174,7 +173,7 @@ class ContainerPreferencesIT {
                 .filteredOn(c -> c.sourceId().equals("walker"))
                 .singleElement()
                 .satisfies(c -> {
-                    assertThat(c.preferences()).isEqualTo(saved.preferences());
+                    assertThat(c.hasWebUi()).isFalse();
                     assertThat(c.endpoints()).isEmpty();
                     assertThat(c.hasEndpoints()).isFalse();
                 });
@@ -185,7 +184,7 @@ class ContainerPreferencesIT {
 
     @Test
     void replacingApplicationAndRecreatingContainerRetainsPreferencesInReusedVolume() {
-        var saved = select("walker", CUSTOM);
+        select("walker", CUSTOM);
         String previousContainer = app.getContainerId();
         app.stop();
         inventoryFixture("recreated-id");
@@ -197,7 +196,7 @@ class ContainerPreferencesIT {
                     .containsExactly(new EndpointDTO("custom", "custom", "https://shared.example.com/app", true));
             assertThat(container.hasEndpoints()).isTrue();
             assertThat(container.sourceId()).isEqualTo("walker");
-            assertThat(container.preferences()).isEqualTo(saved.preferences());
+            assertThat(container.hasWebUi()).isTrue();
         });
     }
 
@@ -210,7 +209,7 @@ class ContainerPreferencesIT {
             assertThat(container.endpoints())
                     .containsExactly(
                             new EndpointDTO("published-port:8080", "published-port", "http://127.0.0.1:8080/", true));
-            assertThat(container.preferences().selectedEndpoint()).isNull();
+            assertThat(container.hasWebUi()).isTrue();
         });
         select("walker", CUSTOM);
         assertThat(inventory(false).containers())
@@ -230,15 +229,14 @@ class ContainerPreferencesIT {
                             .containsExactly(new EndpointDTO(
                                     "published-port:8080", "published-port", "http://127.0.0.1:8080/", false));
                     assertThat(container.hasEndpoints()).isTrue();
-                    assertThat(container.preferences().selectedEndpoint())
-                            .isEqualTo(new SelectedEndpointDTO("none", "none", null));
+                    assertThat(container.hasWebUi()).isFalse();
                 });
         select("walker", "null");
         assertThat(inventory(false).containers()).hasSize(2).allSatisfy(container -> {
             assertThat(container.endpoints())
                     .containsExactly(
                             new EndpointDTO("published-port:8080", "published-port", "http://127.0.0.1:8080/", true));
-            assertThat(container.preferences().selectedEndpoint()).isNull();
+            assertThat(container.hasWebUi()).isTrue();
         });
     }
 
@@ -246,7 +244,7 @@ class ContainerPreferencesIT {
     @ValueSource(strings = {"published", "roots", "paths"})
     void unavailableSavedChoiceFallsBackWithoutRewritingPreferences(String fallback) throws Exception {
         inventoryFixture("original-id", "{}", PUBLISHED_PORT);
-        var saved = select("walker", "{\"id\":\"published-port:8080\",\"source\":\"published-port\"}");
+        select("walker", "{\"id\":\"published-port:8080\",\"source\":\"published-port\"}");
         assertThat(inventory(false).containers())
                 .filteredOn(c -> c.sourceId().equals("walker"))
                 .singleElement()
@@ -269,7 +267,7 @@ class ContainerPreferencesIT {
                 .filteredOn(c -> c.sourceId().equals("walker"))
                 .singleElement()
                 .satisfies(container -> {
-                    assertThat(container.preferences()).isEqualTo(saved.preferences());
+                    assertThat(container.hasWebUi()).isTrue();
                     assertThat(container.endpoints())
                             .noneMatch(endpoint -> endpoint.id().equals("published-port:8080"));
                     if (fallback.equals("published")) {

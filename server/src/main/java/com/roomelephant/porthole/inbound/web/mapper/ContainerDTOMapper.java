@@ -41,7 +41,7 @@ public class ContainerDTOMapper {
                 container.status(),
                 container.version(),
                 container.isSelf(),
-                toDTO(container.preferences()));
+                container.hasWebUi());
     }
 
     public ContainerPreferencesDTO toDTO(ContainerPreferences preferences) {

@@ -3,7 +3,7 @@ import { isCancelledError, useIsMutating, useMutation, useQueryClient } from '@t
 import { selectContainerEndpoint } from '../api';
 import { NO_ENDPOINT_ID } from '../utils/endpoints';
 
-/** Navigation uses only server-resolved inventory; preferences describe explicit settings. */
+/** Navigation and settings selection use only server-resolved inventory. */
 export const useEndpointSelection = (container) => {
   const queryClient = useQueryClient();
   const [refreshFailure, setRefreshFailure] = useState(null);
@@ -55,7 +55,7 @@ export const useEndpointSelection = (container) => {
   });
   const selectedEndpoint = container.endpoints.find(endpoint => endpoint.selected) ?? null;
   const selectedEndpointId = selectedEndpoint?.id
-    ?? (container.preferences?.selectedEndpoint?.id === NO_ENDPOINT_ID ? NO_ENDPOINT_ID : null);
+    ?? (!container.hasWebUi ? NO_ENDPOINT_ID : null);
   const selectEndpoint = (selectedEndpoint) => {
     // QueryClient's mutation state changes synchronously, including between two clicks in one render.
     if (queryClient.isMutating(filters)) return;

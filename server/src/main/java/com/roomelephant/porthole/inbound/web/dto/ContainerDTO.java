@@ -9,13 +9,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 
 @NullMarked
-@RegisterReflectionForBinding({
-    ContainerDTO.class,
-    EndpointDTO.class,
-    VersionInfo.class,
-    ContainerPreferencesDTO.class,
-    SelectedEndpointDTO.class
-})
+@RegisterReflectionForBinding({ContainerDTO.class, EndpointDTO.class, VersionInfo.class})
 public record ContainerDTO(
         String id,
         String sourceId,
@@ -30,8 +24,10 @@ public record ContainerDTO(
         @Nullable VersionInfo version,
         boolean self,
 
-        @Schema(description = "Shared preferences, with a null selectedEndpoint when automatic selection is enabled")
-        ContainerPreferencesDTO preferences) {
+        @Schema(
+                description = "Whether the container has a web UI, including unresolved endpoint choices",
+                requiredMode = Schema.RequiredMode.REQUIRED)
+        boolean hasWebUi) {
     public ContainerDTO {
         endpoints = List.copyOf(endpoints);
     }

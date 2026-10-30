@@ -33,7 +33,4 @@ export const groupEndpointsBySource = (endpoints) => {
 };
 
 /** Ambiguous choices stay tiles; explicit none uses a chip. */
-export const isHeadless = (container) => {
-  if (container.endpoints.some(endpoint => endpoint.selected)) return false;
-  return container.preferences?.selectedEndpoint?.id === NO_ENDPOINT_ID || !container.hasEndpoints;
-};
+export const isHeadless = (container) => !container.hasWebUi;

@@ -36,9 +36,9 @@ describe('ContainerTile', () => {
     selectContainerEndpoint.mockImplementation(async request => { savedSelections.push(request); return { sourceId: request.sourceId, containerName: request.containerName, preferences: { selectedEndpoint: request.selectedEndpoint } }; });
   });
 
-  it('navigates using server flags even when saved metadata points elsewhere', () => {
+  it('navigates using server flags without preference metadata', () => {
     const endpoints = [publishedEndpoint(80, false), publishedEndpoint(443, true)];
-    renderWithQuery(<ContainerTile container={createMockContainer({ endpoints, preferences: { selectedEndpoint: { id: 'published-port:80', source: 'published-port' } } })} />);
+    renderWithQuery(<ContainerTile container={createMockContainer({ endpoints })} />);
     expect(screen.getByRole('link')).toHaveAttribute('href', 'http://localhost:443/');
   });
 
@@ -48,6 +48,15 @@ describe('ContainerTile', () => {
     expect(screen.getByRole('link')).toHaveAttribute('href', 'http://localhost:80/');
     view.rerender(<ContainerTile container={{ ...container, endpoints: [publishedEndpoint(80, false), publishedEndpoint(443, true)] }} />);
     expect(screen.getByRole('link')).toHaveAttribute('href', 'http://localhost:443/');
+  });
+
+  it('refreshes an open settings selection when only hasWebUi changes', () => {
+    const container = createMockContainer({ endpoints: [publishedEndpoint(80, false), publishedEndpoint(443, false)] });
+    const view = renderWithQuery(<ContainerTile container={container} />);
+    fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
+    expect(screen.getByRole('radio', { name: 'No web UI' })).not.toBeChecked();
+    view.rerender(<ContainerTile container={{ ...container, hasWebUi: false }} />);
+    expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked();
   });
 
   it('should render container name and image', () => {
@@ -320,7 +329,7 @@ describe('ContainerTile', () => {
 
     it('opens the saved no endpoint choice from the main button', async () => {
       const user = userEvent.setup();
-      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(8080, false)], preferences: { selectedEndpoint: { id: 'none', source: 'none' } } })} />);
+      renderWithQuery(<ContainerTile container={createMockContainer({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })} />);
       await user.tab();
       expect(screen.getAllByRole('button', { name: settingsName })[0]).toHaveFocus();
       await user.keyboard('{Enter}');
@@ -369,10 +378,10 @@ describe('ContainerTile', () => {
 
   it('launches the new name preference after a rename with the same Docker ID', () => {
     const root = { id: 'proxy', source: 'traefik', url: 'https://app.example.com/', selected: false };
-    const container = createMockContainer({ endpoints: [publishedEndpoint(8080, true), root], preferences: { selectedEndpoint: { id: 'published-port:8080', source: 'published-port' } } });
+    const container = createMockContainer({ endpoints: [publishedEndpoint(8080, true), root] });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
-    view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed', endpoints: [publishedEndpoint(8080, false), { ...root, selected: true }], preferences: { selectedEndpoint: { id: root.id, source: root.source } } }} /></QueryClientProvider>);
+    view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, name: 'renamed', endpoints: [publishedEndpoint(8080, false), { ...root, selected: true }] }} /></QueryClientProvider>);
     expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', root.url);
   });
 

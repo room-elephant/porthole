@@ -85,12 +85,10 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
         prev.image === next.image &&
         prev.iconUrl === next.iconUrl &&
         prev.hasEndpoints === next.hasEndpoints &&
+        prev.hasWebUi === next.hasWebUi &&
         prev.version?.currentVersion === next.version?.currentVersion &&
         prev.version?.latestVersion === next.version?.latestVersion &&
         prev.version?.updateAvailable === next.version?.updateAvailable &&
-        prev.preferences?.selectedEndpoint?.id === next.preferences?.selectedEndpoint?.id &&
-        prev.preferences?.selectedEndpoint?.source === next.preferences?.selectedEndpoint?.source &&
-        prev.preferences?.selectedEndpoint?.url === next.preferences?.selectedEndpoint?.url &&
         arraysEqual(prev.endpoints, next.endpoints)
     );
 });
