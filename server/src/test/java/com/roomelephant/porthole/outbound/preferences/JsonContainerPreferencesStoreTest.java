@@ -48,27 +48,17 @@ class JsonContainerPreferencesStoreTest {
     }
 
     @Test
-    void resettingToAutomaticRemovesRecordButKeepsOtherFields() throws IOException {
+    void resettingToAutomaticRemovesTheRecord() throws IOException {
         var path = directory.resolve("preferences.json");
-        Files.writeString(path, """
-                [{"sourceId":"local","containerName":"grafana","preferences":{
-                  "icon":{"url":"https://icons.example.com/grafana.svg"},
-                  "selectedEndpoint":{"id":"none","source":"none"}}},
-                 {"sourceId":"local","containerName":"prometheus","preferences":{
-                  "selectedEndpoint":{"id":"none","source":"none"}}}]
-                """);
         var store = new JsonContainerPreferencesStore(path, mapper);
-        assertThat(store.replaceSelection(key, null)).isEqualTo(new ContainerPreferences(null));
         var prometheus = new ContainerPreferencesKey("local", "prometheus");
-        assertThat(store.replaceSelection(prometheus, null)).isEqualTo(new ContainerPreferences(null));
+        store.replaceSelection(key, custom);
+        store.replaceSelection(prometheus, new SelectedEndpoint("none", "none", null));
+        assertThat(store.replaceSelection(key, null)).isEqualTo(new ContainerPreferences(null));
         var json = mapper.readTree(Files.readString(path));
         assertThat(json.size()).isEqualTo(1);
-        assertThat(json.get(0).get("containerName").asString()).isEqualTo("grafana");
-        assertThat(json.get(0).get("preferences").has("selectedEndpoint")).isFalse();
-        assertThat(json.get(0).get("preferences").has("icon")).isTrue();
-        assertThat(store.snapshot())
-                .containsEntry(key, new ContainerPreferences(null))
-                .doesNotContainKey(prometheus);
+        assertThat(json.get(0).get("containerName").asString()).isEqualTo("prometheus");
+        assertThat(store.snapshot()).doesNotContainKey(key).containsKey(prometheus);
     }
 
     @Test
@@ -142,18 +132,20 @@ class JsonContainerPreferencesStoreTest {
     }
 
     @Test
-    void preservesUnrelatedPreferenceFields() throws IOException {
+    void ignoresUnknownFieldsAndDropsThemOnNextSave() throws IOException {
         var path = directory.resolve("preferences.json");
         Files.writeString(path, """
-                [{"sourceId":"local","containerName":"grafana","preferences":{
+                [{"sourceId":"local","containerName":"grafana","extra":true,"preferences":{
                   "icon":{"url":"https://icons.example.com/grafana.svg"},
                   "selectedEndpoint":{"id":"custom","source":"custom","url":"https://old.example.com"}}}]
                 """);
         var store = new JsonContainerPreferencesStore(path, mapper);
+        assertThat(store.snapshot())
+                .containsEntry(
+                        key,
+                        new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://old.example.com")));
         store.replaceSelection(key, new SelectedEndpoint("none", "none", null));
-        var preferences = mapper.readTree(Files.readString(path)).get(0).get("preferences");
-        assertThat(preferences.get("icon").get("url").asString()).isEqualTo("https://icons.example.com/grafana.svg");
-        assertThat(Files.readString(path)).doesNotContain("old.example.com");
+        assertThat(Files.readString(path)).doesNotContain("icons.example.com", "old.example.com", "extra");
     }
 
     @Test

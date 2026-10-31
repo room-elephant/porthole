@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.outbound.preferences;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.ContainerPreferencesValidation;
@@ -15,6 +16,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -22,23 +24,23 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 @NullMarked
 public final class JsonContainerPreferencesStore implements ContainerPreferencesStore {
-    private static final String SELECTED_ENDPOINT = "selectedEndpoint";
+    private static final ContainerPreferences AUTOMATIC = new ContainerPreferences(null);
 
     private final Path path;
     private final JsonMapper mapper;
-    private Map<ContainerPreferencesKey, StoredContainerPreferences> records;
     private volatile Map<ContainerPreferencesKey, ContainerPreferences> snapshot;
 
     public JsonContainerPreferencesStore(Path path, JsonMapper mapper) {
         this.path = path.toAbsolutePath().normalize();
-        this.mapper = mapper;
+        // Omit absent values (for example a discovered selection's url) instead of writing explicit nulls.
+        this.mapper = mapper.rebuild()
+                .changeDefaultPropertyInclusion(inclusion -> inclusion.withValueInclusion(JsonInclude.Include.NON_NULL))
+                .build();
         try {
-            records = load();
-            snapshot = snapshotOf(records);
+            snapshot = load();
         } catch (IOException | JacksonException | IllegalArgumentException e) {
             throw new IllegalStateException("Failed to load container preferences from " + this.path, e);
         }
@@ -52,39 +54,19 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
     @Override
     public synchronized ContainerPreferences replaceSelection(
             ContainerPreferencesKey key, @Nullable SelectedEndpoint selection) {
-        var previous = records.get(key);
-        var preferences = previous == null
-                ? mapper.createObjectNode()
-                : previous.preferences().deepCopy();
+        var updated = new LinkedHashMap<>(snapshot);
         if (selection == null) {
-            preferences.remove(SELECTED_ENDPOINT);
+            // Automatic selection is the default, so there is nothing to remember.
+            updated.remove(key);
         } else {
-            ObjectNode selected = mapper.valueToTree(selection);
-            if (selection.url() == null) {
-                selected.remove("url");
-            }
-            preferences.set(SELECTED_ENDPOINT, selected);
+            updated.put(key, new ContainerPreferences(selection));
         }
-        var updatedRecords = new LinkedHashMap<>(records);
-        var updatedSnapshot = new LinkedHashMap<>(snapshot);
-        var confirmed = new ContainerPreferences(selection);
-        if (preferences.isEmpty()) {
-            // Nothing left to remember: drop the record so automatic selections do not accumulate.
-            updatedRecords.remove(key);
-            updatedSnapshot.remove(key);
-        } else {
-            var record = new StoredContainerPreferences(key.sourceId(), key.containerName(), preferences);
-            confirmed = preferencesOf(key, record);
-            updatedRecords.put(key, record);
-            updatedSnapshot.put(key, confirmed);
-        }
-        persist(updatedRecords);
-        records = updatedRecords;
-        snapshot = Map.copyOf(updatedSnapshot);
-        return confirmed;
+        persist(updated);
+        snapshot = Collections.unmodifiableMap(updated);
+        return updated.getOrDefault(key, AUTOMATIC);
     }
 
-    private Map<ContainerPreferencesKey, StoredContainerPreferences> load() throws IOException {
+    private Map<ContainerPreferencesKey, ContainerPreferences> load() throws IOException {
         byte[] contents;
         try {
             contents = Files.readAllBytes(path);
@@ -99,40 +81,26 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
         if (stored == null) {
             throw new IllegalArgumentException("Expected an array of container preference records");
         }
-        var loaded = new LinkedHashMap<ContainerPreferencesKey, StoredContainerPreferences>();
+        var loaded = new LinkedHashMap<ContainerPreferencesKey, ContainerPreferences>();
         for (var record : stored) {
-            if (record == null
-                    || record.sourceId() == null
-                    || record.containerName() == null
-                    || record.preferences() == null) {
+            if (record == null || record.preferences() == null) {
                 throw new IllegalArgumentException("Incomplete container preference record");
             }
             var key = new ContainerPreferencesKey(record.sourceId(), record.containerName());
-            preferencesOf(key, record);
-            loaded.put(key, record);
+            ContainerPreferencesValidation.validate(key, record.preferences().selectedEndpoint());
+            loaded.put(key, record.preferences());
         }
-        return loaded;
+        return Collections.unmodifiableMap(loaded);
     }
 
-    private Map<ContainerPreferencesKey, ContainerPreferences> snapshotOf(
-            Map<ContainerPreferencesKey, StoredContainerPreferences> stored) {
-        var values = new LinkedHashMap<ContainerPreferencesKey, ContainerPreferences>();
-        stored.forEach((key, record) -> values.put(key, preferencesOf(key, record)));
-        return Map.copyOf(values);
-    }
-
-    private ContainerPreferences preferencesOf(ContainerPreferencesKey key, StoredContainerPreferences record) {
-        var node = record.preferences().get(SELECTED_ENDPOINT);
-        SelectedEndpoint selection =
-                node == null || node.isNull() ? null : mapper.treeToValue(node, SelectedEndpoint.class);
-        ContainerPreferencesValidation.validate(key, selection);
-        return new ContainerPreferences(selection);
-    }
-
-    private void persist(Map<ContainerPreferencesKey, StoredContainerPreferences> updated) {
+    private void persist(Map<ContainerPreferencesKey, ContainerPreferences> updated) {
         Path temporary = null;
         try {
-            var bytes = mapper.writeValueAsBytes(updated.values());
+            var records = updated.entrySet().stream()
+                    .map(entry -> new StoredContainerPreferences(
+                            entry.getKey().sourceId(), entry.getKey().containerName(), entry.getValue()))
+                    .toList();
+            var bytes = mapper.writeValueAsBytes(records);
             var parent = Objects.requireNonNull(path.getParent());
             Files.createDirectories(parent);
             temporary = Files.createTempFile(parent, ".preferences-", ".tmp");

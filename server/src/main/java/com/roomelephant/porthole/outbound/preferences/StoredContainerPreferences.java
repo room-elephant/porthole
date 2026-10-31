@@ -1,7 +1,8 @@
 package com.roomelephant.porthole.outbound.preferences;
 
+import com.roomelephant.porthole.core.model.ContainerPreferences;
 import org.jspecify.annotations.NullMarked;
-import tools.jackson.databind.node.ObjectNode;
 
+/** One record of the preferences file; Jackson may leave any field null when reading a malformed file. */
 @NullMarked
-public record StoredContainerPreferences(String sourceId, String containerName, ObjectNode preferences) {}
+public record StoredContainerPreferences(String sourceId, String containerName, ContainerPreferences preferences) {}
