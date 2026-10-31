@@ -87,7 +87,7 @@ public final class Container {
 
     public boolean hasWebUi() {
         var selection = preferences.selectedEndpoint();
-        return !urlCandidates.isEmpty() && (selection == null || !"none".equals(selection.id()));
+        return !urlCandidates.isEmpty() && (selection == null || !selection.selectsNone());
     }
 
     public ContainerPreferences preferences() {

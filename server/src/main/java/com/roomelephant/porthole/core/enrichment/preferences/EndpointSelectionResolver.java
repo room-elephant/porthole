@@ -18,8 +18,8 @@ public final class EndpointSelectionResolver {
         for (var endpoint : discovered) {
             resolved.add(new Endpoint(endpoint.id(), endpoint.source(), endpoint.url(), false));
         }
-        if (selection != null && "none".equals(selection.id())) return List.copyOf(resolved);
-        if (selection != null && "custom".equals(selection.source())) {
+        if (selection != null && selection.selectsNone()) return List.copyOf(resolved);
+        if (selection != null && selection.selectsCustom()) {
             resolved.add(
                     new Endpoint(selection.id(), selection.source(), Objects.requireNonNull(selection.url()), true));
             return List.copyOf(resolved);

@@ -18,8 +18,8 @@ paths:
       description: "Returns the status of every configured Docker source and a combined\
         \ container inventory. By default, excludes stopped containers and containers\
         \ without resolved service endpoint candidates. Endpoints include the configured\
-        \ custom URL and selected flags for navigation; shared preferences remain\
-        \ settings metadata. Explicit none keeps available candidates with all selected\
+        \ custom URL and selected flags for navigation; hasWebUi determines tile or\
+        \ chip availability. Explicit none keeps available candidates with all selected\
         \ flags false. A failed source is reported as DOWN or ERROR in sources without\
         \ discarding other sources' containers. Image version information comes from\
         \ the background refresh cache and may initially be null."
@@ -75,8 +75,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ProblemDetail"
-          description: "Missing identity, preferences, or selectedEndpoint, or an\
-            \ invalid selection"
+          description: "Missing or unconfigured identity, missing preferences or selectedEndpoint,\
+            \ or an invalid selection"
         "500":
           content:
             application/problem+json:
@@ -114,6 +114,10 @@ components:
             $ref: "#/components/schemas/EndpointDTO"
         hasEndpoints:
           type: boolean
+        hasWebUi:
+          type: boolean
+          description: "Whether the container has a web UI, including unresolved endpoint\
+            \ choices"
         iconUrl:
           type: string
         id:
@@ -122,10 +126,6 @@ components:
           type: string
         name:
           type: string
-        preferences:
-          $ref: "#/components/schemas/ContainerPreferencesDTO"
-          description: "Shared preferences, with a null selectedEndpoint when automatic\
-            \ selection is enabled"
         project:
           type:
           - string
@@ -146,6 +146,8 @@ components:
           oneOf:
           - $ref: "#/components/schemas/VersionInfo"
           - type: "null"
+      required:
+      - hasWebUi
     ContainerInventoryDTO:
       type: object
       properties:
@@ -159,7 +161,7 @@ components:
             $ref: "#/components/schemas/SourceDTO"
     ContainerPreferencesDTO:
       type: object
-      description: Shared container preferences included in the inventory
+      description: Shared container preferences for selection commands and confirmations
       properties:
         selectedEndpoint:
           description: Saved endpoint choice; explicit null restores automatic selection

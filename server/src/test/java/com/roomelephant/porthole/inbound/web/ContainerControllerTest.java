@@ -11,13 +11,16 @@ import com.roomelephant.porthole.core.enrichment.preferences.ContainerPreference
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
+import com.roomelephant.porthole.core.model.DockerSource;
 import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.core.port.inbound.GetContainers;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
+import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import com.roomelephant.porthole.core.service.ContainerPreferencesService;
 import com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +48,16 @@ class ContainerControllerTest {
     @MockitoBean
     private ContainerPreferencesStore preferencesStore;
 
+    @MockitoBean
+    private DockerOperations dockerOperations;
+
     @BeforeEach
     void saveConfirmedPreferences() {
+        when(dockerOperations.sources())
+                .thenReturn(List.of(
+                        new DockerSource("local", "Local", null, Duration.ofSeconds(1), Duration.ofSeconds(1), true),
+                        new DockerSource(
+                                "remote", "Remote", null, Duration.ofSeconds(1), Duration.ofSeconds(1), false)));
         when(preferencesStore.replaceSelection(any(), nullable(SelectedEndpoint.class)))
                 .thenAnswer(invocation -> new ContainerPreferences(invocation.getArgument(1)));
     }

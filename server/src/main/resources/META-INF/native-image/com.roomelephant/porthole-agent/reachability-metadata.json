@@ -844,9 +844,6 @@
           "name": "groupAdd"
         },
         {
-          "name": "init"
-        },
-        {
           "name": "ioMaximumBandwidth"
         },
         {
@@ -2032,6 +2029,10 @@
           "parameterTypes": []
         },
         {
+          "name": "hasWebUi",
+          "parameterTypes": []
+        },
+        {
           "name": "iconUrl",
           "parameterTypes": []
         },
@@ -2045,10 +2046,6 @@
         },
         {
           "name": "name",
-          "parameterTypes": []
-        },
-        {
-          "name": "preferences",
           "parameterTypes": []
         },
         {

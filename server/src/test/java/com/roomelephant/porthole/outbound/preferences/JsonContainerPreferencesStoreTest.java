@@ -35,6 +35,42 @@ class JsonContainerPreferencesStoreTest {
         assertThat(path).doesNotExist();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\n"})
+    void blankFileStartsEmpty(String contents) throws IOException {
+        var path = directory.resolve("preferences.json");
+        Files.writeString(path, contents);
+        var store = new JsonContainerPreferencesStore(path, mapper);
+        assertThat(store.snapshot()).isEmpty();
+        store.replaceSelection(key, custom);
+        assertThat(new JsonContainerPreferencesStore(path, mapper).snapshot())
+                .containsEntry(key, new ContainerPreferences(custom));
+    }
+
+    @Test
+    void resettingToAutomaticRemovesRecordButKeepsOtherFields() throws IOException {
+        var path = directory.resolve("preferences.json");
+        Files.writeString(path, """
+                [{"sourceId":"local","containerName":"grafana","preferences":{
+                  "icon":{"url":"https://icons.example.com/grafana.svg"},
+                  "selectedEndpoint":{"id":"none","source":"none"}}},
+                 {"sourceId":"local","containerName":"prometheus","preferences":{
+                  "selectedEndpoint":{"id":"none","source":"none"}}}]
+                """);
+        var store = new JsonContainerPreferencesStore(path, mapper);
+        assertThat(store.replaceSelection(key, null)).isEqualTo(new ContainerPreferences(null));
+        var prometheus = new ContainerPreferencesKey("local", "prometheus");
+        assertThat(store.replaceSelection(prometheus, null)).isEqualTo(new ContainerPreferences(null));
+        var json = mapper.readTree(Files.readString(path));
+        assertThat(json.size()).isEqualTo(1);
+        assertThat(json.get(0).get("containerName").asString()).isEqualTo("grafana");
+        assertThat(json.get(0).get("preferences").has("selectedEndpoint")).isFalse();
+        assertThat(json.get(0).get("preferences").has("icon")).isTrue();
+        assertThat(store.snapshot())
+                .containsEntry(key, new ContainerPreferences(null))
+                .doesNotContainKey(prometheus);
+    }
+
     @Test
     void snapshotReadsMemoryWithoutReloadingTheFile() throws IOException {
         var path = directory.resolve("preferences.json");
@@ -71,7 +107,7 @@ class JsonContainerPreferencesStoreTest {
         assertThatThrownBy(() -> snapshot.clear()).isInstanceOf(UnsupportedOperationException.class);
         store.replaceSelection(key, null);
         assertThat(snapshot).containsEntry(key, new ContainerPreferences(custom));
-        assertThat(store.snapshot()).containsEntry(key, new ContainerPreferences(null));
+        assertThat(store.snapshot()).doesNotContainKey(key);
     }
 
     @Test
@@ -98,8 +134,10 @@ class JsonContainerPreferencesStoreTest {
                 ? null
                 : new SelectedEndpoint(source.equals("none") ? "none" : "published-port:3000", source, null);
         store.replaceSelection(key, replacement);
-        assertThat(new JsonContainerPreferencesStore(path, mapper).snapshot())
-                .containsEntry(key, new ContainerPreferences(replacement));
+        assertThat(new JsonContainerPreferencesStore(path, mapper)
+                        .snapshot()
+                        .getOrDefault(key, new ContainerPreferences(null)))
+                .isEqualTo(new ContainerPreferences(replacement));
         assertThat(Files.readString(path)).doesNotContain("grafana.example.com", "\"url\"");
     }
 

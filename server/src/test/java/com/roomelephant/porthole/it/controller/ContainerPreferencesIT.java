@@ -22,6 +22,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Exercises the shipped image, including its default data path and nonroot permissions. */
 class ContainerPreferencesIT {
@@ -110,9 +112,18 @@ class ContainerPreferencesIT {
     }
 
     private ContainerInventoryDTO inventory(boolean includeWithoutEndpoints) {
-        return http.getForObject(
-                appUrl() + "/api/containers?includeWithoutEndpoints=" + includeWithoutEndpoints,
-                ContainerInventoryDTO.class);
+        String response = http.getForObject(
+                appUrl() + "/api/containers?includeWithoutEndpoints=" + includeWithoutEndpoints, String.class);
+        var mapper = JsonMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
+        var inventory = mapper.readTree(response);
+        for (var container : inventory.path("containers")) {
+            assertThat(container.has("preferences")).isFalse();
+            assertThat(container.has("hasWebUi")).isTrue();
+            assertThat(container.path("hasWebUi").isBoolean()).isTrue();
+        }
+        return mapper.treeToValue(inventory, ContainerInventoryDTO.class);
     }
 
     private static final String CUSTOM =

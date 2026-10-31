@@ -252,6 +252,10 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         JsonNode body = new JsonMapper().readTree(fetch("/api/containers").getBody());
         boolean found = false;
         for (JsonNode container : body.path("containers")) {
+            assertThat(container.has("preferences")).isFalse();
+            assertThat(container.has("hasWebUi")).isTrue();
+            assertThat(container.path("hasWebUi").isBoolean()).isTrue();
+            assertThat(container.path("hasWebUi").asBoolean()).isTrue();
             assertThat(container.has("exposedPorts")).isFalse();
             assertThat(container.has("hasPublicPorts")).isFalse();
             assertThat(container.has("labels")).isFalse();

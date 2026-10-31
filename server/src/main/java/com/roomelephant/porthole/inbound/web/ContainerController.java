@@ -86,7 +86,8 @@ public class ContainerController {
                             schema = @Schema(implementation = SelectContainerEndpointResponse.class)))
     @ApiResponse(
             responseCode = "400",
-            description = "Missing identity, preferences, or selectedEndpoint, or an invalid selection",
+            description =
+                    "Missing or unconfigured identity, missing preferences or selectedEndpoint, or an invalid selection",
             content =
                     @Content(
                             mediaType = "application/problem+json",
