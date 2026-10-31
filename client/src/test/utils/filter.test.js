@@ -6,7 +6,7 @@ const ct = createMockContainer({
   name: 'smh-sonarr-1',
   displayName: 'Sonarr',
   image: 'lscr.io/linuxserver/sonarr:latest',
-  endpoints: [{ id: 't', source: 'traefik', url: 'https://tv.example.com/' }],
+  endpoints: [{ id: 't', source: 'traefik', url: 'https://tv.example.com/', selected: false }],
 });
 
 describe('matchesFilter', () => {

@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 
 /**
@@ -40,7 +40,7 @@ export const renderWithQuery = (ui, options = {}) => {
     </QueryClientProvider>
   );
 
-  return render(ui, { wrapper: Wrapper, ...options });
+  return { ...render(ui, { wrapper: Wrapper, ...options }), queryClient };
 };
 
 /**
@@ -55,11 +55,38 @@ export const createMockContainer = (overrides = {}) => ({
   state: 'running',
   status: 'Up 2 hours',
   project: null,
-  endpoints: [publishedEndpoint(8080)],
+  endpoints: [publishedEndpoint(8080, true)],
   hasEndpoints: true,
+  hasWebUi: overrides.hasEndpoints ?? true,
   iconUrl: 'https://example.com/icon.png',
   self: false,
   ...overrides,
 });
 
-export const publishedEndpoint = port => ({ id: `published-port:${port}`, source: 'published-port', url: `http://localhost:${port}/` });
+export const publishedEndpoint = (port, selected = false) => ({ id: `published-port:${port}`, source: 'published-port', url: `http://localhost:${port}/`, selected });
+
+/** Render the real inventory-to-component flow so confirmed cache updates reach props. */
+export const renderInventory = (children, inventory, queryFn = () => inventory) => {
+  function InventoryView() {
+    const { data } = useQuery({
+      queryKey: ['containers', { showAll: true, showStopped: true }],
+      queryFn,
+      initialData: inventory,
+      staleTime: Infinity,
+    });
+    return children(data);
+  }
+  return renderWithQuery(<InventoryView />);
+};
+
+/** Resolved GET fixture after an explicit choice; automatic resolution belongs to server tests. */
+export const inventoryWithSelection = (inventory, { sourceId, containerName, selectedEndpoint }) => ({
+  ...inventory,
+  containers: inventory.containers.map(container => {
+    if (container.sourceId !== sourceId || container.name !== containerName) return container;
+    const endpoints = container.endpoints.filter(endpoint => endpoint.source !== 'custom')
+      .map(endpoint => ({ ...endpoint, selected: endpoint.id === selectedEndpoint.id && endpoint.source === selectedEndpoint.source }));
+    if (selectedEndpoint.source === 'custom') endpoints.push({ ...selectedEndpoint, selected: true });
+    return { ...container, endpoints, hasEndpoints: endpoints.length > 0, hasWebUi: selectedEndpoint.source !== 'none' && endpoints.length > 0 };
+  }),
+});

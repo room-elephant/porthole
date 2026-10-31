@@ -13,6 +13,9 @@ RUN apt-get update && \
 
 WORKDIR /app
 
+RUN mkdir /app/data && chown nonroot:nonroot /app/data
+ENV PORTHOLE_PREFERENCES_PATH=/app/data/preferences.json
+
 COPY --chown=nonroot:nonroot porthole porthole
 COPY --chown=nonroot:nonroot docker/templates/ /app/config/
 COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh

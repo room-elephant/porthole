@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import Modal from './Modal';
 import ContainerIcon from './ContainerIcon';
@@ -18,7 +18,7 @@ function EndpointOption({ id, label, tag = null, source = null, helper = null, s
                 aria-label={label}
                 aria-describedby={detailId}
                 checked={selected}
-                onChange={() => onSelectEndpoint(id)}
+                onChange={() => onSelectEndpoint({ id, source })}
             />
             {helper ? (
                 <span className="endpoint-text">
@@ -30,6 +30,74 @@ function EndpointOption({ id, label, tag = null, source = null, helper = null, s
             )}
             {tag && <span id={detailId} className={`endpoint-tag tag-${source}`}>{tag}</span>}
         </label>
+    );
+}
+
+function CustomUrlForm({ savedUrl, onSelectEndpoint }) {
+    const inputId = useId();
+    const [previousSavedUrl, setPreviousSavedUrl] = useState(savedUrl);
+    const [url, setUrl] = useState(savedUrl);
+    const [error, setError] = useState(null);
+    // Refresh confirmed values without replacing the focused form controls.
+    if (previousSavedUrl !== savedUrl) {
+        setPreviousSavedUrl(savedUrl);
+        setUrl(savedUrl);
+        setError(null);
+    }
+    const save = (event) => {
+        event.preventDefault();
+        const value = url.trim();
+        try {
+            const parsed = new URL(value);
+            if (!/^https?:\/\/[^/]/i.test(value) || /[\s\\]/.test(value) || !parsed.hostname || parsed.username || parsed.password) throw new Error();
+        } catch {
+            setError('Enter an absolute HTTP or HTTPS URL.');
+            return;
+        }
+        setError(null);
+        onSelectEndpoint({ id: 'custom', source: 'custom', url: value });
+    };
+    return (
+        <form className="custom-url-form" onSubmit={save} noValidate>
+            <label htmlFor={inputId}>Custom URL address</label>
+            <input id={inputId} type="text" inputMode="url" autoComplete="url" value={url}
+                placeholder="https://app.example.com" aria-invalid={Boolean(error)}
+                aria-describedby={error ? `${inputId}-error` : undefined}
+                onChange={event => { setUrl(event.target.value); setError(null); }} />
+            {error && <p id={`${inputId}-error`} className="selection-error" role="alert">{error}</p>}
+            <button type="submit">Save custom URL</button>
+        </form>
+    );
+}
+
+function EndpointSelection({ container, selectedEndpointId, onSelectEndpoint, isSaving, saveError, refreshError }) {
+    const selectionName = useId();
+    const [editingCustom, setEditingCustom] = useState(false);
+    const endpoints = groupEndpointsBySource(container.endpoints.filter(endpoint => endpoint.source !== 'custom')).flatMap(group => group.endpoints);
+    const effectiveEndpointId = editingCustom ? 'custom' : endpoints.length === 0 && selectedEndpointId !== 'custom' ? NO_ENDPOINT_ID : selectedEndpointId;
+    const savedUrl = container.endpoints.find(endpoint => endpoint.source === 'custom')?.url ?? '';
+    const select = selection => { setEditingCustom(false); onSelectEndpoint(selection); };
+    return (
+        <fieldset className="settings-section endpoint-selection" disabled={isSaving} aria-busy={isSaving}>
+            <legend className="settings-heading">Tile opens</legend>
+            {endpoints.map(endpoint => (
+                <EndpointOption key={endpoint.id} id={endpoint.id} label={endpoint.url} source={endpoint.source}
+                    tag={endpointTag(endpoint.source)} selectionName={selectionName}
+                    selectedEndpointId={effectiveEndpointId} onSelectEndpoint={select} />
+            ))}
+            <EndpointOption id={NO_ENDPOINT_ID} source="none" label="No web UI"
+                helper="Shown as a small chip instead of a tile" selectionName={selectionName}
+                selectedEndpointId={effectiveEndpointId} onSelectEndpoint={select} />
+            <EndpointOption id="custom" source="custom" label="Custom URL" helper="Enter an HTTP or HTTPS address"
+                selectionName={selectionName} selectedEndpointId={effectiveEndpointId}
+                onSelectEndpoint={() => setEditingCustom(true)} />
+            {(editingCustom || selectedEndpointId === 'custom') && (
+                <CustomUrlForm savedUrl={savedUrl} onSelectEndpoint={onSelectEndpoint} />
+            )}
+            {isSaving && <p className="selection-pending" role="status">Saving selection…</p>}
+            {refreshError && <p className="selection-error" role="alert">Selection saved, but containers could not be refreshed. Reload to see the change.</p>}
+            {saveError && <p className="selection-error" role="alert">Could not save selection: {saveError.message}</p>}
+        </fieldset>
     );
 }
 
@@ -89,11 +157,8 @@ function StatusSection({ container, status }) {
     );
 }
 
-function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates }) {
-    const selectionName = useId();
+function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates, isSaving = false, saveError = null, refreshError = null }) {
     const updateToggleId = useId();
-    const endpoints = groupEndpointsBySource(container.endpoints).flatMap(group => group.endpoints);
-    const effectiveEndpointId = endpoints.length === 0 ? NO_ENDPOINT_ID : selectedEndpointId;
     const subtitle = [container.name, sourceName].filter(Boolean).join(' · ') + (container.project ? ` / ${container.project}` : '');
 
     return (
@@ -107,29 +172,8 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
             <StatusSection container={container} status={status} />
             <div className="settings-divider" />
 
-            <fieldset className="settings-section endpoint-selection">
-                <legend className="settings-heading">Tile opens</legend>
-                {endpoints.map(endpoint => (
-                    <EndpointOption
-                        key={endpoint.id}
-                        id={endpoint.id}
-                        label={endpoint.url}
-                        source={endpoint.source}
-                        tag={endpointTag(endpoint.source)}
-                        selectionName={selectionName}
-                        selectedEndpointId={selectedEndpointId}
-                        onSelectEndpoint={onSelectEndpoint}
-                    />
-                ))}
-                <EndpointOption
-                    id={NO_ENDPOINT_ID}
-                    label="No web UI"
-                    helper="Shown as a small chip instead of a tile"
-                    selectionName={selectionName}
-                    selectedEndpointId={effectiveEndpointId}
-                    onSelectEndpoint={onSelectEndpoint}
-                />
-            </fieldset>
+            <EndpointSelection container={container} selectedEndpointId={selectedEndpointId}
+                onSelectEndpoint={onSelectEndpoint} isSaving={isSaving} saveError={saveError} refreshError={refreshError} />
             <div className="settings-divider" />
 
             <div className="settings-section">

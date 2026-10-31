@@ -8,7 +8,12 @@ import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.icon.*;
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.core.model.Container;
+import com.roomelephant.porthole.core.model.ContainerPreferences;
+import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
+import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.VersionInfo;
+import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,8 +66,46 @@ class PipelineWiringTest {
     }
 
     private AnnotationConfigApplicationContext context(VersionRefreshService versions) {
+        return context(versions, Map.of());
+    }
+
+    @Test
+    void shouldResolvePreferencesBeforeAvailabilityWithoutBypassingState() {
+        var custom = new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://worker.example.com"));
+        var none = new ContainerPreferences(new SelectedEndpoint("none", "none", null));
+        try (var context = context(
+                mock(VersionRefreshService.class),
+                Map.of(
+                        new ContainerPreferencesKey("local", "project-worker-1"), custom,
+                        new ContainerPreferencesKey("local", "project-stopped-1"), custom,
+                        new ContainerPreferencesKey("local", "project-web-1"), none))) {
+            var worker = container("project-worker-1", "running", Set.of());
+            var stopped = container("project-stopped-1", "exited", Set.of());
+            var web = container("project-web-1", "running", Set.of(8080));
+
+            var result = context.getBean(ContainerEnrichment.class)
+                    .enrich(List.of(worker, stopped, web), new EnrichmentContext("local", "localhost", false, false));
+
+            assertThat(result).containsExactly(worker, web);
+            assertThat(worker.preferences()).isEqualTo(custom);
+            assertThat(worker.urlCandidates())
+                    .containsExactly(new Endpoint("custom", "custom", "https://worker.example.com", true));
+            assertThat(worker.iconUrl()).isEqualTo("https://icons.example.com/nginx.svg");
+            assertThat(web.preferences()).isEqualTo(none);
+            assertThat(web.urlCandidates())
+                    .containsExactly(
+                            new Endpoint("published-port:8080", "published-port", "http://localhost:8080/", false));
+            assertThat(stopped.preferences().selectedEndpoint()).isNull();
+        }
+    }
+
+    private AnnotationConfigApplicationContext context(
+            VersionRefreshService versions, Map<ContainerPreferencesKey, ContainerPreferences> preferences) {
         var context = new AnnotationConfigApplicationContext();
         context.registerBean(VersionRefreshService.class, () -> versions);
+        var store = mock(ContainerPreferencesStore.class);
+        when(store.snapshot()).thenReturn(preferences);
+        context.registerBean(ContainerPreferencesStore.class, () -> store);
         context.registerBean(
                 EndpointDiscovery.class,
                 () -> new EndpointDiscovery(List.of(new PublishedPortEndpointProvider(new PublishedHostResolver()))));

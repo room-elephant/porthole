@@ -18,7 +18,8 @@ class PublishedPortEndpointProviderTest {
         assertThat(provider.discover(
                         EndpointFixtures.container(Set.of(51413), Map.of()),
                         new EnrichmentContext("local", "192.168.50.6", false, false)))
-                .containsExactly(new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/"));
+                .containsExactly(
+                        new Endpoint("published-port:51413", "published-port", "http://192.168.50.6:51413/", false));
     }
 
     @Test

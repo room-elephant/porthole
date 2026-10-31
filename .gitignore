@@ -33,3 +33,7 @@ logs/
 
 # Local design and implementation notes
 /docs/superpowers/
+
+# Local container preferences (also used when running from server/)
+/data/
+/server/data/

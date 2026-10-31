@@ -2,6 +2,7 @@ package com.roomelephant.porthole.inbound.web.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.roomelephant.porthole.core.model.VersionInfo;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -21,7 +22,12 @@ public record ContainerDTO(
         @Nullable String state,
         @Nullable String status,
         @Nullable VersionInfo version,
-        boolean self) {
+        boolean self,
+
+        @Schema(
+                description = "Whether the container has a web UI, including unresolved endpoint choices",
+                requiredMode = Schema.RequiredMode.REQUIRED)
+        boolean hasWebUi) {
     public ContainerDTO {
         endpoints = List.copyOf(endpoints);
     }

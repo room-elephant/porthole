@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Create mock axios instance before importing api
 const mockGet = vi.fn();
 const mockPost = vi.fn();
+const mockPut = vi.fn();
 const mockAxiosInstance = {
   get: mockGet,
   post: mockPost,
+  put: mockPut,
   interceptors: {
     response: {
       use: vi.fn(),
@@ -20,7 +22,7 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchDockerHealth, refreshVersions } = await import('../api');
+const { fetchContainers, fetchDockerHealth, refreshVersions, selectContainerEndpoint } = await import('../api');
 
 describe('api', () => {
   beforeEach(() => {
@@ -31,6 +33,16 @@ describe('api', () => {
     mockPost.mockResolvedValue({ status: 202 });
     await refreshVersions();
     expect(mockPost).toHaveBeenCalledWith('/api/versions/refresh');
+  });
+
+  it('replaces the shared selection', async () => {
+    const selection = { id: 'custom', source: 'custom', url: 'https://app.example.com/' };
+    mockPut.mockResolvedValue({ status: 204 });
+    const request = { sourceId: 'remote', containerName: 'app', selectedEndpoint: selection };
+    expect(await selectContainerEndpoint(request)).toBeUndefined();
+    expect(mockPut).toHaveBeenCalledWith('/api/containers/selected-url', request);
+    await selectContainerEndpoint({ ...request, selectedEndpoint: null });
+    expect(mockPut).toHaveBeenLastCalledWith('/api/containers/selected-url', { ...request, selectedEndpoint: null });
   });
 
   describe('fetchContainers', () => {
