@@ -1,26 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, within, fireEvent } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import SourceSection, { OfflineBanner } from '../../components/SourceSection';
-import { renderWithQuery, createMockContainer } from '../testUtils';
-import { renderHook, act } from '@testing-library/react';
-import { useEndpointSelection } from '../../hooks/useEndpointSelection';
+import { renderWithQuery, createMockContainer, renderInventory, publishedEndpoint, inventoryWithSelection } from '../testUtils';
+import { selectContainerEndpoint } from '../../api';
+vi.mock('../../api', () => ({ selectContainerEndpoint: vi.fn() }));
 import { buildSections } from '../../utils/containers';
 import { GROUP_BY } from '../../constants';
 
 const source = { id: 'walker', name: 'Walker', status: 'UP', error: null };
 const mike = { id: 'mike', name: 'Mike', status: 'UP', error: null };
 const mk = (overrides) => createMockContainer({ sourceId: 'walker', ...overrides });
+let savedSelections;
 
-const renderSection = (containers, { sources = [source], groupBy = GROUP_BY.HOST_STACK, showAll = true, showStopped = true, index = 0 } = {}) => {
-  const sections = buildSections({ sources, containers, groupBy });
+const renderSection = (containers, { sources = [source], groupBy = GROUP_BY.HOST_STACK, showAll = true, showStopped = true, index = 0, queryFn } = {}) => {
   const sourcesById = Object.fromEntries(sources.map(s => [s.id, s]));
-  return renderWithQuery(
-    <SourceSection section={sections[index]} sourcesById={sourcesById} showAll={showAll} showStopped={showStopped} />
-  );
+  return renderInventory(inventory => (
+    <SourceSection section={buildSections({ ...inventory, groupBy })[index]} sourcesById={sourcesById} showAll={showAll} showStopped={showStopped} />
+  ), { sources, containers }, queryFn ?? (() => savedSelections.reduce(inventoryWithSelection, { sources, containers })));
 };
 
 describe('source sections', () => {
- beforeEach(() => {localStorage.clear();vi.clearAllMocks();});
+ beforeEach(() => {localStorage.clear();vi.clearAllMocks();
+  savedSelections = [];
+  selectContainerEndpoint.mockImplementation(async request => { savedSelections.push(request); return { sourceId: request.sourceId, containerName: request.containerName, preferences: { selectedEndpoint: request.selectedEndpoint } }; });
+ });
 
  it('shows host heading meta with container and stack counts', () => {
   renderSection([mk({ id: '1' }), mk({ id: '2', project: 'smh' }), mk({ id: '3', project: 'media' })]);
@@ -56,10 +60,11 @@ describe('source sections', () => {
   expect(document.querySelector('.tile-grid .tile-name')).toHaveTextContent('Web');
  });
 
- it('keeps the dialog open and the tile in place while choosing No web UI, then moves it to a chip on close', () => {
+ it('keeps the dialog open and the tile in place while choosing No web UI, then moves it to a chip on close', async () => {
   renderSection([mk()]);
   fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
   fireEvent.click(screen.getByRole('radio', { name: /No (endpoint|web UI)/ }));
+  await waitFor(() => expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked());
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(document.querySelector('.tile-grid .tile')).not.toBeNull();
   expect(document.querySelector('.chip')).toBeNull();
@@ -70,17 +75,151 @@ describe('source sections', () => {
   expect(document.activeElement).toBe(chip);
  });
 
- it('keeps the dialog open while a chip gains an endpoint, then moves it to a tile and focuses its menu', () => {
-  localStorage.setItem('endpoint_pref_v2_' + JSON.stringify(['walker', 'test-container']), '"none"');
-  renderSection([mk()]);
+ it('keeps the dialog open while a chip gains an endpoint, then moves it to a tile and focuses its menu', async () => {
+  renderSection([mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
   fireEvent.click(screen.getByRole('radio', { name: /localhost:8080/ }));
+  await waitFor(() => expect(screen.getByRole('radio', { name: /localhost:8080/ })).toBeChecked());
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(document.querySelector('.chip')).not.toBeNull();
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(document.querySelector('.chip')).toBeNull();
   expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
   expect(document.activeElement).toHaveClass('tile-menu');
+ });
+
+ it('restores focus using the latest confirmed cache when closed before the inventory rerenders', async () => {
+  const { queryClient } = renderSection([mk()]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  act(() => {
+   queryClient.setQueriesData({ queryKey: ['containers'] }, inventory => ({ ...inventory, containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] }));
+   fireEvent.keyDown(document, { key: 'Escape' });
+  });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
+  expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveFocus();
+ });
+
+ it('uses the active confirmation instead of stale inactive variants for a closed-dialog focus handoff', async () => {
+  const initial = { sources: [source], containers: [mk()] };
+  const confirmed = { sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  queryClient.setQueryData(['containers', { showAll: false, showStopped: false }], initial);
+  const activeKey = ['containers', { showAll: true, showStopped: true }];
+  let completeRefresh;
+  const read = vi.fn(() => new Promise(resolve => { completeRefresh = resolve; }));
+  function View() {
+   const { data } = useQuery({ queryKey: activeKey, queryFn: read, initialData: initial });
+   return <SourceSection section={buildSections({ ...data, groupBy: GROUP_BY.HOST_STACK })[0]} sourcesById={{ walker: source }} showAll showStopped />;
+  }
+  render(<QueryClientProvider client={queryClient}><View /></QueryClientProvider>);
+  const opener = screen.getByRole('button', { name: 'Test Container settings' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+  fireEvent.keyDown(document, { key: 'Escape' });
+  await act(async () => completeRefresh(confirmed));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
+  expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveFocus();
+ });
+
+ it.each([
+  ['tile-to-chip', 'PUT'], ['tile-to-chip', 'GET'],
+  ['chip-to-custom-tile', 'PUT'], ['chip-to-custom-tile', 'GET'],
+ ])('restores focus for %s when closed during %s', async (direction, closeDuring) => {
+  let confirm;
+  let completeRefresh;
+  const refresh = new Promise(resolve => { completeRefresh = resolve; });
+  const read = vi.fn(() => refresh);
+  selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
+   confirm = () => { savedSelections.push({ sourceId, containerName, selectedEndpoint }); resolve({ sourceId, containerName, preferences: { selectedEndpoint } }); };
+  }));
+  const startsAsChip = direction === 'chip-to-custom-tile';
+  const initial = mk(startsAsChip ? { endpoints: [], hasEndpoints: false } : {});
+  renderSection([initial], { queryFn: read });
+  const opener = screen.getByRole('button', { name: 'Test Container settings' });
+  opener.focus();
+  fireEvent.click(opener);
+  if (startsAsChip) {
+   fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
+   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
+   fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
+  } else {
+   fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  }
+  await waitFor(() => expect(selectContainerEndpoint).toHaveBeenCalledTimes(1));
+  if (closeDuring === 'GET') {
+   await act(async () => confirm());
+   await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+   expect(screen.getByRole('group', { name: 'Tile opens' })).toBeDisabled();
+  }
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(opener).toHaveFocus();
+  if (closeDuring === 'PUT') await act(async () => confirm());
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+  expect(opener).toHaveFocus();
+  expect(opener).toHaveClass(startsAsChip ? 'chip' : 'tile-menu');
+  await act(async () => completeRefresh(savedSelections.reduce(inventoryWithSelection, { sources: [source], containers: [initial] })));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass(startsAsChip ? 'tile-menu' : 'chip'));
+  expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveFocus();
+ });
+
+ it('does not steal focus when the user moves elsewhere during the confirmation GET', async () => {
+  let completeRefresh;
+  const read = vi.fn(() => new Promise(resolve => { completeRefresh = resolve; }));
+  const containers = [mk(), mk({ id: 'other', name: 'other', displayName: 'Other' })];
+  renderSection(containers, { queryFn: read });
+  const opener = screen.getByRole('button', { name: 'Test Container settings' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+  fireEvent.keyDown(document, { key: 'Escape' });
+  const other = screen.getByRole('button', { name: 'Other settings' });
+  other.focus();
+  await act(async () => completeRefresh(savedSelections.reduce(inventoryWithSelection, { sources: [source], containers })));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
+  expect(other).toHaveFocus();
+ });
+
+ it('releases a closed-dialog focus handoff when GET fails and does not move focus on later recovery', async () => {
+  let failRefresh;
+  const read = vi.fn().mockImplementationOnce(() => new Promise((resolve, reject) => { failRefresh = reject; }));
+  const containers = [mk(), mk({ id: 'other', name: 'other', displayName: 'Other' })];
+  const { queryClient } = renderSection(containers, { queryFn: read });
+  const opener = screen.getByRole('button', { name: 'Test Container settings' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+  fireEvent.keyDown(document, { key: 'Escape' });
+  await act(async () => failRefresh(new Error('Offline')));
+  await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+  expect(opener).toHaveFocus();
+  const other = screen.getByRole('button', { name: 'Other settings' });
+  other.focus();
+  read.mockResolvedValue(savedSelections.reduce(inventoryWithSelection, { sources: [source], containers }));
+  await act(async () => queryClient.refetchQueries({ queryKey: ['containers'] }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
+  expect(other).toHaveFocus();
+  expect(selectContainerEndpoint).toHaveBeenCalledTimes(1);
+ });
+
+ it('releases a pending handoff when the sole open container disappears', async () => {
+  let confirm;
+  selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
+   confirm = () => { savedSelections.push({ sourceId, containerName, selectedEndpoint }); resolve({ sourceId, containerName, preferences: { selectedEndpoint } }); };
+  }));
+  const { queryClient } = renderSection([mk()]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  await waitFor(() => expect(selectContainerEndpoint).toHaveBeenCalledTimes(1));
+  await act(async () => queryClient.setQueriesData({ queryKey: ['containers'] }, inventory => ({ ...inventory, containers: [] })));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await act(async () => confirm());
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Nothing running on Walker yet' })).toBeInTheDocument();
  });
 
  it('releases the freeze when the open container disappears and later returns', () => {
@@ -93,8 +232,7 @@ describe('source sections', () => {
   const view = renderWithQuery(render([mk(), other]));
   fireEvent.click(screen.getAllByRole('button', { name: 'Test Container settings' })[0]);
   view.rerender(render([other]));
-  localStorage.setItem('endpoint_pref_v2_' + JSON.stringify(['walker', 'test-container']), '"none"');
-  view.rerender(render([mk(), other]));
+  view.rerender(render([mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false }), other]));
   expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip');
   expect(document.querySelectorAll('.chip')).toHaveLength(1);
  });
@@ -193,11 +331,66 @@ describe('source sections', () => {
   if (alternative) expect(message).toHaveTextContent(alternative);
  });
 
- it('keeps endpoint preferences separate for matching container names on different sources', () => {
-  const endpoints=[{id:'published-port:80',source:'published-port',url:'http://example.com/'},{id:'traefik:test',source:'traefik',url:'https://example.com/'}];
-  const {result}=renderHook(() => ({walker:useEndpointSelection('walker','same',endpoints),mike:useEndpointSelection('mike','same',endpoints)}));
-  act(() => result.current.walker.selectEndpoint('none'));
-  expect(result.current.walker.selectedEndpoint).toBeNull();
-  expect(result.current.mike.selectedEndpoint.id).toBe('traefik:test');
+ it('renders a custom-only container as a linked tile', () => {
+  renderSection([mk({ endpoints: [{ id: 'custom', source: 'custom', url: 'https://custom.example.com/', selected: true }], hasEndpoints: true })]);
+  expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'https://custom.example.com/');
+  expect(document.querySelector('.chip')).toBeNull();
+ });
+
+ it('saves a custom URL on a chip without closing its dialog, then moves to a linked tile with focus', async () => {
+  renderSection([mk({ endpoints: [], hasEndpoints: false })]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
+  await waitFor(() => expect(screen.queryByText('Saving selection…')).not.toBeInTheDocument());
+  expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'walker', containerName: 'test-container', selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://custom.example.com/' } });
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(document.querySelector('.chip')).not.toBeNull();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(await screen.findByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'https://custom.example.com/');
+  expect(document.activeElement).toHaveClass('tile-menu');
+ });
+
+ it('retains rendered inventory after a saved selection fails to refresh and clears its feedback after GET recovery', async () => {
+  const read = vi.fn().mockRejectedValueOnce(new Error('Offline'));
+  const initial = mk();
+  const { queryClient } = renderSection([initial], { queryFn: read });
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Selection saved, but containers could not be refreshed. Reload to see the change.');
+  expect(screen.queryByText(/Could not save selection/)).not.toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: /localhost:8080/ })).toBeChecked();
+  expect(screen.getByRole('group', { name: 'Tile opens' })).not.toBeDisabled();
+  expect(document.querySelector('.tile-main')).toHaveAttribute('href', 'http://localhost:8080/');
+  read.mockResolvedValue({ sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] });
+  await act(async () => queryClient.refetchQueries({ queryKey: ['containers'] }));
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked();
+  expect(selectContainerEndpoint).toHaveBeenCalledTimes(1);
+ });
+
+ it('keeps server ambiguity as an unlinked tile and explicit none as a chip', () => {
+  renderSection([
+   mk({ id: 'ambiguous', name: 'ambiguous', displayName: 'Ambiguous', endpoints: [publishedEndpoint(80, false), publishedEndpoint(443, false)] }),
+   mk({ id: 'none', name: 'none', displayName: 'None', endpoints: [publishedEndpoint(8080, false)], hasWebUi: false }),
+   mk({ id: 'selected', name: 'selected', displayName: 'Selected' }),
+  ]);
+  expect(document.querySelector('.tile-grid')).toHaveTextContent('Ambiguous');
+  expect(screen.getByText('Choose a URL')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'None settings' })).toHaveClass('chip');
+  expect(screen.getByRole('link', { name: /Selected/ })).toHaveAttribute('href', 'http://localhost:8080/');
+ });
+
+ it('shows failed saves without closing the dialog or changing the confirmed tile', async () => {
+  selectContainerEndpoint.mockRejectedValue(new Error('Read-only filesystem'));
+  renderSection([mk()]);
+  fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Read-only filesystem');
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: /localhost:8080/ })).toBeChecked();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
  });
 });

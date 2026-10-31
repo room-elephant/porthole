@@ -37,7 +37,7 @@ for other mounted sockets must be provisioned externally.
 
 A configured list replaces the packaged default. IDs must be unique and match
 `[a-z0-9][a-z0-9_-]*`; names must be nonblank. IDs identify sources in the API,
-version caches, and browser preferences, so keep them stable when renaming hosts.
+version caches, and container preferences, so keep them stable when renaming hosts.
 Changing a source ID creates a new preference scope. Entries support absolute
 `unix:///path/to/socket` and `tcp://hostname:port` URIs through the existing Docker
 transport; `ssh://` is not a supported application URI. This feature adds no
@@ -91,7 +91,7 @@ Replace `docker.example.com` with your Docker host's IP address or hostname. Env
 variables replace the connection list, so `ID`, `NAME`, and `HOST` must accompany
 `PUBLISHEDHOST`. Setting `PUBLISHEDHOST` alone prevents startup.
 
-Browser endpoint choices and update-warning preferences are scoped by source ID
+Shared endpoint choices and browser update-warning preferences are scoped by source ID
 and container name.
 
 ### Porthole's Own Container
@@ -240,7 +240,7 @@ Overriding these keys in your external file will take precedence.
 
 ## Endpoint Discovery
 
-Porthole lists containers with at least one discovered endpoint by default. **Show containers without endpoints** includes containers with no usable URL; **Show stopped containers** is independent. Tiles without endpoints are disabled, but their gear icon and version settings remain available.
+Porthole lists containers with at least one resolved endpoint candidate by default, including the current saved custom URL. **Show containers without a web UI** includes containers with no usable URL; **Show stopped containers** is independent. Containers without endpoints still have settings and version controls.
 
 ### Published-Port Hostname
 
@@ -282,15 +282,39 @@ Router `tls=true`, or a TLS sublabel such as `tls.certresolver`, implies HTTPS; 
 
 ## Per-Container Settings
 
-Each container has a settings panel accessible via the gear icon. Settings are stored in your browser's local storage.
+Each container has a settings panel accessible via the gear icon. Endpoint choices are shared by every browser through the Porthole server. Layout and update-notification preferences remain in your browser's local storage.
 
 ### URL Selection
 
-The **Endpoint** section contains one selection across **No endpoint**, **Traefik URLs**, **Published Ports**, and any additional providers. Choose a URL to launch from the tile, or **No endpoint** for a container without a web UI. No endpoint greys out the tile and disables launching; the gear icon remains available to choose a URL again. Version Updates is a separate section, and update checking remains available for tiles with no endpoint.
+The **Tile opens** section lets you choose a discovered URL, **Custom URL**, or **No web UI**. Choose a discovered URL or enter and save an absolute HTTP or HTTPS custom URL without credentials. Typing a URL alone does not save it. A custom URL works even without published ports or Traefik labels and keeps the container visible under the normal endpoint filter. Porthole stores the URL without fetching it. **No web UI** disables launching; settings and update checking remain available.
 
-A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traefik URL or the unique root `/` route among several Traefik URLs. If Traefik is absent, it selects a sole candidate from any provider. Multiple root routes, multiple non-root Traefik routes, or multiple candidates without Traefik open settings for a choice.
+The server returns effective candidates with a boolean `selected` on each, and the browser opens the selected URL. Zero or one candidate is selected. Stored preferences are internal to the server and are not included on inventory containers. The required `hasWebUi` boolean controls tile/chip presentation: it is false for an explicit no-web-UI choice or no candidates, and true for candidates that are selected or still ambiguous. `hasEndpoints` continues to report candidate presence. A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traefik URL or the unique root `/` route among several Traefik URLs. If Traefik is absent, it selects a sole candidate from any provider. Multiple root routes, multiple non-root Traefik routes, or multiple candidates without Traefik open settings for a choice.
 
-Automatic defaults are not saved. If a saved endpoint disappears, selection follows the same automatic policy. An explicit **No endpoint** choice is saved and remains in effect when discovered URLs change. Preferences synchronize across browser tabs.
+Automatic selection applies when no choice is saved; the update API restores it with an explicit null selection. If a saved discovered endpoint disappears, selection follows the same automatic policy while preserving its identity for when it returns. An explicit **No web UI** choice remains in effect when discovered URLs change. Restoring automatic selection, choosing a discovered endpoint, or choosing **No web UI** replaces a custom selection and permanently removes its URL; choosing custom again requires entering it again. A successful save triggers an inventory refresh to confirm the effective candidates and selected flags. Save errors leave the last confirmed selection in effect. If storage succeeds but the inventory refresh fails, settings report that the choice was saved but could not be refreshed; retry refreshes inventory without repeating the write. Explicit **No web UI** retains available candidates with every flag false, while an ambiguous automatic choice remains an unlinked tile that opens settings.
+
+Endpoint choices are keyed by `(sourceId, containerName)`, so containers with the same name on different sources stay independent. Recreating a container with the same name retains its choice; renaming it starts a new preference identity. Choices for temporarily absent containers remain saved. Existing browser endpoint choices are not automatically migrated because devices may disagree; select your endpoint once after upgrading. Other browsers receive saved choices on their next inventory request or page reload, without additional preference polling.
+
+### Preference File and Persistence
+
+`porthole.preferences.path` (environment variable **`PORTHOLE_PREFERENCES_PATH`**) selects the shared JSON file. Local development defaults to `data/preferences.json`, relative to the server's working directory. Both Docker images default to `/app/data/preferences.json`. Mount a named volume to retain choices when replacing the application container:
+
+```yaml
+services:
+  porthole:
+    image: ghcr.io/room-elephant/porthole:latest
+    ports:
+      - "9753:9753"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - porthole-data:/app/data
+
+volumes:
+  porthole-data:
+```
+
+The image creates `/app/data` owned by its application user (UID/GID `65532`), including when Docker initializes an empty named volume. For a host bind mount, provision a directory writable by that user and any existing file readable by it; atomic saves also require directory write permission. Mounting the file itself works too, but saves then overwrite it in place instead of renaming atomically. An empty file is treated as having no saved choices. The entrypoint does not change ownership of arbitrary host files. Keep the volume across container restarts and replacements; deleting it deletes the saved choices.
+
+One running Porthole instance owns each file; do not share a writable preference file between instances. Saves atomically replace the entire file, with memory updated only after a successful write. A missing file starts with no choices. An unreadable or malformed existing file fails startup rather than discarding saved data. The server loads the file once at startup: manual external edits require a server restart. The file contains container records with `sourceId`, `containerName`, and `preferences.selectedEndpoint`, without a schema version field; it is separate from application YAML configuration. Only the explicit selection (`id`, `source`, and a custom `url` when needed) is stored, never candidate lists or effective `selected` flags. Inventory fallback does not rewrite an unavailable saved choice.
 
 ### Version Update Notifications
 

@@ -22,7 +22,9 @@ function App() {
   const [showSelf, setShowSelf] = useLocalStorage(STORAGE_KEYS.SHOW_SELF, true);
   const [storedGroupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
   const groupBy = Object.values(GROUP_BY).includes(storedGroupBy) ? storedGroupBy : GROUP_BY.HOST_STACK;
-  const { data = EMPTY, isLoading, error } = useContainers({ showAll, showStopped });
+  const { data: fetchedInventory, isLoading, error } = useContainers({ showAll, showStopped });
+  const data = fetchedInventory ?? EMPTY;
+  const initialError = error && !fetchedInventory;
   const lastKnown = useLastKnownContainers(data);
   const containers = useMemo(() => (showSelf ? lastKnown : lastKnown.filter(container => !container.self)), [lastKnown, showSelf]);
   const hostFilter = data.sources.some(source => source.id === selectedHost) ? selectedHost : 'all';
@@ -46,7 +48,7 @@ function App() {
         <output className="loading-status">Connecting…</output>
       </>
     );
-  } else if (error) {
+  } else if (initialError) {
     inventory = (
       <div className="error-message" role="alert">
         Failed to fetch containers. Ensure the server is running.
@@ -90,7 +92,7 @@ function App() {
       <Header
         query={query}
         onQueryChange={setQuery}
-        sources={error ? [] : data.sources}
+        sources={initialError ? [] : data.sources}
         counts={counts}
         hostFilter={hostFilter}
         onHostFilterChange={setSelectedHost}
@@ -111,7 +113,7 @@ function App() {
           onGroupByChange={setGroupBy}
           counts={counts}
           onClose={() => setShowSettings(false)}
-          sources={error ? [] : data.sources}
+          sources={initialError ? [] : data.sources}
         />
       )}
     </div>

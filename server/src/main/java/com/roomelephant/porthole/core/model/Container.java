@@ -16,6 +16,7 @@ public final class Container {
     private final Details details;
     private String iconUrl = "";
     private List<Endpoint> urlCandidates;
+    private ContainerPreferences preferences = new ContainerPreferences(null);
     private @Nullable VersionInfo version;
     private boolean self;
 
@@ -82,6 +83,19 @@ public final class Container {
 
     public List<Endpoint> urlCandidates() {
         return urlCandidates;
+    }
+
+    public boolean hasWebUi() {
+        var selection = preferences.selectedEndpoint();
+        return !urlCandidates.isEmpty() && (selection == null || !selection.selectsNone());
+    }
+
+    public ContainerPreferences preferences() {
+        return preferences;
+    }
+
+    public void setPreferences(ContainerPreferences preferences) {
+        this.preferences = preferences;
     }
 
     public @Nullable VersionInfo version() {

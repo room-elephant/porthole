@@ -32,3 +32,12 @@ export const fetchDockerHealth = async ({ signal } = {}) => {
 export const refreshVersions = async () => {
   await api.post(API.VERSION_REFRESH);
 };
+
+export const selectContainerEndpoint = async ({ sourceId, containerName, selectedEndpoint }) => {
+  const { data } = await api.put(API.SELECTED_URL, {
+    sourceId,
+    containerName,
+    preferences: { selectedEndpoint },
+  });
+  return data;
+};

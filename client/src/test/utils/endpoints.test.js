@@ -1,24 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { resolveEndpointSelection, groupEndpointsBySource, endpointLabel, endpointTag } from '../../utils/endpoints';
+import { isHeadless, groupEndpointsBySource, endpointLabel, endpointTag } from '../../utils/endpoints';
 
-const port = { id: 'published-port:51413', source: 'published-port', url: 'http://192.168.50.6:51413/' };
-const root = { id: 'traefik:root', source: 'traefik', url: 'https://transmission.example.com/' };
-const path = { id: 'traefik:dl', source: 'traefik', url: 'https://transmission.example.com/dl/' };
-const other = { id: 'ngnext:app', source: 'ngnext', url: 'https://app.example.com/' };
+const port = { id: 'published-port:51413', source: 'published-port', url: 'http://192.168.50.6:51413/', selected: false };
+const root = { id: 'traefik:root', source: 'traefik', url: 'https://transmission.example.com/', selected: false };
+const path = { id: 'traefik:dl', source: 'traefik', url: 'https://transmission.example.com/dl/', selected: false };
+const other = { id: 'ngnext:app', source: 'ngnext', url: 'https://app.example.com/', selected: false };
 
-describe('endpoint selection', () => {
-  it('honors a saved port over Traefik', () => expect(resolveEndpointSelection([port, root], port.id)).toBe(port));
-  it('prefers a sole Traefik URL over other sources', () => expect(resolveEndpointSelection([port, root, other])).toBe(root));
-  it('prefers the unique root Traefik route', () => expect(resolveEndpointSelection([path, root, port])).toBe(root));
-  it('leaves multiple root routes ambiguous', () => expect(resolveEndpointSelection([root, { ...root, id: 'second', url: 'https://other.example.com/' }])).toBeNull());
-  it('leaves multiple non-root routes ambiguous', () => expect(resolveEndpointSelection([path, { ...path, id: 'second', url: 'https://example.com/app' }])).toBeNull());
-  it('opens a sole port or unknown provider candidate', () => {
-    expect(resolveEndpointSelection([port])).toBe(port);
-    expect(resolveEndpointSelection([other])).toBe(other);
+describe('tile and chip partitioning', () => {
+  it.each([
+    [{ hasWebUi: true, hasEndpoints: true, endpoints: [port, root] }, false],
+    [{ hasWebUi: false, hasEndpoints: true, endpoints: [port] }, true],
+    [{ hasWebUi: false, hasEndpoints: false, endpoints: [] }, true],
+    [{ hasWebUi: true, hasEndpoints: true, endpoints: [{ id: 'custom', source: 'custom', url: 'https://custom/', selected: true }] }, false],
+  ])('partitions resolved inventory %s', (container, expected) => {
+    expect(isHeadless(container)).toBe(expected);
   });
-  it('leaves multiple candidates without Traefik ambiguous', () => expect(resolveEndpointSelection([port, other])).toBeNull());
-  it('returns null for no endpoints', () => expect(resolveEndpointSelection([])).toBeNull());
-  it('falls back from an unavailable saved ID', () => expect(resolveEndpointSelection([root], 'removed')).toBe(root));
 });
 
 describe('endpoint groups', () => {

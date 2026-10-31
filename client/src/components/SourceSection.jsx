@@ -1,7 +1,7 @@
 import { useId, useState, useRef, useCallback, useEffect } from 'react';
+import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import ContainerTile from './ContainerTile';
 import ContainerChip from './ContainerChip';
-import { useStorageRevision } from '../hooks/useLocalStorage';
 import { isHeadless } from '../utils/endpoints';
 import { plural } from '../utils/containers';
 import { ASSETS } from '../constants';
@@ -73,8 +73,10 @@ function HostMeta({ section }) {
 const keyOf = container => JSON.stringify([container.sourceId, container.id]);
 
 function Group({ group, section, sourcesById }) {
-  useStorageRevision();
   const groupRef = useRef(null);
+  const queryClient = useQueryClient();
+  // A failed or same-partition save must also release a closed dialog's focus handoff.
+  useIsMutating({ mutationKey: ['selected-endpoint'] });
   // While a settings dialog is open its card keeps its tile/chip slot, so the dialog
   // (owned by the card) is not unmounted when the selection changes its partition.
   const frozenRef = useRef(null);
@@ -83,6 +85,7 @@ function Group({ group, section, sourcesById }) {
 
   const handleSettingsOpenChange = useCallback((container, open) => {
     if (open) {
+      focusKeyRef.current = null;
       frozenRef.current = { key: keyOf(container), headless: isHeadless(container) };
       setFrozen(frozenRef.current);
       return;
@@ -90,15 +93,48 @@ function Group({ group, section, sourcesById }) {
     const held = frozenRef.current;
     frozenRef.current = null;
     setFrozen(null);
-    if (held && isHeadless(container) !== held.headless) focusKeyRef.current = held.key;
+    if (!groupRef.current) return;
+    const mutationKey = ['selected-endpoint', container.sourceId, container.name];
+    const pending = queryClient.isMutating({ mutationKey, exact: true }) > 0;
+    if (held && (pending || isHeadless(container) !== held.headless)) {
+      focusKeyRef.current = {
+        key: held.key,
+        originalHeadless: held.headless,
+        container,
+        mutationKey,
+        pending,
+        slot: [...groupRef.current.querySelectorAll('[data-container-key]')].find(el => el.dataset.containerKey === held.key),
+      };
+    }
+  }, [queryClient]);
+
+  useEffect(() => {
+    const relinquishFocus = event => {
+      const target = focusKeyRef.current;
+      // The modal may restore focus to the old card. Any later move elsewhere cancels the handoff.
+      if (target?.pending && !target.slot?.contains(event.target)) focusKeyRef.current = null;
+    };
+    document.addEventListener('focusin', relinquishFocus);
+    return () => document.removeEventListener('focusin', relinquishFocus);
   }, []);
 
   // After the card has moved, put focus on its settings control (the dialog restored it to a stale node).
   useEffect(() => {
-    const key = focusKeyRef.current;
-    if (key === null) return;
+    const target = focusKeyRef.current;
+    if (target === null || !groupRef.current) return;
+    // Inactive filtered variants remain stale after saving and cannot confirm a move.
+    const confirmed = queryClient.getQueriesData({ queryKey: ['containers'], type: 'active' })
+      .flatMap(([, inventory]) => inventory?.containers ?? [])
+      .find(candidate => candidate.sourceId === target.container.sourceId && candidate.name === target.container.name);
+    const headless = isHeadless(confirmed ?? target.container);
+    if (headless === target.originalHeadless) {
+      if (!queryClient.isMutating({ mutationKey: target.mutationKey, exact: true })) focusKeyRef.current = null;
+      return;
+    }
+    const slot = [...groupRef.current.querySelectorAll('[data-container-key]')].find(el => el.dataset.containerKey === target.key);
+    // Wait if the cache confirmation has not reached this group's inventory props yet.
+    if (slot && Boolean(slot.querySelector('.chip')) !== headless) return;
     focusKeyRef.current = null;
-    const slot = [...groupRef.current.querySelectorAll('[data-container-key]')].find(el => el.dataset.containerKey === key);
     slot?.querySelector('.chip, .tile-menu')?.focus();
   });
 

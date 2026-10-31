@@ -19,13 +19,14 @@ class ContainerDTOTest {
                 "my-container",
                 "my-container",
                 "nginx:latest",
-                List.of(new EndpointDTO("a", "traefik", "https://example.com/")),
+                List.of(new EndpointDTO("a", "traefik", "https://example.com/", false)),
                 "https://example.com/nginx.png",
                 "my-project",
                 "running",
                 "Up 2 hours",
                 null,
-                false);
+                false,
+                true);
 
         assertTrue(dto.hasEndpoints());
     }
@@ -45,9 +46,19 @@ class ContainerDTOTest {
                 "running",
                 "Up 2 hours",
                 null,
-                false);
+                false,
+                true);
 
         assertFalse(dto.hasEndpoints());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldKeepCandidatePresenceIndependentOfWebUiAvailability(boolean hasWebUi) {
+        var dto = new ContainerDTO(
+                "id", "local", "app", "app", "nginx", List.of(), "", null, "running", "Up", null, false, hasWebUi);
+        assertFalse(dto.hasEndpoints());
+        assertEquals(hasWebUi, dto.hasWebUi());
     }
 
     @Test
@@ -59,12 +70,13 @@ class ContainerDTOTest {
                 "test-container",
                 "test",
                 "redis:7",
-                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/")),
+                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/", false)),
                 "https://example.com/redis.png",
                 "test-project",
                 "running",
                 "Up 1 hour",
                 null,
+                true,
                 true);
 
         assertEquals("abc123", dto.id());
@@ -72,7 +84,7 @@ class ContainerDTOTest {
         assertEquals("test", dto.displayName());
         assertEquals("redis:7", dto.image());
         assertEquals(
-                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/")),
+                List.of(new EndpointDTO("published-port:6379", "published-port", "http://localhost:6379/", false)),
                 dto.endpoints());
         assertEquals("https://example.com/redis.png", dto.iconUrl());
         assertEquals("test-project", dto.project());
@@ -96,6 +108,7 @@ class ContainerDTOTest {
                 "running",
                 "Up",
                 null,
+                true,
                 true);
 
         String json = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(dto);

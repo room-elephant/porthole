@@ -6,7 +6,9 @@ import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.endpointavailability.*;
 import com.roomelephant.porthole.core.enrichment.state.*;
 import com.roomelephant.porthole.core.model.Container;
+import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +33,8 @@ class ContainerEnrichmentTest {
                     .getFirst();
             assertThat(enriched.urlCandidates())
                     .containsExactly(
-                            new Endpoint("published-port:8080", "published-port", "http://192.168.50.6:8080/"),
-                            new Endpoint("later", "later", "http://192.168.50.6:8080/later"));
+                            new Endpoint("published-port:8080", "published-port", "http://192.168.50.6:8080/", false),
+                            new Endpoint("later", "later", "http://192.168.50.6:8080/later", false));
             assertThat(enriched.labels()).containsEntry("custom.metadata", "retained");
             assertThat(enriched.publishedPorts()).containsExactly(8080);
             assertThat(enriched).isSameAs(raw);
@@ -108,6 +110,41 @@ class ContainerEnrichmentTest {
     }
 
     @Test
+    void shouldKeepCustomCandidatesWithoutConsultingStoredPreferences() {
+        var raw = container("running", Set.of(), Map.of());
+        raw.setUrlCandidates(List.of(new Endpoint("custom", "custom", "https://app.example.com", true)));
+
+        assertThat(new EndpointAvailabilityFilter()
+                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .containsExactly(raw);
+    }
+
+    @Test
+    void shouldRejectEmptyResolvedCandidatesEvenWithSavedCustomMetadata() {
+        var raw = container("running", Set.of(), Map.of());
+        raw.setPreferences(
+                new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://app.example.com")));
+
+        assertThat(new EndpointAvailabilityFilter()
+                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .isEmpty();
+    }
+
+    @Test
+    void shouldKeepDiscoveredContainersWithExplicitNoWebUiSelection() {
+        var raw = container("running", Set.of(), Map.of());
+        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint("none", "none", null)));
+        raw.setUrlCandidates(
+                List.of(new Endpoint("published-port:8080", "published-port", "http://localhost:8080/", false)));
+
+        assertThat(new EndpointAvailabilityFilter()
+                        .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
+                .containsExactly(raw);
+        assertThat(raw.preferences().selectedEndpoint()).isEqualTo(new SelectedEndpoint("none", "none", null));
+        assertThat(raw.urlCandidates()).hasSize(1);
+    }
+
+    @Test
     void shouldReturnTheBatchWhenThereAreNoHandlers() {
         Container raw = container("running", Set.of(), Map.of());
         assertThat(new ContainerEnrichment(List.of())
@@ -120,7 +157,7 @@ class ContainerEnrichmentTest {
         ContainerEnricher noChange = (containers, context) -> containers;
         ContainerEnricher next = (containers, context) -> {
             containers.forEach(container -> container.setUrlCandidates(
-                    List.of(new Endpoint("next", "next", "https://" + context.publishedHost() + "/"))));
+                    List.of(new Endpoint("next", "next", "https://" + context.publishedHost() + "/", false))));
             return containers;
         };
         Container enriched = new ContainerEnrichment(List.of(noChange, next))
@@ -128,7 +165,8 @@ class ContainerEnrichmentTest {
                         List.of(container("running", Set.of(), Map.of())),
                         new EnrichmentContext("local", "app.example.com", false, false))
                 .getFirst();
-        assertThat(enriched.urlCandidates()).containsExactly(new Endpoint("next", "next", "https://app.example.com/"));
+        assertThat(enriched.urlCandidates())
+                .containsExactly(new Endpoint("next", "next", "https://app.example.com/", false));
     }
 
     @Test
@@ -173,7 +211,7 @@ class ContainerEnrichmentTest {
                 for (Container container : containers) {
                     if (container.urlCandidates().isEmpty()) continue;
                     List<Endpoint> urls = new ArrayList<>(container.urlCandidates());
-                    urls.add(new Endpoint("later", "later", urls.getFirst().url() + "later"));
+                    urls.add(new Endpoint("later", "later", urls.getFirst().url() + "later", false));
                     container.setUrlCandidates(urls);
                 }
                 return containers;

@@ -29,7 +29,10 @@ class PublishedHostOverrideIT extends ContainerAwareIntegrationTestBase {
             int port = testAppContainer.getMappedPort(8080);
             assertThat(container.endpoints())
                     .containsExactly(new EndpointDTO(
-                            "published-port:" + port, "published-port", "http://docker.example.com:" + port + "/"));
+                            "published-port:" + port,
+                            "published-port",
+                            "http://docker.example.com:" + port + "/",
+                            true));
             ContainerDTO proxy = Arrays.stream(containers)
                     .filter(candidate -> candidate.name().equals(TEST_PROXY_CONTAINER_NAME))
                     .findFirst()

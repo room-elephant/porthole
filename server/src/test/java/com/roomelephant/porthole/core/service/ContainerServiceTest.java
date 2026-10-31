@@ -77,7 +77,8 @@ class ContainerServiceTest {
         assertThat(result.labels()).isEqualTo(labels);
         assertThat(result.publishedPorts()).isEqualTo(Set.of(8080));
         assertThat(result.urlCandidates())
-                .containsExactly(new Endpoint("published-port:8080", "published-port", "http://127.0.0.1:8080/"));
+                .containsExactly(
+                        new Endpoint("published-port:8080", "published-port", "http://127.0.0.1:8080/", false));
         verify(listContainersCmd).withShowAll(true);
     }
 
@@ -233,7 +234,8 @@ class ContainerServiceTest {
         assertThat(results.getFirst().labels()).isEqualTo(labels);
         assertThat(results.getFirst().publishedPorts()).isEmpty();
         assertThat(results.getFirst().urlCandidates())
-                .containsExactly(new Endpoint("traefik:http://app.example.com/", "traefik", "http://app.example.com/"));
+                .containsExactly(
+                        new Endpoint("traefik:http://app.example.com/", "traefik", "http://app.example.com/", false));
     }
 
     @Test
@@ -288,8 +290,8 @@ class ContainerServiceTest {
                 .containers()
                 .getFirst();
         assertThat(result.urlCandidates())
-                .containsExactly(
-                        new Endpoint("published-port:8080", "published-port", "http://docker.example.com:8080/"));
+                .containsExactly(new Endpoint(
+                        "published-port:8080", "published-port", "http://docker.example.com:8080/", false));
     }
 
     @Test
@@ -298,7 +300,8 @@ class ContainerServiceTest {
         when(listContainersCmd.exec()).thenReturn(List.of(app));
         var result = containerService.getContainers(new ContainerQuery(false, false));
         assertThat(result.containers().getFirst().urlCandidates())
-                .containsExactly(new Endpoint("published-port:8080", "published-port", "http://127.0.0.1:8080/"));
+                .containsExactly(
+                        new Endpoint("published-port:8080", "published-port", "http://127.0.0.1:8080/", false));
     }
 
     @Test

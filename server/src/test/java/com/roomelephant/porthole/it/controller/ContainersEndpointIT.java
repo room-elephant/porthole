@@ -165,7 +165,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         assertThat(container).isNotNull();
         assertThat(container.endpoints())
                 .containsExactly(new EndpointDTO(
-                        "traefik:https://jellyfin.example.com/", "traefik", "https://jellyfin.example.com/"));
+                        "traefik:https://jellyfin.example.com/", "traefik", "https://jellyfin.example.com/", true));
     }
 
     @Test
@@ -189,7 +189,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
             int port = testAppContainer.getMappedPort(8080);
             assertThat(container.endpoints())
                     .containsExactly(new EndpointDTO(
-                            "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/"));
+                            "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/", true));
         }
     }
 
@@ -198,8 +198,8 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         ContainerDTO container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
         int port = mixedContainer.getMappedPort(51413);
         assertThat(container.endpoints())
-                .contains(
-                        new EndpointDTO("published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/"));
+                .contains(new EndpointDTO(
+                        "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/", false));
         assertThat(container.endpoints()).extracting(EndpointDTO::source).contains("traefik", "published-port");
     }
 
@@ -213,11 +213,13 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
                         new EndpointDTO(
                                 "traefik:https://transmission.example.com/",
                                 "traefik",
-                                "https://transmission.example.com/"),
+                                "https://transmission.example.com/",
+                                true),
                         new EndpointDTO(
                                 "traefik:https://transmission.example.com/dl/",
                                 "traefik",
-                                "https://transmission.example.com/dl/"));
+                                "https://transmission.example.com/dl/",
+                                false));
     }
 
     @Test
@@ -250,15 +252,26 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         JsonNode body = new JsonMapper().readTree(fetch("/api/containers").getBody());
         boolean found = false;
         for (JsonNode container : body.path("containers")) {
+            assertThat(container.has("preferences")).isFalse();
+            assertThat(container.has("hasWebUi")).isTrue();
+            assertThat(container.path("hasWebUi").isBoolean()).isTrue();
+            assertThat(container.path("hasWebUi").asBoolean()).isTrue();
             assertThat(container.has("exposedPorts")).isFalse();
             assertThat(container.has("hasPublicPorts")).isFalse();
             assertThat(container.has("labels")).isFalse();
             assertThat(container.has("publishedPorts")).isFalse();
             assertThat(container.has("urlCandidates")).isFalse();
             assertThat(container.path("hasEndpoints").asBoolean()).isTrue();
+            long selected = container
+                    .path("endpoints")
+                    .valueStream()
+                    .filter(endpoint -> endpoint.path("selected").asBoolean())
+                    .count();
+            assertThat(selected).isLessThanOrEqualTo(1);
             for (JsonNode endpoint : container.path("endpoints")) {
                 assertThat(endpoint.properties().stream().map(Map.Entry::getKey).toList())
-                        .containsExactlyInAnyOrder("id", "source", "url");
+                        .containsExactlyInAnyOrder("id", "source", "url", "selected");
+                assertThat(endpoint.path("selected").isBoolean()).isTrue();
                 assertThat(endpoint.path("url").asText()).startsWith("http");
             }
             if (container.path("name").asText().equals(TEST_PROXY_CONTAINER_NAME)) {

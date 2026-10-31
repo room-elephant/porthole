@@ -6,7 +6,7 @@ import { endpointLabel } from '../utils/endpoints';
 import { getHealthStatus } from '../utils/status';
 
 const arraysEqual = (a, b) =>
-    a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url);
+    a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url && v.selected === b[i].selected);
 
 const hostText = (container, selectedEndpoint) => {
     if (selectedEndpoint) return endpointLabel(selectedEndpoint.url);
@@ -85,6 +85,7 @@ export default memo(ContainerTile, (prevProps, nextProps) => {
         prev.image === next.image &&
         prev.iconUrl === next.iconUrl &&
         prev.hasEndpoints === next.hasEndpoints &&
+        prev.hasWebUi === next.hasWebUi &&
         prev.version?.currentVersion === next.version?.currentVersion &&
         prev.version?.latestVersion === next.version?.latestVersion &&
         prev.version?.updateAvailable === next.version?.updateAvailable &&
