@@ -159,7 +159,6 @@ class ContainerPreferencesEnricherTest {
         assertThat(container.urlCandidates()).extracting(Endpoint::source).containsExactly("published-port", "custom");
 
         snapshot.put(key, new ContainerPreferences(new SelectedEndpoint("published-port:80", "published-port", null)));
-        // Each inventory discovers candidates anew before preferences are applied.
         container.setUrlCandidates(discovery);
         enricher.enrich(List.of(container), context);
 

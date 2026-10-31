@@ -25,7 +25,6 @@ import org.testcontainers.containers.GenericContainer;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Exercises the shipped image, including its default data path and nonroot permissions. */
 class ContainerPreferencesIT {
     private WireMockServer docker;
     private GenericContainer<?> app;
@@ -60,7 +59,6 @@ class ContainerPreferencesIT {
     }
 
     private void startReplacement() {
-        // No host socket: the image's entrypoint must drop to UID 65532.
         app = PortholeContainer.withCustomSocket("/tmp/unused.sock", docker.port());
         for (int index = 0; index < 2; index++) {
             String prefix = "PORTHOLE_DOCKER_CONNECTIONS_" + index + "_";

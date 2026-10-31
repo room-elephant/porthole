@@ -10,12 +10,11 @@ import java.util.stream.IntStream;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
-/** Resolves effective selection without changing discovered candidates or stored preferences. */
 @NullMarked
 public final class EndpointSelectionResolver {
     public List<Endpoint> resolve(List<Endpoint> discovered, @Nullable SelectedEndpoint selection) {
-        var resolved = new ArrayList<Endpoint>();
-        for (var endpoint : discovered) {
+        List<Endpoint> resolved = new ArrayList<>();
+        for (Endpoint endpoint : discovered) {
             resolved.add(new Endpoint(endpoint.id(), endpoint.source(), endpoint.url(), false));
         }
         if (selection != null && selection.selectsNone()) return List.copyOf(resolved);
@@ -26,7 +25,7 @@ public final class EndpointSelectionResolver {
         }
         int selectedIndex = discoveredSelection(discovered, selection);
         if (selectedIndex >= 0) {
-            var endpoint = resolved.get(selectedIndex);
+            Endpoint endpoint = resolved.get(selectedIndex);
             resolved.set(selectedIndex, new Endpoint(endpoint.id(), endpoint.source(), endpoint.url(), true));
         }
         return List.copyOf(resolved);
@@ -35,18 +34,18 @@ public final class EndpointSelectionResolver {
     private int discoveredSelection(List<Endpoint> discovered, @Nullable SelectedEndpoint selection) {
         if (selection != null) {
             for (int index = 0; index < discovered.size(); index++) {
-                var candidate = discovered.get(index);
+                Endpoint candidate = discovered.get(index);
                 if (candidate.id().equals(selection.id()) && candidate.source().equals(selection.source()))
                     return index;
             }
         }
-        var traefik = IntStream.range(0, discovered.size())
+        List<Integer> traefik = IntStream.range(0, discovered.size())
                 .filter(index -> "traefik".equals(discovered.get(index).source()))
                 .boxed()
                 .toList();
         if (traefik.isEmpty()) return discovered.size() == 1 ? 0 : -1;
         if (traefik.size() == 1) return traefik.getFirst();
-        var roots = traefik.stream()
+        List<Integer> roots = traefik.stream()
                 .filter(index -> isRoot(discovered.get(index).url()))
                 .toList();
         return roots.size() == 1 ? roots.getFirst() : -1;
@@ -55,7 +54,6 @@ public final class EndpointSelectionResolver {
     private boolean isRoot(String url) {
         String path = URI.create(url).getRawPath();
         if (path.isEmpty()) return true;
-        // Browser paths remove dot segments, retain repeated slashes, and stop parents at the root.
         String[] segments = path.substring(1).split("/", -1);
         int depth = 0;
         for (int index = 0; index < segments.length - 1; index++) {

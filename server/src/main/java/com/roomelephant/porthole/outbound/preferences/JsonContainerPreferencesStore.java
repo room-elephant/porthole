@@ -18,6 +18,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.NullMarked;
@@ -35,7 +36,6 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
 
     public JsonContainerPreferencesStore(Path path, JsonMapper mapper) {
         this.path = path.toAbsolutePath().normalize();
-        // Omit absent values (for example a discovered selection's url) instead of writing explicit nulls.
         this.mapper = mapper.rebuild()
                 .changeDefaultPropertyInclusion(inclusion -> inclusion.withValueInclusion(JsonInclude.Include.NON_NULL))
                 .build();
@@ -54,9 +54,8 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
     @Override
     public synchronized ContainerPreferences replaceSelection(
             ContainerPreferencesKey key, @Nullable SelectedEndpoint selection) {
-        var updated = new LinkedHashMap<>(snapshot);
+        Map<ContainerPreferencesKey, ContainerPreferences> updated = new LinkedHashMap<>(snapshot);
         if (selection == null) {
-            // Automatic selection is the default, so there is nothing to remember.
             updated.remove(key);
         } else {
             updated.put(key, new ContainerPreferences(selection));
@@ -74,19 +73,18 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
             return Map.of();
         }
         if (new String(contents, StandardCharsets.UTF_8).isBlank()) {
-            // A pre-created (touch) or never-written file holds no preferences.
             return Map.of();
         }
-        var stored = mapper.readValue(contents, StoredContainerPreferences[].class);
+        StoredContainerPreferences[] stored = mapper.readValue(contents, StoredContainerPreferences[].class);
         if (stored == null) {
             throw new IllegalArgumentException("Expected an array of container preference records");
         }
-        var loaded = new LinkedHashMap<ContainerPreferencesKey, ContainerPreferences>();
-        for (var record : stored) {
+        Map<ContainerPreferencesKey, ContainerPreferences> loaded = new LinkedHashMap<>();
+        for (StoredContainerPreferences record : stored) {
             if (record == null || record.preferences() == null) {
                 throw new IllegalArgumentException("Incomplete container preference record");
             }
-            var key = new ContainerPreferencesKey(record.sourceId(), record.containerName());
+            ContainerPreferencesKey key = new ContainerPreferencesKey(record.sourceId(), record.containerName());
             ContainerPreferencesValidation.validate(key, record.preferences().selectedEndpoint());
             loaded.put(key, record.preferences());
         }
@@ -96,19 +94,18 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
     private void persist(Map<ContainerPreferencesKey, ContainerPreferences> updated) {
         Path temporary = null;
         try {
-            var records = updated.entrySet().stream()
+            List<StoredContainerPreferences> records = updated.entrySet().stream()
                     .map(entry -> new StoredContainerPreferences(
                             entry.getKey().sourceId(), entry.getKey().containerName(), entry.getValue()))
                     .toList();
-            var bytes = mapper.writeValueAsBytes(records);
-            var parent = Objects.requireNonNull(path.getParent());
+            byte[] bytes = mapper.writeValueAsBytes(records);
+            Path parent = Objects.requireNonNull(path.getParent());
             Files.createDirectories(parent);
             temporary = Files.createTempFile(parent, ".preferences-", ".tmp");
             writeDurably(temporary, bytes);
             try {
                 Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } catch (FileSystemException moveFailure) {
-                // rename(2) cannot replace a file that is itself a bind mount (EBUSY); overwrite it in place instead.
                 if (!Files.isRegularFile(path)) {
                     throw moveFailure;
                 }
@@ -127,11 +124,10 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
         }
     }
 
-    /** Writes and syncs to disk so a crash after the rename cannot leave an empty or truncated file behind. */
     private static void writeDurably(Path target, byte[] bytes) throws IOException {
-        try (var channel = FileChannel.open(
+        try (FileChannel channel = FileChannel.open(
                 target, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            var buffer = ByteBuffer.wrap(bytes);
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
             }

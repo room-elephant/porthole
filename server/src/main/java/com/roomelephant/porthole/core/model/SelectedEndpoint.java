@@ -7,10 +7,8 @@ import org.jspecify.annotations.Nullable;
 @NullMarked
 public record SelectedEndpoint(
         String id, String source, @Nullable String url) {
-    /** Reserved id and source of the explicit "no web UI" selection. */
     public static final String NONE = "none";
 
-    /** Reserved id and source of a user-supplied URL selection. */
     public static final String CUSTOM = "custom";
 
     public static final int MAX_URL_LENGTH = 2048;
@@ -28,8 +26,8 @@ public record SelectedEndpoint(
             return false;
         }
         try {
-            var uri = URI.create(url);
-            var authority = uri.getRawAuthority();
+            URI uri = URI.create(url);
+            @Nullable String authority = uri.getRawAuthority();
             return ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
                     && authority != null
                     && !authority.contains("@")
@@ -39,12 +37,8 @@ public record SelectedEndpoint(
         }
     }
 
-    /**
-     * URI only populates the host for RFC 2396 server-based authorities, so hostnames browsers accept (underscores,
-     * non-ASCII) fall back to the registry-based authority with any trailing port removed.
-     */
     private static String hostOf(URI uri, String authority) {
-        var host = uri.getHost();
+        @Nullable String host = uri.getHost();
         return host != null ? host : authority.replaceFirst(":\\d*$", "");
     }
 }

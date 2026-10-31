@@ -7,6 +7,7 @@ import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
 
@@ -22,10 +23,10 @@ public class ContainerPreferencesEnricher implements ContainerEnricher {
 
     @Override
     public List<Container> enrich(List<Container> containers, EnrichmentContext context) {
-        var snapshot = store.snapshot();
-        for (var container : containers) {
-            var key = new ContainerPreferencesKey(container.sourceId(), container.name());
-            var preferences = snapshot.getOrDefault(key, new ContainerPreferences(null));
+        Map<ContainerPreferencesKey, ContainerPreferences> snapshot = store.snapshot();
+        for (Container container : containers) {
+            ContainerPreferencesKey key = new ContainerPreferencesKey(container.sourceId(), container.name());
+            ContainerPreferences preferences = snapshot.getOrDefault(key, new ContainerPreferences(null));
             container.setPreferences(preferences);
             container.setUrlCandidates(resolver.resolve(container.urlCandidates(), preferences.selectedEndpoint()));
         }
