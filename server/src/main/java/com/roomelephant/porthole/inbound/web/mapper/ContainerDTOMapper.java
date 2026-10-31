@@ -1,10 +1,8 @@
 package com.roomelephant.porthole.inbound.web.mapper;
 
 import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
-import com.roomelephant.porthole.inbound.web.dto.ContainerPreferencesDTO;
 import com.roomelephant.porthole.inbound.web.dto.EndpointDTO;
 import com.roomelephant.porthole.inbound.web.dto.SelectedEndpointDTO;
 import org.jspecify.annotations.NullMarked;
@@ -42,14 +40,6 @@ public class ContainerDTOMapper {
                 container.version(),
                 container.isSelf(),
                 container.hasWebUi());
-    }
-
-    public ContainerPreferencesDTO toDTO(ContainerPreferences preferences) {
-        var selection = preferences.selectedEndpoint();
-        return new ContainerPreferencesDTO(
-                selection == null
-                        ? null
-                        : new SelectedEndpointDTO(selection.id(), selection.source(), selection.url()));
     }
 
     public @Nullable SelectedEndpoint toModel(@Nullable SelectedEndpointDTO selection) {

@@ -6,7 +6,6 @@ import com.roomelephant.porthole.core.port.inbound.GetContainers;
 import com.roomelephant.porthole.core.port.inbound.SelectContainerEndpoint;
 import com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO;
 import com.roomelephant.porthole.inbound.web.dto.SelectContainerEndpointRequest;
-import com.roomelephant.porthole.inbound.web.dto.SelectContainerEndpointResponse;
 import com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,12 +14,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.jspecify.annotations.NullMarked;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @NullMarked
@@ -77,17 +78,10 @@ public class ContainerController {
             description =
                     "Saves a discovered endpoint identity, a custom HTTP(S) URL, or the explicit none choice. "
                             + "Explicit null restores automatic selection. Does not require the container or endpoint to be currently available.")
-    @ApiResponse(
-            responseCode = "200",
-            description = "Confirmed saved preferences",
-            content =
-                    @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = SelectContainerEndpointResponse.class)))
+    @ApiResponse(responseCode = "204", description = "Selection saved")
     @ApiResponse(
             responseCode = "400",
-            description =
-                    "Missing or unconfigured identity, missing preferences or selectedEndpoint, or an invalid selection",
+            description = "Missing or unconfigured identity, missing selectedEndpoint, or an invalid selection",
             content =
                     @Content(
                             mediaType = "application/problem+json",
@@ -99,11 +93,10 @@ public class ContainerController {
                     @Content(
                             mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
-    public SelectContainerEndpointResponse selectEndpoint(@RequestBody SelectContainerEndpointRequest request) {
-        var preferences = selectContainerEndpoint.select(
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void selectEndpoint(@RequestBody SelectContainerEndpointRequest request) {
+        selectContainerEndpoint.select(
                 new ContainerPreferencesKey(request.sourceId(), request.containerName()),
-                containerDTOMapper.toModel(request.preferences().selectedEndpoint()));
-        return new SelectContainerEndpointResponse(
-                request.sourceId(), request.containerName(), containerDTOMapper.toDTO(preferences));
+                containerDTOMapper.toModel(request.selectedEndpoint()));
     }
 }

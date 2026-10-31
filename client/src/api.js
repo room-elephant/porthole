@@ -34,10 +34,5 @@ export const refreshVersions = async () => {
 };
 
 export const selectContainerEndpoint = async ({ sourceId, containerName, selectedEndpoint }) => {
-  const { data } = await api.put(API.SELECTED_URL, {
-    sourceId,
-    containerName,
-    preferences: { selectedEndpoint },
-  });
-  return data;
+  await api.put(API.SELECTED_URL, { sourceId, containerName, selectedEndpoint });
 };

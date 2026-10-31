@@ -35,15 +35,14 @@ describe('api', () => {
     expect(mockPost).toHaveBeenCalledWith('/api/versions/refresh');
   });
 
-  it('replaces the shared selection and returns confirmed preferences', async () => {
+  it('replaces the shared selection', async () => {
     const selection = { id: 'custom', source: 'custom', url: 'https://app.example.com/' };
-    const confirmed = { sourceId: 'remote', containerName: 'app', preferences: { selectedEndpoint: selection } };
-    mockPut.mockResolvedValue({ data: confirmed });
-    expect(await selectContainerEndpoint({ sourceId: 'remote', containerName: 'app', selectedEndpoint: selection })).toEqual(confirmed);
-    expect(mockPut).toHaveBeenCalledWith('/api/containers/selected-url', confirmed);
-    mockPut.mockResolvedValue({ data: { ...confirmed, preferences: { selectedEndpoint: null } } });
-    await selectContainerEndpoint({ sourceId: 'remote', containerName: 'app', selectedEndpoint: null });
-    expect(mockPut).toHaveBeenLastCalledWith('/api/containers/selected-url', { ...confirmed, preferences: { selectedEndpoint: null } });
+    mockPut.mockResolvedValue({ status: 204 });
+    const request = { sourceId: 'remote', containerName: 'app', selectedEndpoint: selection };
+    expect(await selectContainerEndpoint(request)).toBeUndefined();
+    expect(mockPut).toHaveBeenCalledWith('/api/containers/selected-url', request);
+    await selectContainerEndpoint({ ...request, selectedEndpoint: null });
+    expect(mockPut).toHaveBeenLastCalledWith('/api/containers/selected-url', { ...request, selectedEndpoint: null });
   });
 
   describe('fetchContainers', () => {

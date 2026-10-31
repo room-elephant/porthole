@@ -64,18 +64,14 @@ paths:
               $ref: "#/components/schemas/SelectContainerEndpointRequest"
         required: true
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SelectContainerEndpointResponse"
-          description: Confirmed saved preferences
+        "204":
+          description: Selection saved
         "400":
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ProblemDetail"
-          description: "Missing or unconfigured identity, missing preferences or selectedEndpoint,\
+          description: "Missing or unconfigured identity, missing selectedEndpoint,\
             \ or an invalid selection"
         "500":
           content:
@@ -159,17 +155,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SourceDTO"
-    ContainerPreferencesDTO:
-      type: object
-      description: Shared container preferences for selection commands and confirmations
-      properties:
-        selectedEndpoint:
-          description: Saved endpoint choice; explicit null restores automatic selection
-          oneOf:
-          - $ref: "#/components/schemas/SelectedEndpointDTO"
-          - type: "null"
-      required:
-      - selectedEndpoint
     EndpointDTO:
       type: object
       description: "Resolved service endpoint candidate, including the saved custom\
@@ -225,25 +210,18 @@ components:
           type: string
           description: "Docker container name, independent of runtime ID or display\
             \ name"
-        preferences:
-          $ref: "#/components/schemas/ContainerPreferencesDTO"
+        selectedEndpoint:
+          description: Saved endpoint choice; explicit null restores automatic selection
+          oneOf:
+          - $ref: "#/components/schemas/SelectedEndpointDTO"
+          - type: "null"
         sourceId:
           type: string
           description: Docker connection source ID
       required:
       - containerName
-      - preferences
+      - selectedEndpoint
       - sourceId
-    SelectContainerEndpointResponse:
-      type: object
-      description: Confirmed saved preferences for the identified container
-      properties:
-        containerName:
-          type: string
-        preferences:
-          $ref: "#/components/schemas/ContainerPreferencesDTO"
-        sourceId:
-          type: string
     SelectedEndpointDTO:
       type: object
       description: Saved endpoint identity. Custom and none are reserved ID/source

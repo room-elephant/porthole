@@ -93,18 +93,19 @@ class ContainerPreferencesIT {
         }
     }
 
-    private SelectContainerEndpointResponse select(String source, String selection) {
+    private void select(String source, String selection) {
         var headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         String body = """
-                {"sourceId":"%s","containerName":"shared-app","preferences":{"selectedEndpoint":%s}}
+                {"sourceId":"%s","containerName":"shared-app","selectedEndpoint":%s}
                 """.formatted(source, selection);
-        return http.exchange(
-                        appUrl() + "/api/containers/selected-url",
-                        HttpMethod.PUT,
-                        new HttpEntity<>(body, headers),
-                        SelectContainerEndpointResponse.class)
-                .getBody();
+        var response = http.exchange(
+                appUrl() + "/api/containers/selected-url",
+                HttpMethod.PUT,
+                new HttpEntity<>(body, headers),
+                String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
     }
 
     private String appUrl() {
@@ -137,11 +138,7 @@ class ContainerPreferencesIT {
         assertThat(inventory(true).containers())
                 .allSatisfy(container -> assertThat(container.hasWebUi()).isFalse());
         select("mike", "{\"id\":\"none\",\"source\":\"none\"}");
-        var saved = select("walker", CUSTOM);
-        assertThat(saved.sourceId()).isEqualTo("walker");
-        assertThat(saved.containerName()).isEqualTo("shared-app");
-        assertThat(saved.preferences().selectedEndpoint())
-                .isEqualTo(new SelectedEndpointDTO("custom", "custom", "https://shared.example.com/app"));
+        select("walker", CUSTOM);
         assertThat(inventory(false).containers()).singleElement().satisfies(container -> {
             assertThat(container.sourceId()).isEqualTo("walker");
             assertThat(container.endpoints())
@@ -153,7 +150,7 @@ class ContainerPreferencesIT {
                 .filteredOn(c -> c.sourceId().equals("mike"))
                 .singleElement()
                 .satisfies(c -> assertThat(c.hasWebUi()).isFalse());
-        assertThat(select("walker", CUSTOM)).isEqualTo(saved);
+        select("walker", CUSTOM);
         assertThat(inventory(false).containers())
                 .singleElement()
                 .satisfies(c -> assertThat(c.endpoints())
@@ -169,16 +166,7 @@ class ContainerPreferencesIT {
             })
     void replacingCustomDiscardsItsUrlAndRestoresNormalFiltering(String replacement) throws Exception {
         select("walker", CUSTOM);
-        var saved = select("walker", replacement);
-        if (replacement.equals("null")) {
-            assertThat(saved.preferences().selectedEndpoint()).isNull();
-        } else {
-            assertThat(saved.preferences().selectedEndpoint())
-                    .isEqualTo(
-                            replacement.contains("published-port")
-                                    ? new SelectedEndpointDTO("published-port:8080", "published-port", null)
-                                    : new SelectedEndpointDTO("none", "none", null));
-        }
+        select("walker", replacement);
         assertThat(inventory(false).containers()).isEmpty();
         assertThat(inventory(true).containers())
                 .filteredOn(c -> c.sourceId().equals("walker"))

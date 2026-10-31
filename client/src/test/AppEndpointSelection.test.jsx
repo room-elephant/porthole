@@ -13,7 +13,7 @@ const refreshed = { sources: [source], containers: [createMockContainer({ endpoi
 describe('App endpoint selection refresh', () => {
   it('keeps the dialog and prior inventory after a saved selection fails to refresh, then recovers through GET alone', async () => {
     fetchContainers.mockResolvedValueOnce(initial).mockRejectedValueOnce(new Error('Offline')).mockResolvedValue(refreshed);
-    selectContainerEndpoint.mockResolvedValue({ sourceId: 'local', containerName: 'test-container', preferences: { selectedEndpoint: { id: 'none', source: 'none' } } });
+    selectContainerEndpoint.mockResolvedValue(undefined);
     const { queryClient } = renderWithQuery(<App />);
     expect(await screen.findByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://localhost:8080/');
     fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));

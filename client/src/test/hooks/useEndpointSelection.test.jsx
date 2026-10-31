@@ -16,7 +16,8 @@ const deferred = () => { let resolve; let reject; const promise = new Promise((y
 const container = (selection = null, overrides = {}) => createMockContainer({ name: 'app', endpoints: [port, root], hasWebUi: selection?.source !== 'none', ...overrides });
 const inventory = containers => ({ sources: [{ id: 'local', name: 'Local', status: 'UP', error: null }], containers });
 const noUi = () => container(none, { endpoints: [port, { ...root, selected: false }] });
-const confirmation = { sourceId: 'local', containerName: 'app', preferences: { selectedEndpoint: none } };
+// The PUT returns 204 No Content.
+const confirmation = undefined;
 const setup = (initial = container(), fetch = vi.fn().mockResolvedValue(inventory([initial]))) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.setQueryData(key, inventory([initial]));
@@ -187,7 +188,7 @@ describe('shared endpoint selection', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     await act(async () => replacementRead.resolve(inventory([noUi()])));
     await waitFor(() => expect(result.current.first.isSaving).toBe(false));
-    await act(async () => otherWrite.resolve({ sourceId: 'remote', containerName: 'app', preferences: { selectedEndpoint: null } }));
+    await act(async () => otherWrite.resolve());
     await waitFor(() => expect(result.current.other.isSaving).toBe(false));
     expect(result.current.first.selectedEndpointId).toBe('none');
   });

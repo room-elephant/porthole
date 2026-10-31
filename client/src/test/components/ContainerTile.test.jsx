@@ -33,7 +33,7 @@ describe('ContainerTile', () => {
     vi.clearAllMocks();
     localStorage.clear();
     savedSelections = [];
-    selectContainerEndpoint.mockImplementation(async request => { savedSelections.push(request); return { sourceId: request.sourceId, containerName: request.containerName, preferences: { selectedEndpoint: request.selectedEndpoint } }; });
+    selectContainerEndpoint.mockImplementation(async request => { savedSelections.push(request); });
   });
 
   it('navigates using server flags without preference metadata', () => {

@@ -269,15 +269,11 @@ class ContainerControllerTest {
         mockMvc.perform(put("/api/containers/selected-url")
                         .contentType("application/json")
                         .content("""
-                                {"sourceId":"local","containerName":"app","preferences":{
-                                  "selectedEndpoint":{"id":"custom","source":"custom","url":"https://app.example"}}}
+                                {"sourceId":"local","containerName":"app",
+                                  "selectedEndpoint":{"id":"custom","source":"custom","url":"https://app.example"}}
                                 """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sourceId").value("local"))
-                .andExpect(jsonPath("$.containerName").value("app"))
-                .andExpect(jsonPath("$.preferences.selectedEndpoint.url").value("https://app.example"))
-                .andExpect(jsonPath("$.preferences.selectedEndpoint.selected").doesNotExist())
-                .andExpect(jsonPath("$.endpoints").doesNotExist());
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
         verify(preferencesStore)
                 .replaceSelection(
                         new ContainerPreferencesKey("local", "app"),
@@ -292,18 +288,12 @@ class ContainerControllerTest {
                 "{\"id\":\"none\",\"source\":\"none\"}",
                 "null"
             })
-    void shouldRoundTripDiscoveredNoneAndAutomaticSelections(String selection) throws Exception {
+    void shouldSaveDiscoveredNoneAndAutomaticSelections(String selection) throws Exception {
         mockMvc.perform(put("/api/containers/selected-url")
                         .contentType("application/json")
-                        .content(
-                                "{\"sourceId\":\"remote\",\"containerName\":\"app\",\"preferences\":{\"selectedEndpoint\":"
-                                        + selection + "}}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.preferences.selectedEndpoint.url").doesNotExist())
-                .andExpect(content()
-                        .json(
-                                "{\"sourceId\":\"remote\",\"containerName\":\"app\",\"preferences\":{\"selectedEndpoint\":"
-                                        + selection + "}}"));
+                        .content("{\"sourceId\":\"remote\",\"containerName\":\"app\",\"selectedEndpoint\":" + selection
+                                + "}"))
+                .andExpect(status().isNoContent());
         verify(preferencesStore)
                 .replaceSelection(eq(new ContainerPreferencesKey("remote", "app")), nullable(SelectedEndpoint.class));
         verifyNoInteractions(containerService, versions);
@@ -316,15 +306,14 @@ class ContainerControllerTest {
                 "null",
                 "{",
                 "{\"sourceId\":\"local\",\"containerName\":\"app\"}",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"preferences\":null}",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"preferences\":{}}",
-                "{\"sourceId\":\" \",\"containerName\":\"app\",\"preferences\":{\"selectedEndpoint\":null}}",
-                "{\"sourceId\":\"local\",\"containerName\":\" \",\"preferences\":{\"selectedEndpoint\":null}}",
-                "{\"containerName\":\"app\",\"preferences\":{\"selectedEndpoint\":null}}",
-                "{\"sourceId\":\"local\",\"preferences\":{\"selectedEndpoint\":null}}",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"preferences\":{\"selectedEndpoint\":{}}}",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"preferences\":{\"selectedEndpoint\":{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"javascript:alert(1)\"}}}",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"preferences\":{\"selectedEndpoint\":{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https://user:pass@app.example\"}}}"
+                "{\"sourceId\":\" \",\"containerName\":\"app\",\"selectedEndpoint\":null}",
+                "{\"sourceId\":\"local\",\"containerName\":\" \",\"selectedEndpoint\":null}",
+                "{\"sourceId\":\"unconfigured\",\"containerName\":\"app\",\"selectedEndpoint\":null}",
+                "{\"containerName\":\"app\",\"selectedEndpoint\":null}",
+                "{\"sourceId\":\"local\",\"selectedEndpoint\":null}",
+                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"selectedEndpoint\":{}}",
+                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"selectedEndpoint\":{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"javascript:alert(1)\"}}",
+                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"selectedEndpoint\":{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https://user:pass@app.example\"}}"
             })
     void shouldRejectMalformedUpdatesWithoutSaving(String body) throws Exception {
         mockMvc.perform(put("/api/containers/selected-url")
@@ -341,7 +330,7 @@ class ContainerControllerTest {
         mockMvc.perform(put("/api/containers/selected-url")
                         .contentType("application/json")
                         .content("""
-                                {"sourceId":"local","containerName":"app","preferences":{"selectedEndpoint":null}}
+                                {"sourceId":"local","containerName":"app","selectedEndpoint":null}
                                 """))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.detail").isNotEmpty())

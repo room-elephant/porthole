@@ -23,7 +23,7 @@ const renderSection = (containers, { sources = [source], groupBy = GROUP_BY.HOST
 describe('source sections', () => {
  beforeEach(() => {localStorage.clear();vi.clearAllMocks();
   savedSelections = [];
-  selectContainerEndpoint.mockImplementation(async request => { savedSelections.push(request); return { sourceId: request.sourceId, containerName: request.containerName, preferences: { selectedEndpoint: request.selectedEndpoint } }; });
+  selectContainerEndpoint.mockImplementation(async request => { savedSelections.push(request); });
  });
 
  it('shows host heading meta with container and stack counts', () => {
@@ -132,7 +132,7 @@ describe('source sections', () => {
   const refresh = new Promise(resolve => { completeRefresh = resolve; });
   const read = vi.fn(() => refresh);
   selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
-   confirm = () => { savedSelections.push({ sourceId, containerName, selectedEndpoint }); resolve({ sourceId, containerName, preferences: { selectedEndpoint } }); };
+   confirm = () => { savedSelections.push({ sourceId, containerName, selectedEndpoint }); resolve(); };
   }));
   const startsAsChip = direction === 'chip-to-custom-tile';
   const initial = mk(startsAsChip ? { endpoints: [], hasEndpoints: false } : {});
@@ -209,7 +209,7 @@ describe('source sections', () => {
  it('releases a pending handoff when the sole open container disappears', async () => {
   let confirm;
   selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
-   confirm = () => { savedSelections.push({ sourceId, containerName, selectedEndpoint }); resolve({ sourceId, containerName, preferences: { selectedEndpoint } }); };
+   confirm = () => { savedSelections.push({ sourceId, containerName, selectedEndpoint }); resolve(); };
   }));
   const { queryClient } = renderSection([mk()]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
