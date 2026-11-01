@@ -15,7 +15,7 @@ export default function ContainerChip({ container, sourceOnline = true, hostTag 
                 <span className={`status-dot dot-${status.dot}`} title={title}></span>
                 <span className="chip-name">{container.displayName}</span>
                 {hostTag && <span className="chip-suffix">{` · ${hostTag}`}</span>}
-                {status.label && <span className={`chip-suffix label-${status.kind}`}>{` · ${status.label}`}</span>}
+                {status.label && <span className="chip-suffix">{' · '}<span className={`label-${status.kind}`}>{status.label}</span></span>}
             </button>
             {settingsDialog}
         </>
