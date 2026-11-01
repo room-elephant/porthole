@@ -1561,6 +1561,9 @@ input:checked + .toggle-slider::before {
 }
 
 .chip-suffix { color: var(--text-muted); }
+.chip .label-update { color: var(--update-text); }
+.chip .label-starting,
+.chip .label-restarting { color: var(--warn-text); }
 .chip .label-unhealthy { color: var(--bad-text); }
 
 .banner-offline {
