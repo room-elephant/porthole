@@ -406,18 +406,6 @@ input:checked + .toggle-slider::before {
   text-align: left;
 }
 
-.tile-go {
-  flex: 0 0 auto;
-  color: var(--accent-2);
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.tile:hover .tile-go,
-.tile:focus-within .tile-go {
-  opacity: 1;
-}
-
 .tile-menu {
   flex: 0 0 auto;
   width: 44px;

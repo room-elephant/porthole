@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { ArrowUpRight, MoreVertical } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { useContainerCard } from '../hooks/useContainerCard';
 import ContainerIcon from './ContainerIcon';
 import { getHealthStatus } from '../utils/status';
@@ -41,7 +41,6 @@ function ContainerTile({ container, sourceOnline = true, hostTag = null, sourceN
                 {isLink ? (
                     <a className="tile-main" href={selectedEndpoint.url} target="_blank" rel="noopener">
                         {content}
-                        <ArrowUpRight className="tile-go" size={16} aria-hidden="true" />
                     </a>
                 ) : (
                     <button type="button" className="tile-main" aria-label={settingsLabel} onClick={openSettings}>

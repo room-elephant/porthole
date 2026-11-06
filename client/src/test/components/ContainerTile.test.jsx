@@ -92,6 +92,11 @@ describe('ContainerTile', () => {
     expect(window.open).not.toHaveBeenCalled();
   });
 
+  it('renders no arrow in the link, so nothing takes width from the subtitle', () => {
+    renderWithQuery(<ContainerTile container={createMockContainer()} />);
+    expect(screen.getByRole('link').querySelector('svg')).toBeNull();
+  });
+
   it('shows only the image in the subtitle, never the endpoint URL', () => {
     const { container: root } = renderWithQuery(<ContainerTile container={createMockContainer()} />);
     expect(root.querySelector('.tile-sub').textContent).toBe('‎test-image:latest‎');
