@@ -8,6 +8,17 @@ const sourceTitle = (source) => {
   return `${titleCase(source)} URLs`;
 };
 
+/** An absolute http(s) URL with a host and no credentials, as the server requires. */
+export const isValidCustomUrl = (value) => {
+  if (!/^https?:\/\/[^/]/i.test(value) || /[\s\\]/.test(value)) return false;
+  try {
+    const { hostname, username, password } = new URL(value);
+    return Boolean(hostname) && !username && !password;
+  } catch {
+    return false;
+  }
+};
+
 export const endpointTag = (source) => {
   if (source === 'traefik') return 'Traefik';
   if (source === 'published-port') return 'Port';

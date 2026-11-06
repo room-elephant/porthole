@@ -74,7 +74,7 @@ describe('ContainerSettings', () => {
 
     const group = screen.getByRole('group', { name: 'Tile opens' });
     const radios = within(group).getAllByRole('radio');
-    expect(radios).toHaveLength(4);
+    expect(radios).toHaveLength(3);
     expect(new Set(radios.map(radio => radio.name)).size).toBe(1);
     expect(within(group).getByRole('radio', { name: 'No web UI' })).toBeChecked();
 
@@ -221,7 +221,7 @@ describe('ContainerSettings', () => {
       { id: 'ngnext', source: 'ngnext', url: 'https://custom.example.com/', selected: false },
       { id: 'proto', source: '__proto__', url: 'https://proto.example.com/', selected: false },
     ] }} />);
-    expect(screen.getAllByRole('radio').map(radio => radio.value)).toEqual(['root', 'dl', 'published-port:80', 'proto', 'ngnext', 'none', 'custom']);
+    expect(screen.getAllByRole('radio').map(radio => radio.value)).toEqual(['root', 'dl', 'published-port:80', 'proto', 'ngnext', 'none']);
     expect(screen.getByRole('group', { name: 'Tile opens' })).toBeInTheDocument();
     expect(screen.getAllByRole('radio').filter(radio => radio.checked)).toHaveLength(1);
     screen.getByRole('radio', { name: 'https://proto.example.com/' }).focus();
@@ -236,73 +236,236 @@ describe('ContainerSettings', () => {
     expect(screen.getAllByRole('radio').filter(radio => radio.checked)).toHaveLength(0);
   });
 
-  it('only saves custom input after an explicit valid submission', () => {
-    const onSelectEndpoint = vi.fn();
-    render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
-    const input = screen.getByRole('textbox', { name: 'Custom URL address' });
-    fireEvent.change(input, { target: { value: 'https://custom.example.com/path' } });
-    expect(onSelectEndpoint).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
-    expect(onSelectEndpoint).toHaveBeenCalledWith({ id: 'custom', source: 'custom', url: 'https://custom.example.com/path' });
-  });
+  describe('custom URL', () => {
+    const SAVED = 'https://saved.example.com/';
+    const discovered = defaultProps.container.endpoints;
+    const withCustom = (url = SAVED, base = discovered) => ({ ...defaultProps.container, endpoints: [...base, { id: 'custom', source: 'custom', url, selected: true }] });
+    const renderSaved = (props = {}) => render(<ContainerSettings {...defaultProps} container={withCustom()} selectedEndpointId="custom" {...props} />);
+    const addButton = () => screen.getByRole('button', { name: 'Add custom URL' });
+    const editButton = () => screen.getByRole('button', { name: 'Edit custom URL' });
+    const customRadio = () => screen.getByRole('radio', { name: 'Custom URL' });
+    const urlInput = () => screen.getByRole('textbox', { name: 'Custom URL' });
+    const button = name => screen.getByRole('button', { name });
 
-  it.each(['', 'relative/path', 'ftp://example.com/', 'javascript:alert(1)', 'https://', 'http:example.com', 'https:///example.com', 'https://user:password@example.com', 'https://example.com/a b'])('rejects invalid custom URL %s without a save', value => {
-    const onSelectEndpoint = vi.fn();
-    render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Custom URL address' }), { target: { value } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
-    expect(screen.getByRole('alert')).toHaveTextContent(/absolute HTTP or HTTPS URL/i);
-    expect(onSelectEndpoint).not.toHaveBeenCalled();
-    expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true');
-  });
+    it('offers a dashed add button after No web UI when no custom URL exists', () => {
+      render(<ContainerSettings {...defaultProps} />);
+      expect(screen.getAllByRole('radio').map(radio => radio.value)).toEqual(['published-port:80', 'published-port:443', 'none']);
+      expect(screen.getByRole('radio', { name: 'No web UI' }).compareDocumentPosition(addButton()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(addButton()).toHaveClass('custom-url-add');
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
 
-  it('edits an existing custom URL and clears its draft when a confirmed discovered choice replaces it', () => {
-    const onSelectEndpoint = vi.fn();
-    const custom = { id: 'custom', source: 'custom', url: 'https://old.example.com/' };
-    const container = { ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, { ...custom, selected: true }] };
-    const view = render(<ContainerSettings {...defaultProps} container={container} selectedEndpointId="custom" onSelectEndpoint={onSelectEndpoint} />);
-    expect(screen.getByRole('radio', { name: 'Custom URL' })).toBeChecked();
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://new.example.com/' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
-    expect(onSelectEndpoint).toHaveBeenLastCalledWith({ id: 'custom', source: 'custom', url: 'https://new.example.com/' });
-    fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:443/' }));
-    expect(onSelectEndpoint).toHaveBeenLastCalledWith({ id: 'published-port:443', source: 'published-port' });
-    view.rerender(<ContainerSettings {...defaultProps} container={defaultProps.container} selectedEndpointId="published-port:443" onSelectEndpoint={onSelectEndpoint} />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
-    expect(screen.getByRole('textbox')).toHaveValue('');
-  });
+    it('shows a saved URL as an option row between detected endpoints and No web UI', () => {
+      renderSaved();
+      expect(screen.getAllByRole('radio').map(radio => radio.value)).toEqual(['published-port:80', 'published-port:443', 'custom', 'none']);
+      expect(customRadio()).toBeChecked();
+      expect(screen.getByText(SAVED)).toHaveClass('endpoint-url');
+      expect(screen.getByText(SAVED)).toHaveAttribute('title', SAVED);
+      expect(screen.getByText('Custom')).toHaveClass('endpoint-tag');
+      expect(editButton()).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Add custom URL' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
 
-  it('retains form focus when the confirmed custom URL arrives', () => {
-    const custom = { id: 'custom', source: 'custom', url: 'https://new.example.com/' };
-    const view = render(<ContainerSettings {...defaultProps} />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: custom.url } });
-    screen.getByRole('button', { name: 'Save custom URL' }).focus();
-    view.rerender(<ContainerSettings {...defaultProps} selectedEndpointId="custom" container={{ ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, { ...custom, selected: true }] }} />);
-    expect(screen.getByRole('button', { name: 'Save custom URL' })).toHaveFocus();
-  });
+    it('marks only a selected custom row as selected', () => {
+      const view = renderSaved();
+      expect(customRadio().closest('.endpoint-option')).toHaveClass('selected');
+      view.rerender(<ContainerSettings {...defaultProps} selectedEndpointId="published-port:80" />);
+      expect(customRadio().closest('.endpoint-option')).not.toHaveClass('selected');
+    });
 
-  it('disables selection controls while saving and exposes pending and error feedback', () => {
-    const container = { ...defaultProps.container, endpoints: [{ id: 'custom', source: 'custom', url: 'https://example.com/', selected: true }] };
-    const view = render(<ContainerSettings {...defaultProps} container={container} selectedEndpointId="custom" isSaving />);
-    expect(screen.getByText('Saving selection…')).toHaveAttribute('role', 'status');
-    screen.getAllByRole('radio').forEach(radio => expect(radio).toBeDisabled());
-    expect(screen.getByRole('textbox')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Save custom URL' })).toBeDisabled();
-    view.rerender(<ContainerSettings {...defaultProps} container={container} selectedEndpointId="custom" saveError={new Error('Disk is full')} />);
-    expect(screen.getByRole('alert')).toHaveTextContent(/could not save.*Disk is full/i);
-    expect(screen.getByRole('textbox')).toHaveValue('https://example.com/');
-    expect(screen.getByRole('radio', { name: 'Custom URL' })).toBeChecked();
-  });
+    it('opens an empty focused panel without Remove when adding', () => {
+      render(<ContainerSettings {...defaultProps} />);
+      fireEvent.click(addButton());
+      expect(urlInput()).toHaveValue('');
+      expect(urlInput()).toHaveAttribute('type', 'url');
+      expect(urlInput()).toHaveFocus();
+      expect(button('Save')).toBeInTheDocument();
+      expect(button('Cancel')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Add custom URL' })).not.toBeInTheDocument();
+    });
 
-  it('uses one custom control and pre-fills a server-resolved custom endpoint without saved metadata', () => {
-    const custom = { id: 'custom', source: 'custom', url: 'https://resolved.example.com/', selected: true };
-    render(<ContainerSettings {...defaultProps} selectedEndpointId="custom" container={{ ...defaultProps.container, endpoints: [...defaultProps.container.endpoints, custom] }} />);
-    expect(screen.getAllByRole('radio', { name: 'Custom URL' })).toHaveLength(1);
-    expect(screen.queryByRole('radio', { name: custom.url })).not.toBeInTheDocument();
-    expect(screen.getByRole('textbox')).toHaveValue(custom.url);
+    it('turns the row into a prefilled panel with Remove when editing', () => {
+      renderSaved();
+      fireEvent.click(editButton());
+      expect(urlInput()).toHaveValue(SAVED);
+      expect(button('Remove')).toBeInTheDocument();
+      expect(screen.queryByRole('radio', { name: 'Custom URL' })).not.toBeInTheDocument();
+      expect(urlInput().compareDocumentPosition(screen.getByRole('radio', { name: 'No web UI' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('saves a valid URL and collapses into the selected row once the server confirms it', () => {
+      const onSelectEndpoint = vi.fn();
+      const url = 'https://custom.example.com/path';
+      const view = render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} />);
+      fireEvent.click(addButton());
+      fireEvent.change(urlInput(), { target: { value: `  ${url} ` } });
+      expect(onSelectEndpoint).not.toHaveBeenCalled();
+      fireEvent.click(button('Save'));
+      expect(onSelectEndpoint).toHaveBeenCalledWith({ id: 'custom', source: 'custom', url });
+      expect(urlInput()).toBeInTheDocument();
+      view.rerender(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} container={withCustom(url)} selectedEndpointId="custom" />);
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(customRadio()).toBeChecked();
+      expect(customRadio()).toHaveFocus();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    it('submits with Enter', async () => {
+      const onSelectEndpoint = vi.fn();
+      const user = userEvent.setup();
+      render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} />);
+      fireEvent.click(addButton());
+      await user.type(urlInput(), 'https://typed.example.com/{Enter}');
+      expect(onSelectEndpoint).toHaveBeenCalledWith({ id: 'custom', source: 'custom', url: 'https://typed.example.com/' });
+    });
+
+    it('collapses without a request when an unchanged selected URL is saved', () => {
+      const onSelectEndpoint = vi.fn();
+      renderSaved({ onSelectEndpoint });
+      fireEvent.click(editButton());
+      fireEvent.click(button('Save'));
+      expect(onSelectEndpoint).not.toHaveBeenCalled();
+      expect(customRadio()).toBeChecked();
+    });
+
+    it.each(['', 'relative/path', 'ftp://example.com/', 'javascript:alert(1)', 'https://', 'http:example.com', 'https:///example.com', 'https://user:password@example.com', 'https://example.com/a b'])('rejects %s, saving nothing and keeping focus in the field', async value => {
+      const onSelectEndpoint = vi.fn();
+      const user = userEvent.setup();
+      render(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} />);
+      await user.click(addButton());
+      fireEvent.change(urlInput(), { target: { value } });
+      await user.click(button('Save'));
+      expect(onSelectEndpoint).not.toHaveBeenCalled();
+      const message = screen.getByRole('alert');
+      expect(message).toHaveTextContent('Enter an http or https address');
+      expect(urlInput()).toHaveAttribute('aria-invalid', 'true');
+      expect(urlInput()).toHaveAttribute('aria-describedby', message.id);
+      expect(urlInput()).toHaveFocus();
+    });
+
+    it('clears the validation message when the field changes', () => {
+      render(<ContainerSettings {...defaultProps} />);
+      fireEvent.click(addButton());
+      fireEvent.click(button('Save'));
+      fireEvent.change(urlInput(), { target: { value: 'https://' } });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(urlInput()).toHaveAttribute('aria-invalid', 'false');
+    });
+
+    it('keeps the panel and draft when the save fails', () => {
+      const props = { ...defaultProps };
+      const view = render(<ContainerSettings {...props} />);
+      fireEvent.click(addButton());
+      fireEvent.change(urlInput(), { target: { value: 'https://custom.example.com/' } });
+      fireEvent.click(button('Save'));
+      view.rerender(<ContainerSettings {...props} saveError={new Error('Disk is full')} />);
+      expect(screen.getByRole('alert')).toHaveTextContent(/could not save.*Disk is full/i);
+      expect(urlInput()).toHaveValue('https://custom.example.com/');
+    });
+
+    it('cancelling an add returns to the add button and refocuses it', () => {
+      render(<ContainerSettings {...defaultProps} />);
+      fireEvent.click(addButton());
+      fireEvent.change(urlInput(), { target: { value: 'https://draft.example.com/' } });
+      fireEvent.click(button('Cancel'));
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(addButton()).toHaveFocus();
+      fireEvent.click(addButton());
+      expect(urlInput()).toHaveValue('');
+    });
+
+    it('cancelling an edit discards the draft and restores the row', () => {
+      const onSelectEndpoint = vi.fn();
+      renderSaved({ onSelectEndpoint });
+      fireEvent.click(editButton());
+      fireEvent.change(urlInput(), { target: { value: 'https://draft.example.com/' } });
+      fireEvent.click(button('Cancel'));
+      expect(onSelectEndpoint).not.toHaveBeenCalled();
+      expect(screen.getByText(SAVED)).toBeInTheDocument();
+      expect(customRadio()).toHaveFocus();
+      fireEvent.click(editButton());
+      expect(urlInput()).toHaveValue(SAVED);
+    });
+
+    it('removing a selected URL falls back to the first detected endpoint', () => {
+      const onSelectEndpoint = vi.fn();
+      const view = renderSaved({ onSelectEndpoint });
+      fireEvent.click(editButton());
+      fireEvent.click(button('Remove'));
+      expect(onSelectEndpoint).toHaveBeenCalledWith({ id: 'published-port:80', source: 'published-port' });
+      view.rerender(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} selectedEndpointId="published-port:80" />);
+      expect(addButton()).toHaveFocus();
+      expect(screen.queryByRole('radio', { name: 'Custom URL' })).not.toBeInTheDocument();
+    });
+
+    it('removing a selected URL falls back to No web UI when nothing is detected', () => {
+      const onSelectEndpoint = vi.fn();
+      render(<ContainerSettings {...defaultProps} container={withCustom(SAVED, [])} selectedEndpointId="custom" onSelectEndpoint={onSelectEndpoint} />);
+      fireEvent.click(editButton());
+      fireEvent.click(button('Remove'));
+      expect(onSelectEndpoint).toHaveBeenCalledWith({ id: 'none', source: 'none' });
+    });
+
+    it('removing an unselected URL sends no request', () => {
+      const onSelectEndpoint = vi.fn();
+      const view = renderSaved({ onSelectEndpoint });
+      view.rerender(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} selectedEndpointId="published-port:80" />);
+      fireEvent.click(editButton());
+      fireEvent.click(button('Remove'));
+      expect(onSelectEndpoint).not.toHaveBeenCalled();
+      expect(addButton()).toBeInTheDocument();
+    });
+
+    it('keeps the row until the dialog closes after another option is selected, and re-selecting resends the URL', () => {
+      const onSelectEndpoint = vi.fn();
+      const view = renderSaved({ onSelectEndpoint });
+      fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:443/' }));
+      expect(onSelectEndpoint).toHaveBeenLastCalledWith({ id: 'published-port:443', source: 'published-port' });
+      view.rerender(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} selectedEndpointId="published-port:443" />);
+      expect(customRadio()).not.toBeChecked();
+      expect(screen.getByText(SAVED)).toBeInTheDocument();
+      // A later poll delivers a new container object without the custom candidate.
+      view.rerender(<ContainerSettings {...defaultProps} container={{ ...defaultProps.container }} onSelectEndpoint={onSelectEndpoint} selectedEndpointId="published-port:443" />);
+      fireEvent.click(customRadio());
+      expect(onSelectEndpoint).toHaveBeenLastCalledWith({ id: 'custom', source: 'custom', url: SAVED });
+    });
+
+    it('edits an unselected URL and selects it on save', () => {
+      const onSelectEndpoint = vi.fn();
+      const view = renderSaved({ onSelectEndpoint });
+      view.rerender(<ContainerSettings {...defaultProps} onSelectEndpoint={onSelectEndpoint} selectedEndpointId="published-port:80" />);
+      fireEvent.click(editButton());
+      fireEvent.click(button('Save'));
+      expect(onSelectEndpoint).toHaveBeenCalledWith({ id: 'custom', source: 'custom', url: SAVED });
+    });
+
+    it('forgets a deselected URL once the dialog is reopened', () => {
+      const view = renderSaved();
+      view.rerender(<ContainerSettings {...defaultProps} selectedEndpointId="published-port:80" />);
+      view.unmount();
+      render(<ContainerSettings {...defaultProps} selectedEndpointId="published-port:80" />);
+      expect(addButton()).toBeInTheDocument();
+      expect(screen.queryByText(SAVED)).not.toBeInTheDocument();
+    });
+
+    it('closes an open panel when another option is selected', () => {
+      render(<ContainerSettings {...defaultProps} />);
+      fireEvent.click(addButton());
+      fireEvent.click(screen.getByRole('radio', { name: 'http://localhost:443/' }));
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
+
+    it('disables the row and panel while saving and exposes pending and error feedback', () => {
+      const view = renderSaved({ isSaving: true });
+      expect(screen.getByText('Saving selection…')).toHaveAttribute('role', 'status');
+      screen.getAllByRole('radio').forEach(radio => expect(radio).toBeDisabled());
+      expect(editButton()).toBeDisabled();
+      view.rerender(<ContainerSettings {...defaultProps} container={withCustom()} selectedEndpointId="custom" saveError={new Error('Disk is full')} />);
+      expect(screen.getByRole('alert')).toHaveTextContent(/could not save.*Disk is full/i);
+      expect(customRadio()).toBeChecked();
+    });
   });
 
   it('reports a saved selection whose refresh failed without calling it a save failure', () => {

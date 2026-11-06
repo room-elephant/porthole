@@ -1,9 +1,9 @@
-import { useId, useState } from 'react';
-import { ArrowRight, Check } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { ArrowRight, Check, Pencil, Plus } from 'lucide-react';
 import Modal from './Modal';
 import ContainerIcon from './ContainerIcon';
 import { statusDetail } from '../utils/status';
-import { NO_ENDPOINT_ID, endpointTag, groupEndpointsBySource } from '../utils/endpoints';
+import { NO_ENDPOINT_ID, endpointTag, groupEndpointsBySource, isValidCustomUrl } from '../utils/endpoints';
 
 function EndpointOption({ id, label, tag = null, source = null, helper = null, selectionName, selectedEndpointId, onSelectEndpoint }) {
     const selected = selectedEndpointId === id;
@@ -33,50 +33,126 @@ function EndpointOption({ id, label, tag = null, source = null, helper = null, s
     );
 }
 
-function CustomUrlForm({ savedUrl, onSelectEndpoint }) {
+function CustomUrlRow({ url, selected, selectionName, radioRef, onSelect, onEdit }) {
+    const urlId = useId();
+    return (
+        <div className={`endpoint-option endpoint-option--custom ${selected ? 'selected' : ''}`}>
+            <label className="endpoint-option-main">
+                <input ref={radioRef} type="radio" name={selectionName} value="custom" aria-label="Custom URL"
+                    aria-describedby={urlId} checked={selected} onChange={onSelect} />
+                <span id={urlId} className="endpoint-url endpoint-url--truncate" title={url}>{url}</span>
+                <span className="endpoint-tag tag-custom">{endpointTag('custom')}</span>
+            </label>
+            <button type="button" className="endpoint-edit" aria-label="Edit custom URL" onClick={onEdit}>
+                <Pencil size={16} aria-hidden="true" />
+            </button>
+        </div>
+    );
+}
+
+function CustomUrlPanel({ initialUrl, onSave, onCancel, onRemove }) {
     const inputId = useId();
-    const [previousSavedUrl, setPreviousSavedUrl] = useState(savedUrl);
-    const [url, setUrl] = useState(savedUrl);
-    const [error, setError] = useState(null);
-    // Refresh confirmed values without replacing the focused form controls.
-    if (previousSavedUrl !== savedUrl) {
-        setPreviousSavedUrl(savedUrl);
-        setUrl(savedUrl);
-        setError(null);
-    }
+    const errorId = `${inputId}-error`;
+    const inputRef = useRef(null);
+    const [url, setUrl] = useState(initialUrl);
+    const [invalid, setInvalid] = useState(false);
+    useEffect(() => inputRef.current?.focus(), []);
     const save = (event) => {
         event.preventDefault();
         const value = url.trim();
-        try {
-            const parsed = new URL(value);
-            if (!/^https?:\/\/[^/]/i.test(value) || /[\s\\]/.test(value) || !parsed.hostname || parsed.username || parsed.password) throw new Error();
-        } catch {
-            setError('Enter an absolute HTTP or HTTPS URL.');
+        if (!isValidCustomUrl(value)) {
+            setInvalid(true);
+            inputRef.current?.focus();
             return;
         }
-        setError(null);
-        onSelectEndpoint({ id: 'custom', source: 'custom', url: value });
+        onSave(value);
     };
     return (
-        <form className="custom-url-form" onSubmit={save} noValidate>
-            <label htmlFor={inputId}>Custom URL address</label>
-            <input id={inputId} type="text" inputMode="url" autoComplete="url" value={url}
-                placeholder="https://app.example.com" aria-invalid={Boolean(error)}
-                aria-describedby={error ? `${inputId}-error` : undefined}
-                onChange={event => { setUrl(event.target.value); setError(null); }} />
-            {error && <p id={`${inputId}-error`} className="selection-error" role="alert">{error}</p>}
-            <button type="submit">Save custom URL</button>
+        <form className="custom-url-panel" onSubmit={save} noValidate>
+            <label htmlFor={inputId}>Custom URL</label>
+            <input ref={inputRef} id={inputId} type="url" autoComplete="url" value={url}
+                placeholder="https://app.example.com" aria-invalid={invalid}
+                aria-describedby={invalid ? errorId : undefined}
+                onChange={event => { setUrl(event.target.value); setInvalid(false); }} />
+            {invalid && <p id={errorId} className="selection-error" role="alert">Enter an http or https address</p>}
+            <div className="custom-url-actions">
+                <button type="submit" className="custom-url-save">Save</button>
+                <button type="button" className="custom-url-cancel" onClick={onCancel}>Cancel</button>
+                {onRemove && <button type="button" className="custom-url-remove" onClick={onRemove}>Remove</button>}
+            </div>
         </form>
     );
 }
 
 function EndpointSelection({ container, selectedEndpointId, onSelectEndpoint, isSaving, saveError, refreshError }) {
     const selectionName = useId();
-    const [editingCustom, setEditingCustom] = useState(false);
+    const serverUrl = container.endpoints.find(endpoint => endpoint.source === 'custom')?.url ?? null;
+    const [editing, setEditing] = useState(false);
+    const [submittedUrl, setSubmittedUrl] = useState(null);
+    // The server keeps a custom URL only while it is selected. Hold it here so the
+    // row survives choosing another option, until this dialog closes.
+    const [rememberedUrl, setRememberedUrl] = useState(serverUrl);
+    const [previousServerUrl, setPreviousServerUrl] = useState(serverUrl);
+    if (serverUrl !== previousServerUrl) {
+        setPreviousServerUrl(serverUrl);
+        if (serverUrl) setRememberedUrl(serverUrl);
+        if (serverUrl === submittedUrl) {
+            setSubmittedUrl(null);
+            setEditing(false);
+        }
+    }
+    const customUrl = serverUrl ?? rememberedUrl;
+    const customSelected = selectedEndpointId === 'custom';
+
+    const radioRef = useRef(null);
+    const addRef = useRef(null);
+    const focusTarget = useRef(null);
+    // The panel's controls unmount, and are disabled during a save, so focus moves
+    // once the target control exists and the save has settled.
+    useEffect(() => {
+        const target = focusTarget.current?.current;
+        if (!target || editing || isSaving) return;
+        focusTarget.current = null;
+        target.focus();
+    });
+
     const endpoints = groupEndpointsBySource(container.endpoints.filter(endpoint => endpoint.source !== 'custom')).flatMap(group => group.endpoints);
-    const effectiveEndpointId = editingCustom ? 'custom' : endpoints.length === 0 && selectedEndpointId !== 'custom' ? NO_ENDPOINT_ID : selectedEndpointId;
-    const savedUrl = container.endpoints.find(endpoint => endpoint.source === 'custom')?.url ?? '';
-    const select = selection => { setEditingCustom(false); onSelectEndpoint(selection); };
+    const effectiveEndpointId = endpoints.length === 0 && !customSelected ? NO_ENDPOINT_ID : selectedEndpointId;
+
+    const closePanel = () => {
+        setEditing(false);
+        setSubmittedUrl(null);
+    };
+    const select = selection => {
+        focusTarget.current = null;
+        closePanel();
+        onSelectEndpoint(selection);
+    };
+    const save = url => {
+        focusTarget.current = radioRef;
+        if (url === serverUrl) {
+            closePanel();
+            return;
+        }
+        setSubmittedUrl(url);
+        onSelectEndpoint({ id: 'custom', source: 'custom', url });
+    };
+    const cancel = () => {
+        focusTarget.current = customUrl ? radioRef : addRef;
+        closePanel();
+    };
+    const remove = () => {
+        focusTarget.current = addRef;
+        closePanel();
+        setRememberedUrl(null);
+        if (!customSelected) return;
+        const fallback = endpoints[0];
+        onSelectEndpoint(fallback ? { id: fallback.id, source: fallback.source } : { id: NO_ENDPOINT_ID, source: 'none' });
+    };
+    const panel = (
+        <CustomUrlPanel initialUrl={customUrl ?? ''} onSave={save} onCancel={cancel} onRemove={customUrl ? remove : null} />
+    );
+
     return (
         <fieldset className="settings-section endpoint-selection" disabled={isSaving} aria-busy={isSaving}>
             <legend className="settings-heading">Tile opens</legend>
@@ -85,15 +161,20 @@ function EndpointSelection({ container, selectedEndpointId, onSelectEndpoint, is
                     tag={endpointTag(endpoint.source)} selectionName={selectionName}
                     selectedEndpointId={effectiveEndpointId} onSelectEndpoint={select} />
             ))}
+            {customUrl && (editing ? panel : (
+                <CustomUrlRow url={customUrl} selected={effectiveEndpointId === 'custom'} selectionName={selectionName}
+                    radioRef={radioRef} onSelect={() => select({ id: 'custom', source: 'custom', url: customUrl })}
+                    onEdit={() => setEditing(true)} />
+            ))}
             <EndpointOption id={NO_ENDPOINT_ID} source="none" label="No web UI"
                 helper="Shown as a small chip instead of a tile" selectionName={selectionName}
                 selectedEndpointId={effectiveEndpointId} onSelectEndpoint={select} />
-            <EndpointOption id="custom" source="custom" label="Custom URL" helper="Enter an HTTP or HTTPS address"
-                selectionName={selectionName} selectedEndpointId={effectiveEndpointId}
-                onSelectEndpoint={() => setEditingCustom(true)} />
-            {(editingCustom || selectedEndpointId === 'custom') && (
-                <CustomUrlForm savedUrl={savedUrl} onSelectEndpoint={onSelectEndpoint} />
-            )}
+            {!customUrl && (editing ? panel : (
+                <button ref={addRef} type="button" className="custom-url-add" onClick={() => setEditing(true)}>
+                    <Plus size={18} aria-hidden="true" />
+                    Add custom URL
+                </button>
+            ))}
             {isSaving && <p className="selection-pending" role="status">Saving selection…</p>}
             {refreshError && <p className="selection-error" role="alert">Selection saved, but containers could not be refreshed. Reload to see the change.</p>}
             {saveError && <p className="selection-error" role="alert">Could not save selection: {saveError.message}</p>}

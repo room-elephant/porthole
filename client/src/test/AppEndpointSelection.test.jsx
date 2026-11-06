@@ -31,4 +31,23 @@ describe('App endpoint selection refresh', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip');
   });
+
+  it('opens a saved custom URL from the tile immediately while the dialog stays open', async () => {
+    const url = 'https://custom.example.com/';
+    const custom = { sources: [source], containers: [createMockContainer({ endpoints: [publishedEndpoint(8080, false), { id: 'custom', source: 'custom', url, selected: true }] })] };
+    fetchContainers.mockReset();
+    fetchContainers.mockResolvedValueOnce(initial).mockResolvedValue(custom);
+    selectContainerEndpoint.mockReset();
+    selectContainerEndpoint.mockResolvedValue(undefined);
+    renderWithQuery(<App />);
+    await screen.findByRole('link', { name: /Test Container/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add custom URL' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Custom URL' }), { target: { value: url } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(document.querySelector('.tile-main')).toHaveAttribute('href', url));
+    expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'local', containerName: 'test-container', selectedEndpoint: { id: 'custom', source: 'custom', url } });
+    expect(await screen.findByRole('radio', { name: 'Custom URL' })).toBeChecked();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
 });

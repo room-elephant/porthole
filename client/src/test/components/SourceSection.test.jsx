@@ -141,9 +141,9 @@ describe('source sections', () => {
   opener.focus();
   fireEvent.click(opener);
   if (startsAsChip) {
-   fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
+   fireEvent.click(screen.getByRole('button', { name: 'Add custom URL' }));
    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
-   fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
+   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   } else {
    fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
   }
@@ -340,9 +340,9 @@ describe('source sections', () => {
  it('saves a custom URL on a chip without closing its dialog, then moves to a linked tile with focus', async () => {
   renderSection([mk({ endpoints: [], hasEndpoints: false })]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
-  fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add custom URL' }));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(screen.queryByText('Saving selection…')).not.toBeInTheDocument());
   expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'walker', containerName: 'test-container', selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://custom.example.com/' } });
   expect(screen.getByRole('dialog')).toBeInTheDocument();

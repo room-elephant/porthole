@@ -695,54 +695,100 @@ input:checked + .toggle-slider::before {
   font-weight: 600;
 }
 
-.custom-url-form {
+.custom-url-add {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px dashed var(--border-dashed);
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--accent-3);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.custom-url-add:hover { border-color: var(--accent); }
+
+.custom-url-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin: 4px 0 0;
-  padding: 16px;
-  border: 1px solid var(--border);
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
   border-radius: var(--r-control);
   background: var(--inset);
+}
+
+.custom-url-panel label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.custom-url-panel input {
+  min-width: 0;
+  width: 100%;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid var(--border-dashed);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 13px;
 }
 
-.custom-url-form input {
-  min-width: 0;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 12px;
-  border: 1px solid var(--border-dashed);
-  border-radius: var(--r-control);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
+.custom-url-panel input[aria-invalid="true"] { border-color: var(--bad); }
+
+.custom-url-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.custom-url-form input:focus-visible,
-.custom-url-form button:focus-visible {
+.custom-url-actions button {
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.custom-url-actions .custom-url-save {
+  padding: 0 16px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.custom-url-actions .custom-url-save:hover { background: var(--primary-hover); }
+.custom-url-actions .custom-url-cancel { color: var(--text-2); }
+
+.custom-url-actions .custom-url-remove {
+  margin-left: auto;
+  padding: 0 8px;
+  color: var(--bad-text);
+  font-size: 13px;
+}
+
+.custom-url-add:focus-visible,
+.custom-url-panel input:focus-visible,
+.custom-url-actions button:focus-visible,
+.endpoint-edit:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
 
-.custom-url-form input[aria-invalid="true"] { border-color: var(--bad); }
-
-.custom-url-form button {
-  align-self: flex-start;
-  min-height: 44px;
-  padding: 10px 16px;
-  border: none;
-  border-radius: var(--r-control);
-  background: var(--primary);
-  color: var(--text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.custom-url-form button:hover { background: var(--primary-hover); }
 .endpoint-selection:disabled .endpoint-option,
-.endpoint-selection:disabled .custom-url-form { opacity: 0.65; }
+.endpoint-selection:disabled .custom-url-add,
+.endpoint-selection:disabled .custom-url-panel { opacity: 0.65; }
 .endpoint-selection:disabled input,
 .endpoint-selection:disabled button { cursor: wait; }
 .selection-error, .selection-pending { margin: 4px 0 0; font-size: 13px; overflow-wrap: anywhere; }
@@ -785,6 +831,47 @@ input:checked + .toggle-slider::before {
 .endpoint-option.selected {
   border-color: var(--accent);
   background: var(--accent-tint);
+}
+
+.endpoint-option--custom {
+  padding: 0 6px 0 0;
+  cursor: default;
+}
+
+.endpoint-option-main {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 8px 14px;
+  cursor: pointer;
+}
+
+.endpoint-url--truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.endpoint-edit {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.endpoint-edit:hover {
+  background: var(--hover-strong);
+  color: var(--text);
 }
 
 .endpoint-option input {
@@ -1824,5 +1911,15 @@ input:checked + .toggle-slider::before {
 
   .settings-modal .settings-divider {
     display: none;
+  }
+
+  /* The phone board edits the custom URL below No web UI. */
+  .custom-url-panel {
+    order: 1;
+  }
+
+  .selection-error,
+  .selection-pending {
+    order: 2;
   }
 }
