@@ -103,9 +103,22 @@ describe('ContainerTile', () => {
     expect(screen.queryByText(/localhost/)).not.toBeInTheDocument();
   });
 
-  it('shows an optional host tag before the subtitle', () => {
-    renderWithQuery(<ContainerTile container={createMockContainer()} hostTag="Walker" />);
-    expect(screen.getByText('Walker')).toHaveClass('tile-tag');
+  it('puts an optional host beside the name, not in the subtitle', () => {
+    const { container: root } = renderWithQuery(<ContainerTile container={createMockContainer()} hostTag="Walker" />);
+    const host = screen.getByText('Walker');
+    expect(host).toHaveClass('tile-tag');
+    expect(host).toHaveAttribute('title', 'Host');
+    expect(root.querySelector('.tile-name-row')).toContainElement(host);
+    expect(root.querySelector('.tile-name-row')).toContainElement(screen.getByText('Test Container'));
+    expect(root.querySelector('.tile-sub').textContent).toBe('‎test-image:latest‎');
+  });
+
+  it('keeps the health label in the subtitle when a host is shown', () => {
+    const { container: root } = renderWithQuery(
+      <ContainerTile container={createMockContainer({ status: 'Up 2 minutes (unhealthy)' })} hostTag="Walker" />,
+    );
+    expect(root.querySelector('.tile-sub')).toHaveTextContent('Unhealthy');
+    expect(root.querySelector('.tile-sub')).not.toHaveTextContent('Walker');
   });
 
   it('renders and lets settings change the launch URL when storage access is blocked', async () => {

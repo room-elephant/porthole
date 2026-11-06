@@ -20,9 +20,11 @@ function ContainerTile({ container, sourceOnline = true, hostTag = null, sourceN
         <>
             <ContainerIcon container={container} status={status} showUpdate={showUpdate} size={40} />
             <span className="tile-text">
-                <span className="tile-name" title={container.name}>{container.displayName}</span>
+                <span className="tile-name-row">
+                    <span className="tile-name" title={container.name}>{container.displayName}</span>
+                    {hostTag && <span className="tile-tag" title="Host">{hostTag}</span>}
+                </span>
                 <span className="tile-sub">
-                    {hostTag && <span className="tile-tag">{hostTag}</span>}
                     {status.label && (
                         <>
                             <span className={`tile-label label-${status.kind}`}>{status.label}</span>
