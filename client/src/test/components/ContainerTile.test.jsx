@@ -282,9 +282,10 @@ describe('ContainerTile', () => {
   });
 
   describe('Update indicator', () => {
-    it('labels an update in purple when the badge preference is on', () => {
-      renderWithQuery(<ContainerTile container={createMockContainer({ version: update })} />);
-      expect(screen.getByText('Update')).toHaveClass('label-update');
+    it('signals an update only with the badge, never a word', () => {
+      const { container: root } = renderWithQuery(<ContainerTile container={createMockContainer({ version: update })} />);
+      expect(root.querySelector('.tile-label')).toBeNull();
+      expect(root.querySelector('.tile-sub').textContent).toBe('‎test-image:latest‎');
       expect(screen.getByTitle('Update available')).toHaveClass('update-badge');
       expect(dot()).toHaveClass('dot-ok');
       expect(dot()).toHaveAttribute('title', 'Running');

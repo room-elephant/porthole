@@ -431,7 +431,6 @@ input:checked + .toggle-slider::before {
   box-shadow: var(--focus-ring);
 }
 
-.label-update { color: var(--update-text); }
 .label-starting,
 .label-restarting { color: var(--warn-text); }
 .label-unhealthy { color: var(--bad-text); }
@@ -1524,7 +1523,6 @@ input:checked + .toggle-slider::before {
 }
 
 .chip-suffix { color: var(--text-muted); }
-.chip .label-update { color: var(--update-text); }
 .chip .label-starting,
 .chip .label-restarting { color: var(--warn-text); }
 .chip .label-unhealthy { color: var(--bad-text); }
