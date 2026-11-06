@@ -6,6 +6,7 @@
   --backdrop: #060a14;
   --border: #223049;
   --divider: #1a2438;
+  --divider-dialog: #1f2a40;
   --border-dashed: #2c3a55;
   --text: #e2e8f0;
   --text-2: #a3b1c6;
@@ -622,7 +623,7 @@ input:checked + .toggle-slider::before {
   gap: 14px;
   flex: 0 0 auto;
   padding: 24px 24px 20px;
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 1px solid var(--divider-dialog);
 }
 
 .modal-heading {
@@ -679,6 +680,11 @@ input:checked + .toggle-slider::before {
   display: flex;
   flex-direction: column;
   gap: 28px;
+}
+
+/* The body scrolls; its children keep their height, so dividers cannot collapse. */
+.modal-body > * {
+  flex: none;
 }
 
 /* Container settings */
@@ -1026,7 +1032,7 @@ input:checked + .toggle-slider::before {
 
 .settings-divider {
   height: 1px;
-  background: var(--divider);
+  background: var(--divider-dialog);
 }
 
 .host-row {
@@ -1810,4 +1816,13 @@ input:checked + .toggle-slider::before {
   }
 
   .status-heading + .status-row { margin-top: 0; }
+
+  .settings-modal .modal-body {
+    gap: 22px;
+    padding: 18px 16px;
+  }
+
+  .settings-modal .settings-divider {
+    display: none;
+  }
 }
