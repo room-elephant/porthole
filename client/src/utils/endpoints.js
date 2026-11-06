@@ -8,8 +8,6 @@ const sourceTitle = (source) => {
   return `${titleCase(source)} URLs`;
 };
 
-export const endpointLabel = (url) => url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').replace(/\/$/, '');
-
 export const endpointTag = (source) => {
   if (source === 'traefik') return 'Traefik';
   if (source === 'published-port') return 'Port';

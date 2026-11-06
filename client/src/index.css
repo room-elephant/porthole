@@ -395,40 +395,15 @@ input:checked + .toggle-slider::before {
   color: var(--text-muted);
 }
 
-.tile-host,
 .tile-image {
+  min-width: 0;
   font-family: 'IBM Plex Mono', monospace;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.tile-image {
   direction: rtl;
   text-align: left;
-}
-
-.tile-host {
-  display: none;
-}
-
-.tile:focus-within .tile-image {
-  display: none;
-}
-
-.tile:focus-within .tile-host {
-  display: block;
-}
-
-@media (hover: hover) {
-  .tile:hover .tile-image {
-    display: none;
-  }
-
-  .tile:hover .tile-host {
-    display: block;
-  }
 }
 
 .tile-go {

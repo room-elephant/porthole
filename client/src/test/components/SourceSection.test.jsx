@@ -377,7 +377,7 @@ describe('source sections', () => {
    mk({ id: 'selected', name: 'selected', displayName: 'Selected' }),
   ]);
   expect(document.querySelector('.tile-grid')).toHaveTextContent('Ambiguous');
-  expect(screen.getByText('Choose a URL')).toBeInTheDocument();
+  expect(document.querySelector('.tile-grid button.tile-main')).toHaveAccessibleName('Ambiguous settings');
   expect(screen.getByRole('button', { name: 'None settings' })).toHaveClass('chip');
   expect(screen.getByRole('link', { name: /Selected/ })).toHaveAttribute('href', 'http://localhost:8080/');
  });

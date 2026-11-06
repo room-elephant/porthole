@@ -83,16 +83,19 @@ describe('ContainerTile', () => {
     expect(root.querySelector('.tile-dot')).toHaveTextContent('·');
   });
 
-  it('is a new-tab link to the selected endpoint with the host as subtitle', () => {
+  it('is a new-tab link to the selected endpoint', () => {
     renderWithQuery(<ContainerTile container={createMockContainer()} sourceName="Walker" sourceOnline />);
     const link = screen.getByRole('link', { name: /Test Container/ });
     expect(link).toHaveAttribute('href', 'http://localhost:8080/');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener');
-    expect(screen.getByText('localhost:8080')).toHaveClass('tile-host');
-    expect(screen.getByTitle('test-image:latest')).toHaveClass('tile-image');
-    expect(link.querySelector('.tile-go')).toHaveAttribute('aria-hidden', 'true');
     expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it('shows only the image in the subtitle, never the endpoint URL', () => {
+    const { container: root } = renderWithQuery(<ContainerTile container={createMockContainer()} />);
+    expect(root.querySelector('.tile-sub').textContent).toBe('‎test-image:latest‎');
+    expect(screen.queryByText(/localhost/)).not.toBeInTheDocument();
   });
 
   it('shows an optional host tag before the subtitle', () => {
@@ -237,7 +240,7 @@ describe('ContainerTile', () => {
       ];
       renderWithQuery(<ContainerTile container={createMockContainer({ endpoints })} />);
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
-      expect(screen.getByText('Choose a URL')).toHaveClass('tile-host');
+      expect(screen.queryByText('Choose a URL')).not.toBeInTheDocument();
       expect(tile()).not.toHaveClass('tile--dashed');
       fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
       expect(screen.getAllByText('Traefik')).not.toHaveLength(0);
@@ -363,7 +366,6 @@ describe('ContainerTile', () => {
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
     view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, endpoints: [{ ...container.endpoints[0], url: 'http://other.example.com:8080/' }] }} /></QueryClientProvider>);
     expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://other.example.com:8080/');
-    expect(screen.getByText('other.example.com:8080')).toHaveClass('tile-host');
   });
 
   it('rerenders when the offline state, source name or host tag changes', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isHeadless, groupEndpointsBySource, endpointLabel, endpointTag } from '../../utils/endpoints';
+import { isHeadless, groupEndpointsBySource, endpointTag } from '../../utils/endpoints';
 
 const port = { id: 'published-port:51413', source: 'published-port', url: 'http://192.168.50.6:51413/', selected: false };
 const root = { id: 'traefik:root', source: 'traefik', url: 'https://transmission.example.com/', selected: false };
@@ -27,14 +27,6 @@ describe('endpoint groups', () => {
     expect(groups.flatMap(group => group.endpoints)).toHaveLength(5);
   });
   it('has no sections for no candidates', () => expect(groupEndpointsBySource([])).toEqual([]));
-});
-
-describe('endpointLabel', () => {
-  it('strips the scheme and one trailing slash', () => {
-    expect(endpointLabel('https://sonarr.example.com/')).toBe('sonarr.example.com');
-    expect(endpointLabel('http://192.168.50.6:8096/')).toBe('192.168.50.6:8096');
-    expect(endpointLabel('https://x.example.com/app/')).toBe('x.example.com/app');
-  });
 });
 
 describe('endpointTag', () => {

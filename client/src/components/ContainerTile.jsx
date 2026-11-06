@@ -2,16 +2,10 @@ import { memo } from 'react';
 import { ArrowUpRight, MoreVertical } from 'lucide-react';
 import { useContainerCard } from '../hooks/useContainerCard';
 import ContainerIcon from './ContainerIcon';
-import { endpointLabel } from '../utils/endpoints';
 import { getHealthStatus } from '../utils/status';
 
 const arraysEqual = (a, b) =>
     a.length === b.length && a.every((v, i) => v.id === b[i].id && v.source === b[i].source && v.url === b[i].url && v.selected === b[i].selected);
-
-const hostText = (container, selectedEndpoint) => {
-    if (selectedEndpoint) return endpointLabel(selectedEndpoint.url);
-    return container.endpoints.length > 0 ? 'Choose a URL' : 'No web UI';
-};
 
 function ContainerTile({ container, sourceOnline = true, hostTag = null, sourceName, onSettingsOpenChange }) {
     const { prefs: { selectedEndpoint }, status, showUpdate, openSettings, settingsDialog } = useContainerCard(container, {
@@ -35,7 +29,6 @@ function ContainerTile({ container, sourceOnline = true, hostTag = null, sourceN
                             <span className="tile-dot" aria-hidden="true">·</span>
                         </>
                     )}
-                    <span className="tile-host">{hostText(container, selectedEndpoint)}</span>
                     <span className="tile-image" title={container.image}>{`\u200E${container.image}\u200E`}</span>
                 </span>
             </span>
