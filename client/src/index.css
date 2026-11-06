@@ -1528,6 +1528,18 @@ input:checked + .toggle-slider::before {
   flex: none;
 }
 
+.chip-update-badge {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--update);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .chip-suffix { color: var(--text-muted); }
 .chip .label-starting,
 .chip .label-restarting { color: var(--warn-text); }
