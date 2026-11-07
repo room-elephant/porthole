@@ -33,7 +33,10 @@ remove_containers() {
   scenario lab-b 23752 down --remove-orphans --timeout 0 >/dev/null 2>&1 || true
 }
 
-port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+port_in_use() {
+  local port="$1"
+  lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+}
 
 require_free() {
   local port
@@ -53,7 +56,10 @@ start_job() {
   disown "$job_pid" # Stops bash printing "Terminated" when the job is stopped.
 }
 
-is_running() { [[ -n "$1" ]] && kill -0 "$1" 2>/dev/null; }
+is_running() {
+  local pid="$1"
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
 
 stop_job() {
   local pid="$1" waited=0
