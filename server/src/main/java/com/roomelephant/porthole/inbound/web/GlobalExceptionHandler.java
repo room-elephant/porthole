@@ -1,6 +1,7 @@
 package com.roomelephant.porthole.inbound.web;
 
 import com.roomelephant.porthole.core.model.exception.DockerUnavailableException;
+import com.roomelephant.porthole.core.model.exception.IconLimitReachedException;
 import com.roomelephant.porthole.core.model.exception.NotFoundException;
 import com.roomelephant.porthole.core.model.exception.UnexpectedException;
 import java.net.URI;
@@ -10,8 +11,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -66,6 +71,27 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public @NonNull ProblemDetail handleUnreadableRequest() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid request body");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public @NonNull ProblemDetail handleUploadTooLarge() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE, "Icon must be at most 1 MB");
+    }
+
+    @ExceptionHandler(IconLimitReachedException.class)
+    public @NonNull ProblemDetail handleIconLimitReached(@NonNull IconLimitReachedException ex) {
+        log.warn(ex.getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.INSUFFICIENT_STORAGE, ex.getMessage());
+    }
+
+    @ExceptionHandler({
+        MissingServletRequestPartException.class,
+        MissingServletRequestParameterException.class,
+        MultipartException.class
+    })
+    public @NonNull ProblemDetail handleInvalidUploadRequest() {
+        return ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Upload requires multipart sourceId, containerName and file");
     }
 
     @ExceptionHandler(Exception.class)
