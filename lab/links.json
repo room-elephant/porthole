@@ -1,1 +1,1 @@
-[{"id":"6b1f0c2a9d3e4f7088a1c2d3e4f5a6b7","name":"Router","url":"http://192.168.50.1/","icon":{"type":"library","name":"openwrt"}},{"id":"a7c3e51d2b8f4096b4d1e2f3a4b5c6d7","name":"NAS","url":"https://nas.lan:5001/","stack":"lab-a"}]
+[{"id":"6b1f0c2a9d3e4f7088a1c2d3e4f5a6b7","name":"Router","url":"http://192.168.50.1/","stack":"stack-a","icon":{"type":"library","name":"asus-router"}},{"id":"a7c3e51d2b8f4096b4d1e2f3a4b5c6d7","name":"NAS","url":"https://nas.lan:5001/","stack":"stack-a"},{"id":"518c453d8b88404e9a35b4e73d40220c","name":"google","url":"https://www.google.com"}]
