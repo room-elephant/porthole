@@ -8,6 +8,12 @@ const LOAD_MORE_DISTANCE_PX = 200;
 
 const formatCount = count => count.toLocaleString('en-US');
 
+const resultsHeading = (shown, total) => {
+    if (shown === total) return `${formatCount(total)} icons`;
+    const noun = shown === 1 ? 'match' : 'matches';
+    return `${formatCount(shown)} ${noun} of ${formatCount(total)}`;
+};
+
 function IconTile({ name, current, busy, disabled, onPick }) {
     return (
         <button type="button" className={`icon-tile ${current || busy ? 'icon-tile--marked' : ''} ${busy ? 'icon-tile--busy' : ''}`}
@@ -58,8 +64,8 @@ function IconLibraryTab({ iconUrl, query, startingSearch, searchRef, onQueryChan
             {library.isPending && <p className="icon-loading">Loading icons…</p>}
 
             {library.isError && (
-                <div role="status" className="icon-empty">
-                    <span>Couldn't load the icon library.</span>
+                <div className="icon-empty">
+                    <output>Couldn't load the icon library.</output>
                     <div className="icon-empty-actions">
                         <button type="button" className="icon-empty-action" onClick={() => library.refetch()}>Retry</button>
                         <button type="button" className="icon-empty-action icon-empty-action--primary" onClick={onUploadInstead}>Upload your own</button>
@@ -68,8 +74,8 @@ function IconLibraryTab({ iconUrl, query, startingSearch, searchRef, onQueryChan
             )}
 
             {library.data && results.length === 0 && (
-                <div role="status" className="icon-empty">
-                    <span>No icons match “{query}”.</span>
+                <div className="icon-empty">
+                    <output>No icons match “{query}”.</output>
                     <div className="icon-empty-actions">
                         <button type="button" className="icon-empty-action" onClick={() => changeQuery('')}>Clear search</button>
                         <button type="button" className="icon-empty-action icon-empty-action--primary" onClick={onUploadInstead}>Upload your own</button>
@@ -79,11 +85,7 @@ function IconLibraryTab({ iconUrl, query, startingSearch, searchRef, onQueryChan
 
             {results.length > 0 && (
                 <section className="icon-results">
-                    <h3 role="status" className="settings-heading">
-                        {results.length === library.data.length
-                            ? `${formatCount(results.length)} icons`
-                            : `${formatCount(results.length)} ${results.length === 1 ? 'match' : 'matches'} of ${formatCount(library.data.length)}`}
-                    </h3>
+                    <h3 className="settings-heading"><output>{resultsHeading(results.length, library.data.length)}</output></h3>
                     <div className="icon-grid" onScroll={loadMoreNearEnd}>
                         {results.slice(0, visibleCount).map(({ name }) => {
                             const busy = isSaving && name === pickedName;

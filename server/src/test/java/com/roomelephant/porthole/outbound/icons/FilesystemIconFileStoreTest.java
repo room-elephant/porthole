@@ -51,6 +51,24 @@ class FilesystemIconFileStoreTest {
     }
 
     @Test
+    void readAndDeleteRefuseNamesOutsideTheUploadPattern() throws IOException {
+        var store = store();
+        store.store(BYTES, IconImageType.PNG);
+        Path outside = directory.resolve("data/preferences.json");
+        Path inside = icons().resolve("my-logo.png");
+        Files.writeString(outside, "secret");
+        Files.writeString(inside, "the user's own image");
+
+        assertThat(store.read("../preferences.json")).isEmpty();
+        assertThat(store.read("my-logo.png")).isEmpty();
+        store.delete("../preferences.json");
+        store.delete("my-logo.png");
+
+        assertThat(outside).exists();
+        assertThat(inside).exists();
+    }
+
+    @Test
     void deleteRemovesFileAndIgnoresMissingOne() {
         var store = store();
         String name = store.store(BYTES, IconImageType.PNG);

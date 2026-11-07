@@ -47,6 +47,9 @@ public final class FilesystemIconFileStore implements IconFileStore {
 
     @Override
     public Optional<byte[]> read(String name) {
+        if (!SelectedIcon.UPLOAD_NAME.matcher(name).matches()) {
+            return Optional.empty();
+        }
         Path path = directory.resolve(name);
         if (!Files.isRegularFile(path)) {
             return Optional.empty();
@@ -60,6 +63,9 @@ public final class FilesystemIconFileStore implements IconFileStore {
 
     @Override
     public void delete(String name) {
+        if (!SelectedIcon.UPLOAD_NAME.matcher(name).matches()) {
+            return;
+        }
         Path path = directory.resolve(name);
         if (!Files.isRegularFile(path)) {
             return;

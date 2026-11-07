@@ -75,6 +75,19 @@ describe('IconPicker library tab', () => {
     expect(screen.queryByRole('button', { name: 'coredns' })).not.toBeInTheDocument();
   });
 
+  it('keeps the count as a heading while announcing it', async () => {
+    renderPicker();
+    expect(await screen.findByRole('heading', { name: '2 matches of 4' })).toBeInTheDocument();
+    expect(screen.getByRole('status').closest('h3')).not.toBeNull();
+  });
+
+  it('announces only the message for no matches, not its actions', async () => {
+    renderPicker({ container: container({ image: 'my-custom-app:1' }) });
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent('No icons match “my-custom-app”.');
+    expect(within(status).queryByRole('button')).not.toBeInTheDocument();
+  });
+
   it('uses the singular for one match', async () => {
     renderPicker({ container: container({ image: 'grafana/grafana:11' }) });
     expect(await screen.findByRole('status')).toHaveTextContent('1 match of 4');

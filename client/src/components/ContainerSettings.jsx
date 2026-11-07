@@ -303,7 +303,7 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
                 </button>
             )}
             subtitle={iconUpdated && !icon.refreshError
-                ? <span role="status" className="icon-updated"><Check size={12} strokeWidth={3} aria-hidden="true" />Icon updated</span>
+                ? <output className="icon-updated"><Check size={12} strokeWidth={3} aria-hidden="true" />Icon updated</output>
                 : subtitle}
             onClose={onClose}
             className="settings-modal"

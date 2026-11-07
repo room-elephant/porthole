@@ -23,6 +23,10 @@ describe('parseIconLibrary', () => {
     expect(parseIconLibrary({ b: {}, a: { aliases: ['x'] } })).toEqual([{ name: 'a', aliases: ['x'] }, { name: 'b', aliases: [] }]);
   });
 
+  it('sorts alphabetically regardless of case', () => {
+    expect(names(parseIconLibrary({ Zulu: {}, alpha: {}, Bravo: {} }))).toEqual(['alpha', 'Bravo', 'Zulu']);
+  });
+
   it.each([[null], ['nope'], [[1, 2]], [{}]])('throws on unusable metadata %j', metadata => {
     expect(() => parseIconLibrary(metadata)).toThrow();
   });
