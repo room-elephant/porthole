@@ -214,10 +214,47 @@
       "type": "com.github.dockerjava.api.command.GraphDriver"
     },
     {
-      "type": "com.github.dockerjava.api.command.HealthState"
+      "type": "com.github.dockerjava.api.command.HealthState",
+      "fields": [
+        {
+          "name": "failingStreak"
+        },
+        {
+          "name": "log"
+        },
+        {
+          "name": "status"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
     },
     {
-      "type": "com.github.dockerjava.api.command.HealthStateLog"
+      "type": "com.github.dockerjava.api.command.HealthStateLog",
+      "fields": [
+        {
+          "name": "end"
+        },
+        {
+          "name": "exitCode"
+        },
+        {
+          "name": "output"
+        },
+        {
+          "name": "start"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "com.github.dockerjava.api.command.InspectContainerResponse",
@@ -307,6 +344,9 @@
         },
         {
           "name": "finishedAt"
+        },
+        {
+          "name": "health"
         },
         {
           "name": "oomKilled"
@@ -539,6 +579,9 @@
           "name": "exposedPorts"
         },
         {
+          "name": "healthCheck"
+        },
+        {
           "name": "hostName"
         },
         {
@@ -736,7 +779,27 @@
       ]
     },
     {
-      "type": "com.github.dockerjava.api.model.HealthCheck"
+      "type": "com.github.dockerjava.api.model.HealthCheck",
+      "fields": [
+        {
+          "name": "interval"
+        },
+        {
+          "name": "retries"
+        },
+        {
+          "name": "test"
+        },
+        {
+          "name": "timeout"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "com.github.dockerjava.api.model.HostConfig",
@@ -1282,9 +1345,9 @@
             "com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher",
             "com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter",
             "com.roomelephant.porthole.core.enrichment.endpoint.UrlCandidateEnricher",
+            "com.roomelephant.porthole.core.enrichment.icon.IconEnricher",
             "com.roomelephant.porthole.core.enrichment.preferences.ContainerPreferencesEnricher",
             "com.roomelephant.porthole.core.enrichment.endpointavailability.EndpointAvailabilityFilter",
-            "com.roomelephant.porthole.core.enrichment.icon.IconEnricher",
             "com.roomelephant.porthole.core.enrichment.version.VersionEnricher"
           ]
         }
@@ -1752,7 +1815,19 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore"
+            "com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore",
+            "com.roomelephant.porthole.core.enrichment.preferences.CustomIconResolver"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.roomelephant.porthole.core.enrichment.preferences.CustomIconResolver",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "com.roomelephant.porthole.core.enrichment.icon.IconSettings"
           ]
         }
       ]
@@ -3941,6 +4016,9 @@
           "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "org.springframework.aot.generate.Generated"
     },
     {
       "type": "org.springframework.aot.hint.RuntimeHintsRegistrar"
@@ -9010,6 +9088,9 @@
       "glob": "com/roomelephant/porthole/core/enrichment/preferences/ContainerPreferencesEnricher.class"
     },
     {
+      "glob": "com/roomelephant/porthole/core/enrichment/preferences/CustomIconResolver.class"
+    },
+    {
       "glob": "com/roomelephant/porthole/core/enrichment/state/ContainerStateFilter.class"
     },
     {
@@ -9995,9 +10076,6 @@
     },
     {
       "glob": "public/api/containers/non-existent-id/version"
-    },
-    {
-      "glob": "public/index.html"
     },
     {
       "glob": "resources/api/containers/non-existent-id/version"
