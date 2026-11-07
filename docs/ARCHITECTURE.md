@@ -175,7 +175,16 @@ This is required because the Docker Registry API expects the full path:
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
 | `/api/containers`                       | GET    | Returns source outcomes and containers from every configured connection. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
 | `/api/containers/selected-url`          | PUT    | Replaces the shared endpoint choice for `(sourceId, containerName)` and returns confirmed preferences |
+| `/api/containers/icon`                  | PUT    | Saves a Dashboard Icons library icon for `(sourceId, containerName)` |
+| `/api/containers/icon/upload`           | POST   | Saves an uploaded PNG, WebP or JPEG icon of at most 1 MB for `(sourceId, containerName)` |
+| `/api/icons/{name}`                     | GET    | Serves an uploaded icon with an immutable cache lifetime and `nosniff` |
 | `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
+
+### Custom Container Icons
+
+A container's preference record holds an optional `icon` beside `selectedEndpoint`, either `{"type":"library","name":"coredns"}` or `{"type":"upload","name":"<32 hex>.webp"}`. Each field updates independently, and a record is removed only when both are empty. There is no clear operation: choosing another icon replaces the previous one. The inventory exposes only the resolved `iconUrl`, so the client reads the icon in use from it: an `/api/icons/` path is an upload, and otherwise the last path segment is the library name.
+
+`ContainerIconService` runs each save under one lock. An upload is identified from its first bytes, ignoring its name and declared type, and rejected with 507 when 500 uploads are stored, since callers without login can invent container names. It is written to a temporary file, moved to a random name, then saved in preferences; if saving fails the new file is deleted and the old icon stays. The previous upload is deleted last, and a failed delete is only logged. Files no record references are removed at startup. `FilesystemIconFileStore` keeps files in an `icons` folder beside the preference file. Multipart uploads stay in memory because images may have no writable temp folder.
 
 ### Container Endpoint Contract
 
@@ -277,7 +286,7 @@ The production handlers run in this order:
 3. `UrlCandidateEnricher` discovers URL candidates through the registered endpoint providers.
 4. `ContainerPreferencesEnricher` attaches the in-memory preference snapshot by `(sourceId, containerName)`, materializes the current custom candidate, and applies `EndpointSelectionResolver` after discovery and before availability filtering.
 5. `EndpointAvailabilityFilter` removes containers with an empty resolved candidate list unless `includeWithoutEndpoints` is enabled. Label-only and custom-only services remain discoverable.
-6. `IconEnricher` assigns each retained container's icon URL from the image name using configured mappings and icon settings.
+6. `IconEnricher` assigns each retained container's icon URL: the saved custom icon when there is one, otherwise from the image name using configured mappings and icon settings. It never touches the disk or network. Porthole's own container without a custom icon then gets its logo in `ContainerService`, where `self` is set after the chain.
 7. `VersionEnricher` attaches cached version information to retained containers and queues background checks for eligible cache misses without waiting for resolution.
 
 To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` in its own concern package under `core/enrichment/` and add it to the explicit list in `EnrichmentConfiguration` at the desired position. `PipelineWiringTest` discovers handler implementations independently and verifies that the configured chain includes every handler bean exactly once.
@@ -343,10 +352,11 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 - `core/model/` — application-owned container/source metadata, outcomes, queries, image references, version values, and exceptions. Ports never expose SDK objects or client handles.
 - `core/mapping/` — `ContainerMapper` converts discovery snapshots to core containers.
 - `core/enrichment/name/` — `DisplayNameResolver` resolves source-wide name collisions; `DisplayNameEnricher` resolves and applies names before filters run.
-- `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`.
+- `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`; `IconController` calls `SelectContainerIcon` and `ReadUploadedIcon`.
 - `inbound/health/` — translates `CheckDockerAvailability` results into actuator health responses; probing and timeout handling belong to the core service.
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
 - `outbound/preferences/` — JSON preference loading, immutable snapshots, and atomic file replacement.
+- `outbound/icons/` — uploaded icon files on disk, with atomic writes and generated names.
 - `outbound/registry/` — `RegistryOperationsAdapter` implements the core port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares authenticated tag/manifest protocol, token lifecycle, and Link parsing. Numeric selection and update decisions belong to `core.enrichment.version.resolution`.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
 - `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`.

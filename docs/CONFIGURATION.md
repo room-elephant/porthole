@@ -284,6 +284,12 @@ Router `tls=true`, or a TLS sublabel such as `tls.certresolver`, implies HTTPS; 
 
 Each container has a settings panel accessible via the gear icon. Endpoint choices are shared by every browser through the Porthole server. Layout and update-notification preferences remain in your browser's local storage.
 
+### Container Icon
+
+Click the icon at the top of a container's settings to choose another one, from the [Dashboard Icons](https://dashboardicons.com) library or by uploading a PNG, WebP or JPEG image of up to 1 MB. Porthole stores at most 500 uploads. The choice saves straight away, is shared by every browser, and belongs to one container, keyed by `(sourceId, containerName)` like URL choices. It takes priority over [icon mappings](#icon-mappings), so later `icons.yml` changes don't affect that container.
+
+To go back to the automatic icon, find it in the library. Uploads are stored in an `icons` folder beside the preference file, which is `/app/data/icons` in the Docker images. Keep that volume, as described below, or uploads are lost when the application container is replaced. Choosing a library icon needs the browser to reach `cdn.jsdelivr.net`; uploading doesn't.
+
 ### URL Selection
 
 The **Tile opens** section lets you choose a discovered URL, **Custom URL**, or **No web UI**. Choose a discovered URL or enter and save an absolute HTTP or HTTPS custom URL without credentials. Typing a URL alone does not save it. A custom URL works even without published ports or Traefik labels and keeps the container visible under the normal endpoint filter. Porthole stores the URL without fetching it. **No web UI** disables launching; settings and update checking remain available.
