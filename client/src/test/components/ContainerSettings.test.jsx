@@ -19,6 +19,15 @@ describe('ContainerSettings', () => {
     onClose: vi.fn(),
     onSelectEndpoint: vi.fn(),
     onToggleCheckUpdates: vi.fn(),
+    icon: {
+      selectIcon: vi.fn(),
+      uploadIcon: vi.fn(),
+      retry: vi.fn(),
+      clearError: vi.fn(),
+      isSaving: false,
+      saveError: null,
+      refreshError: null,
+    },
   };
 
   beforeEach(() => {

@@ -146,9 +146,9 @@ describe('ContainerTile', () => {
     expect(document.querySelector('img')).toHaveAttribute('src', 'https://example.com/nginx-icon.png');
   });
 
-  it('should use porthole icon for porthole container', () => {
+  it('shows the server-resolved icon for the porthole container', () => {
     renderWithQuery(<ContainerTile container={createMockContainer({ name: 'porthole-container', self: true, iconUrl: 'https://example.com/other.png' })} />);
-    expect(document.querySelector('img')).toHaveAttribute('src', 'porthole-mark.svg');
+    expect(document.querySelector('img')).toHaveAttribute('src', 'https://example.com/other.png');
   });
 
   it('falls back to the default icon when the image fails to load', () => {

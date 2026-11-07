@@ -1991,3 +1991,14 @@ input:checked + .toggle-slider::before {
 @media (max-width: 639px) {
   .icon-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 84px; max-height: 45vh; }
 }
+
+.modal-back { flex: 0 0 auto; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--r-control); background: transparent; color: var(--text-muted); cursor: pointer; }
+.modal-back:hover:not(:disabled) { background: var(--hover-strong); color: var(--text); }
+.modal-back:disabled { opacity: 0.45; cursor: not-allowed; }
+.modal-back:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.icon-edit { position: relative; flex: 0 0 auto; display: inline-flex; padding: 0; border: 0; border-radius: var(--r-control); background: transparent; cursor: pointer; }
+.icon-edit:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent-2); }
+.icon-edit-pencil { position: absolute; left: -5px; bottom: -5px; width: 18px; height: 18px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid var(--surface); border-radius: 50%; background: var(--handle); color: var(--text); }
+.icon-edit:hover .icon-edit-pencil, .icon-edit:focus-visible .icon-edit-pencil { background: var(--primary); color: #fff; }
+.icon-updated { display: inline-flex; align-items: center; gap: 6px; color: var(--ok-text); }

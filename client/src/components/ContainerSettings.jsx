@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowRight, Check, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Pencil, Plus } from 'lucide-react';
 import Modal from './Modal';
 import ContainerIcon from './ContainerIcon';
+import IconPicker from './IconPicker';
 import { statusDetail } from '../utils/status';
 import { NO_ENDPOINT_ID, endpointTag, groupEndpointsBySource, isValidCustomUrl } from '../utils/endpoints';
 
@@ -238,18 +239,78 @@ function StatusSection({ container, status }) {
     );
 }
 
-function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates, isSaving = false, saveError = null, refreshError = null }) {
+const ICON_UPDATED_NOTICE_MS = 4000;
+
+function ContainerSettings({ container, sourceName, status, showUpdate, selectedEndpointId, checkUpdates, onClose, onSelectEndpoint, onToggleCheckUpdates, icon, isSaving = false, saveError = null, refreshError = null }) {
     const updateToggleId = useId();
     const subtitle = [container.name, sourceName].filter(Boolean).join(' · ') + (container.project ? ` / ${container.project}` : '');
+    const [choosingIcon, setChoosingIcon] = useState(false);
+    const [iconUpdated, setIconUpdated] = useState(false);
+    const iconButtonRef = useRef(null);
+    const focusIconButton = useRef(false);
+
+    // The icon button only exists again once the settings view has rendered.
+    useEffect(() => {
+        if (!choosingIcon && focusIconButton.current) {
+            focusIconButton.current = false;
+            iconButtonRef.current?.focus();
+        }
+    }, [choosingIcon]);
+    useEffect(() => {
+        if (!iconUpdated) return undefined;
+        const timer = setTimeout(() => setIconUpdated(false), ICON_UPDATED_NOTICE_MS);
+        return () => clearTimeout(timer);
+    }, [iconUpdated]);
+
+    const openIconPicker = () => {
+        setIconUpdated(false);
+        setChoosingIcon(true);
+    };
+    const closeIconPicker = () => {
+        focusIconButton.current = true;
+        setChoosingIcon(false);
+    };
+    const iconSaved = () => {
+        setIconUpdated(true);
+        closeIconPicker();
+    };
+
+    if (choosingIcon) {
+        return (
+            <Modal
+                title="Choose icon"
+                icon={(
+                    <button type="button" className="modal-back" aria-label="Back to settings" disabled={icon.isSaving} onClick={closeIconPicker}>
+                        <ArrowLeft size={20} aria-hidden="true" />
+                    </button>
+                )}
+                subtitle={subtitle}
+                onClose={onClose}
+                className="settings-modal"
+            >
+                <IconPicker container={container} icon={icon} onSaved={iconSaved} />
+            </Modal>
+        );
+    }
 
     return (
         <Modal
             title={container.displayName}
-            icon={<ContainerIcon container={container} status={status} showUpdate={showUpdate} size={44} />}
-            subtitle={subtitle}
+            icon={(
+                <button ref={iconButtonRef} type="button" className="icon-edit" aria-label={`Change icon for ${container.displayName}`} title="Change icon" onClick={openIconPicker}>
+                    <ContainerIcon container={container} status={status} showUpdate={showUpdate} size={44} />
+                    <span className="icon-edit-pencil" aria-hidden="true"><Pencil size={9} strokeWidth={2.6} /></span>
+                </button>
+            )}
+            subtitle={iconUpdated && !icon.refreshError
+                ? <span role="status" className="icon-updated"><Check size={12} strokeWidth={3} aria-hidden="true" />Icon updated</span>
+                : subtitle}
             onClose={onClose}
             className="settings-modal"
         >
+            {iconUpdated && icon.refreshError && (
+                <p role="alert" className="selection-error">Icon saved, but containers could not be refreshed. Reload to see the change.</p>
+            )}
             <StatusSection container={container} status={status} />
             <div className="settings-divider" />
 
