@@ -147,7 +147,8 @@ export default function LinkSettings({ link, stacks, initialAlert = null, onClos
     focusIconButton.current = true;
     setChoosingIcon(false);
   };
-  const subtitle = `Link · External${link.stack ? ` / ${link.stack}` : ''}`;
+  const location = link.stack ? `External / ${link.stack}` : 'External';
+  const subtitle = `Link · ${location}`;
 
   if (choosingIcon) {
     return (

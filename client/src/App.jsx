@@ -19,6 +19,45 @@ const LINK_ICON_FAILED = "Link added, but its icon couldn't be saved.";
 
 const isOffline = source => source.status === 'DOWN' || source.status === 'ERROR';
 
+/** The main area: loading, error, no matches, empty, or the sections. */
+function Inventory({ isLoading, failed, query, sections, sectionList, sources, hostFilter, groupBy, showAll, showStopped, onClearQuery, onIncludeStopped }) {
+  if (isLoading) {
+    return (
+      <>
+        <div className="tile-grid">
+          {Array.from({ length: 6 }, (_, index) => <SkeletonTile key={index} />)}
+        </div>
+        <output className="loading-status">Connecting…</output>
+      </>
+    );
+  }
+  if (failed) {
+    return (
+      <>
+        <div className="error-message" role="alert">
+          Failed to fetch containers. Ensure the server is running.
+        </div>
+        {sectionList}
+      </>
+    );
+  }
+  if (query.trim() !== '' && sections.every(section => section.containers.length + section.links.length === 0)) {
+    return <NoResults query={query} showStopped={showStopped} onClear={onClearQuery} onIncludeStopped={onIncludeStopped} />;
+  }
+  if (sections.length === 0) return <EmptyState showAll={showAll} showStopped={showStopped} />;
+  const banners = groupBy === GROUP_BY.STACK
+    ? sources
+      .filter(source => (hostFilter === 'all' || source.id === hostFilter) && isOffline(source))
+      .map(source => <OfflineBanner key={source.id} source={source} />)
+    : [];
+  return (
+    <>
+      {banners}
+      {sectionList}
+    </>
+  );
+}
+
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [query, setQuery] = useState('');
@@ -66,48 +105,6 @@ function App() {
     />
   ));
 
-  let inventory;
-  if (isLoading) {
-    inventory = (
-      <>
-        <div className="tile-grid">
-          {Array.from({ length: 6 }, (_, index) => <SkeletonTile key={index} />)}
-        </div>
-        <output className="loading-status">Connecting…</output>
-      </>
-    );
-  } else if (initialError) {
-    inventory = (
-      <div className="error-message" role="alert">
-        Failed to fetch containers. Ensure the server is running.
-      </div>
-    );
-    inventory = <>{inventory}{sectionList}</>;
-  } else if (query.trim() !== '' && sections.every(section => section.containers.length + section.links.length === 0)) {
-    inventory = (
-      <NoResults
-        query={query}
-        showStopped={showStopped}
-        onClear={() => setQuery('')}
-        onIncludeStopped={() => setShowStopped(true)}
-      />
-    );
-  } else if (sections.length === 0) {
-    inventory = <EmptyState showAll={showAll} showStopped={showStopped} />;
-  } else {
-    const banners = groupBy === GROUP_BY.STACK
-      ? data.sources
-        .filter(source => (hostFilter === 'all' || source.id === hostFilter) && isOffline(source))
-        .map(source => <OfflineBanner key={source.id} source={source} />)
-      : [];
-    inventory = (
-      <>
-        {banners}
-        {sectionList}
-      </>
-    );
-  }
-
   return (
     <div>
       <Header
@@ -121,7 +118,20 @@ function App() {
         onOpenSettings={() => setShowSettings(true)}
       />
       <main className="page">
-        {inventory}
+        <Inventory
+          isLoading={isLoading}
+          failed={Boolean(initialError)}
+          query={query}
+          sections={sections}
+          sectionList={sectionList}
+          sources={data.sources}
+          hostFilter={hostFilter}
+          groupBy={groupBy}
+          showAll={showAll}
+          showStopped={showStopped}
+          onClearQuery={() => setQuery('')}
+          onIncludeStopped={() => setShowStopped(true)}
+        />
       </main>
       {showSettings && (
         <AppSettings
