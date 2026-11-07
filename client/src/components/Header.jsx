@@ -6,7 +6,7 @@ import { ASSETS } from '../constants';
 const isTypingTarget = target =>
   target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 
-export default function Header({ query, onQueryChange, sources, counts, hostFilter, onHostFilterChange, onOpenSettings }) {
+export default function Header({ query, onQueryChange, sources, counts, linkCount = 0, hostFilter, onHostFilterChange, onOpenSettings }) {
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -31,8 +31,8 @@ export default function Header({ query, onQueryChange, sources, counts, hostFilt
           <input
             ref={inputRef}
             type="search"
-            aria-label="Filter containers"
-            placeholder="Filter containers, images, hosts…"
+            aria-label="Filter containers and links"
+            placeholder="Filter containers, links, hosts…"
             value={query}
             onChange={event => onQueryChange(event.target.value)}
             onKeyDown={event => { if (event.key === 'Escape') onQueryChange(''); }}
@@ -40,7 +40,7 @@ export default function Header({ query, onQueryChange, sources, counts, hostFilt
           <kbd>/</kbd>
         </label>
         <div className="app-bar-end">
-          <HostPills sources={sources} counts={counts} selected={hostFilter} onSelect={onHostFilterChange} />
+          <HostPills sources={sources} counts={counts} linkCount={linkCount} selected={hostFilter} onSelect={onHostFilterChange} />
           <button type="button" className="icon-btn" aria-label="Settings" onClick={onOpenSettings}>
             <Settings size={18} aria-hidden="true" />
           </button>

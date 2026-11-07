@@ -394,3 +394,65 @@ describe('source sections', () => {
   expect(screen.getByRole('link', { name: /Test Container/ })).toBeInTheDocument();
  });
 });
+
+describe('links in sections', () => {
+ const router = { id: 'r'.repeat(32), name: 'Router', url: 'http://192.168.50.1/', stack: 'base', iconUrl: null };
+ const nas = { id: 'n'.repeat(32), name: 'NAS', url: 'https://nas.lan/', stack: 'home', iconUrl: null };
+ const web = createMockContainer({ id: 'w', sourceId: 'walker', project: 'base', displayName: 'web' });
+ const renderLinks = ({ containers = [], links, groupBy = GROUP_BY.HOST_STACK, onOpenLinkSettings = vi.fn() }) => {
+  const sections = buildSections({ sources: [source], containers, links, groupBy });
+  const section = sections.find(s => s.links.length > 0);
+  renderWithQuery(<SourceSection section={section} sourcesById={{ walker: source }} showAll showStopped onOpenLinkSettings={onOpenLinkSettings} />);
+  return { onOpenLinkSettings };
+ };
+
+ it('describes the External section by links and stacks', () => {
+  renderLinks({ links: [router, nas] });
+  expect(screen.getByRole('region', { name: 'External' })).toHaveTextContent('2 links · 2 stacks');
+ });
+
+ it('omits stacks from the meta when links have none', () => {
+  renderLinks({ links: [{ ...router, stack: null }], groupBy: GROUP_BY.HOST });
+  expect(screen.getByText('1 link')).toBeInTheDocument();
+ });
+
+ it('counts links in a stack label', () => {
+  renderLinks({ links: [router, { ...router, id: 'x'.repeat(32), name: 'Second' }] });
+  expect(document.querySelector('.stack-label')).toHaveTextContent('base2');
+ });
+
+ it('describes a mixed Stack section as items, naming External', () => {
+  renderLinks({ containers: [web], links: [router], groupBy: GROUP_BY.STACK });
+  expect(screen.getByText('2 items · Walker, External')).toBeInTheDocument();
+ });
+
+ it('keeps the container meta for a Stack section without links', () => {
+  const [section] = buildSections({ sources: [source], containers: [web], links: [], groupBy: GROUP_BY.STACK });
+  renderWithQuery(<SourceSection section={section} sourcesById={{ walker: source }} showAll showStopped />);
+  expect(screen.getByText('1 container · Walker')).toBeInTheDocument();
+ });
+
+ it('tags a link with External in Stack view, after the containers', () => {
+  renderLinks({ containers: [web], links: [router], groupBy: GROUP_BY.STACK });
+  const tiles = [...document.querySelectorAll('.tile-grid .tile-name')].map(el => el.textContent);
+  expect(tiles).toEqual(['web', 'Router']);
+  expect(screen.getByText('External')).toHaveClass('tile-tag');
+ });
+
+ it('has no host tag in the External section', () => {
+  renderLinks({ links: [router] });
+  expect(document.querySelector('.tile-tag')).toBeNull();
+ });
+
+ it('renders a group holding only links', () => {
+  renderLinks({ links: [router], groupBy: GROUP_BY.STACK });
+  expect(screen.getByRole('link', { name: /Router/ })).toBeInTheDocument();
+ });
+
+ it('passes menu clicks up', () => {
+  const { onOpenLinkSettings } = renderLinks({ links: [router] });
+  fireEvent.click(screen.getByRole('button', { name: 'Router link settings' }));
+  expect(onOpenLinkSettings).toHaveBeenCalledWith(router.id);
+ });
+});
+

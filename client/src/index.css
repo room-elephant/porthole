@@ -494,7 +494,49 @@ input:checked + .toggle-slider::before {
 
 .tile:hover .status-dot { border-color: var(--hover); }
 .tile--unhealthy .status-dot,
-.tile--unhealthy .update-badge { border-color: var(--bad-bg); }
+.tile--unhealthy .link-icon-globe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--r-control);
+  background: var(--hover);
+  color: var(--text-muted);
+}
+
+.link-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #334155;
+  border: 2px solid var(--surface);
+  color: #e2e8f0;
+}
+
+.tile:hover .link-badge { border-color: var(--hover); }
+
+.link-url {
+  min-width: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pill-link {
+  color: var(--text-muted);
+}
+
+.update-badge { border-color: var(--bad-bg); }
 .tile--dashed .status-dot { border-color: var(--bg); }
 
 .dot-ok { background: var(--ok); }

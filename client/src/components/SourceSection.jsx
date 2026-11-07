@@ -2,9 +2,10 @@ import { useId, useState, useRef, useCallback, useEffect } from 'react';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import ContainerTile from './ContainerTile';
 import ContainerChip from './ContainerChip';
+import LinkTile from './LinkTile';
 import { isHeadless } from '../utils/endpoints';
 import { plural } from '../utils/containers';
-import { ASSETS } from '../constants';
+import { ASSETS, EXTERNAL } from '../constants';
 
 
 function emptyMessage(showAll, showStopped) {
@@ -70,9 +71,26 @@ function HostMeta({ section }) {
   return <span className="section-meta">Checking…</span>;
 }
 
+function ExternalMeta({ section }) {
+  const stacks = section.groups.filter(group => group.key !== null).length;
+  return (
+    <span className="section-meta">
+      {plural(section.links.length, 'link')}
+      {stacks > 0 && ` · ${plural(stacks, 'stack')}`}
+    </span>
+  );
+}
+
+function StackMeta({ section }) {
+  const count = section.links.length > 0
+    ? plural(section.containers.length + section.links.length, 'item')
+    : plural(section.containers.length, 'container');
+  return <span className="section-meta">{`${count} · ${section.hostNames.join(', ')}`}</span>;
+}
+
 const keyOf = container => JSON.stringify([container.sourceId, container.id]);
 
-function Group({ group, section, sourcesById }) {
+function Group({ group, section, sourcesById, onOpenLinkSettings }) {
   const groupRef = useRef(null);
   const queryClient = useQueryClient();
   // A failed or same-partition save must also release a closed dialog's focus handoff.
@@ -141,7 +159,7 @@ function Group({ group, section, sourcesById }) {
   const headlessOf = container => (frozen?.key === keyOf(container) ? frozen.headless : isHeadless(container));
   const withUi = group.containers.filter(container => !headlessOf(container));
   const headless = group.containers.filter(headlessOf);
-  if (group.containers.length === 0) return null;
+  if (group.containers.length === 0 && group.links.length === 0) return null;
 
   const common = container => ({
     container,
@@ -155,14 +173,19 @@ function Group({ group, section, sourcesById }) {
       {group.label && (
         <div className="stack-label">
           <span>{group.label}</span>
-          <span className="stack-count">{group.containers.length}</span>
+          <span className="stack-count">{group.containers.length + group.links.length}</span>
         </div>
       )}
-      {withUi.length > 0 && (
+      {withUi.length + group.links.length > 0 && (
         <div className="tile-grid">
           {withUi.map(container => (
             <span key={keyOf(container)} className="card-slot" data-container-key={keyOf(container)}>
               <ContainerTile sourceName={sourcesById[container.sourceId]?.name} {...common(container)} />
+            </span>
+          ))}
+          {group.links.map(link => (
+            <span key={link.id} className="card-slot">
+              <LinkTile link={link} hostTag={section.kind === 'stack' ? EXTERNAL.NAME : null} onOpenSettings={onOpenLinkSettings} />
             </span>
           ))}
         </div>
@@ -181,7 +204,7 @@ function Group({ group, section, sourcesById }) {
   );
 }
 
-export default function SourceSection({ section, sourcesById, showAll, showStopped }) {
+export default function SourceSection({ section, sourcesById, showAll, showStopped, onOpenLinkSettings }) {
   const headingId = useId();
   const isHost = section.kind === 'host';
   const source = section.source;
@@ -192,13 +215,9 @@ export default function SourceSection({ section, sourcesById, showAll, showStopp
     <section className="source-section" aria-labelledby={headingId}>
       <header className="section-header">
         <h2 id={headingId} className="section-title">{section.title}</h2>
-        {isHost ? (
-          <HostMeta section={section} />
-        ) : (
-          <span className="section-meta">
-            {`${plural(section.containers.length, 'container')} · ${section.hostNames.join(', ')}`}
-          </span>
-        )}
+        {isHost && <HostMeta section={section} />}
+        {section.kind === 'external' && <ExternalMeta section={section} />}
+        {section.kind === 'stack' && <StackMeta section={section} />}
       </header>
       {offline && <OfflineBanner source={source} />}
       {showEmpty ? (
@@ -210,6 +229,7 @@ export default function SourceSection({ section, sourcesById, showAll, showStopp
             group={group}
             section={section}
             sourcesById={sourcesById}
+            onOpenLinkSettings={onOpenLinkSettings}
           />
         ))
       )}

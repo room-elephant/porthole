@@ -3,16 +3,18 @@ import { screen, within, fireEvent } from '@testing-library/react';
 import App from '../App';
 import { renderWithQuery, createMockContainer } from './testUtils';
 import { useContainers } from '../hooks/useContainers';
+import { useLinks } from '../hooks/useLinks';
 
 vi.mock('../hooks/useContainers');
+vi.mock('../hooks/useLinks', async importOriginal => ({ ...await importOriginal(), useLinks: vi.fn() }));
 
 const walker = { id: 'walker', name: 'Walker', status: 'UP', error: null };
 const mike = { id: 'mike', name: 'Mike', status: 'UP', error: null };
 const query = data => useContainers.mockReturnValue({ data, isLoading: false, error: null });
-const filter = () => screen.getByRole('searchbox', { name: 'Filter containers' });
+const filter = () => screen.getByRole('searchbox', { name: 'Filter containers and links' });
 
 describe('App', () => {
-  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); useLinks.mockReturnValue({ data: [], isError: false }); });
 
   it('shows six horizontal skeletons and a status while loading', () => {
     useContainers.mockReturnValue({ isLoading: true });
@@ -210,3 +212,70 @@ describe('App', () => {
     expect(screen.queryByRole('region', { name: 'Walker' })).not.toBeInTheDocument();
   });
 });
+
+describe('App links', () => {
+  const router = { id: 'r'.repeat(32), name: 'Router', url: 'http://192.168.50.1/', stack: null, iconUrl: null };
+  const app = createMockContainer({ id: 'a', sourceId: 'walker', displayName: 'Sonarr' });
+
+  beforeEach(() => { useLinks.mockReturnValue({ data: [router], isError: false }); });
+
+  it('shows the External section beside hosts', () => {
+    query({ sources: [walker], containers: [app] });
+    renderWithQuery(<App />);
+    expect(screen.getByRole('region', { name: 'External' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^External/ })).toBeInTheDocument();
+  });
+
+  it('shows links under the error when containers fail', () => {
+    useContainers.mockReturnValue({ error: { response: { status: 502 } }, isLoading: false });
+    renderWithQuery(<App />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to fetch containers');
+    expect(screen.getByRole('link', { name: /Router/ })).toBeInTheDocument();
+  });
+
+  it('keeps skeletons, without links, while containers load', () => {
+    useContainers.mockReturnValue({ isLoading: true });
+    renderWithQuery(<App />);
+    expect(document.querySelectorAll('.skeleton-tile')).toHaveLength(6);
+    expect(screen.queryByRole('link', { name: /Router/ })).not.toBeInTheDocument();
+  });
+
+  it('returns the filter to All when the last link goes', () => {
+    query({ sources: [walker], containers: [app] });
+    const { rerender } = renderWithQuery(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /^External/ }));
+    expect(screen.queryByText('Sonarr')).not.toBeInTheDocument();
+
+    useLinks.mockReturnValue({ data: [], isError: false });
+    rerender(<App />);
+
+    expect(screen.getByText('Sonarr')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('does not show no-results for a query matching only a link', () => {
+    query({ sources: [walker], containers: [app] });
+    renderWithQuery(<App />);
+    fireEvent.change(filter(), { target: { value: 'router' } });
+    expect(screen.getByRole('link', { name: /Router/ })).toBeInTheDocument();
+    expect(screen.queryByText('Sonarr')).not.toBeInTheDocument();
+    expect(document.querySelector('.no-results')).toBeNull();
+  });
+
+  it('shows no-results when nothing matches', () => {
+    query({ sources: [walker], containers: [app] });
+    renderWithQuery(<App />);
+    fireEvent.change(filter(), { target: { value: 'zzz' } });
+    expect(screen.queryByRole('link', { name: /Router/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/zzz/)).toBeInTheDocument();
+  });
+
+  it('copes with links still loading', () => {
+    useLinks.mockReturnValue({ isLoading: true });
+    query({ sources: [walker], containers: [app] });
+    renderWithQuery(<App />);
+    expect(screen.getByText('Sonarr')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^External/ })).not.toBeInTheDocument();
+  });
+});
+

@@ -5,38 +5,54 @@ import SkeletonTile from './components/SkeletonTile';
 import SourceSection, { EmptyState, OfflineBanner } from './components/SourceSection';
 import AppSettings from './components/AppSettings';
 import { useContainers } from './hooks/useContainers';
+import { useLinks } from './hooks/useLinks';
 import { useLastKnownContainers } from './hooks/useLastKnownContainers';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { STORAGE_KEYS, GROUP_BY } from './constants';
+import { EXTERNAL, STORAGE_KEYS, GROUP_BY } from './constants';
 import { buildSections } from './utils/containers';
 
 const EMPTY = { sources: [], containers: [] };
+const NO_LINKS = [];
 const isOffline = source => source.status === 'DOWN' || source.status === 'ERROR';
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedHost, setSelectedHost] = useState('all');
+  const [, setEditingLinkId] = useState(null);
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
   const [showSelf, setShowSelf] = useLocalStorage(STORAGE_KEYS.SHOW_SELF, true);
   const [storedGroupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
   const groupBy = Object.values(GROUP_BY).includes(storedGroupBy) ? storedGroupBy : GROUP_BY.HOST_STACK;
   const { data: fetchedInventory, isLoading, error } = useContainers({ showAll, showStopped });
+  const { data: links = NO_LINKS } = useLinks();
   const data = fetchedInventory ?? EMPTY;
   const initialError = error && !fetchedInventory;
   const lastKnown = useLastKnownContainers(data);
   const containers = useMemo(() => (showSelf ? lastKnown : lastKnown.filter(container => !container.self)), [lastKnown, showSelf]);
-  const hostFilter = data.sources.some(source => source.id === selectedHost) ? selectedHost : 'all';
+  const filterExists = data.sources.some(source => source.id === selectedHost) || (selectedHost === EXTERNAL.ID && links.length > 0);
+  const hostFilter = filterExists ? selectedHost : 'all';
   const counts = useMemo(() => {
     const result = Object.fromEntries(data.sources.map(source => [source.id, 0]));
     containers.forEach(container => { result[container.sourceId] = (result[container.sourceId] ?? 0) + 1; });
     return result;
   }, [data.sources, containers]);
   const sections = useMemo(
-    () => buildSections({ sources: data.sources, containers, groupBy, hostFilter, query }),
-    [data.sources, containers, groupBy, hostFilter, query]);
+    () => buildSections({ sources: data.sources, containers, links, groupBy, hostFilter, query }),
+    [data.sources, containers, links, groupBy, hostFilter, query]);
   const sourcesById = useMemo(() => Object.fromEntries(data.sources.map(source => [source.id, source])), [data.sources]);
+
+  const sectionList = sections.map(section => (
+    <SourceSection
+      key={section.id}
+      section={section}
+      sourcesById={sourcesById}
+      showAll={showAll}
+      showStopped={showStopped}
+      onOpenLinkSettings={setEditingLinkId}
+    />
+  ));
 
   let inventory;
   if (isLoading) {
@@ -54,7 +70,8 @@ function App() {
         Failed to fetch containers. Ensure the server is running.
       </div>
     );
-  } else if (query.trim() !== '' && sections.every(section => section.containers.length === 0)) {
+    inventory = <>{inventory}{sectionList}</>;
+  } else if (query.trim() !== '' && sections.every(section => section.containers.length + section.links.length === 0)) {
     inventory = (
       <NoResults
         query={query}
@@ -74,15 +91,7 @@ function App() {
     inventory = (
       <>
         {banners}
-        {sections.map(section => (
-          <SourceSection
-            key={section.id}
-            section={section}
-            sourcesById={sourcesById}
-            showAll={showAll}
-            showStopped={showStopped}
-          />
-        ))}
+        {sectionList}
       </>
     );
   }
@@ -94,6 +103,7 @@ function App() {
         onQueryChange={setQuery}
         sources={initialError ? [] : data.sources}
         counts={counts}
+        linkCount={links.length}
         hostFilter={hostFilter}
         onHostFilterChange={setSelectedHost}
         onOpenSettings={() => setShowSettings(true)}
