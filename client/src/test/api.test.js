@@ -4,10 +4,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockGet = vi.fn();
 const mockPost = vi.fn();
 const mockPut = vi.fn();
+const mockDelete = vi.fn();
 const mockAxiosInstance = {
   get: mockGet,
   post: mockPost,
   put: mockPut,
+  delete: mockDelete,
   interceptors: {
     response: {
       use: vi.fn(),
@@ -22,7 +24,7 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchDockerHealth, fetchIconLibrary, refreshVersions, selectContainerEndpoint, selectContainerIcon, uploadContainerIcon } = await import('../api');
+const { fetchContainers, fetchDockerHealth, fetchIconLibrary, refreshVersions, selectContainerEndpoint, selectContainerIcon, uploadContainerIcon, fetchLinks, createLink, updateLink, deleteLink, selectLinkIcon, uploadLinkIcon } = await import('../api');
 
 describe('api', () => {
   beforeEach(() => {
@@ -155,5 +157,53 @@ describe('api', () => {
 
       expect(result).toEqual({ status: 'DOWN' });
     });
+  });
+});
+
+describe('links api', () => {
+  const id = 'a'.repeat(32);
+  const details = { name: 'Router', url: 'http://r/', stack: null };
+
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('fetches links', async () => {
+    const signal = new AbortController().signal;
+    mockGet.mockResolvedValue({ data: [] });
+    await expect(fetchLinks({ signal })).resolves.toEqual([]);
+    expect(mockGet).toHaveBeenCalledWith('/api/links', { signal });
+  });
+
+  it('creates a link and returns it', async () => {
+    mockPost.mockResolvedValue({ data: { id } });
+    await expect(createLink(details)).resolves.toEqual({ id });
+    expect(mockPost).toHaveBeenCalledWith('/api/links', details);
+  });
+
+  it('updates a link', async () => {
+    mockPut.mockResolvedValue({ data: {} });
+    await updateLink(id, details);
+    expect(mockPut).toHaveBeenCalledWith(`/api/links/${id}`, details);
+  });
+
+  it('deletes a link', async () => {
+    mockDelete.mockResolvedValue({});
+    await deleteLink(id);
+    expect(mockDelete).toHaveBeenCalledWith(`/api/links/${id}`);
+  });
+
+  it('selects a library icon', async () => {
+    mockPut.mockResolvedValue({});
+    await selectLinkIcon(id, 'router');
+    expect(mockPut).toHaveBeenCalledWith(`/api/links/${id}/icon`, { name: 'router' });
+  });
+
+  it('uploads an icon', async () => {
+    mockPost.mockResolvedValue({});
+    const file = new File(['x'], 'logo.png', { type: 'image/png' });
+    await uploadLinkIcon(id, file);
+    const [url, body, options] = mockPost.mock.calls[0];
+    expect(url).toBe(`/api/links/${id}/icon/upload`);
+    expect(body.get('file')).toBe(file);
+    expect(options).toEqual({ timeout: 30000 });
   });
 });

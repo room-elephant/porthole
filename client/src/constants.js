@@ -10,12 +10,15 @@ export const GROUP_BY = { HOST_STACK: 'host-stack', HOST: 'host', STACK: 'stack'
 
 export const API = {
   CONTAINERS: '/api/containers',
+  LINKS: '/api/links',
   SELECTED_URL: '/api/containers/selected-url',
   ICON: '/api/containers/icon',
   ICON_UPLOAD: '/api/containers/icon/upload',
   VERSION_REFRESH: '/api/versions/refresh',
   DOCKER_HEALTH: '/actuator/health/docker',
 };
+
+export const EXTERNAL = { ID: '_external', NAME: 'External' };
 
 export const UPLOADED_ICON_PATH = '/api/icons/';
 
