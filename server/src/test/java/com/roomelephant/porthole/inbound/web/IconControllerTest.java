@@ -168,8 +168,19 @@ class IconControllerTest {
                 .andExpect(content().contentType("image/webp"))
                 .andExpect(content().bytes(PNG))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Content-Security-Policy", Matchers.containsString("default-src 'none'")))
+                .andExpect(header().string("Content-Security-Policy", Matchers.containsString("sandbox")))
                 .andExpect(header().string("Cache-Control", Matchers.containsString("max-age=31536000")))
                 .andExpect(header().string("Cache-Control", Matchers.containsString("immutable")));
+    }
+
+    @Test
+    void getIconServesSvgAsAnImage() throws Exception {
+        String name = "0123456789abcdef0123456789abcdef.svg";
+        when(files.read(name)).thenReturn(Optional.of(PNG));
+        mockMvc.perform(get("/api/icons/" + name))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("image/svg+xml"));
     }
 
     @ParameterizedTest

@@ -84,8 +84,9 @@ paths:
       - Icons
   /api/containers/icon/upload:
     post:
-      description: "Saves a PNG, WebP or JPEG image of at most 1 MB, identified from\
-        \ the file's content. Replaces any previous icon. Does not require the container\
+      description: "Saves a PNG, WebP, JPEG or SVG image of at most 1 MB, identified\
+        \ from the file's content. Scripts and anything else unsafe are removed from\
+        \ an SVG before saving. Replaces any previous icon. Does not require the container\
         \ to be currently available."
       operationId: uploadIcon
       requestBody:
@@ -177,6 +178,10 @@ paths:
               schema:
                 type: string
                 format: byte
+            image/svg+xml:
+              schema:
+                type: string
+                format: byte
             image/webp:
               schema:
                 type: string
@@ -189,6 +194,10 @@ paths:
                 type: string
                 format: byte
             image/png:
+              schema:
+                type: string
+                format: byte
+            image/svg+xml:
               schema:
                 type: string
                 format: byte
@@ -408,7 +417,7 @@ components:
         file:
           type: string
           format: binary
-          description: "PNG, WebP or JPEG image of at most 1 MB"
+          description: "PNG, WebP, JPEG or SVG image of at most 1 MB"
         sourceId:
           type: string
           description: Docker connection source ID

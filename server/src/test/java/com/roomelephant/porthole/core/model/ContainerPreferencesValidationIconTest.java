@@ -40,7 +40,8 @@ class ContainerPreferencesValidationIconTest {
             strings = {
                 "0123456789abcdef0123456789abcdef.png",
                 "0123456789abcdef0123456789abcdef.webp",
-                "0123456789abcdef0123456789abcdef.jpg"
+                "0123456789abcdef0123456789abcdef.jpg",
+                "0123456789abcdef0123456789abcdef.svg"
             })
     void acceptsUploadNames(String name) {
         SelectedIcon icon = SelectedIcon.upload(name);
@@ -54,7 +55,7 @@ class ContainerPreferencesValidationIconTest {
             strings = {
                 "abc.svg",
                 "coredns",
-                "0123456789abcdef0123456789abcdef.svg",
+                "0123456789abcdef0123456789abcdef.gif",
                 "0123456789ABCDEF0123456789ABCDEF.png",
                 "../0123456789abcdef0123456789abcdef.png"
             })

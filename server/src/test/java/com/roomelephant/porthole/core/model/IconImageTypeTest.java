@@ -44,6 +44,8 @@ class IconImageTypeTest {
         assertThat(IconImageType.PNG.contentType()).isEqualTo("image/png");
         assertThat(IconImageType.WEBP.contentType()).isEqualTo("image/webp");
         assertThat(IconImageType.JPEG.contentType()).isEqualTo("image/jpeg");
+        assertThat(IconImageType.SVG.extension()).isEqualTo("svg");
+        assertThat(IconImageType.SVG.contentType()).isEqualTo("image/svg+xml");
     }
 
     @Test
@@ -51,6 +53,6 @@ class IconImageTypeTest {
         assertThat(IconImageType.fromFileName("abc.png")).contains(IconImageType.PNG);
         assertThat(IconImageType.fromFileName("abc.webp")).contains(IconImageType.WEBP);
         assertThat(IconImageType.fromFileName("abc.jpg")).contains(IconImageType.JPEG);
-        assertThat(IconImageType.fromFileName("abc.svg")).isEmpty();
+        assertThat(IconImageType.fromFileName("abc.svg")).contains(IconImageType.SVG);
     }
 }

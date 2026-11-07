@@ -39,10 +39,10 @@ function IconUploadTab({ iconUrl, onUpload, uploadingFile, isSaving }) {
                 </div>
             ) : (
                 <label className="icon-drop">
-                    <input type="file" accept="image/png,image/webp,image/jpeg" onChange={choose} />
+                    <input type="file" accept="image/png,image/webp,image/jpeg,image/svg+xml" onChange={choose} />
                     <Upload size={24} aria-hidden="true" />
                     <span className="icon-drop-title">{uploaded ? 'Replace: drop a new image, or browse' : 'Drop an image here, or browse'}</span>
-                    <span className="endpoint-helper">PNG, WebP or JPEG, up to 1 MB. Saves straight away.</span>
+                    <span className="endpoint-helper">PNG, WebP, JPEG or SVG, up to 1 MB. Saves straight away.</span>
                 </label>
             )}
 

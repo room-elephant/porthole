@@ -12,7 +12,7 @@ public record SelectedIcon(String type, String name) {
 
     public static final Pattern LIBRARY_NAME = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,254}$");
 
-    public static final Pattern UPLOAD_NAME = Pattern.compile("^[0-9a-f]{32}\\.(png|webp|jpg)$");
+    public static final Pattern UPLOAD_NAME = Pattern.compile("^[0-9a-f]{32}\\.(png|webp|jpg|svg)$");
 
     public static SelectedIcon library(String name) {
         return new SelectedIcon(LIBRARY, name);

@@ -245,7 +245,7 @@ describe('IconPicker server rejections', () => {
   const rejected = status => iconActions({ saveError: Object.assign(new Error('rejected'), { response: { status } }) });
 
   it.each([
-    [400, "That file isn't a PNG, WebP or JPEG image."],
+    [400, "That file isn't a PNG, WebP, JPEG or SVG image."],
     [413, 'That file is over 1 MB. Choose an image up to 1 MB.'],
     [507, 'Porthole has reached its limit of 500 uploaded icons.'],
   ])('explains a %i without offering a pointless retry', async (status, message) => {
@@ -295,7 +295,7 @@ describe('IconPicker upload tab', () => {
     openUpload();
     expect(screen.getByText('Drop an image here, or browse')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Your uploaded icon' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/or browse/)).toHaveAttribute('accept', 'image/png,image/webp,image/jpeg');
+    expect(screen.getByLabelText(/or browse/)).toHaveAttribute('accept', 'image/png,image/webp,image/jpeg,image/svg+xml');
   });
 
   it('asks to replace when the current icon is an upload', () => {
@@ -305,14 +305,14 @@ describe('IconPicker upload tab', () => {
 
   it('rejects an unsupported file without uploading', () => {
     const { icon } = openUpload();
-    choose(new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' }));
-    expect(screen.getByRole('alert')).toHaveTextContent("logo.svg isn't supported. Use PNG, WebP or JPEG.");
+    choose(new File(['GIF89a'], 'logo.gif', { type: 'image/gif' }));
+    expect(screen.getByRole('alert')).toHaveTextContent("logo.gif isn't supported. Use PNG, WebP, JPEG or SVG.");
     expect(icon.uploadIcon).not.toHaveBeenCalled();
   });
 
   it('uploads a valid file straight away and clears an earlier rejection', () => {
     const { icon, onSaved } = openUpload();
-    choose(new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' }));
+    choose(new File(['GIF89a'], 'logo.gif', { type: 'image/gif' }));
     choose(pngFile);
     expect(icon.uploadIcon).toHaveBeenCalledWith(pngFile, { onSaved });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

@@ -38,6 +38,11 @@ import org.springframework.web.multipart.MultipartFile;
 @Tag(name = "Icons", description = "Custom container icons from the Dashboard Icons library or user uploads.")
 public class IconController {
     private static final Duration UPLOAD_CACHE_LIFETIME = Duration.ofDays(365);
+    private static final String SVG_MEDIA_TYPE = "image/svg+xml";
+
+    /** Stops an SVG opened directly as a page from running scripts or loading anything, as a second line of defense. */
+    private static final String ICON_CONTENT_SECURITY_POLICY =
+            "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox";
 
     private final SelectContainerIcon selectContainerIcon;
     private final ReadUploadedIcon readUploadedIcon;
@@ -76,7 +81,8 @@ public class IconController {
     @PostMapping(path = "/containers/icon/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Upload an icon for a container",
-            description = "Saves a PNG, WebP or JPEG image of at most 1 MB, identified from the file's content. "
+            description = "Saves a PNG, WebP, JPEG or SVG image of at most 1 MB, identified from the file's content. "
+                    + "Scripts and anything else unsafe are removed from an SVG before saving. "
                     + "Replaces any previous icon. Does not require the container to be currently available.",
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -125,7 +131,7 @@ public class IconController {
 
     @GetMapping(
             path = "/icons/{name}",
-            produces = {MediaType.IMAGE_PNG_VALUE, "image/webp", MediaType.IMAGE_JPEG_VALUE})
+            produces = {MediaType.IMAGE_PNG_VALUE, "image/webp", MediaType.IMAGE_JPEG_VALUE, SVG_MEDIA_TYPE})
     @Operation(summary = "Get an uploaded icon", description = "Upload names are random, so responses never change.")
     @ApiResponse(responseCode = "200", description = "The uploaded image")
     @ApiResponse(responseCode = "404", description = "Unknown or invalid icon name")
@@ -140,6 +146,7 @@ public class IconController {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(icon.contentType()))
                 .header("X-Content-Type-Options", "nosniff")
+                .header("Content-Security-Policy", ICON_CONTENT_SECURITY_POLICY)
                 .cacheControl(
                         CacheControl.maxAge(UPLOAD_CACHE_LIFETIME).cachePublic().immutable())
                 .body(icon.bytes());

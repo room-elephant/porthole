@@ -5,12 +5,13 @@ import java.util.Arrays;
 import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
 
-/** Image formats accepted for uploaded icons, recognized from their content rather than their name. */
+/** Image formats accepted for uploaded icons. */
 @NullMarked
 public enum IconImageType {
     PNG("png", "image/png"),
     WEBP("webp", "image/webp"),
-    JPEG("jpg", "image/jpeg");
+    JPEG("jpg", "image/jpeg"),
+    SVG("svg", "image/svg+xml");
 
     private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
     private static final byte[] JPEG_SIGNATURE = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
@@ -34,6 +35,7 @@ public enum IconImageType {
         return contentType;
     }
 
+    /** Recognizes raster formats from their signature. SVG has none, so it is identified by parsing it instead. */
     public static Optional<IconImageType> detect(byte[] bytes) {
         if (startsWith(bytes, PNG_SIGNATURE, 0)) {
             return Optional.of(PNG);
