@@ -11,7 +11,7 @@ export const containerStatus = (container, { sourceOnline, showUpdate }) => {
   if (health === 'unhealthy') return result('unhealthy', 'bad', 'Unhealthy');
   if (state === 'restarting') return result('restarting', 'warn', 'Restarting');
   if (health === 'health: starting') return result('starting', 'warn', 'Starting');
-  if (showUpdate) return result('update', 'ok', 'Update');
+  if (showUpdate) return result('update', 'ok', null);
   return result('ok', 'ok', null);
 };
 

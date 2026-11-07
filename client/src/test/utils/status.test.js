@@ -17,7 +17,7 @@ describe('getHealthStatus', () => {
 describe('containerStatus', () => {
   it.each([
     [{ state: 'running', status: 'Up 1h' }, true, false, { kind: 'ok', dot: 'ok', label: null, openable: true }],
-    [{ state: 'running', status: 'Up 1h' }, true, true, { kind: 'update', dot: 'ok', label: 'Update', openable: true }],
+    [{ state: 'running', status: 'Up 1h' }, true, true, { kind: 'update', dot: 'ok', label: null, openable: true }],
     [{ state: 'running', status: 'Up 1h (unhealthy)' }, true, true, { kind: 'unhealthy', dot: 'bad', label: 'Unhealthy', openable: true }],
     [{ state: 'running', status: 'Up 5s (health: starting)' }, true, true, { kind: 'starting', dot: 'warn', label: 'Starting', openable: true }],
     [{ state: 'restarting', status: 'Restarting' }, true, false, { kind: 'restarting', dot: 'warn', label: 'Restarting', openable: true }],

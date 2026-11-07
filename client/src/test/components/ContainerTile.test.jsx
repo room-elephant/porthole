@@ -83,21 +83,42 @@ describe('ContainerTile', () => {
     expect(root.querySelector('.tile-dot')).toHaveTextContent('·');
   });
 
-  it('is a new-tab link to the selected endpoint with the host as subtitle', () => {
+  it('is a new-tab link to the selected endpoint', () => {
     renderWithQuery(<ContainerTile container={createMockContainer()} sourceName="Walker" sourceOnline />);
     const link = screen.getByRole('link', { name: /Test Container/ });
     expect(link).toHaveAttribute('href', 'http://localhost:8080/');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener');
-    expect(screen.getByText('localhost:8080')).toHaveClass('tile-host');
-    expect(screen.getByTitle('test-image:latest')).toHaveClass('tile-image');
-    expect(link.querySelector('.tile-go')).toHaveAttribute('aria-hidden', 'true');
     expect(window.open).not.toHaveBeenCalled();
   });
 
-  it('shows an optional host tag before the subtitle', () => {
-    renderWithQuery(<ContainerTile container={createMockContainer()} hostTag="Walker" />);
-    expect(screen.getByText('Walker')).toHaveClass('tile-tag');
+  it('renders no arrow in the link, so nothing takes width from the subtitle', () => {
+    renderWithQuery(<ContainerTile container={createMockContainer()} />);
+    expect(screen.getByRole('link').querySelector('svg')).toBeNull();
+  });
+
+  it('shows only the image in the subtitle, never the endpoint URL', () => {
+    const { container: root } = renderWithQuery(<ContainerTile container={createMockContainer()} />);
+    expect(root.querySelector('.tile-sub').textContent).toBe('‎test-image:latest‎');
+    expect(screen.queryByText(/localhost/)).not.toBeInTheDocument();
+  });
+
+  it('puts an optional host beside the name, not in the subtitle', () => {
+    const { container: root } = renderWithQuery(<ContainerTile container={createMockContainer()} hostTag="Walker" />);
+    const host = screen.getByText('Walker');
+    expect(host).toHaveClass('tile-tag');
+    expect(host).toHaveAttribute('title', 'Host');
+    expect(root.querySelector('.tile-name-row')).toContainElement(host);
+    expect(root.querySelector('.tile-name-row')).toContainElement(screen.getByText('Test Container'));
+    expect(root.querySelector('.tile-sub').textContent).toBe('‎test-image:latest‎');
+  });
+
+  it('keeps the health label in the subtitle when a host is shown', () => {
+    const { container: root } = renderWithQuery(
+      <ContainerTile container={createMockContainer({ status: 'Up 2 minutes (unhealthy)' })} hostTag="Walker" />,
+    );
+    expect(root.querySelector('.tile-sub')).toHaveTextContent('Unhealthy');
+    expect(root.querySelector('.tile-sub')).not.toHaveTextContent('Walker');
   });
 
   it('renders and lets settings change the launch URL when storage access is blocked', async () => {
@@ -237,7 +258,7 @@ describe('ContainerTile', () => {
       ];
       renderWithQuery(<ContainerTile container={createMockContainer({ endpoints })} />);
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
-      expect(screen.getByText('Choose a URL')).toHaveClass('tile-host');
+      expect(screen.queryByText('Choose a URL')).not.toBeInTheDocument();
       expect(tile()).not.toHaveClass('tile--dashed');
       fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
       expect(screen.getAllByText('Traefik')).not.toHaveLength(0);
@@ -274,9 +295,10 @@ describe('ContainerTile', () => {
   });
 
   describe('Update indicator', () => {
-    it('labels an update in purple when the badge preference is on', () => {
-      renderWithQuery(<ContainerTile container={createMockContainer({ version: update })} />);
-      expect(screen.getByText('Update')).toHaveClass('label-update');
+    it('signals an update only with the badge, never a word', () => {
+      const { container: root } = renderWithQuery(<ContainerTile container={createMockContainer({ version: update })} />);
+      expect(root.querySelector('.tile-label')).toBeNull();
+      expect(root.querySelector('.tile-sub').textContent).toBe('‎test-image:latest‎');
       expect(screen.getByTitle('Update available')).toHaveClass('update-badge');
       expect(dot()).toHaveClass('dot-ok');
       expect(dot()).toHaveAttribute('title', 'Running');
@@ -363,7 +385,6 @@ describe('ContainerTile', () => {
     const view = render(<QueryClientProvider client={client}><ContainerTile container={container} /></QueryClientProvider>);
     view.rerender(<QueryClientProvider client={client}><ContainerTile container={{ ...container, endpoints: [{ ...container.endpoints[0], url: 'http://other.example.com:8080/' }] }} /></QueryClientProvider>);
     expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://other.example.com:8080/');
-    expect(screen.getByText('other.example.com:8080')).toHaveClass('tile-host');
   });
 
   it('rerenders when the offline state, source name or host tag changes', () => {

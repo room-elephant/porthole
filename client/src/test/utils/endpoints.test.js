@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isHeadless, groupEndpointsBySource, endpointLabel, endpointTag } from '../../utils/endpoints';
+import { isHeadless, groupEndpointsBySource, endpointTag, isValidCustomUrl } from '../../utils/endpoints';
 
 const port = { id: 'published-port:51413', source: 'published-port', url: 'http://192.168.50.6:51413/', selected: false };
 const root = { id: 'traefik:root', source: 'traefik', url: 'https://transmission.example.com/', selected: false };
@@ -29,18 +29,19 @@ describe('endpoint groups', () => {
   it('has no sections for no candidates', () => expect(groupEndpointsBySource([])).toEqual([]));
 });
 
-describe('endpointLabel', () => {
-  it('strips the scheme and one trailing slash', () => {
-    expect(endpointLabel('https://sonarr.example.com/')).toBe('sonarr.example.com');
-    expect(endpointLabel('http://192.168.50.6:8096/')).toBe('192.168.50.6:8096');
-    expect(endpointLabel('https://x.example.com/app/')).toBe('x.example.com/app');
-  });
-});
-
 describe('endpointTag', () => {
   it('names known and unknown sources', () => {
     expect(endpointTag('traefik')).toBe('Traefik');
     expect(endpointTag('published-port')).toBe('Port');
     expect(endpointTag('ng_next')).toBe('Ng Next');
+  });
+});
+
+describe('isValidCustomUrl', () => {
+  it.each(['http://example.com', 'https://example.com:8443/path?q=1', 'HTTPS://example.com/'])('accepts %s', value => {
+    expect(isValidCustomUrl(value)).toBe(true);
+  });
+  it.each(['', 'example.com', 'ftp://example.com/', 'javascript:alert(1)', 'https://', 'http:example.com', 'https:///example.com', 'https://user:password@example.com', 'https://example.com/a b', 'https://example.com\\path'])('rejects %s', value => {
+    expect(isValidCustomUrl(value)).toBe(false);
   });
 });

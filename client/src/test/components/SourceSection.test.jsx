@@ -141,9 +141,9 @@ describe('source sections', () => {
   opener.focus();
   fireEvent.click(opener);
   if (startsAsChip) {
-   fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
+   fireEvent.click(screen.getByRole('button', { name: 'Add custom URL' }));
    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
-   fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
+   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   } else {
    fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
   }
@@ -340,9 +340,9 @@ describe('source sections', () => {
  it('saves a custom URL on a chip without closing its dialog, then moves to a linked tile with focus', async () => {
   renderSection([mk({ endpoints: [], hasEndpoints: false })]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
-  fireEvent.click(screen.getByRole('radio', { name: 'Custom URL' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add custom URL' }));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save custom URL' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(screen.queryByText('Saving selection…')).not.toBeInTheDocument());
   expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'walker', containerName: 'test-container', selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://custom.example.com/' } });
   expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -377,7 +377,7 @@ describe('source sections', () => {
    mk({ id: 'selected', name: 'selected', displayName: 'Selected' }),
   ]);
   expect(document.querySelector('.tile-grid')).toHaveTextContent('Ambiguous');
-  expect(screen.getByText('Choose a URL')).toBeInTheDocument();
+  expect(document.querySelector('.tile-grid button.tile-main')).toHaveAccessibleName('Ambiguous settings');
   expect(screen.getByRole('button', { name: 'None settings' })).toHaveClass('chip');
   expect(screen.getByRole('link', { name: /Selected/ })).toHaveAttribute('href', 'http://localhost:8080/');
  });
