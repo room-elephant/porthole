@@ -10,6 +10,7 @@ import { useLastKnownContainers } from './hooks/useLastKnownContainers';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { EXTERNAL, STORAGE_KEYS, GROUP_BY } from './constants';
 import { buildSections } from './utils/containers';
+import { stackOptions } from './utils/links';
 
 const EMPTY = { sources: [], containers: [] };
 const NO_LINKS = [];
@@ -26,7 +27,8 @@ function App() {
   const [storedGroupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
   const groupBy = Object.values(GROUP_BY).includes(storedGroupBy) ? storedGroupBy : GROUP_BY.HOST_STACK;
   const { data: fetchedInventory, isLoading, error } = useContainers({ showAll, showStopped });
-  const { data: links = NO_LINKS } = useLinks();
+  const { data: fetchedLinks, isError: linksFailed } = useLinks();
+  const links = fetchedLinks ?? NO_LINKS;
   const data = fetchedInventory ?? EMPTY;
   const initialError = error && !fetchedInventory;
   const lastKnown = useLastKnownContainers(data);
@@ -41,6 +43,7 @@ function App() {
   const sections = useMemo(
     () => buildSections({ sources: data.sources, containers, links, groupBy, hostFilter, query }),
     [data.sources, containers, links, groupBy, hostFilter, query]);
+  const stacks = useMemo(() => stackOptions(lastKnown, links), [lastKnown, links]);
   const sourcesById = useMemo(() => Object.fromEntries(data.sources.map(source => [source.id, source])), [data.sources]);
 
   const sectionList = sections.map(section => (
@@ -124,6 +127,10 @@ function App() {
           counts={counts}
           onClose={() => setShowSettings(false)}
           sources={initialError ? [] : data.sources}
+          linkCount={links.length}
+          linksUnavailable={linksFailed && !fetchedLinks}
+          stacks={stacks}
+          onLinkIconFailed={(id) => { setShowSettings(false); setEditingLinkId(id); }}
         />
       )}
     </div>

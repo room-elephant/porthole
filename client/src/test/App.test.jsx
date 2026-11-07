@@ -191,7 +191,7 @@ describe('App', () => {
     query({ sources: [walker, { ...mike, status: 'DOWN' }], containers: [] });
     renderWithQuery(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    const rows = document.querySelectorAll('.host-row');
+    const rows = document.querySelectorAll('.host-row:not(.host-row--external)');
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent('Connected');
     expect(rows[1]).toHaveTextContent('Unreachable');

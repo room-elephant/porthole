@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import AppSettings from '../../components/AppSettings';
 import { refreshVersions } from '../../api';
+import { renderWithQuery } from '../testUtils';
 
-vi.mock('../../api', () => ({ refreshVersions: vi.fn() }));
+vi.mock('../../api', () => ({ refreshVersions: vi.fn(), createLink: vi.fn() }));
 
 describe('AppSettings', () => {
   const defaultProps = {
@@ -64,7 +65,7 @@ describe('AppSettings', () => {
 
     it('lists hosts with container counts and status', () => {
       render(<AppSettings {...defaultProps} sources={hosts} counts={{ walker: 3 }} />);
-      const rows = document.querySelectorAll('.host-row');
+      const rows = document.querySelectorAll('.host-row:not(.host-row--external)');
       expect(rows).toHaveLength(2);
       expect(rows[0]).toHaveTextContent('Walker');
       expect(rows[0]).toHaveTextContent('3 containers');
@@ -185,6 +186,37 @@ describe('AppSettings', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AppSettings External row', () => {
+  const props = { showStopped: false, showAll: false, onToggleShowStopped: vi.fn(), onToggleShowAll: vi.fn(), onClose: vi.fn(), sources: [{ id: 'local', name: 'Local', status: 'UP' }], stacks: [] };
+  const add = () => screen.getByRole('button', { name: 'Add external link' });
+
+  it('shows the count, even with no links', () => {
+    const { unmount } = renderWithQuery(<AppSettings {...props} linkCount={2} />);
+    expect(screen.getByText('External')).toBeInTheDocument();
+    expect(screen.getByText('2 links')).toBeInTheDocument();
+    unmount();
+    renderWithQuery(<AppSettings {...props} linkCount={0} />);
+    expect(screen.getByText('0 links')).toBeInTheDocument();
+    expect(add()).toBeEnabled();
+  });
+
+  it('shows Unavailable and disables adding when links could not be loaded', () => {
+    renderWithQuery(<AppSettings {...props} linkCount={0} linksUnavailable />);
+    expect(screen.getByText('Unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('0 links')).not.toBeInTheDocument();
+    expect(add()).toBeDisabled();
+  });
+
+  it('opens the form, and Cancel returns focusing the button', async () => {
+    renderWithQuery(<AppSettings {...props} linkCount={0} />);
+    fireEvent.click(add());
+    expect(screen.getByRole('heading', { name: 'Add link' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(add()).toHaveFocus();
   });
 });
 

@@ -38,12 +38,17 @@ export const useUpdateLink = id => useMutation({
 
 export const useDeleteLink = () => useMutation({ mutationFn: id => deleteLink(id), ...useRefreshOptions() });
 
+const saveLinkIcon = ({ id, name, file }) => (file ? uploadLinkIcon(id, file) : selectLinkIcon(id, name));
+
+/** Saves an icon for a link given when saving, for a link that may not have existed at render. */
+export const useSetLinkIcon = () => useMutation({ mutationFn: request => saveLinkIcon(request), ...useRefreshOptions() });
+
 /** Changes a link's icon. Has the shape IconPicker expects; `retry` repeats the last save that started. */
 export const useLinkIcon = (link) => {
   const lastSave = useRef(null);
   const mutation = useMutation({
     mutationKey: ['link-icon', link.id],
-    mutationFn: ({ name, file }) => (file ? uploadLinkIcon(link.id, file) : selectLinkIcon(link.id, name)),
+    mutationFn: request => saveLinkIcon(request),
     ...useRefreshOptions(),
   });
   const start = (variables, { onSaved } = {}) => {
@@ -52,8 +57,8 @@ export const useLinkIcon = (link) => {
     mutation.mutate(variables, onSaved ? { onSuccess: () => onSaved() } : undefined);
   };
   return {
-    selectIcon: (name, options) => start({ name }, options),
-    uploadIcon: (file, options) => start({ file }, options),
+    selectIcon: (name, options) => start({ id: link.id, name }, options),
+    uploadIcon: (file, options) => start({ id: link.id, file }, options),
     retry: () => {
       if (lastSave.current) start(lastSave.current.variables, lastSave.current);
     },
