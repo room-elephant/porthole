@@ -33,12 +33,20 @@ public class ContainerPreferencesEnricher implements ContainerEnricher {
             ContainerPreferencesKey key = new ContainerPreferencesKey(container.sourceId(), container.name());
             ContainerPreferences preferences = snapshot.getOrDefault(key, new ContainerPreferences(null));
             container.setPreferences(preferences);
-            container.setUrlCandidates(resolver.resolve(container.urlCandidates(), preferences.selectedEndpoint()));
-            @Nullable SelectedIcon icon = preferences.icon();
-            if (icon != null) {
-                container.setIconUrl(icons.resolve(icon));
-            }
+            applyEndpointSelection(container, preferences);
+            applyIcon(container, preferences);
         }
         return containers;
+    }
+
+    private void applyEndpointSelection(Container container, ContainerPreferences preferences) {
+        container.setUrlCandidates(resolver.resolve(container.urlCandidates(), preferences.selectedEndpoint()));
+    }
+
+    private void applyIcon(Container container, ContainerPreferences preferences) {
+        @Nullable SelectedIcon icon = preferences.icon();
+        if (icon != null) {
+            container.setIconUrl(icons.resolve(icon));
+        }
     }
 }
