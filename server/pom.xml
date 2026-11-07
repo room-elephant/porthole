@@ -20,7 +20,7 @@
         <docker-java.version>3.7.1</docker-java.version>
         <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
         <jspecify.version>1.0.1</jspecify.version>
-        <jacoco.version>0.8.15</jacoco.version>
+        <jacoco.version>0.8.16</jacoco.version>
         <spotless.version>3.10.4</spotless.version>
         <springdoc.version>3.2.0</springdoc.version>
         <swagger-annotations.version>2.2.55</swagger-annotations.version>
