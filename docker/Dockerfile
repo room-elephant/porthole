@@ -15,6 +15,7 @@ WORKDIR /app
 
 RUN mkdir /app/data && chown nonroot:nonroot /app/data
 ENV PORTHOLE_PREFERENCES_PATH=/app/data/preferences.json
+VOLUME /app/data
 
 COPY --chown=nonroot:nonroot porthole porthole
 COPY --chown=nonroot:nonroot docker/templates/ /app/config/

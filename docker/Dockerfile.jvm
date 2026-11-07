@@ -13,6 +13,7 @@ WORKDIR /app
 
 RUN mkdir /app/data && chown nonroot:nonroot /app/data
 ENV PORTHOLE_PREFERENCES_PATH=/app/data/preferences.json
+VOLUME /app/data
 
 COPY --chown=nonroot:nonroot --chmod=444 server/target/porthole-0.0.1-SNAPSHOT.jar porthole.jar
 COPY --chown=nonroot:nonroot --chmod=444 docker/templates/ /app/config/

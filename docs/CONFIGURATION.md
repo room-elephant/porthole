@@ -304,7 +304,7 @@ Endpoint choices are keyed by `(sourceId, containerName)`, so containers with th
 
 ### Preference File and Persistence
 
-`porthole.preferences.path` (environment variable **`PORTHOLE_PREFERENCES_PATH`**) selects the shared JSON file. Local development defaults to `data/preferences.json`, relative to the server's working directory. Both Docker images default to `/app/data/preferences.json`. Mount a named volume to retain choices when replacing the application container:
+`porthole.preferences.path` (environment variable **`PORTHOLE_PREFERENCES_PATH`**) selects the shared JSON file. Local development defaults to `data/preferences.json`, relative to the server's working directory. Both Docker images default to `/app/data/preferences.json` and declare `/app/data` as a volume. Without a mount of your own, Docker creates an anonymous volume: it survives restarts and `docker compose up --force-recreate`, but `docker compose down` or `docker rm` followed by a new container starts empty, leaving the old data in an orphaned volume. Mount a named volume or host directory to retain choices whenever the application container is replaced:
 
 ```yaml
 services:
