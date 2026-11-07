@@ -6,9 +6,9 @@ const container = { name: 'sonarr', iconUrl: 'https://example.test/sonarr.webp' 
 const status = { kind: 'ok', dot: 'running', label: null };
 
 describe('ContainerIcon', () => {
-  it('uses the Porthole mark for the self container', () => {
+  it('shows the server-resolved iconUrl for the self container', () => {
     const { container: root } = render(<ContainerIcon container={{ ...container, self: true }} status={status} />);
-    expect(root.querySelector('img')).toHaveAttribute('src', 'porthole-mark.svg');
+    expect(root.querySelector('img')).toHaveAttribute('src', 'https://example.test/sonarr.webp');
   });
 
   it('uses the iconUrl for a non-self container named porthole', () => {

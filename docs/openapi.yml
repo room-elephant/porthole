@@ -8,6 +8,8 @@ servers:
 - description: Current Porthole instance
   url: /
 tags:
+- description: Custom container icons from the Dashboard Icons library or user uploads.
+  name: Icons
 - description: Container inventory and service endpoint discovery across Docker sources.
   name: Containers
 - description: Background image version refreshes.
@@ -51,6 +53,77 @@ paths:
       summary: List discovered containers
       tags:
       - Containers
+  /api/containers/icon:
+    put:
+      description: Saves a Dashboard Icons library icon name. The name is not checked
+        against the library. Does not require the container to be currently available.
+      operationId: selectIcon
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelectContainerIconRequest"
+        required: true
+      responses:
+        "204":
+          description: Icon saved
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "Missing or unconfigured identity, or an invalid icon name"
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Failed to persist preferences; the prior icon remains in use
+      summary: Use a library icon for a container
+      tags:
+      - Icons
+  /api/containers/icon/upload:
+    post:
+      description: "Saves a PNG, WebP or JPEG image of at most 1 MB, identified from\
+        \ the file's content. Replaces any previous icon. Does not require the container\
+        \ to be currently available."
+      operationId: uploadIcon
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadContainerIconForm"
+        required: true
+      responses:
+        "204":
+          description: Icon saved
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "Missing or unconfigured identity, or an unsupported file type"
+        "413":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: File larger than 1 MB
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Failed to save; the prior icon remains in use
+        "507":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Uploaded icon limit reached
+      summary: Upload an icon for a container
+      tags:
+      - Icons
   /api/containers/selected-url:
     put:
       description: "Saves a discovered endpoint identity, a custom HTTP(S) URL, or\
@@ -83,6 +156,50 @@ paths:
       summary: Replace a container's saved endpoint selection
       tags:
       - Containers
+  /api/icons/{name}:
+    get:
+      description: "Upload names are random, so responses never change."
+      operationId: getIcon
+      parameters:
+      - in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: byte
+            image/png:
+              schema:
+                type: string
+                format: byte
+            image/webp:
+              schema:
+                type: string
+                format: byte
+          description: The uploaded image
+        "404":
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: byte
+            image/png:
+              schema:
+                type: string
+                format: byte
+            image/webp:
+              schema:
+                type: string
+                format: byte
+          description: Unknown or invalid icon name
+      summary: Get an uploaded icon
+      tags:
+      - Icons
   /api/versions/refresh:
     post:
       description: Queues an immediate background scan across all configured Docker
@@ -222,6 +339,26 @@ components:
       - containerName
       - selectedEndpoint
       - sourceId
+    SelectContainerIconRequest:
+      type: object
+      description: "Use a Dashboard Icons library icon for a container, including\
+        \ temporarily unavailable containers"
+      properties:
+        containerName:
+          type: string
+          description: "Docker container name, independent of runtime ID or display\
+            \ name"
+        name:
+          type: string
+          description: Dashboard Icons library icon name
+          example: coredns
+        sourceId:
+          type: string
+          description: Docker connection source ID
+      required:
+      - containerName
+      - name
+      - sourceId
     SelectedEndpointDTO:
       type: object
       description: Saved endpoint identity. Custom and none are reserved ID/source
@@ -259,6 +396,26 @@ components:
           - UP
           - DOWN
           - ERROR
+    UploadContainerIconForm:
+      type: object
+      description: "Upload an icon for a container, including temporarily unavailable\
+        \ containers"
+      properties:
+        containerName:
+          type: string
+          description: "Docker container name, independent of runtime ID or display\
+            \ name"
+        file:
+          type: string
+          format: binary
+          description: "PNG, WebP or JPEG image of at most 1 MB"
+        sourceId:
+          type: string
+          description: Docker connection source ID
+      required:
+      - containerName
+      - file
+      - sourceId
     VersionInfo:
       type: object
       properties:

@@ -7,7 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
+import com.roomelephant.porthole.core.enrichment.icon.IconSettings;
 import com.roomelephant.porthole.core.enrichment.preferences.ContainerPreferencesEnricher;
+import com.roomelephant.porthole.core.enrichment.preferences.CustomIconResolver;
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
@@ -41,6 +43,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import({ContainerDTOMapper.class, ContainerPreferencesService.class})
 @DisplayName("ContainerController")
 class ContainerControllerTest {
+
+    private static final CustomIconResolver ICONS =
+            new CustomIconResolver(new IconSettings("https://cdn.example.com/icons", ".svg"));
 
     @Autowired
     private MockMvc mockMvc;
@@ -411,8 +416,14 @@ class ContainerControllerTest {
             public ContainerPreferences replaceSelection(ContainerPreferencesKey key, SelectedEndpoint selected) {
                 throw new AssertionError("Inventory must not write preferences");
             }
+
+            @Override
+            public ContainerPreferences replaceIcon(
+                    ContainerPreferencesKey key, com.roomelephant.porthole.core.model.SelectedIcon icon) {
+                throw new AssertionError("Inventory must not write preferences");
+            }
         };
-        new ContainerPreferencesEnricher(store)
+        new ContainerPreferencesEnricher(store, ICONS)
                 .enrich(List.of(container), new EnrichmentContext("local", "localhost", false, false));
     }
 }

@@ -8,6 +8,12 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 20s
   banner.location: classpath:/banner.txt
+  servlet:
+    multipart:
+      max-file-size: 1MB
+      max-request-size: 2MB
+      # Keep uploads in memory: images may have no writable temp folder.
+      file-size-threshold: 2MB
 
 server:
   port: 9753

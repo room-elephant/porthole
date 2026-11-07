@@ -22,7 +22,7 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchDockerHealth, refreshVersions, selectContainerEndpoint } = await import('../api');
+const { fetchContainers, fetchDockerHealth, fetchIconLibrary, refreshVersions, selectContainerEndpoint, selectContainerIcon, uploadContainerIcon } = await import('../api');
 
 describe('api', () => {
   beforeEach(() => {
@@ -43,6 +43,32 @@ describe('api', () => {
     expect(mockPut).toHaveBeenCalledWith('/api/containers/selected-url', request);
     await selectContainerEndpoint({ ...request, selectedEndpoint: null });
     expect(mockPut).toHaveBeenLastCalledWith('/api/containers/selected-url', { ...request, selectedEndpoint: null });
+  });
+
+  it('saves a library icon', async () => {
+    mockPut.mockResolvedValue({ status: 204 });
+    const request = { sourceId: 'remote', containerName: 'app', name: 'coredns' };
+    expect(await selectContainerIcon(request)).toBeUndefined();
+    expect(mockPut).toHaveBeenCalledWith('/api/containers/icon', request);
+  });
+
+  it('uploads an icon as multipart with a longer timeout', async () => {
+    mockPost.mockResolvedValue({ status: 204 });
+    const file = new File(['x'], 'logo.png', { type: 'image/png' });
+    expect(await uploadContainerIcon({ sourceId: 'remote', containerName: 'app', file })).toBeUndefined();
+    const [url, body, config] = mockPost.mock.calls[0];
+    expect(url).toBe('/api/containers/icon/upload');
+    expect(body.get('sourceId')).toBe('remote');
+    expect(body.get('containerName')).toBe('app');
+    expect(body.get('file')).toBe(file);
+    expect(config).toEqual({ timeout: 30000 });
+  });
+
+  it('fetches the icon library metadata', async () => {
+    const signal = new AbortController().signal;
+    mockGet.mockResolvedValue({ data: { coredns: {} } });
+    expect(await fetchIconLibrary({ signal })).toEqual({ coredns: {} });
+    expect(mockGet).toHaveBeenCalledWith('https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/metadata.json', { signal });
   });
 
   describe('fetchContainers', () => {

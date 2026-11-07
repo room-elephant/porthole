@@ -21,10 +21,10 @@ public class EnrichmentConfiguration {
             DisplayNameEnricher names,
             ContainerStateFilter state,
             UrlCandidateEnricher urls,
+            IconEnricher icons,
             ContainerPreferencesEnricher preferences,
             EndpointAvailabilityFilter availability,
-            IconEnricher icons,
             VersionEnricher versions) {
-        return new ContainerEnrichment(List.of(names, state, urls, preferences, availability, icons, versions));
+        return new ContainerEnrichment(List.of(names, state, urls, icons, preferences, availability, versions));
     }
 }

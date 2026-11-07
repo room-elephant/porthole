@@ -16,7 +16,7 @@ It resolves container icons automatically
 - 🎨 **Automated Icons**: Maps container image names to icons using [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons).
 - 🔄 **Update Detection**: Checks Docker Hub and public GitHub Container Registry images for newer versions and digest changes.
 - 🖥️ **Multiple Docker Hosts**: Fetches configured Docker connections together and separates hosts and Compose projects in the dashboard.
-- ⚙️ **Per-Container Settings**: Choose a service URL and configure update checking for each container.
+- ⚙️ **Per-Container Settings**: Choose a service URL and an icon, from the library or your own upload, and configure update checking for each container.
 - 🚦 **Status Indicators**: Shows container health with color-coded semaphore (green/yellow/red).
 - 🐳 **Docker Native**: Runs as a single, lightweight Docker container.
 - 🛠 **Customizable**: Override icon mappings via a simple YAML configuration.

@@ -145,4 +145,10 @@ class GlobalExceptionHandlerTest {
             assertEquals("An unexpected error occurred", result.getDetail());
         }
     }
+
+    @Test
+    @DisplayName("should return 413 for an upload over the size limit")
+    void returnsContentTooLargeForOversizedUpload() {
+        assertEquals(413, exceptionHandler.handleUploadTooLarge().getStatus());
+    }
 }

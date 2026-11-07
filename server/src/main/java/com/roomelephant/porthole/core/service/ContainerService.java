@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 public class ContainerService implements GetContainers {
     private static final Logger log = LoggerFactory.getLogger(ContainerService.class);
 
+    private static final String SELF_ICON = "porthole-mark.svg";
+
     private final DockerDiscoveryService discovery;
     private final ContainerMapper mapper;
     private final ContainerEnrichment enrichment;
@@ -49,13 +51,21 @@ public class ContainerService implements GetContainers {
             EnrichmentContext context = new EnrichmentContext(
                     source.id(), source.publishedHost(), query.includeWithoutEndpoints(), query.includeStopped());
             List<Container> containers = enrichment.enrich(mapped, context);
-            containers.forEach(c -> c.setSelf(self.matches(c.id(), source.local())));
+            containers.forEach(c -> markSelf(c, source.local()));
             return new Result(result.state(), containers);
         } catch (RuntimeException e) {
             log.warn("Could not prepare containers from Docker source {}", source.id(), e);
             return new Result(
                     new SourceState(source.id(), source.name(), SourceStatus.ERROR, "Could not retrieve containers"),
                     List.of());
+        }
+    }
+
+    private void markSelf(Container container, boolean local) {
+        boolean matches = self.matches(container.id(), local);
+        container.setSelf(matches);
+        if (matches && container.preferences().icon() == null) {
+            container.setIconUrl(SELF_ICON);
         }
     }
 

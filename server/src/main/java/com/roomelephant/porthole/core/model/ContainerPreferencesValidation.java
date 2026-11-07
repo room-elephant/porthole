@@ -35,6 +35,26 @@ public final class ContainerPreferencesValidation {
         }
     }
 
+    public static void validateIcon(ContainerPreferencesKey key, SelectedIcon icon) {
+        requireIdentifier(key.sourceId(), "sourceId");
+        requireIdentifier(key.containerName(), "containerName");
+        @Nullable String name = icon.name();
+        if (name == null) {
+            throw new IllegalArgumentException("icon.name must not be blank");
+        }
+        if (SelectedIcon.LIBRARY.equals(icon.type())) {
+            if (!SelectedIcon.LIBRARY_NAME.matcher(name).matches()) {
+                throw new IllegalArgumentException("Invalid library icon name");
+            }
+        } else if (SelectedIcon.UPLOAD.equals(icon.type())) {
+            if (!SelectedIcon.UPLOAD_NAME.matcher(name).matches()) {
+                throw new IllegalArgumentException("Invalid uploaded icon name");
+            }
+        } else {
+            throw new IllegalArgumentException("icon.type must be library or upload");
+        }
+    }
+
     private static void requireIdentifier(@Nullable String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");

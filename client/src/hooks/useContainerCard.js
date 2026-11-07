@@ -1,5 +1,6 @@
 import { createElement, useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useContainerIcon } from './useContainerIcon';
 import { useContainerPrefs } from './useContainerPrefs';
 import ContainerSettings from '../components/ContainerSettings';
 import { containerStatus } from '../utils/status';
@@ -22,6 +23,8 @@ export const useContainerCard = (container, { sourceOnline = true, sourceName, o
     if (wasOpen) notify?.(last, false);
   }, []);
   const prefs = useContainerPrefs(container);
+  // Lives in the card, not the dialog, so a save continues after the dialog closes.
+  const icon = useContainerIcon(container);
   const showUpdate = Boolean(prefs.checkUpdates && container.version?.updateAvailable);
   const status = containerStatus(container, { sourceOnline, showUpdate });
 
@@ -52,6 +55,7 @@ export const useContainerCard = (container, { sourceOnline = true, sourceName, o
       onClose: closeSettings,
       onSelectEndpoint: prefs.selectEndpoint,
       onToggleCheckUpdates: prefs.setCheckUpdates,
+      icon,
     })
     : null;
 
