@@ -82,6 +82,12 @@ Every inventory request fans out across all configured Docker connections concur
 
 Version enrichment only reads cached results and queues background work — registry HTTP and Docker inspection never run on the inventory request path.
 
+### Container preferences
+
+Default stages decide what a container gets automatically: `IconResolver` picks the default icon (for example `mongo` → `mongodb`), and endpoint discovery finds URLs. `ContainerPreferencesEnricher` is the one stage that applies what a user saved on top, so it runs after the defaults it overrides.
+
+To add a preference: add a field to `ContainerPreferences`, keep its logic in a resolver under `core/enrichment/preferences/`, and apply it in its own function in the enricher. Don't add a new enricher or change a default stage to read preferences.
+
 ### Native image hints
 
 GraalVM requires explicit reflection/proxy/JNI configuration. Generated hints live in:
