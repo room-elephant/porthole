@@ -129,7 +129,7 @@ describe('ContainerSettings after saving', () => {
     renderWithQuery(<ContainerSettings {...props({ icon })} />);
     await saveFromPicker(icon);
     expect(screen.getByText('Tile opens')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Icon updated');
+    expect(screen.getByText('Icon updated')).toHaveRole('status');
     expect(screen.queryByText(/transmission-1 · Walker/)).not.toBeInTheDocument();
   });
 
