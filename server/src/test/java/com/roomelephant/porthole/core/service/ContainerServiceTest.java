@@ -7,6 +7,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.ContainerPort;
+import com.roomelephant.porthole.core.enrichment.ContainerEnricher;
 import com.roomelephant.porthole.core.enrichment.ContainerEnrichment;
 import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.endpoint.EndpointDiscovery;
@@ -17,8 +18,10 @@ import com.roomelephant.porthole.core.enrichment.icon.IconResolver;
 import com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher;
 import com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter;
 import com.roomelephant.porthole.core.mapping.ContainerMapper;
+import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerQuery;
 import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.SelfContainer;
 import java.net.SocketException;
 import java.util.ArrayList;
@@ -319,6 +322,37 @@ class ContainerServiceTest {
     }
 
     @Test
+    void selfWithoutCustomIconUsesPortholeLogo() {
+        Container self = container("porthole", 8080, Map.of());
+        when(self.getId()).thenReturn("abcdef123456" + "0".repeat(52));
+        Container other = container("other", 8081, Map.of());
+        when(listContainersCmd.exec()).thenReturn(List.of(self, other));
+
+        assertThat(service(null, new SelfContainer("abcdef123456"), true)
+                        .getContainers(new ContainerQuery(false, false))
+                        .containers())
+                .extracting(c -> c.name() + "=" + c.iconUrl())
+                .containsExactly("porthole=porthole-mark.svg", "other=icon");
+    }
+
+    @Test
+    void selfWithCustomIconKeepsIt() {
+        Container self = container("porthole", 8080, Map.of());
+        when(self.getId()).thenReturn("abcdef123456" + "0".repeat(52));
+        when(listContainersCmd.exec()).thenReturn(List.of(self));
+        ContainerEnricher custom = (containers, context) -> {
+            containers.forEach(c -> c.setPreferences(new ContainerPreferences(null, SelectedIcon.library("coredns"))));
+            return containers;
+        };
+
+        assertThat(service(null, new SelfContainer("abcdef123456"), true, custom)
+                        .getContainers(new ContainerQuery(false, false))
+                        .containers())
+                .extracting(com.roomelephant.porthole.core.model.Container::iconUrl)
+                .containsExactly("icon");
+    }
+
+    @Test
     void doesNotMarkShortIdPrefixOnARemoteSource() {
         Container self = container("porthole", 8080, Map.of());
         when(self.getId()).thenReturn("abcdef123456" + "0".repeat(52));
@@ -351,6 +385,11 @@ class ContainerServiceTest {
     }
 
     private ContainerService service(String publishedHost, SelfContainer self, boolean local) {
+        return service(publishedHost, self, local, (containers, context) -> containers);
+    }
+
+    private ContainerService service(
+            String publishedHost, SelfContainer self, boolean local, ContainerEnricher preferences) {
         IconResolver icon = mock(IconResolver.class, invocation -> "icon");
         EndpointDiscovery discovery = new EndpointDiscovery(List.of(
                 new PublishedPortEndpointProvider(new PublishedHostResolver()),
@@ -372,6 +411,7 @@ class ContainerServiceTest {
                         new ContainerStateFilter(),
                         new UrlCandidateEnricher(discovery),
                         new EndpointAvailabilityFilter(),
+                        preferences,
                         new IconEnricher(icon))),
                 self);
     }

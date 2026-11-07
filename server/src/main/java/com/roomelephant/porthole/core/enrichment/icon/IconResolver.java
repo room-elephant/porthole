@@ -23,14 +23,14 @@ public class IconResolver {
             case String s when iconMappings.containsKey(s) -> iconMappings.get(s);
             default -> sanitizeIconName(imageName);
         };
-        return buildDashboardIconsUrl(iconName);
+        return libraryUrl(iconName);
+    }
+
+    public @NonNull String libraryUrl(@NonNull String iconName) {
+        return dashboardProperties.url() + "/" + iconName + dashboardProperties.extension();
     }
 
     private @NonNull String sanitizeIconName(@NonNull String name) {
         return name.toLowerCase().replace('_', '-');
-    }
-
-    private @NonNull String buildDashboardIconsUrl(String iconName) {
-        return dashboardProperties.url() + "/" + iconName + dashboardProperties.extension();
     }
 }
