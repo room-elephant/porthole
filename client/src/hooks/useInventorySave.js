@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react';
 import { isCancelledError, useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 
+/** Refetches active inventory, again if a cancelled GET left any of it invalidated. */
+const refetchUntilConfirmed = async (queryClient) => {
+  const pending = queryClient.getQueryCache().findAll({ queryKey: ['containers'], type: 'active' })
+    .filter(query => query.state.isInvalidated && !query.isStatic());
+  if (pending.length === 0) return;
+  await Promise.all(pending.map(query => queryClient.fetchQuery(query.options).catch(error => {
+    // Another container's save may cancel this GET; join/restart its
+    // replacement before releasing this container's mutation lock.
+    if (!isCancelledError(error)) throw error;
+  })));
+  await refetchUntilConfirmed(queryClient);
+};
+
 /**
  * Saves a container setting, then holds the save open until the inventory confirms it.
  * A successful write is never retried, even when the refetch after it fails.
@@ -37,17 +50,7 @@ export const useInventorySave = ({ container, mutationKey, mutationFn }) => {
         // Invalidate every variant; inactive ones refresh when next used. Await
         // the active queries directly so a paused GET also holds the save lock.
         await queryClient.invalidateQueries({ queryKey: ['containers'], refetchType: 'none' });
-        const pendingReads = () => queryClient.getQueryCache().findAll({ queryKey: ['containers'], type: 'active' })
-          .filter(query => query.state.isInvalidated && !query.isStatic());
-        let pending = pendingReads();
-        while (pending.length) {
-          await Promise.all(pending.map(query => queryClient.fetchQuery(query.options).catch(error => {
-            // Another container's save may cancel this GET; join/restart its
-            // replacement before releasing this container's mutation lock.
-            if (!isCancelledError(error)) throw error;
-          })));
-          pending = pendingReads();
-        }
+        await refetchUntilConfirmed(queryClient);
       } catch (error) {
         // The write succeeded. Keep the rendered inventory and never retry PUT.
         setRefreshFailure({ sourceId: container.sourceId, containerName: container.name, error });
