@@ -2186,3 +2186,62 @@ input:checked + .toggle-slider::before {
   .link-actions .link-cancel { border: 1px solid var(--border-dashed); }
 }
 
+.link-saving-note {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.link-saving-note svg { flex: 0 0 auto; color: var(--ok); }
+
+.link-delete {
+  align-self: flex-start;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bad-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.link-delete-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  background: var(--bad-bg);
+  border: 1px solid var(--bad-border);
+  border-radius: var(--r-control);
+}
+
+.link-delete-confirm > span {
+  flex: 1 1 220px;
+  font-size: 14px;
+  color: var(--bad-title);
+}
+
+.link-delete-confirm button {
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.link-delete-confirm .link-delete-yes {
+  padding: 0 14px;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 600;
+}
+

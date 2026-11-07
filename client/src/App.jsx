@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Header from './components/Header';
 import NoResults from './components/NoResults';
 import SkeletonTile from './components/SkeletonTile';
 import SourceSection, { EmptyState, OfflineBanner } from './components/SourceSection';
 import AppSettings from './components/AppSettings';
+import LinkSettings from './components/LinkSettings';
 import { useContainers } from './hooks/useContainers';
 import { useLinks } from './hooks/useLinks';
 import { useLastKnownContainers } from './hooks/useLastKnownContainers';
@@ -14,13 +15,16 @@ import { stackOptions } from './utils/links';
 
 const EMPTY = { sources: [], containers: [] };
 const NO_LINKS = [];
+const LINK_ICON_FAILED = "Link added, but its icon couldn't be saved.";
+
 const isOffline = source => source.status === 'DOWN' || source.status === 'ERROR';
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedHost, setSelectedHost] = useState('all');
-  const [, setEditingLinkId] = useState(null);
+  // The dialog lives here, not in the tile, because saving can move the tile to another group.
+  const [editingLink, setEditingLink] = useState(null);
   const [showAll, setShowAll] = useLocalStorage(STORAGE_KEYS.SHOW_ALL, false);
   const [showStopped, setShowStopped] = useLocalStorage(STORAGE_KEYS.SHOW_STOPPED, false);
   const [showSelf, setShowSelf] = useLocalStorage(STORAGE_KEYS.SHOW_SELF, true);
@@ -46,6 +50,11 @@ function App() {
   const stacks = useMemo(() => stackOptions(lastKnown, links), [lastKnown, links]);
   const sourcesById = useMemo(() => Object.fromEntries(data.sources.map(source => [source.id, source])), [data.sources]);
 
+  const linkBeingEdited = links.find(link => link.id === editingLink?.id);
+  const openLinkSettings = useCallback(id => setEditingLink({ id, alert: null }), []);
+  // Deleted elsewhere. Links aren't known yet while the first request is running.
+  if (editingLink && fetchedLinks && !linkBeingEdited) setEditingLink(null);
+
   const sectionList = sections.map(section => (
     <SourceSection
       key={section.id}
@@ -53,7 +62,7 @@ function App() {
       sourcesById={sourcesById}
       showAll={showAll}
       showStopped={showStopped}
-      onOpenLinkSettings={setEditingLinkId}
+      onOpenLinkSettings={openLinkSettings}
     />
   ));
 
@@ -130,7 +139,17 @@ function App() {
           linkCount={links.length}
           linksUnavailable={linksFailed && !fetchedLinks}
           stacks={stacks}
-          onLinkIconFailed={(id) => { setShowSettings(false); setEditingLinkId(id); }}
+          onLinkIconFailed={(id) => { setShowSettings(false); setEditingLink({ id, alert: LINK_ICON_FAILED }); }}
+        />
+      )}
+      {linkBeingEdited && (
+        <LinkSettings
+          key={linkBeingEdited.id}
+          link={linkBeingEdited}
+          stacks={stacks}
+          initialAlert={editingLink.alert}
+          onClose={() => setEditingLink(null)}
+          onDeleted={() => setEditingLink(null)}
         />
       )}
     </div>
