@@ -7,7 +7,7 @@ import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import com.roomelephant.porthole.core.port.outbound.IconFileStore;
-import com.roomelephant.porthole.core.service.ContainerIconService;
+import com.roomelephant.porthole.core.service.UploadedIcons;
 import com.roomelephant.porthole.outbound.icons.FilesystemIconFileStore;
 import com.roomelephant.porthole.outbound.preferences.JsonContainerPreferencesStore;
 import com.roomelephant.porthole.outbound.preferences.StoredContainerPreferences;
@@ -40,7 +40,7 @@ public class PreferencesConfiguration {
     }
 
     @Bean
-    public ApplicationRunner unreferencedIconCleanup(ContainerIconService icons) {
-        return _ -> icons.removeUnreferencedUploads();
+    public ApplicationRunner unreferencedIconCleanup(UploadedIcons icons) {
+        return _ -> icons.removeUnreferenced();
     }
 }
