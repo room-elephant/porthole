@@ -1,0 +1,36 @@
+# The fake Docker hosts. Each one is a separate daemon, so Porthole never sees your real containers.
+# Named volumes keep pulled images between runs, which makes later starts quick.
+name: porthole-lab
+
+x-daemon: &daemon
+  image: docker:29-dind
+  privileged: true
+  environment:
+    # Plain TCP without TLS. Ports below are only published on 127.0.0.1.
+    DOCKER_TLS_CERTDIR: ""
+  healthcheck:
+    test: ["CMD", "docker", "info"]
+    interval: 1s
+    timeout: 5s
+    retries: 120
+
+services:
+  lab-a:
+    <<: *daemon
+    ports:
+      - "127.0.0.1:23751:2375"
+      - "127.0.0.1:18100-18109:18100-18109"
+    volumes:
+      - lab-a-data:/var/lib/docker
+
+  lab-b:
+    <<: *daemon
+    ports:
+      - "127.0.0.1:23752:2375"
+      - "127.0.0.1:18110-18119:18110-18119"
+    volumes:
+      - lab-b-data:/var/lib/docker
+
+volumes:
+  lab-a-data:
+  lab-b-data:

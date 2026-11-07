@@ -1,8 +1,11 @@
-.PHONY: help server-it server-native-hints bundle bundle-native native
+.PHONY: help lab server-it server-native-hints bundle bundle-native native
 
 MVN ?= mvn
 
 # Cross-component targets — all other targets live in their respective folder Makefiles.
+
+lab: ## Run the current branch against fake Docker hosts and containers
+	./lab/run.sh
 
 bundle: ## Build the client and package it with the JVM server
 	$(MAKE) -C client build

@@ -10,6 +10,31 @@ For deeper technical details on how Porthole works, see the [Architecture](ARCHI
 - Node.js 24.15+ and npm
 - Docker
 
+## Trying the App Locally
+
+To run whichever branch you have checked out against a realistic setup:
+
+```bash
+make lab
+```
+
+When it prints `Ready`, open [http://localhost:5173](http://localhost:5173). Frontend edits appear instantly; restart `make lab` to pick up server changes. Press Ctrl-C to stop the app and remove the fake containers. Downloaded images stay cached, so later starts are quick. The first run also needs internet to download them.
+
+The lab only needs Docker, Java, Maven and Node. It never connects to your real Docker, so your own containers stay out of it. Everything it uses lives in [`lab/`](../lab):
+
+| Path | Purpose |
+|------|---------|
+| `compose.yml` | The two fake Docker hosts, each its own Docker-in-Docker daemon. They run privileged and are only reachable from your machine. |
+| `scenarios/lab-a.yml` | Container states: healthy, unhealthy, health starting, restarting, paused, stopped, created. |
+| `scenarios/lab-b.yml` | Endpoints, names and versions: published ports, no ports, Traefik labels, colliding replicas, an outdated image. |
+| `application.yml` | Porthole's sources: `lab-a`, `lab-b`, and `lab-down`, which is unreachable and always shows as `DOWN`. |
+| `preferences.json` | Saved preferences, tracked in git. The app writes here directly, as it does for uploaded icons in `icons/`, so use `git restore` to undo changes you don't want to keep. |
+| `icons/` | Uploaded icons, tracked in git. A file added by hand needs a generated name and an entry in `preferences.json`; otherwise the app ignores it or deletes it at startup, so uploading through the UI is easier. |
+
+Containers without endpoints, such as `no-ports`, and stopped ones are hidden until you turn them on in the dashboard's settings. Traefik isn't running, so Traefik URLs appear in the UI but may not open.
+
+To delete the cached images: `docker volume rm porthole-lab_lab-a-data porthole-lab_lab-b-data`.
+
 ## Building from Source
 
 For building a single component in isolation:

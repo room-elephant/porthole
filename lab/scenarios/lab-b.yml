@@ -1,0 +1,60 @@
+# Endpoint discovery, names and versions, running inside the lab-b daemon.
+# Fixed container names keep saved preferences working when containers are recreated.
+name: lab-b
+
+x-web: &web
+  image: nginx:1.29-alpine
+
+services:
+  one-port:
+    <<: *web
+    container_name: one-port
+    ports: ["18110:80"]
+
+  several-ports:
+    <<: *web
+    container_name: several-ports
+    ports: ["18111:80", "18112:80"]
+
+  # Hidden unless the dashboard includes containers without endpoints.
+  no-ports:
+    <<: *web
+    container_name: no-ports
+
+  # Traefik isn't running, so these URLs appear in the UI but may not open.
+  traefik-one-url:
+    <<: *web
+    container_name: traefik-one-url
+    labels:
+      traefik.http.routers.one.rule: "Host(`one.localhost`)"
+
+  traefik-several-urls:
+    <<: *web
+    container_name: traefik-several-urls
+    labels:
+      traefik.http.routers.first.rule: "Host(`first.localhost`)"
+      traefik.http.routers.second.rule: "Host(`second.localhost`)"
+
+  # Replicas of one service: both shorten to "web", so the names collide and keep their suffixes.
+  web-1:
+    <<: *web
+    container_name: lab-b-web-1
+    ports: ["18113:80"]
+
+  web-2:
+    <<: *web
+    container_name: lab-b-web-2
+    ports: ["18114:80"]
+
+  # Also in lab-a: the same name on two hosts.
+  shared-name:
+    <<: *web
+    container_name: shared-name
+    ports: ["18115:80"]
+
+  # Older than the latest release, so the version check reports an update. Needs internet.
+  # Release checks skip tags with suffixes such as -alpine, so this tag must be purely numeric.
+  outdated:
+    image: ghcr.io/nginxinc/nginx-unprivileged:1.25.0
+    container_name: outdated
+    ports: ["18116:8080"]

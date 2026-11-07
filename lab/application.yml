@@ -1,0 +1,23 @@
+# Porthole config for `make lab`. The launcher sets porthole.preferences.path to lab/preferences.json.
+porthole:
+  docker:
+    connections:
+      - id: lab-a
+        name: Lab A
+        host: tcp://127.0.0.1:23751
+        published-host: 127.0.0.1
+        connection-timeout: 2s
+        response-timeout: 10s
+      - id: lab-b
+        name: Lab B
+        host: tcp://127.0.0.1:23752
+        published-host: 127.0.0.1
+        connection-timeout: 2s
+        response-timeout: 10s
+      # Nothing listens here, so this source always shows as DOWN.
+      - id: lab-down
+        name: Lab Down
+        host: tcp://127.0.0.1:23759
+        published-host: 127.0.0.1
+        connection-timeout: 2s
+        response-timeout: 10s
