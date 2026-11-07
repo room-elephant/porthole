@@ -7,21 +7,16 @@ import com.roomelephant.porthole.core.model.ContainerPreferencesValidation;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
+import com.roomelephant.porthole.outbound.file.AtomicFiles;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.core.JacksonException;
@@ -108,46 +103,14 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
     }
 
     private void persist(Map<ContainerPreferencesKey, ContainerPreferences> updated) {
-        Path temporary = null;
         try {
             List<StoredContainerPreferences> records = updated.entrySet().stream()
                     .map(entry -> new StoredContainerPreferences(
                             entry.getKey().sourceId(), entry.getKey().containerName(), entry.getValue()))
                     .toList();
-            byte[] bytes = mapper.writeValueAsBytes(records);
-            Path parent = Objects.requireNonNull(path.getParent());
-            Files.createDirectories(parent);
-            temporary = Files.createTempFile(parent, ".preferences-", ".tmp");
-            writeDurably(temporary, bytes);
-            try {
-                Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (FileSystemException moveFailure) {
-                if (!Files.isRegularFile(path)) {
-                    throw moveFailure;
-                }
-                writeDurably(path, bytes);
-                Files.deleteIfExists(temporary);
-            }
+            AtomicFiles.replace(path, mapper.writeValueAsBytes(records), ".preferences-");
         } catch (IOException | JacksonException e) {
-            if (temporary != null) {
-                try {
-                    Files.deleteIfExists(temporary);
-                } catch (IOException cleanupFailure) {
-                    e.addSuppressed(cleanupFailure);
-                }
-            }
             throw new IllegalStateException("Failed to save container preferences to " + path, e);
-        }
-    }
-
-    private static void writeDurably(Path target, byte[] bytes) throws IOException {
-        try (FileChannel channel = FileChannel.open(
-                target, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            ByteBuffer buffer = ByteBuffer.wrap(bytes);
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-            channel.force(true);
         }
     }
 }
