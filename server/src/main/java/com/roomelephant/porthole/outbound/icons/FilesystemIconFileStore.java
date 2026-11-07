@@ -1,0 +1,103 @@
+package com.roomelephant.porthole.outbound.icons;
+
+import com.roomelephant.porthole.core.model.IconImageType;
+import com.roomelephant.porthole.core.model.SelectedIcon;
+import com.roomelephant.porthole.core.port.outbound.IconFileStore;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Stream;
+import org.jspecify.annotations.NullMarked;
+
+@NullMarked
+public final class FilesystemIconFileStore implements IconFileStore {
+    private final Path directory;
+
+    public FilesystemIconFileStore(Path directory) {
+        this.directory = directory;
+    }
+
+    @Override
+    public String store(byte[] bytes, IconImageType type) {
+        String name = UUID.randomUUID().toString().replace("-", "") + "." + type.extension();
+        try {
+            Files.createDirectories(directory);
+            Path temporary = Files.createTempFile(directory, ".icon-", ".tmp");
+            try {
+                Files.write(temporary, bytes);
+                Files.move(temporary, directory.resolve(name), StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException e) {
+                Files.deleteIfExists(temporary);
+                throw e;
+            }
+            return name;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to store uploaded icon", e);
+        }
+    }
+
+    @Override
+    public Optional<byte[]> read(String name) {
+        Path path = directory.resolve(name);
+        if (!Files.isRegularFile(path)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Files.readAllBytes(path));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read uploaded icon", e);
+        }
+    }
+
+    @Override
+    public void delete(String name) {
+        Path path = directory.resolve(name);
+        if (!Files.isRegularFile(path)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to delete uploaded icon", e);
+        }
+    }
+
+    @Override
+    public int count() {
+        return (int) regularFiles().stream()
+                .filter(path -> SelectedIcon.UPLOAD_NAME
+                        .matcher(path.getFileName().toString())
+                        .matches())
+                .count();
+    }
+
+    @Override
+    public void retainOnly(Set<String> names) {
+        try {
+            for (Path path : regularFiles()) {
+                if (!names.contains(path.getFileName().toString())) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to remove unreferenced icons", e);
+        }
+    }
+
+    private List<Path> regularFiles() {
+        if (Files.notExists(directory)) {
+            return List.of();
+        }
+        try (Stream<Path> paths = Files.list(directory)) {
+            return paths.filter(Files::isRegularFile).toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to list uploaded icons", e);
+        }
+    }
+}
