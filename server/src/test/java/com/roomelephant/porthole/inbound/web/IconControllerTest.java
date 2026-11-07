@@ -18,8 +18,10 @@ import com.roomelephant.porthole.core.model.IconImageType;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import com.roomelephant.porthole.core.port.outbound.DockerOperations;
+import com.roomelephant.porthole.core.port.outbound.ExternalLinkStore;
 import com.roomelephant.porthole.core.port.outbound.IconFileStore;
 import com.roomelephant.porthole.core.service.ContainerIconService;
+import com.roomelephant.porthole.core.service.UploadedIcons;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +40,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(IconController.class)
-@Import(ContainerIconService.class)
+@Import({ContainerIconService.class, UploadedIcons.class})
 class IconControllerTest {
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1};
     private static final String STORED = "0123456789abcdef0123456789abcdef.png";
@@ -56,6 +58,9 @@ class IconControllerTest {
 
     @MockitoBean
     private IconFileStore files;
+
+    @MockitoBean
+    private ExternalLinkStore links;
 
     @BeforeEach
     void setUp() {

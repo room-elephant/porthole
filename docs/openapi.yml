@@ -8,6 +8,8 @@ servers:
 - description: Current Porthole instance
   url: /
 tags:
+- description: "Pages the user added to the dashboard, separate from Docker containers."
+  name: Links
 - description: Custom container icons from the Dashboard Icons library or user uploads.
   name: Icons
 - description: Container inventory and service endpoint discovery across Docker sources.
@@ -57,7 +59,7 @@ paths:
     put:
       description: Saves a Dashboard Icons library icon name. The name is not checked
         against the library. Does not require the container to be currently available.
-      operationId: selectIcon
+      operationId: selectIcon_1
       requestBody:
         content:
           application/json:
@@ -88,7 +90,7 @@ paths:
         \ from the file's content. Scripts and anything else unsafe are removed from\
         \ an SVG before saving. Replaces any previous icon. Does not require the container\
         \ to be currently available."
-      operationId: uploadIcon
+      operationId: uploadIcon_1
       requestBody:
         content:
           multipart/form-data:
@@ -209,6 +211,223 @@ paths:
       summary: Get an uploaded icon
       tags:
       - Icons
+  /api/links:
+    get:
+      operationId: list
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkDTO"
+          description: All saved links
+      summary: List links
+      tags:
+      - Links
+    post:
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LinkDTO"
+          description: Link added
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "Invalid name, URL or stack"
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Failed to save
+        "507":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Link limit reached
+      summary: Add a link
+      tags:
+      - Links
+  /api/links/{id}:
+    delete:
+      description: "Also deletes its uploaded icon, if it has one."
+      operationId: delete
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Link deleted
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Unknown link
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Failed to save; the link remains
+      summary: Delete a link
+      tags:
+      - Links
+    put:
+      description: Keeps the link's icon.
+      operationId: update
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LinkDTO"
+          description: Link updated
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: "Invalid name, URL or stack"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Unknown link
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Failed to save; the prior values remain
+      summary: "Replace a link's name, URL and stack"
+      tags:
+      - Links
+  /api/links/{id}/icon:
+    put:
+      description: Saves a Dashboard Icons library icon name. The name is not checked
+        against the library.
+      operationId: selectIcon
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelectLinkIconRequest"
+        required: true
+      responses:
+        "204":
+          description: Icon saved
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Invalid icon name
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Unknown link
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Failed to save; the prior icon remains
+      summary: Use a library icon for a link
+      tags:
+      - Links
+  /api/links/{id}/icon/upload:
+    post:
+      description: "Saves a PNG, WebP, JPEG or SVG image of at most 1 MB, identified\
+        \ from the file's content. Scripts and anything else unsafe are removed from\
+        \ an SVG before saving. Replaces any previous icon."
+      operationId: uploadIcon
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadLinkIconForm"
+        required: true
+      responses:
+        "204":
+          description: Icon saved
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Unsupported file type
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Unknown link
+        "413":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: File larger than 1 MB
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Failed to save; the prior icon remains
+        "507":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+          description: Uploaded icon limit reached
+      summary: Upload an icon for a link
+      tags:
+      - Links
   /api/versions/refresh:
     post:
       description: Queues an immediate background scan across all configured Docker
@@ -298,6 +517,54 @@ components:
           type: string
       required:
       - selected
+    LinkDTO:
+      type: object
+      description: A page the user added to the dashboard
+      properties:
+        iconUrl:
+          type:
+          - string
+          - "null"
+          description: "URL of the chosen icon, or null when none was chosen"
+        id:
+          type: string
+          description: Generated link ID
+        name:
+          type: string
+          description: Name shown on the tile
+        stack:
+          type:
+          - string
+          - "null"
+          description: "Stack the link belongs to, or null"
+        url:
+          type: string
+          description: Absolute http or https URL
+      required:
+      - id
+      - name
+      - url
+    LinkRequest:
+      type: object
+      description: "A link's name, URL and stack. On an update, replaces all three."
+      properties:
+        name:
+          type: string
+          description: Name shown on the tile
+          example: Router
+        stack:
+          type:
+          - string
+          - "null"
+          description: Stack the link belongs to. Blank or null means none.
+          example: base
+        url:
+          type: string
+          description: Absolute http or https URL without credentials
+          example: http://192.168.50.1/
+      required:
+      - name
+      - url
     ProblemDetail:
       type: object
       properties:
@@ -368,6 +635,16 @@ components:
       - containerName
       - name
       - sourceId
+    SelectLinkIconRequest:
+      type: object
+      description: Use a Dashboard Icons library icon for a link
+      properties:
+        name:
+          type: string
+          description: Dashboard Icons library icon name
+          example: router
+      required:
+      - name
     SelectedEndpointDTO:
       type: object
       description: Saved endpoint identity. Custom and none are reserved ID/source
@@ -425,6 +702,16 @@ components:
       - containerName
       - file
       - sourceId
+    UploadLinkIconForm:
+      type: object
+      description: Upload an icon for a link
+      properties:
+        file:
+          type: string
+          format: binary
+          description: "PNG, WebP, JPEG or SVG image of at most 1 MB"
+      required:
+      - file
     VersionInfo:
       type: object
       properties:

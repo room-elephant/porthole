@@ -282,6 +282,18 @@ Supported rules contain one literal `Host` and optionally one literal `Path` or 
 
 Router `tls=true`, or a TLS sublabel such as `tls.certresolver`, implies HTTPS; explicit `tls=false` wins, and absent TLS implies HTTP. Global entrypoint TLS defaults, custom external proxy ports, and middleware effects are not inferred. Backend service ports/schemes and entrypoint names do not determine the browser URL. Traefik candidates use standard external HTTP/HTTPS ports.
 
+## External Links
+
+Add your own links to the dashboard for pages Porthole doesn't run, like a router or a NAS. They appear in an **External** section next to your Docker hosts.
+
+- **Add:** open App settings and press **+** on the External row. A link has a name, an http or https URL, and optionally an icon and a stack.
+- **Edit or delete:** use the ⋮ menu on the link's tile. Changes save when you leave a field.
+- **Stacks:** in Stack view, a link sits next to containers whose stack has exactly the same name. In the stack dropdown, **New stack…** lets you type any name, including one hidden by your current filters.
+
+Porthole doesn't check that a link works, so its chain badge never changes. You can have up to 500 links.
+
+Links are stored in `links.json` beside the preference file, which is `/app/data/links.json` in the Docker images, so the [same volume advice](#preference-file-and-persistence) applies. Uploaded link icons share the `icons` folder and the 500-upload limit with container icons. The file is read once at startup, so manual edits need a restart, and an invalid file fails startup rather than discarding links.
+
 ## Per-Container Settings
 
 Each container has a settings panel accessible via the gear icon. Endpoint choices are shared by every browser through the Porthole server. Layout and update-notification preferences remain in your browser's local storage.

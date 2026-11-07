@@ -16,6 +16,7 @@ import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import com.roomelephant.porthole.core.port.outbound.IconFileStore;
 import com.roomelephant.porthole.outbound.icons.FilesystemIconFileStore;
+import com.roomelephant.porthole.outbound.links.JsonExternalLinkStore;
 import com.roomelephant.porthole.outbound.preferences.JsonContainerPreferencesStore;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -43,6 +44,8 @@ class ContainerIconServiceTest {
     private final DockerOperations docker = mock(DockerOperations.class);
     private JsonContainerPreferencesStore preferences;
     private FilesystemIconFileStore files;
+    private JsonExternalLinkStore links;
+    private UploadedIcons uploads;
     private ContainerIconService service;
 
     @BeforeEach
@@ -53,7 +56,10 @@ class ContainerIconServiceTest {
         preferences = new JsonContainerPreferencesStore(
                 directory.resolve("preferences.json"), JsonMapper.builder().build());
         files = new FilesystemIconFileStore(iconFolder());
-        service = new ContainerIconService(preferences, docker, files);
+        links = new JsonExternalLinkStore(
+                directory.resolve("links.json"), JsonMapper.builder().build());
+        uploads = new UploadedIcons(files, preferences, links);
+        service = new ContainerIconService(preferences, docker, uploads);
     }
 
     private Path iconFolder() {
@@ -110,7 +116,7 @@ class ContainerIconServiceTest {
                         .getBytes(StandardCharsets.UTF_8));
         SelectedIcon icon = currentIcon();
         assertThat(icon.name()).matches(SelectedIcon.UPLOAD_NAME).endsWith(".svg");
-        var stored = service.read(icon.name()).orElseThrow();
+        var stored = uploads.read(icon.name()).orElseThrow();
         assertThat(stored.contentType()).isEqualTo("image/svg+xml");
         assertThat(new String(stored.bytes(), StandardCharsets.UTF_8))
                 .contains("<circle")
@@ -184,7 +190,7 @@ class ContainerIconServiceTest {
 
     @Test
     void uploadRejectedAtLimit() {
-        for (int index = 0; index < ContainerIconService.MAX_UPLOADS; index++) {
+        for (int index = 0; index < UploadedIcons.MAX_UPLOADS; index++) {
             service.uploadIcon(new ContainerPreferencesKey("walker", "app-" + index), PNG);
         }
         assertThatThrownBy(() -> service.uploadIcon(key, PNG)).isInstanceOf(IconLimitReachedException.class);
@@ -194,7 +200,7 @@ class ContainerIconServiceTest {
 
     @Test
     void replacingAtLimitIsAllowed() {
-        for (int index = 0; index < ContainerIconService.MAX_UPLOADS; index++) {
+        for (int index = 0; index < UploadedIcons.MAX_UPLOADS; index++) {
             service.uploadIcon(new ContainerPreferencesKey("walker", "app-" + index), PNG);
         }
         ContainerPreferencesKey owner = new ContainerPreferencesKey("walker", "app-0");
@@ -207,7 +213,7 @@ class ContainerIconServiceTest {
     void failedPersistRemovesNewFileAndKeepsOldIcon() {
         service.uploadIcon(key, PNG);
         SelectedIcon previous = currentIcon();
-        ContainerIconService failing = new ContainerIconService(new FailingPreferences(preferences), docker, files);
+        ContainerIconService failing = new ContainerIconService(new FailingPreferences(preferences), docker, uploads);
         assertThatThrownBy(() -> failing.uploadIcon(key, WEBP))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("disk full");
@@ -220,7 +226,7 @@ class ContainerIconServiceTest {
     void failedPersistOnLibraryPickKeepsOldUpload() {
         service.uploadIcon(key, PNG);
         SelectedIcon previous = currentIcon();
-        ContainerIconService failing = new ContainerIconService(new FailingPreferences(preferences), docker, files);
+        ContainerIconService failing = new ContainerIconService(new FailingPreferences(preferences), docker, uploads);
         assertThatThrownBy(() -> failing.selectLibraryIcon(key, "coredns")).isInstanceOf(IllegalStateException.class);
         assertThat(files.read(previous.name())).isPresent();
     }
@@ -228,51 +234,10 @@ class ContainerIconServiceTest {
     @Test
     void failedOldFileDeleteDoesNotFailSave() {
         service.uploadIcon(key, PNG);
-        ContainerIconService failing = new ContainerIconService(preferences, docker, new UndeletableFiles(files));
+        ContainerIconService failing = new ContainerIconService(
+                preferences, docker, new UploadedIcons(new UndeletableFiles(files), preferences, links));
         failing.selectLibraryIcon(key, "coredns");
         assertThat(currentIcon()).isEqualTo(SelectedIcon.library("coredns"));
-    }
-
-    @Test
-    void readReturnsBytesAndContentType() {
-        service.uploadIcon(key, WEBP);
-        assertThat(service.read(currentIcon().name())).hasValueSatisfying(icon -> {
-            assertThat(icon.bytes()).isEqualTo(WEBP);
-            assertThat(icon.contentType()).isEqualTo("image/webp");
-        });
-    }
-
-    @Test
-    void readOfUnknownFileIsEmpty() {
-        assertThat(service.read("0123456789abcdef0123456789abcdef.png")).isEmpty();
-    }
-
-    @Test
-    void readRejectsInvalidNameWithoutTouchingFiles() throws IOException {
-        Files.createDirectories(iconFolder());
-        Files.writeString(iconFolder().resolve("abc.svg"), "<svg/>");
-        assertThat(service.read("../preferences.json")).isEmpty();
-        assertThat(service.read("abc.svg")).isEmpty();
-    }
-
-    @Test
-    void removeUnreferencedUploadsKeepsReferencedFiles() {
-        service.uploadIcon(key, PNG);
-        String referenced = currentIcon().name();
-        String orphan = files.store(PNG, IconImageType.PNG);
-        preferences.replaceSelection(
-                new ContainerPreferencesKey("walker", "no-icon"), new SelectedEndpoint("none", "none", null));
-        service.selectLibraryIcon(new ContainerPreferencesKey("walker", "library"), "coredns");
-        service.removeUnreferencedUploads();
-        assertThat(files.read(referenced)).isPresent();
-        assertThat(files.read(orphan)).isEmpty();
-    }
-
-    @Test
-    void failedCleanupDoesNotStopStartup() throws IOException {
-        Files.writeString(iconFolder(), "a file where the folder should be");
-        service.removeUnreferencedUploads();
-        assertThat(iconFolder()).isRegularFile();
     }
 
     private record FailingPreferences(ContainerPreferencesStore delegate) implements ContainerPreferencesStore {

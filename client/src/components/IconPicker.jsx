@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import IconLibraryTab from './IconLibraryTab';
 import IconUploadTab from './IconUploadTab';
-import { imageSearchTerm, isUploadedIcon } from '../utils/icons';
+import { isUploadedIcon } from '../utils/icons';
 
 const TABS = [{ id: 'library', label: 'Library' }, { id: 'upload', label: 'Upload' }];
 
@@ -12,10 +12,9 @@ const PERMANENT_REJECTIONS = {
     507: 'Porthole has reached its limit of 500 uploaded icons.',
 };
 
-/** Chooses a container's icon. Every choice saves straight away through `icon`. */
-function IconPicker({ container, icon, onSaved }) {
-    const [startingSearch] = useState(() => imageSearchTerm(container.image));
-    const [tab, setTab] = useState(() => (isUploadedIcon(container.iconUrl) ? 'upload' : 'library'));
+/** Chooses an icon, whatever it's for. Each choice goes straight to `icon`, which decides how to save it. */
+function IconPicker({ iconUrl, startingSearch, icon, onSaved }) {
+    const [tab, setTab] = useState(() => (isUploadedIcon(iconUrl) ? 'upload' : 'library'));
     const [query, setQuery] = useState(startingSearch);
     const [pickedName, setPickedName] = useState(null);
     const [uploadingFile, setUploadingFile] = useState(null);
@@ -78,11 +77,11 @@ function IconPicker({ container, icon, onSaved }) {
             )}
 
             {tab === 'library' ? (
-                <IconLibraryTab iconUrl={container.iconUrl} query={query} startingSearch={startingSearch} searchRef={searchRef}
+                <IconLibraryTab iconUrl={iconUrl} query={query} startingSearch={startingSearch} searchRef={searchRef}
                     onQueryChange={setQuery} onPick={pick} pickedName={pickedName} isSaving={icon.isSaving}
                     onUploadInstead={() => setTab('upload')} />
             ) : (
-                <IconUploadTab iconUrl={container.iconUrl} onUpload={upload} uploadingFile={uploadingFile} isSaving={icon.isSaving} />
+                <IconUploadTab iconUrl={iconUrl} onUpload={upload} uploadingFile={uploadingFile} isSaving={icon.isSaving} />
             )}
         </div>
     );

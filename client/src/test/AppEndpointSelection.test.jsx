@@ -4,7 +4,7 @@ import App from '../App';
 import { fetchContainers, selectContainerEndpoint } from '../api';
 import { createMockContainer, publishedEndpoint, renderWithQuery } from './testUtils';
 
-vi.mock('../api', () => ({ fetchContainers: vi.fn(), selectContainerEndpoint: vi.fn() }));
+vi.mock('../api', () => ({ fetchContainers: vi.fn(), fetchLinks: vi.fn().mockResolvedValue([]), selectContainerEndpoint: vi.fn() }));
 
 const source = { id: 'local', name: 'Local', status: 'UP', error: null };
 const initial = { sources: [source], containers: [createMockContainer()] };

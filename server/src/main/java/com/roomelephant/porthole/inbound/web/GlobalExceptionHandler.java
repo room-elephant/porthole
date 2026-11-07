@@ -2,6 +2,8 @@ package com.roomelephant.porthole.inbound.web;
 
 import com.roomelephant.porthole.core.model.exception.DockerUnavailableException;
 import com.roomelephant.porthole.core.model.exception.IconLimitReachedException;
+import com.roomelephant.porthole.core.model.exception.LinkLimitReachedException;
+import com.roomelephant.porthole.core.model.exception.LinkNotFoundException;
 import com.roomelephant.porthole.core.model.exception.NotFoundException;
 import com.roomelephant.porthole.core.model.exception.UnexpectedException;
 import java.net.URI;
@@ -85,6 +87,16 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.INSUFFICIENT_STORAGE, ex.getMessage());
     }
 
+    @ExceptionHandler(LinkNotFoundException.class)
+    public @NonNull ProblemDetail handleLinkNotFound(LinkNotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(LinkLimitReachedException.class)
+    public @NonNull ProblemDetail handleLinkLimitReached(LinkLimitReachedException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.INSUFFICIENT_STORAGE, ex.getMessage());
+    }
+
     @ExceptionHandler({
         MissingServletRequestPartException.class,
         MissingServletRequestParameterException.class,
@@ -92,8 +104,7 @@ public class GlobalExceptionHandler {
         HttpMediaTypeNotSupportedException.class
     })
     public @NonNull ProblemDetail handleInvalidUploadRequest() {
-        return ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, "Upload requires multipart sourceId, containerName and file");
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Upload is missing required multipart fields");
     }
 
     @ExceptionHandler(Exception.class)

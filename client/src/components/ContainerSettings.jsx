@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check, Pencil, Plus } from 'lucide-react';
 import Modal from './Modal';
 import ContainerIcon from './ContainerIcon';
 import IconPicker from './IconPicker';
+import { imageSearchTerm } from '../utils/icons';
 import { statusDetail } from '../utils/status';
 import { NO_ENDPOINT_ID, endpointTag, groupEndpointsBySource, isValidCustomUrl } from '../utils/endpoints';
 
@@ -288,7 +289,7 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
                 onClose={onClose}
                 className="settings-modal"
             >
-                <IconPicker container={container} icon={icon} onSaved={iconSaved} />
+                <IconPicker iconUrl={container.iconUrl} startingSearch={imageSearchTerm(container.image)} icon={icon} onSaved={iconSaved} />
             </Modal>
         );
     }

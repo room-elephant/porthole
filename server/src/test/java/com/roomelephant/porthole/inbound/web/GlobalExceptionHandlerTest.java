@@ -3,6 +3,8 @@ package com.roomelephant.porthole.inbound.web;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.roomelephant.porthole.core.model.exception.DockerUnavailableException;
+import com.roomelephant.porthole.core.model.exception.LinkLimitReachedException;
+import com.roomelephant.porthole.core.model.exception.LinkNotFoundException;
 import com.roomelephant.porthole.core.model.exception.NotFoundException;
 import com.roomelephant.porthole.core.model.exception.UnexpectedException;
 import java.net.URI;
@@ -20,6 +22,24 @@ class GlobalExceptionHandlerTest {
     @BeforeEach
     void setUp() {
         exceptionHandler = new GlobalExceptionHandler();
+    }
+
+    @Test
+    void linkNotFoundIs404() {
+        ProblemDetail problem = exceptionHandler.handleLinkNotFound(new LinkNotFoundException("abc"));
+        assertEquals(404, problem.getStatus());
+    }
+
+    @Test
+    void linkLimitIs507() {
+        ProblemDetail problem = exceptionHandler.handleLinkLimitReached(new LinkLimitReachedException(500));
+        assertEquals(507, problem.getStatus());
+    }
+
+    @Test
+    void invalidUploadDoesNotNameContainerFields() {
+        ProblemDetail problem = exceptionHandler.handleInvalidUploadRequest();
+        assertEquals("Upload is missing required multipart fields", problem.getDetail());
     }
 
     @Nested

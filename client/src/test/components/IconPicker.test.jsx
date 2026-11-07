@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import IconPicker from '../../components/IconPicker';
 import { fetchIconLibrary } from '../../api';
+import { imageSearchTerm } from '../../utils/icons';
 import { createMockContainer, renderWithQuery } from '../testUtils';
 
 vi.mock('../../api', () => ({ fetchIconLibrary: vi.fn() }));
@@ -30,10 +31,11 @@ const container = (overrides = {}) => createMockContainer({
   iconUrl: `${CDN}/transmission.webp`,
   ...overrides,
 });
+const source = ({ iconUrl, image }) => ({ iconUrl, startingSearch: imageSearchTerm(image) });
 const renderPicker = (props = {}) => {
   const icon = props.icon ?? iconActions();
   const onSaved = vi.fn();
-  renderWithQuery(<IconPicker container={props.container ?? container()} icon={icon} onSaved={onSaved} />);
+  renderWithQuery(<IconPicker {...source(props.container ?? container())} icon={icon} onSaved={onSaved} />);
   return { icon, onSaved };
 };
 const tile = name => screen.findByRole('button', { name: new RegExp(`^${name}(, current icon)?$`) });
@@ -223,9 +225,9 @@ describe('IconPicker saving', () => {
 
   it('marks the picked tile busy and disables everything else while saving', async () => {
     const icon = iconActions();
-    const { rerender } = renderWithQuery(<IconPicker container={container()} icon={icon} onSaved={vi.fn()} />);
+    const { rerender } = renderWithQuery(<IconPicker {...source(container())} icon={icon} onSaved={vi.fn()} />);
     fireEvent.click(await tile('transmission-alt'));
-    rerender(<IconPicker container={container()} icon={{ ...icon, isSaving: true }} onSaved={vi.fn()} />);
+    rerender(<IconPicker {...source(container())} icon={{ ...icon, isSaving: true }} onSaved={vi.fn()} />);
     expect(await tile('transmission-alt')).toHaveAttribute('aria-busy', 'true');
     expect(await tile('transmission')).toBeDisabled();
     expect(screen.getByRole('tab', { name: 'Upload' })).toBeDisabled();
@@ -277,7 +279,7 @@ describe('IconPicker file drops', () => {
   });
 
   it('stops intercepting drops once closed', () => {
-    const { unmount } = renderWithQuery(<IconPicker container={container()} icon={iconActions()} onSaved={vi.fn()} />);
+    const { unmount } = renderWithQuery(<IconPicker {...source(container())} icon={iconActions()} onSaved={vi.fn()} />);
     unmount();
     expect(fireEvent.drop(document.body)).toBe(true);
   });
@@ -320,10 +322,10 @@ describe('IconPicker upload tab', () => {
 
   it('shows the file name while uploading', async () => {
     const icon = iconActions();
-    const { rerender } = renderWithQuery(<IconPicker container={container()} icon={icon} onSaved={vi.fn()} />);
+    const { rerender } = renderWithQuery(<IconPicker {...source(container())} icon={icon} onSaved={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Upload' }));
     choose(pngFile);
-    rerender(<IconPicker container={container()} icon={{ ...icon, isSaving: true }} onSaved={vi.fn()} />);
+    rerender(<IconPicker {...source(container())} icon={{ ...icon, isSaving: true }} onSaved={vi.fn()} />);
     expect(screen.getByText('Uploading logo.png…')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Library' })).toBeDisabled();
     await act(async () => {});
@@ -338,3 +340,17 @@ describe('IconPicker upload tab', () => {
     await waitFor(() => expect(search()).toHaveValue('gra'));
   });
 });
+
+describe('IconPicker without a container', () => {
+  it('starts from the given search and marks the given icon', async () => {
+    renderWithQuery(<IconPicker iconUrl={`${CDN}/grafana.webp`} startingSearch="graf" icon={iconActions()} onSaved={vi.fn()} />);
+    expect(search()).toHaveValue('graf');
+    expect(await tile('grafana')).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('copes with no icon yet', async () => {
+    renderWithQuery(<IconPicker iconUrl={null} startingSearch="" icon={iconActions()} onSaved={vi.fn()} />);
+    expect(await tile('coredns')).not.toHaveAttribute('aria-current');
+  });
+});
+

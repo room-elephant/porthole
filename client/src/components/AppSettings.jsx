@@ -1,6 +1,7 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { refreshVersions } from '../api';
-import { Loader2 } from 'lucide-react';
+import { Link, Loader2, Plus } from 'lucide-react';
+import AddLink from './AddLink';
 import Modal from './Modal';
 import { ASSETS, GROUP_BY } from '../constants';
 import { plural } from '../utils/containers';
@@ -45,6 +46,19 @@ function HostRow({ source, count }) {
     );
 }
 
+function ExternalRow({ linkCount, unavailable, addRef, onAdd }) {
+    return (
+        <div className="host-row host-row--external">
+            <Link size={12} strokeWidth={2.4} className="pill-link" aria-hidden="true" />
+            <span className="host-name">External</span>
+            <span className="host-count">{unavailable ? 'Unavailable' : plural(linkCount, 'link')}</span>
+            <button ref={addRef} type="button" className="link-add" aria-label="Add external link" title="Add link" disabled={unavailable} onClick={onAdd}>
+                <Plus size={18} aria-hidden="true" />
+            </button>
+        </div>
+    );
+}
+
 function AppSettings({
     showStopped,
     showAll,
@@ -56,8 +70,25 @@ function AppSettings({
     onGroupByChange,
     counts = {},
     onClose,
-    sources = []
+    sources = [],
+    linkCount = 0,
+    linksUnavailable = false,
+    stacks = [],
+    onLinkIconFailed,
 }) {
+    const [adding, setAdding] = useState(false);
+    const addRef = useRef(null);
+    const focusAdd = useRef(false);
+    useEffect(() => {
+        if (!adding && focusAdd.current) {
+            focusAdd.current = false;
+            addRef.current?.focus();
+        }
+    }, [adding]);
+    const closeForm = () => {
+        focusAdd.current = true;
+        setAdding(false);
+    };
     const [refreshState, setRefreshState] = useState('idle');
     const checkVersions = async () => {
         if (refreshState === 'pending') return;
@@ -69,12 +100,16 @@ function AppSettings({
             setRefreshState('error');
         }
     };
+    if (adding) {
+        return <AddLink stacks={stacks} onCancel={closeForm} onClose={onClose} onAdded={closeForm} onIconFailed={onLinkIconFailed} />;
+    }
     return (
         <Modal title="Settings" icon={<img src={ASSETS.PORTHOLE_ICON} alt="" />} onClose={onClose} className="app-settings-modal">
             <section className="settings-block">
                 <h3 className="settings-heading-sm">Hosts</h3>
                 {sources.length === 0 && <div className="status-row"><Loader2 size={14} className="status-spinner" aria-hidden="true" /><span>Connections: Unknown</span></div>}
                 {sources.map(source => <HostRow key={source.id} source={source} count={counts[source.id] ?? 0} />)}
+                <ExternalRow linkCount={linkCount} unavailable={linksUnavailable} addRef={addRef} onAdd={() => setAdding(true)} />
             </section>
 
             <div className="settings-divider" />

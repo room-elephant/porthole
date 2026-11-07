@@ -2,8 +2,9 @@ package com.roomelephant.porthole.core.model;
 
 import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
-/** A user's icon choice for one container: a library icon name, or the file name of an upload. */
+/** A user's icon choice for one container or link: a library icon name, or the file name of an upload. */
 @NullMarked
 public record SelectedIcon(String type, String name) {
     public static final String LIBRARY = "library";
@@ -24,5 +25,23 @@ public record SelectedIcon(String type, String name) {
 
     public boolean selectsUpload() {
         return UPLOAD.equals(type);
+    }
+
+    public void requireValid() {
+        @Nullable String checked = name;
+        if (checked == null) {
+            throw new IllegalArgumentException("icon.name must not be blank");
+        }
+        if (LIBRARY.equals(type)) {
+            if (!LIBRARY_NAME.matcher(checked).matches()) {
+                throw new IllegalArgumentException("Invalid library icon name");
+            }
+        } else if (UPLOAD.equals(type)) {
+            if (!UPLOAD_NAME.matcher(checked).matches()) {
+                throw new IllegalArgumentException("Invalid uploaded icon name");
+            }
+        } else {
+            throw new IllegalArgumentException("icon.type must be library or upload");
+        }
     }
 }

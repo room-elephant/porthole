@@ -52,3 +52,83 @@ describe('buildSections', () => {
   expect(s[0].groups.map(g=>g.label)).toEqual([null,'smh']);
  });
 });
+
+describe('buildSections with links', () => {
+ const walker={id:'walker',name:'Walker'};
+ const web={id:'w',name:'web',project:'base',sourceId:'walker'},solo={id:'s',name:'solo',project:null,sourceId:'walker'};
+ const router={id:'1',name:'Router',url:'http://192.168.50.1/',stack:'base'},nas={id:'2',name:'NAS',url:'https://nas.lan/',stack:null},
+  mail={id:'3',name:'Mail',url:'https://mail.lan/',stack:'zeta'},alpha={id:'4',name:'Alpha',url:'https://alpha.lan/',stack:null};
+ const links=[router,nas,mail];
+ const build=(extra={})=>buildSections({sources:[walker],containers:[web,solo],links,groupBy:'host-stack',...extra});
+ const external=sections=>sections.find(section=>section.kind==='external');
+
+ it('host › stack puts External after hosts, with no-stack links first', () => {
+  const s=build();
+  expect(s.map(x=>x.id)).toEqual(['walker','_external']);
+  expect(external(s)).toMatchObject({title:'External',source:null,hostNames:['External'],containers:[]});
+  expect(external(s).links.map(l=>l.name)).toEqual(['Mail','NAS','Router']);
+  expect(external(s).groups.map(g=>g.label)).toEqual([null,'base','zeta']);
+  expect(external(s).groups[0].links).toEqual([nas]);
+  expect(external(s).groups[1].links).toEqual([router]);
+ });
+ it('host grouping has one External group with all links', () => {
+  const s=external(build({groupBy:'host'}));
+  expect(s.groups).toHaveLength(1);
+  expect(s.groups[0].links.map(l=>l.name)).toEqual(['Mail','NAS','Router']);
+ });
+ it('host sections have no links', () => {
+  expect(build()[0].links).toEqual([]);
+  expect(build()[0].groups.every(g=>g.links.length===0)).toBe(true);
+ });
+ it('stack grouping mixes links with containers of the same stack', () => {
+  const s=build({groupBy:'stack'});
+  expect(s.map(x=>x.title)).toEqual(['Standalone','base','zeta']);
+  expect(s[1].containers).toEqual([web]);expect(s[1].links).toEqual([router]);
+  expect(s[1].groups[0].links).toEqual([router]);
+  expect(s[1].hostNames).toEqual(['Walker','External']);
+ });
+ it('stack grouping gives a link-only stack its own section and no-stack links join Standalone', () => {
+  const s=build({groupBy:'stack'});
+  expect(s[2]).toMatchObject({title:'zeta',containers:[],links:[mail],hostNames:['External']});
+  expect(s[0].links).toEqual([nas]);expect(s[0].containers).toEqual([solo]);
+ });
+ it('stack sections without links keep their hosts', () => {
+  const s=buildSections({sources:[walker],containers:[web],links:[],groupBy:'stack'});
+  expect(s[0].hostNames).toEqual(['Walker']);expect(s[0].links).toEqual([]);
+ });
+ it('matches stack names exactly', () => {
+  const s=buildSections({sources:[walker],containers:[web],links:[{...router,stack:'Base'}],groupBy:'stack'});
+  expect(s.map(x=>x.title)).toHaveLength(2);expect(s.map(x=>x.title)).toEqual(expect.arrayContaining(['Base','base']));
+ });
+ it('has no External section without links in host modes', () => {
+  for(const groupBy of ['host','host-stack']){
+   expect(external(buildSections({sources:[walker],containers:[web],links:[],groupBy}))).toBeUndefined();
+   expect(external(buildSections({sources:[walker],containers:[web],groupBy}))).toBeUndefined();
+  }
+ });
+ it('selecting External shows only links in every mode', () => {
+  for(const groupBy of ['host','host-stack','stack']){
+   const s=build({groupBy,hostFilter:'_external'});
+   expect(s.flatMap(x=>x.containers)).toEqual([]);
+   expect(s.flatMap(x=>x.links)).toHaveLength(3);
+  }
+ });
+ it('selecting a host hides links', () => {
+  for(const groupBy of ['host','host-stack','stack']){
+   expect(build({groupBy,hostFilter:'walker'}).flatMap(x=>x.links)).toEqual([]);
+  }
+ });
+ it('filters links by name, URL and External, dropping the section when none match', () => {
+  expect(external(build({query:'rout'})).links).toEqual([router]);
+  expect(external(build({query:'192.168'})).links).toEqual([router]);
+  expect(external(build({query:'external'})).links).toHaveLength(3);
+  expect(external(build({query:'web'}))).toBeUndefined();
+ });
+ it('sorts links by name inside a group', () => {
+  const s=buildSections({sources:[],containers:[],links:[nas,alpha],groupBy:'host'});
+  expect(s[0].groups[0].links.map(l=>l.name)).toEqual(['Alpha','NAS']);
+ });
+ it('shows links with no Docker sources at all', () => {
+  expect(buildSections({sources:[],containers:[],links,groupBy:'stack'}).flatMap(x=>x.links)).toHaveLength(3);
+ });
+});

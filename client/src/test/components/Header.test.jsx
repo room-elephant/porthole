@@ -26,7 +26,7 @@ describe('Header', () => {
   it('shows the wordmark, filter and settings button', () => {
     renderHeader();
     expect(screen.getByRole('heading', { level: 1, name: 'Porthole' })).toHaveClass('wordmark');
-    expect(screen.getByRole('searchbox', { name: 'Filter containers' })).toHaveAttribute('placeholder', 'Filter containers, images, hosts…');
+    expect(screen.getByRole('searchbox', { name: 'Filter containers and links' })).toHaveAttribute('placeholder', 'Filter containers, links, hosts…');
     expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
   });
 
@@ -41,7 +41,7 @@ describe('Header', () => {
     const user = userEvent.setup();
     const onQueryChange = vi.fn();
     renderHeader({ onQueryChange });
-    const filter = screen.getByRole('searchbox', { name: 'Filter containers' });
+    const filter = screen.getByRole('searchbox', { name: 'Filter containers and links' });
 
     await user.keyboard('/');
     expect(filter).toHaveFocus();
@@ -59,7 +59,7 @@ describe('Header', () => {
     const user = userEvent.setup();
     renderHeader();
     await user.keyboard('{Control>}/{/Control}');
-    expect(screen.getByRole('searchbox', { name: 'Filter containers' })).not.toHaveFocus();
+    expect(screen.getByRole('searchbox', { name: 'Filter containers and links' })).not.toHaveFocus();
   });
 
   it('stops listening for "/" after unmount', () => {
@@ -74,7 +74,7 @@ describe('Header', () => {
     const user = userEvent.setup();
     const onQueryChange = vi.fn();
     renderHeader({ query: 'plex', onQueryChange });
-    await user.click(screen.getByRole('searchbox', { name: 'Filter containers' }));
+    await user.click(screen.getByRole('searchbox', { name: 'Filter containers and links' }));
     await user.keyboard('{Escape}');
     expect(onQueryChange).toHaveBeenCalledWith('');
   });
@@ -95,3 +95,34 @@ describe('Header', () => {
     expect(onHostFilterChange).toHaveBeenCalledWith('walker');
   });
 });
+
+describe('External pill', () => {
+  it('shows the link count with no dot, and All includes links', () => {
+    renderHeader({ linkCount: 2 });
+    const pill = screen.getByRole('button', { name: /External/ });
+    expect(pill).toHaveTextContent('External 2');
+    expect(pill.querySelector('.pill-dot')).toBeNull();
+    const total = Number(screen.getByRole('button', { name: /^All/ }).querySelector('.pill-count').textContent);
+    renderHeader({ linkCount: 0 });
+    const without = Number(screen.getAllByRole('button', { name: /^All/ })[1].querySelector('.pill-count').textContent);
+    expect(total - without).toBe(2);
+  });
+
+  it('is hidden with no links', () => {
+    renderHeader({ linkCount: 0 });
+    expect(screen.queryByRole('button', { name: /External/ })).not.toBeInTheDocument();
+  });
+
+  it('selects External', () => {
+    const onHostFilterChange = vi.fn();
+    renderHeader({ linkCount: 1, onHostFilterChange });
+    fireEvent.click(screen.getByRole('button', { name: /External/ }));
+    expect(onHostFilterChange).toHaveBeenCalledWith('_external');
+  });
+
+  it('shows pills when there are links but no hosts', () => {
+    renderHeader({ linkCount: 1, sources: [] });
+    expect(screen.getByRole('button', { name: /External/ })).toBeInTheDocument();
+  });
+});
+

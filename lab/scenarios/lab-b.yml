@@ -1,6 +1,6 @@
 # Endpoint discovery, names and versions, running inside the lab-b daemon.
 # Fixed container names keep saved preferences working when containers are recreated.
-name: lab-b
+name: stack-b
 
 x-web: &web
   image: nginx:1.29-alpine
