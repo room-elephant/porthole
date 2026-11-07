@@ -82,6 +82,20 @@ class FilesystemIconFileStoreTest {
     }
 
     @Test
+    void retainOnlyLeavesFilesItDidNotCreate() throws IOException {
+        var store = store();
+        store.store(BYTES, IconImageType.PNG);
+        Path mine = icons().resolve("my-logo.png");
+        Path other = icons().resolve("notes.txt");
+        Files.writeString(mine, "the user's own image");
+        Files.writeString(other, "the user's own notes");
+        store.retainOnly(Set.of());
+        assertThat(store.count()).isZero();
+        assertThat(mine).exists();
+        assertThat(other).exists();
+    }
+
+    @Test
     void retainOnlyWithMissingFolderDoesNothing() {
         store().retainOnly(Set.of());
         assertThat(icons()).doesNotExist();

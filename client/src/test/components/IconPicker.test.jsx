@@ -228,6 +228,48 @@ describe('IconPicker saving', () => {
   });
 });
 
+describe('IconPicker server rejections', () => {
+  const rejected = status => iconActions({ saveError: Object.assign(new Error('rejected'), { response: { status } }) });
+
+  it.each([
+    [400, "That file isn't a PNG, WebP or JPEG image."],
+    [413, 'That file is over 1 MB. Choose an image up to 1 MB.'],
+    [507, 'Porthole has reached its limit of 500 uploaded icons.'],
+  ])('explains a %i without offering a pointless retry', async (status, message) => {
+    renderPicker({ icon: rejected(status) });
+    await tile('transmission');
+    expect(screen.getByRole('alert')).toHaveTextContent(message);
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+
+  it('still offers a retry for a server failure', async () => {
+    renderPicker({ icon: rejected(500) });
+    await tile('transmission');
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't save the icon.");
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+});
+
+describe('IconPicker file drops', () => {
+  it('stops a dropped file navigating away from the app', () => {
+    renderPicker();
+    expect(fireEvent.dragOver(document.body)).toBe(false);
+    expect(fireEvent.drop(document.body)).toBe(false);
+  });
+
+  it('leaves drops on the file input alone', () => {
+    renderPicker();
+    fireEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    expect(fireEvent.drop(screen.getByLabelText(/or browse/))).toBe(true);
+  });
+
+  it('stops intercepting drops once closed', () => {
+    const { unmount } = renderWithQuery(<IconPicker container={container()} icon={iconActions()} onSaved={vi.fn()} />);
+    unmount();
+    expect(fireEvent.drop(document.body)).toBe(true);
+  });
+});
+
 describe('IconPicker upload tab', () => {
   const openUpload = (props) => {
     const result = renderPicker(props);

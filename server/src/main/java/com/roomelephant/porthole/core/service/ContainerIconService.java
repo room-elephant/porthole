@@ -78,7 +78,7 @@ public class ContainerIconService implements SelectContainerIcon, ReadUploadedIc
                 .flatMap(type -> files.read(name).map(bytes -> new UploadedIcon(bytes, type.contentType())));
     }
 
-    /** Removes files no preference references, which only a crash between storing and saving can leave behind. */
+    /** Best-effort removal of uploads no preference references, which a crash between storing and saving can leave. */
     public synchronized void removeUnreferencedUploads() {
         Set<String> referenced = preferences.snapshot().values().stream()
                 .map(ContainerPreferences::icon)
@@ -86,7 +86,11 @@ public class ContainerIconService implements SelectContainerIcon, ReadUploadedIc
                 .filter(SelectedIcon::selectsUpload)
                 .map(SelectedIcon::name)
                 .collect(Collectors.toSet());
-        files.retainOnly(referenced);
+        try {
+            files.retainOnly(referenced);
+        } catch (RuntimeException e) {
+            log.warn("Could not remove unreferenced uploaded icons", e);
+        }
     }
 
     private void validate(ContainerPreferencesKey key, SelectedIcon icon) {

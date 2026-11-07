@@ -17,6 +17,9 @@ import org.jspecify.annotations.NullMarked;
 
 @NullMarked
 public final class FilesystemIconFileStore implements IconFileStore {
+    private static final String TEMPORARY_PREFIX = ".icon-";
+    private static final String TEMPORARY_SUFFIX = ".tmp";
+
     private final Path directory;
 
     public FilesystemIconFileStore(Path directory) {
@@ -28,7 +31,7 @@ public final class FilesystemIconFileStore implements IconFileStore {
         String name = UUID.randomUUID().toString().replace("-", "") + "." + type.extension();
         try {
             Files.createDirectories(directory);
-            Path temporary = Files.createTempFile(directory, ".icon-", ".tmp");
+            Path temporary = Files.createTempFile(directory, TEMPORARY_PREFIX, TEMPORARY_SUFFIX);
             try {
                 Files.write(temporary, bytes);
                 Files.move(temporary, directory.resolve(name), StandardCopyOption.ATOMIC_MOVE);
@@ -81,13 +84,19 @@ public final class FilesystemIconFileStore implements IconFileStore {
     public void retainOnly(Set<String> names) {
         try {
             for (Path path : regularFiles()) {
-                if (!names.contains(path.getFileName().toString())) {
+                String name = path.getFileName().toString();
+                if (isOwnFile(name) && !names.contains(name)) {
                     Files.deleteIfExists(path);
                 }
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to remove unreferenced icons", e);
         }
+    }
+
+    private static boolean isOwnFile(String name) {
+        return SelectedIcon.UPLOAD_NAME.matcher(name).matches()
+                || (name.startsWith(TEMPORARY_PREFIX) && name.endsWith(TEMPORARY_SUFFIX));
     }
 
     private List<Path> regularFiles() {

@@ -203,6 +203,8 @@ By default, icons are fetched from Dashboard Icons CDN. You can customize the so
 
 #### Icon Resolution Logic
 
+A [container icon](#container-icon) chosen in settings takes priority over everything below.
+
 1.  **Exact Match**: Checks `icons.yml` (both internal defaults and your external overrides).
 2.  **Dashboard Icons**: Fetches from the configured CDN using the image name.
 
@@ -320,7 +322,7 @@ volumes:
 
 The image creates `/app/data` owned by its application user (UID/GID `65532`), including when Docker initializes an empty named volume. For a host bind mount, provision a directory writable by that user and any existing file readable by it; atomic saves also require directory write permission. Mounting the file itself works too, but saves then overwrite it in place instead of renaming atomically. An empty file is treated as having no saved choices. The entrypoint does not change ownership of arbitrary host files. Keep the volume across container restarts and replacements; deleting it deletes the saved choices.
 
-One running Porthole instance owns each file; do not share a writable preference file between instances. Saves atomically replace the entire file, with memory updated only after a successful write. A missing file starts with no choices. An unreadable or malformed existing file fails startup rather than discarding saved data. The server loads the file once at startup: manual external edits require a server restart. The file contains container records with `sourceId`, `containerName`, and `preferences.selectedEndpoint`, without a schema version field; it is separate from application YAML configuration. Only the explicit selection (`id`, `source`, and a custom `url` when needed) is stored, never candidate lists or effective `selected` flags. Inventory fallback does not rewrite an unavailable saved choice.
+One running Porthole instance owns each file; do not share a writable preference file between instances. Saves atomically replace the entire file, with memory updated only after a successful write. A missing file starts with no choices. An unreadable or malformed existing file fails startup rather than discarding saved data. The server loads the file once at startup: manual external edits require a server restart. The file contains container records with `sourceId`, `containerName`, `preferences.selectedEndpoint`, and `preferences.icon`, without a schema version field; it is separate from application YAML configuration. Only the explicit selection (`id`, `source`, and a custom `url` when needed) is stored, never candidate lists or effective `selected` flags. Inventory fallback does not rewrite an unavailable saved choice.
 
 ### Version Update Notifications
 

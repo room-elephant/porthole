@@ -5,7 +5,9 @@ import com.roomelephant.porthole.core.model.UploadedIcon;
 import com.roomelephant.porthole.core.port.inbound.ReadUploadedIcon;
 import com.roomelephant.porthole.core.port.inbound.SelectContainerIcon;
 import com.roomelephant.porthole.inbound.web.dto.SelectContainerIconRequest;
+import com.roomelephant.porthole.inbound.web.dto.UploadContainerIconForm;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -71,11 +73,18 @@ public class IconController {
                 new ContainerPreferencesKey(request.sourceId(), request.containerName()), request.name());
     }
 
-    @PostMapping("/containers/icon/upload")
+    @PostMapping(path = "/containers/icon/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Upload an icon for a container",
             description = "Saves a PNG, WebP or JPEG image of at most 1 MB, identified from the file's content. "
-                    + "Replaces any previous icon. Does not require the container to be currently available.")
+                    + "Replaces any previous icon. Does not require the container to be currently available.",
+            requestBody =
+                    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                            required = true,
+                            content =
+                                    @Content(
+                                            mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                                            schema = @Schema(implementation = UploadContainerIconForm.class))))
     @ApiResponse(responseCode = "204", description = "Icon saved")
     @ApiResponse(
             responseCode = "400",
@@ -107,7 +116,9 @@ public class IconController {
                             schema = @Schema(implementation = ProblemDetail.class)))
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void uploadIcon(
-            @RequestParam String sourceId, @RequestParam String containerName, @RequestPart MultipartFile file)
+            @Parameter(hidden = true) @RequestParam String sourceId,
+            @Parameter(hidden = true) @RequestParam String containerName,
+            @Parameter(hidden = true) @RequestPart MultipartFile file)
             throws IOException {
         selectContainerIcon.uploadIcon(new ContainerPreferencesKey(sourceId, containerName), file.getBytes());
     }

@@ -157,6 +157,24 @@ describe('ContainerSettings after saving', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Icon saved, but containers could not be refreshed. Reload to see the change.');
     expect(screen.queryByText('Icon updated')).not.toBeInTheDocument();
   });
+
+  it('keeps explaining the failed refresh after the update notice would have ended', async () => {
+    const icon = iconActions();
+    const { rerender } = renderWithQuery(<ContainerSettings {...props({ icon })} />);
+    openPicker();
+    fireEvent.change(search(), { target: { value: 'core' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'coredns' }));
+    vi.useFakeTimers();
+    await act(async () => { icon.selectIcon.mock.calls[0][1].onSaved(); });
+    rerender(<ContainerSettings {...props({ icon: { ...icon, refreshError: new Error('offline') } })} />);
+    await act(async () => { vi.advanceTimersByTime(5000); });
+    expect(screen.getByRole('alert')).toHaveTextContent('Icon saved, but containers could not be refreshed.');
+  });
+
+  it('explains a failed refresh when reopened after closing during the save', () => {
+    renderWithQuery(<ContainerSettings {...props({ icon: iconActions({ refreshError: new Error('offline') }) })} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Icon saved, but containers could not be refreshed.');
+  });
 });
 
 describe('ContainerSettings focus', () => {

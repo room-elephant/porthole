@@ -88,28 +88,12 @@ paths:
         \ the file's content. Replaces any previous icon. Does not require the container\
         \ to be currently available."
       operationId: uploadIcon
-      parameters:
-      - in: query
-        name: sourceId
-        required: true
-        schema:
-          type: string
-      - in: query
-        name: containerName
-        required: true
-        schema:
-          type: string
       requestBody:
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-              required:
-              - file
+              $ref: "#/components/schemas/UploadContainerIconForm"
+        required: true
       responses:
         "204":
           description: Icon saved
@@ -412,6 +396,26 @@ components:
           - UP
           - DOWN
           - ERROR
+    UploadContainerIconForm:
+      type: object
+      description: "Upload an icon for a container, including temporarily unavailable\
+        \ containers"
+      properties:
+        containerName:
+          type: string
+          description: "Docker container name, independent of runtime ID or display\
+            \ name"
+        file:
+          type: string
+          format: binary
+          description: "PNG, WebP or JPEG image of at most 1 MB"
+        sourceId:
+          type: string
+          description: Docker connection source ID
+      required:
+      - containerName
+      - file
+      - sourceId
     VersionInfo:
       type: object
       properties:

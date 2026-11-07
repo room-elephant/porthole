@@ -245,6 +245,13 @@ class ContainerIconServiceTest {
         assertThat(files.read(orphan)).isEmpty();
     }
 
+    @Test
+    void failedCleanupDoesNotStopStartup() throws IOException {
+        Files.writeString(iconFolder(), "a file where the folder should be");
+        service.removeUnreferencedUploads();
+        assertThat(iconFolder()).isRegularFile();
+    }
+
     private record FailingPreferences(ContainerPreferencesStore delegate) implements ContainerPreferencesStore {
         @Override
         public Map<ContainerPreferencesKey, ContainerPreferences> snapshot() {

@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -87,7 +88,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
         MissingServletRequestPartException.class,
         MissingServletRequestParameterException.class,
-        MultipartException.class
+        MultipartException.class,
+        HttpMediaTypeNotSupportedException.class
     })
     public @NonNull ProblemDetail handleInvalidUploadRequest() {
         return ProblemDetail.forStatusAndDetail(

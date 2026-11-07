@@ -308,7 +308,7 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
             onClose={onClose}
             className="settings-modal"
         >
-            {iconUpdated && icon.refreshError && (
+            {icon.refreshError && (
                 <p role="alert" className="selection-error">Icon saved, but containers could not be refreshed. Reload to see the change.</p>
             )}
             <StatusSection container={container} status={status} />

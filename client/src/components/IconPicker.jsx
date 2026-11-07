@@ -5,6 +5,13 @@ import { imageSearchTerm, isUploadedIcon } from '../utils/icons';
 
 const TABS = [{ id: 'library', label: 'Library' }, { id: 'upload', label: 'Upload' }];
 
+/** Rejections that repeating the same request can never fix. */
+const PERMANENT_REJECTIONS = {
+    400: "That file isn't a PNG, WebP or JPEG image.",
+    413: 'That file is over 1 MB. Choose an image up to 1 MB.',
+    507: 'Porthole has reached its limit of 500 uploaded icons.',
+};
+
 /** Chooses a container's icon. Every choice saves straight away through `icon`. */
 function IconPicker({ container, icon, onSaved }) {
     const [startingSearch] = useState(() => imageSearchTerm(container.image));
@@ -28,6 +35,21 @@ function IconPicker({ container, icon, onSaved }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once when the picker opens.
     }, []);
 
+    // A file dropped beside the drop zone would otherwise navigate the browser away from the app.
+    useEffect(() => {
+        const keepPage = (event) => {
+            if (event.target?.type !== 'file') event.preventDefault();
+        };
+        document.addEventListener('dragover', keepPage);
+        document.addEventListener('drop', keepPage);
+        return () => {
+            document.removeEventListener('dragover', keepPage);
+            document.removeEventListener('drop', keepPage);
+        };
+    }, []);
+
+    const rejection = PERMANENT_REJECTIONS[icon.saveError?.response?.status];
+
     const pick = (name) => {
         setPickedName(name);
         icon.selectIcon(name, { onSaved });
@@ -50,8 +72,8 @@ function IconPicker({ container, icon, onSaved }) {
 
             {icon.saveError && (
                 <div role="alert" className="icon-alert">
-                    <span>Couldn't save the icon.</span>
-                    <button type="button" className="icon-alert-retry" onClick={icon.retry}>Try again</button>
+                    <span>{rejection ?? "Couldn't save the icon."}</span>
+                    {!rejection && <button type="button" className="icon-alert-retry" onClick={icon.retry}>Try again</button>}
                 </div>
             )}
 
