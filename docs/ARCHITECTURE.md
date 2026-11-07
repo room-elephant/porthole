@@ -177,6 +177,12 @@ This is required because the Docker Registry API expects the full path:
 | `/api/containers/selected-url`          | PUT    | Replaces the shared endpoint choice for `(sourceId, containerName)` and returns confirmed preferences |
 | `/api/containers/icon`                  | PUT    | Saves a Dashboard Icons library icon for `(sourceId, containerName)` |
 | `/api/containers/icon/upload`           | POST   | Saves an uploaded PNG, WebP, JPEG or SVG icon of at most 1 MB for `(sourceId, containerName)` |
+| `/api/links`                            | GET    | Lists external links                                               |
+| `/api/links`                            | POST   | Adds an external link and returns it                               |
+| `/api/links/{id}`                       | PUT    | Replaces a link's name, URL and stack, and returns the link        |
+| `/api/links/{id}`                       | DELETE | Deletes a link and its uploaded icon                               |
+| `/api/links/{id}/icon`                  | PUT    | Saves a Dashboard Icons library icon for a link                    |
+| `/api/links/{id}/icon/upload`           | POST   | Saves an uploaded PNG, WebP, JPEG or SVG icon of at most 1 MB for a link |
 | `/api/icons/{name}`                     | GET    | Serves an uploaded icon with an immutable cache lifetime and `nosniff` |
 | `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
 
@@ -188,7 +194,17 @@ A container's preference record holds an optional `icon` beside `selectedEndpoin
 
 Uploaded SVGs are treated as hostile. `SvgSanitizer` rebuilds each one from an allowlist of elements and attributes before it is stored, dropping scripts, event handlers, embedded HTML, animation and references outside the document, with DTD processing off. A file with nothing left to draw is rejected. `GET /api/icons/{name}` also sends a sandboxing `Content-Security-Policy`, so an icon opened directly as a page cannot run anything.
 
-`ContainerIconService` runs each save under one lock. An upload is identified from its first bytes, ignoring its name and declared type, and rejected with 507 when 500 uploads are stored, since callers without login can invent container names. It is written to a temporary file, moved to a random name, then saved in preferences; if saving fails the new file is deleted and the old icon stays. The previous upload is deleted last, and a failed delete is only logged. At startup Porthole removes its own files that no record references, on a best-effort basis: other files in the folder are left alone, and a failure is logged rather than stopping startup. `FilesystemIconFileStore` keeps files in an `icons` folder beside the preference file. Multipart uploads stay in memory because images may have no writable temp folder.
+`UploadedIcons` holds the file handling that containers and links share, and runs each save under one lock, so the upload limit holds across both. An upload is identified from its first bytes, ignoring its name and declared type, and rejected with 507 when 500 uploads are stored, since callers without login can invent container names. It is written to a temporary file, moved to a random name, then saved in preferences; if saving fails the new file is deleted and the old icon stays. The previous upload is deleted last, and a failed delete is only logged. At startup Porthole removes its own files that no preference or link references, on a best-effort basis: other files in the folder are left alone, and a failure is logged rather than stopping startup. `FilesystemIconFileStore` keeps files in an `icons` folder beside the preference file. Multipart uploads stay in memory because images may have no writable temp folder.
+
+### External Links
+
+Links are pages Porthole doesn't run, such as a router. They are separate from containers on purpose: their own `links.json` file, `ExternalLinkService`, `/api/links` endpoints, React Query key and hooks. They never pass through the enrichment chain, `GET /api/containers` doesn't include them, and `preferences.json` holds no link records. A Docker problem therefore can't delay or hide a link.
+
+A link record holds `id`, `name`, `url`, and optional `stack` and `icon`. The ID is random because a link can be renamed. `JsonExternalLinkStore` behaves like the preference store, sharing `AtomicFiles` for writes: it loads once at startup, an invalid file fails startup, and a failed write keeps the prior state. URLs follow the same http(s) rule as custom URLs (`HttpUrls`). At most 500 links are stored, because these endpoints have no login.
+
+The External source exists only in the client: it isn't in the `sources` array, and it appears when there is at least one link. Its filter value `_external` can't clash with a Docker source ID, which can't start with `_`. In Stack view a link joins the section whose name exactly matches its stack, after the containers.
+
+`App` owns the Link settings dialog rather than the tile, because saving a stack or name can move the tile to another group, which would unmount a dialog the tile owned. The Add form holds a chosen icon until the link exists, then saves it as a second request. If that fails the link stays, and Link settings opens with an alert.
 
 ### Container Endpoint Contract
 
@@ -346,7 +362,7 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 `server/src/main/java/com/roomelephant/porthole/`:
 
 - `core/port/inbound/` — `GetContainers`, `SelectContainerEndpoint`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
-- `core/port/outbound/` — `DockerOperations`, `RegistryOperations`, and `ContainerPreferencesStore`, implemented by outbound integrations.
+- `core/port/outbound/` — `DockerOperations`, `RegistryOperations`, `ContainerPreferencesStore`, `ExternalLinkStore`, and `IconFileStore`, implemented by outbound integrations.
 - `core/service/` — `ContainerService` coordinates mapping, enrichment, and response assembly. `DockerDiscoveryService` owns concurrent Docker retrieval, per-source deadlines, cancellation, and retrieval failure translation. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `name/`, `endpoint/`, `preferences/`, `endpointavailability/`, `icon/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
 - `core/enrichment/icon/` — `IconEnricher` assigns default icons using `IconResolver` and `IconSettings`. `ContainerPreferencesEnricher` overrides them with saved choices.
@@ -356,10 +372,12 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 - `core/model/` — application-owned container/source metadata, outcomes, queries, image references, version values, and exceptions. Ports never expose SDK objects or client handles.
 - `core/mapping/` — `ContainerMapper` converts discovery snapshots to core containers.
 - `core/enrichment/name/` — `DisplayNameResolver` resolves source-wide name collisions; `DisplayNameEnricher` resolves and applies names before filters run.
-- `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`; `IconController` calls `SelectContainerIcon` and `ReadUploadedIcon`.
+- `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`; `IconController` calls `SelectContainerIcon` and `ReadUploadedIcon`; `LinkController` calls `ManageLinks`.
 - `inbound/health/` — translates `CheckDockerAvailability` results into actuator health responses; probing and timeout handling belong to the core service.
 - `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
 - `outbound/preferences/` — JSON preference loading, immutable snapshots, and atomic file replacement.
+- `outbound/links/` — JSON external link loading, immutable snapshots, and saving.
+- `outbound/file/` — `AtomicFiles`, the whole-file replacement that the preference and link stores share.
 - `outbound/icons/` — uploaded icon files on disk, with atomic writes and generated names.
 - `outbound/registry/` — `RegistryOperationsAdapter` implements the core port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares authenticated tag/manifest protocol, token lifecycle, and Link parsing. Numeric selection and update decisions belong to `core.enrichment.version.resolution`.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.

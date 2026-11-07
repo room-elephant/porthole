@@ -133,7 +133,7 @@ client_pid=$job_pid
 wait_for_url "http://localhost:9753/api/containers" "$server_pid" "back end"
 wait_for_url "$URL" "$client_pid" "front end"
 
-printf '\n[lab] Ready: %s\n[lab] Press Ctrl-C to stop. Preferences save to lab/preferences.json.\n\n' "$URL"
+printf '\n[lab] Ready: %s\n[lab] Press Ctrl-C to stop. Preferences save to lab/preferences.json, links to lab/links.json.\n\n' "$URL"
 
 while is_running "$server_pid" && is_running "$client_pid"; do
   sleep 1
