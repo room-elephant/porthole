@@ -7,7 +7,7 @@ const TABS = [{ id: 'library', label: 'Library' }, { id: 'upload', label: 'Uploa
 
 /** Rejections that repeating the same request can never fix. */
 const PERMANENT_REJECTIONS = {
-    400: "That file isn't a PNG, WebP or JPEG image.",
+    400: "That file isn't a PNG, WebP, JPEG or SVG image.",
     413: 'That file is over 1 MB. Choose an image up to 1 MB.',
     507: 'Porthole has reached its limit of 500 uploaded icons.',
 };

@@ -16,7 +16,7 @@ public record UploadContainerIconForm(
         String containerName,
 
         @Schema(
-                description = "PNG, WebP or JPEG image of at most 1 MB",
+                description = "PNG, WebP, JPEG or SVG image of at most 1 MB",
                 type = "string",
                 format = "binary",
                 requiredMode = Schema.RequiredMode.REQUIRED)

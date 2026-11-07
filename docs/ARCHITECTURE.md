@@ -176,7 +176,7 @@ This is required because the Docker Registry API expects the full path:
 | `/api/containers`                       | GET    | Returns source outcomes and containers from every configured connection. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
 | `/api/containers/selected-url`          | PUT    | Replaces the shared endpoint choice for `(sourceId, containerName)` and returns confirmed preferences |
 | `/api/containers/icon`                  | PUT    | Saves a Dashboard Icons library icon for `(sourceId, containerName)` |
-| `/api/containers/icon/upload`           | POST   | Saves an uploaded PNG, WebP or JPEG icon of at most 1 MB for `(sourceId, containerName)` |
+| `/api/containers/icon/upload`           | POST   | Saves an uploaded PNG, WebP, JPEG or SVG icon of at most 1 MB for `(sourceId, containerName)` |
 | `/api/icons/{name}`                     | GET    | Serves an uploaded icon with an immutable cache lifetime and `nosniff` |
 | `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
 
@@ -185,6 +185,8 @@ This is required because the Docker Registry API expects the full path:
 Porthole's own container without a custom icon gets its logo in `ContainerService`, where `self` is set after the chain.
 
 A container's preference record holds an optional `icon` beside `selectedEndpoint`, either `{"type":"library","name":"coredns"}` or `{"type":"upload","name":"<32 hex>.webp"}`. Each field updates independently, and a record is removed only when both are empty. There is no clear operation: choosing another icon replaces the previous one. The inventory exposes only the resolved `iconUrl`, so the client reads the icon in use from it: an `/api/icons/` path is an upload, and otherwise the last path segment is the library name.
+
+Uploaded SVGs are treated as hostile. `SvgSanitizer` rebuilds each one from an allowlist of elements and attributes before it is stored, dropping scripts, event handlers, embedded HTML, animation and references outside the document, with DTD processing off. A file with nothing left to draw is rejected. `GET /api/icons/{name}` also sends a sandboxing `Content-Security-Policy`, so an icon opened directly as a page cannot run anything.
 
 `ContainerIconService` runs each save under one lock. An upload is identified from its first bytes, ignoring its name and declared type, and rejected with 507 when 500 uploads are stored, since callers without login can invent container names. It is written to a temporary file, moved to a random name, then saved in preferences; if saving fails the new file is deleted and the old icon stays. The previous upload is deleted last, and a failed delete is only logged. At startup Porthole removes its own files that no record references, on a best-effort basis: other files in the folder are left alone, and a failure is logged rather than stopping startup. `FilesystemIconFileStore` keeps files in an `icons` folder beside the preference file. Multipart uploads stay in memory because images may have no writable temp folder.
 

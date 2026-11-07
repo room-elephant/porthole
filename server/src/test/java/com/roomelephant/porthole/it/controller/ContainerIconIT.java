@@ -160,8 +160,30 @@ class ContainerIconIT {
 
     @Test
     void disguisedFileIsRejectedWith400() {
-        byte[] svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script/></svg>".getBytes(StandardCharsets.UTF_8);
-        assertThatThrownBy(() -> upload(svg)).isInstanceOf(HttpClientErrorException.BadRequest.class);
+        byte[] text = "<html>not an image</html>".getBytes(StandardCharsets.UTF_8);
+        assertThatThrownBy(() -> upload(text)).isInstanceOf(HttpClientErrorException.BadRequest.class);
+    }
+
+    @Test
+    void malformedSvgIsRejectedWith400() {
+        byte[] malformed = "<svg xmlns=\"http://www.w3.org/2000/svg\"><circle".getBytes(StandardCharsets.UTF_8);
+        assertThatThrownBy(() -> upload(malformed)).isInstanceOf(HttpClientErrorException.BadRequest.class);
+    }
+
+    @Test
+    void uploadedSvgIsServedWithoutItsScriptsAndSandboxed() {
+        upload("<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(1)\"><script>alert(2)</script>"
+                .concat("<circle r=\"1\"/></svg>")
+                .getBytes(StandardCharsets.UTF_8));
+        assertThat(iconUrl()).startsWith("/api/icons/").endsWith(".svg");
+
+        ResponseEntity<byte[]> served = http.getForEntity(appUrl() + iconUrl(), byte[].class);
+
+        assertThat(served.getHeaders().getContentType()).hasToString("image/svg+xml");
+        assertThat(served.getHeaders().getFirst("Content-Security-Policy")).contains("sandbox");
+        assertThat(new String(served.getBody(), StandardCharsets.UTF_8))
+                .contains("<circle")
+                .doesNotContain("alert");
     }
 
     @Test

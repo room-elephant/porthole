@@ -50,8 +50,12 @@ public class ContainerIconService implements SelectContainerIcon, ReadUploadedIc
 
     @Override
     public synchronized void uploadIcon(ContainerPreferencesKey key, byte[] bytes) {
-        IconImageType type = IconImageType.detect(bytes)
-                .orElseThrow(() -> new IllegalArgumentException("Icon must be a PNG, WebP or JPEG image"));
+        Optional<IconImageType> raster = IconImageType.detect(bytes);
+        IconImageType type = raster.orElse(IconImageType.SVG);
+        byte[] content = raster.isPresent()
+                ? bytes
+                : SvgSanitizer.sanitize(bytes)
+                        .orElseThrow(() -> new IllegalArgumentException("Icon must be a PNG, WebP, JPEG or SVG image"));
         ContainerPreferencesValidation.validate(key, null);
         requireConfiguredSource(key);
         @Nullable SelectedIcon previous = currentIcon(key);
@@ -59,7 +63,7 @@ public class ContainerIconService implements SelectContainerIcon, ReadUploadedIc
         if (files.count() - replaced >= MAX_UPLOADS) {
             throw new IconLimitReachedException(MAX_UPLOADS);
         }
-        String name = files.store(bytes, type);
+        String name = files.store(content, type);
         try {
             preferences.replaceIcon(key, SelectedIcon.upload(name));
         } catch (RuntimeException e) {

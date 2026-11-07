@@ -99,7 +99,7 @@ describe('iconUrl helpers', () => {
 
 describe('validateIconFile', () => {
   it('checks type before size', () => {
-    expect(validateIconFile(file('logo.svg', 'image/svg+xml', 5000000))).toBe("logo.svg isn't supported. Use PNG, WebP or JPEG.");
+    expect(validateIconFile(file('logo.gif', 'image/gif', 5000000))).toBe("logo.gif isn't supported. Use PNG, WebP, JPEG or SVG.");
   });
 
   it('reports the size of an oversized file', () => {
@@ -111,6 +111,7 @@ describe('validateIconFile', () => {
     ['a.png', 'image/png', 1048576],
     ['a.webp', 'image/webp', 1],
     ['a.jpg', 'image/jpeg', 1],
+    ['a.svg', 'image/svg+xml', 1],
   ])('accepts %s', (name, type, size) => {
     expect(validateIconFile(file(name, type, size))).toBeNull();
   });

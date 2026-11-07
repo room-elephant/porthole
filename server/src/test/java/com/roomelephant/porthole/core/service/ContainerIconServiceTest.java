@@ -103,6 +103,29 @@ class ContainerIconServiceTest {
     }
 
     @Test
+    void uploadedSvgIsStoredWithoutItsScripts() {
+        service.uploadIcon(
+                key,
+                "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script><circle r=\"1\"/></svg>"
+                        .getBytes(StandardCharsets.UTF_8));
+        SelectedIcon icon = currentIcon();
+        assertThat(icon.name()).matches(SelectedIcon.UPLOAD_NAME).endsWith(".svg");
+        var stored = service.read(icon.name()).orElseThrow();
+        assertThat(stored.contentType()).isEqualTo("image/svg+xml");
+        assertThat(new String(stored.bytes(), StandardCharsets.UTF_8))
+                .contains("<circle")
+                .doesNotContain("script");
+    }
+
+    @Test
+    void svgWithNothingToDrawIsRejected() {
+        byte[] scriptOnly =
+                "<svg xmlns=\"http://www.w3.org/2000/svg\"><script/></svg>".getBytes(StandardCharsets.UTF_8);
+        assertThatThrownBy(() -> service.uploadIcon(key, scriptOnly)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(preferences.snapshot()).isEmpty();
+    }
+
+    @Test
     void uploadStoresFileAndSavesRandomName() {
         service.uploadIcon(key, WEBP);
         SelectedIcon icon = currentIcon();
