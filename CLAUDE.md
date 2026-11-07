@@ -48,6 +48,7 @@ make -C client lint
 ### Cross-component and Docker
 
 ```bash
+make lab             # run the current branch against fake Docker hosts and containers (lab/), on :5173
 make bundle          # client build + JAR with client in static resources
 make bundle-native   # client build + GraalVM native executable (server/target/porthole)
 make -C docker jvm-image   # porthole-jvm:latest, used by ITs

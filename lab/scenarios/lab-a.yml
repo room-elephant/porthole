@@ -1,0 +1,70 @@
+# Container states and health, running inside the lab-a daemon.
+# Fixed container names keep saved preferences working when containers are recreated.
+name: lab-a
+
+x-web: &web
+  image: nginx:1.29-alpine
+
+services:
+  healthy:
+    <<: *web
+    container_name: healthy
+    ports: ["18100:80"]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 2s
+
+  unhealthy:
+    <<: *web
+    container_name: unhealthy
+    ports: ["18101:80"]
+    healthcheck:
+      test: ["CMD", "false"]
+      interval: 2s
+      retries: 1
+
+  # The first check is an hour away, so this stays in "health: starting".
+  health-starting:
+    <<: *web
+    container_name: health-starting
+    ports: ["18102:80"]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 1h
+
+  # A restarting container has no published ports, so the label keeps it in the default view.
+  restarting:
+    <<: *web
+    container_name: restarting
+    command: ["false"]
+    restart: always
+    labels:
+      traefik.http.routers.restarting.rule: "Host(`restarting.localhost`)"
+
+  # The launcher pauses this one after it starts.
+  paused:
+    <<: *web
+    container_name: paused
+    ports: ["18104:80"]
+
+  # Exits straight away. Traefik labels keep stopped containers discoverable.
+  stopped:
+    <<: *web
+    container_name: stopped
+    command: ["true"]
+    labels:
+      traefik.http.routers.stopped.rule: "Host(`stopped.localhost`)"
+
+  # The launcher creates this one without starting it.
+  created:
+    <<: *web
+    container_name: created
+    profiles: [manual]
+    labels:
+      traefik.http.routers.created.rule: "Host(`created.localhost`)"
+
+  # Also in lab-b: the same name on two hosts.
+  shared-name:
+    <<: *web
+    container_name: shared-name
+    ports: ["18105:80"]
