@@ -4,6 +4,7 @@ import com.roomelephant.porthole.config.properties.PreferencesProperties;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
+import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import com.roomelephant.porthole.outbound.preferences.JsonContainerPreferencesStore;
 import com.roomelephant.porthole.outbound.preferences.StoredContainerPreferences;
@@ -19,7 +20,8 @@ import tools.jackson.databind.json.JsonMapper;
     StoredContainerPreferences.class,
     ContainerPreferences.class,
     ContainerPreferencesKey.class,
-    SelectedEndpoint.class
+    SelectedEndpoint.class,
+    SelectedIcon.class
 })
 public class PreferencesConfiguration {
     @Bean

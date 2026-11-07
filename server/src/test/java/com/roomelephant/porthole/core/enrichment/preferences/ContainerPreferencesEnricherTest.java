@@ -84,6 +84,12 @@ class ContainerPreferencesEnricherTest {
             public ContainerPreferences replaceSelection(ContainerPreferencesKey key, SelectedEndpoint selection) {
                 throw new AssertionError("Inventory must not persist preferences");
             }
+
+            @Override
+            public ContainerPreferences replaceIcon(
+                    ContainerPreferencesKey key, com.roomelephant.porthole.core.model.SelectedIcon icon) {
+                throw new AssertionError("Inventory must not persist preferences");
+            }
         };
         var enricher = new ContainerPreferencesEnricher(store);
         var first = container("first", "local", "app", List.of());
@@ -176,6 +182,12 @@ class ContainerPreferencesEnricherTest {
 
             @Override
             public ContainerPreferences replaceSelection(ContainerPreferencesKey key, SelectedEndpoint selection) {
+                throw new AssertionError("Inventory must not persist preferences");
+            }
+
+            @Override
+            public ContainerPreferences replaceIcon(
+                    ContainerPreferencesKey key, com.roomelephant.porthole.core.model.SelectedIcon icon) {
                 throw new AssertionError("Inventory must not persist preferences");
             }
         };

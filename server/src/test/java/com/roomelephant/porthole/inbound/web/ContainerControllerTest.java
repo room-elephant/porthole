@@ -411,6 +411,12 @@ class ContainerControllerTest {
             public ContainerPreferences replaceSelection(ContainerPreferencesKey key, SelectedEndpoint selected) {
                 throw new AssertionError("Inventory must not write preferences");
             }
+
+            @Override
+            public ContainerPreferences replaceIcon(
+                    ContainerPreferencesKey key, com.roomelephant.porthole.core.model.SelectedIcon icon) {
+                throw new AssertionError("Inventory must not write preferences");
+            }
         };
         new ContainerPreferencesEnricher(store)
                 .enrich(List.of(container), new EnrichmentContext("local", "localhost", false, false));

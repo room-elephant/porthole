@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
+import com.roomelephant.porthole.core.model.SelectedIcon;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +28,7 @@ class JsonContainerPreferencesStoreTest {
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final ContainerPreferencesKey key = new ContainerPreferencesKey("local", "grafana");
     private final SelectedEndpoint custom = new SelectedEndpoint("custom", "custom", "https://grafana.example.com");
+    private final SelectedIcon icon = SelectedIcon.library("coredns");
 
     @Test
     void missingFileStartsEmptyWithoutWriting() {
@@ -136,7 +138,7 @@ class JsonContainerPreferencesStoreTest {
         var path = directory.resolve("preferences.json");
         Files.writeString(path, """
                 [{"sourceId":"local","containerName":"grafana","extra":true,"preferences":{
-                  "icon":{"url":"https://icons.example.com/grafana.svg"},
+                  "futureIcon":{"url":"https://icons.example.com/grafana.svg"},
                   "selectedEndpoint":{"id":"custom","source":"custom","url":"https://old.example.com"}}}]
                 """);
         var store = new JsonContainerPreferencesStore(path, mapper);
@@ -294,6 +296,100 @@ class JsonContainerPreferencesStoreTest {
         try (var files = Files.list(directory)) {
             assertThat(files.toList()).containsExactly(path);
         }
+    }
+
+    @Test
+    void selectingEndpointKeepsIcon() {
+        var path = directory.resolve("preferences.json");
+        var store = new JsonContainerPreferencesStore(path, mapper);
+        store.replaceIcon(key, icon);
+        var saved = store.replaceSelection(key, custom);
+        assertThat(saved).isEqualTo(new ContainerPreferences(custom, icon));
+        assertThat(new JsonContainerPreferencesStore(path, mapper).snapshot()).containsEntry(key, saved);
+    }
+
+    @Test
+    void clearingSelectionKeepsIconRecord() {
+        var path = directory.resolve("preferences.json");
+        var store = new JsonContainerPreferencesStore(path, mapper);
+        store.replaceSelection(key, custom);
+        store.replaceIcon(key, icon);
+        var saved = store.replaceSelection(key, null);
+        assertThat(saved).isEqualTo(new ContainerPreferences(null, icon));
+        assertThat(new JsonContainerPreferencesStore(path, mapper).snapshot()).containsEntry(key, saved);
+    }
+
+    @Test
+    void selectingIconKeepsEndpoint() {
+        var store = new JsonContainerPreferencesStore(directory.resolve("preferences.json"), mapper);
+        store.replaceSelection(key, custom);
+        assertThat(store.replaceIcon(key, icon)).isEqualTo(new ContainerPreferences(custom, icon));
+    }
+
+    @Test
+    void clearingSelectionWithoutIconRemovesRecord() {
+        var store = new JsonContainerPreferencesStore(directory.resolve("preferences.json"), mapper);
+        store.replaceSelection(key, custom);
+        store.replaceSelection(key, null);
+        assertThat(store.snapshot()).isEmpty();
+    }
+
+    @Test
+    void fileWrittenBeforeIconsExistedLoads() throws IOException {
+        var path = directory.resolve("preferences.json");
+        Files.writeString(path, """
+                [{"sourceId":"local","containerName":"grafana","preferences":{
+                  "selectedEndpoint":{"id":"custom","source":"custom","url":"https://grafana.example.com"}}}]
+                """);
+        assertThat(new JsonContainerPreferencesStore(path, mapper).snapshot())
+                .containsEntry(key, new ContainerPreferences(custom, null));
+    }
+
+    @Test
+    void iconPersistsWithExpectedJsonShape() throws IOException {
+        var path = directory.resolve("preferences.json");
+        new JsonContainerPreferencesStore(path, mapper).replaceIcon(key, icon);
+        assertThat(Files.readString(path)).contains("\"icon\":{\"type\":\"library\",\"name\":\"coredns\"}");
+    }
+
+    @Test
+    void invalidIconInFileFailsStartup() throws IOException {
+        var path = directory.resolve("preferences.json");
+        Files.writeString(path, """
+                [{"sourceId":"local","containerName":"grafana","preferences":{
+                  "icon":{"type":"library","name":"../x"}}}]
+                """);
+        assertThatThrownBy(() -> new JsonContainerPreferencesStore(path, mapper))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(path.toString());
+    }
+
+    @Test
+    void concurrentSelectionAndIconSavesBothSurvive() throws Exception {
+        var path = directory.resolve("preferences.json");
+        var store = new JsonContainerPreferencesStore(path, mapper);
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var selections = executor.submit(() -> {
+                start.await();
+                for (int i = 0; i < 200; i++) {
+                    store.replaceSelection(key, custom);
+                }
+                return null;
+            });
+            var icons = executor.submit(() -> {
+                start.await();
+                for (int i = 0; i < 200; i++) {
+                    store.replaceIcon(key, icon);
+                }
+                return null;
+            });
+            start.countDown();
+            selections.get(30, TimeUnit.SECONDS);
+            icons.get(30, TimeUnit.SECONDS);
+        }
+        assertThat(new JsonContainerPreferencesStore(path, mapper).snapshot())
+                .containsEntry(key, new ContainerPreferences(custom, icon));
     }
 
     @Test

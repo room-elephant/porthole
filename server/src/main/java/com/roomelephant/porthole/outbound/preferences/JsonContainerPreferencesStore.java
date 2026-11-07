@@ -5,6 +5,7 @@ import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.ContainerPreferencesValidation;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
+import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -54,15 +55,26 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
     @Override
     public synchronized ContainerPreferences replaceSelection(
             ContainerPreferencesKey key, @Nullable SelectedEndpoint selection) {
+        ContainerPreferences current = snapshot.getOrDefault(key, AUTOMATIC);
+        return save(key, new ContainerPreferences(selection, current.icon()));
+    }
+
+    @Override
+    public synchronized ContainerPreferences replaceIcon(ContainerPreferencesKey key, SelectedIcon icon) {
+        ContainerPreferences current = snapshot.getOrDefault(key, AUTOMATIC);
+        return save(key, new ContainerPreferences(current.selectedEndpoint(), icon));
+    }
+
+    private ContainerPreferences save(ContainerPreferencesKey key, ContainerPreferences preferences) {
         Map<ContainerPreferencesKey, ContainerPreferences> updated = new LinkedHashMap<>(snapshot);
-        if (selection == null) {
+        if (preferences.selectedEndpoint() == null && preferences.icon() == null) {
             updated.remove(key);
         } else {
-            updated.put(key, new ContainerPreferences(selection));
+            updated.put(key, preferences);
         }
         persist(updated);
         snapshot = Collections.unmodifiableMap(updated);
-        return updated.getOrDefault(key, AUTOMATIC);
+        return preferences;
     }
 
     private Map<ContainerPreferencesKey, ContainerPreferences> load() throws IOException {
@@ -86,6 +98,10 @@ public final class JsonContainerPreferencesStore implements ContainerPreferences
             }
             ContainerPreferencesKey key = new ContainerPreferencesKey(record.sourceId(), record.containerName());
             ContainerPreferencesValidation.validate(key, record.preferences().selectedEndpoint());
+            @Nullable SelectedIcon icon = record.preferences().icon();
+            if (icon != null) {
+                ContainerPreferencesValidation.validateIcon(key, icon);
+            }
             loaded.put(key, record.preferences());
         }
         return Collections.unmodifiableMap(loaded);
