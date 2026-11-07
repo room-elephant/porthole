@@ -494,7 +494,10 @@ input:checked + .toggle-slider::before {
 
 .tile:hover .status-dot { border-color: var(--hover); }
 .tile--unhealthy .status-dot,
-.tile--unhealthy .link-icon-globe {
+.tile--unhealthy .update-badge { border-color: var(--bad-bg); }
+.tile--dashed .status-dot { border-color: var(--bg); }
+
+.link-icon-globe {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -535,9 +538,6 @@ input:checked + .toggle-slider::before {
 .pill-link {
   color: var(--text-muted);
 }
-
-.update-badge { border-color: var(--bad-bg); }
-.tile--dashed .status-dot { border-color: var(--bg); }
 
 .dot-ok { background: var(--ok); }
 .dot-warn { background: var(--warn); }

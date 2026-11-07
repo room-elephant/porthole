@@ -81,6 +81,16 @@ describe('StackSelect', () => {
     expect(select().selectedOptions[0]).toHaveTextContent('media');
   });
 
+  it('does not list what is being typed as an option', () => {
+    const props = { onChange: vi.fn(), onNewChange: vi.fn() };
+    const { rerender } = render(<StackSelect id="s" value={null} options={['base']} ariaLabel="Stack" {...props} />);
+    fireEvent.change(select(), { target: { value: 'new' } });
+    rerender(<StackSelect id="s" value="" options={['base']} ariaLabel="Stack" {...props} />);
+    expect(labels()).toEqual(['No stack', 'base', 'New stack…']);
+    rerender(<StackSelect id="s" value="med" options={['base']} ariaLabel="Stack" {...props} />);
+    expect(labels()).toEqual(['No stack', 'base', 'New stack…']);
+  });
+
   it('hides the input when choosing an existing stack instead', () => {
     renderSelect();
     fireEvent.change(select(), { target: { value: 'new' } });

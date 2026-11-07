@@ -4,7 +4,7 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
-/** A user's icon choice for one container: a library icon name, or the file name of an upload. */
+/** A user's icon choice for one container or link: a library icon name, or the file name of an upload. */
 @NullMarked
 public record SelectedIcon(String type, String name) {
     public static final String LIBRARY = "library";

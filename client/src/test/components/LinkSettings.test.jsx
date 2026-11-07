@@ -204,6 +204,14 @@ describe('LinkSettings deleting', () => {
     expect(deleteLink).not.toHaveBeenCalled();
   });
 
+  it('keeps keyboard focus through the question', async () => {
+    setup();
+    openConfirm();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus());
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Delete link' })).toHaveFocus());
+  });
+
   it('deletes and reports back', async () => {
     const { onDeleted, onClose } = setup();
     openConfirm();

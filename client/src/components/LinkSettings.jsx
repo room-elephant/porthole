@@ -29,6 +29,15 @@ function DeleteSection({ link, onDeleted }) {
   const [confirming, setConfirming] = useState(false);
   const remove = useDeleteLink();
   const headingId = useId();
+  const cancelRef = useRef(null);
+  const deleteRef = useRef(null);
+  const asked = useRef(false);
+  // The button that had focus is replaced by the question, and the other way round.
+  useEffect(() => {
+    if (confirming) cancelRef.current?.focus();
+    else if (asked.current) deleteRef.current?.focus();
+    asked.current = confirming;
+  }, [confirming]);
   const confirm = async () => {
     try {
       await remove.mutateAsync(link.id);
@@ -43,11 +52,11 @@ function DeleteSection({ link, onDeleted }) {
       {confirming ? (
         <div role="alertdialog" aria-label="Confirm delete" className="link-delete-confirm">
           <span>{`Delete ${link.name}? It's removed from the dashboard. Containers aren't affected.`}</span>
-          <button type="button" disabled={remove.isPending} onClick={() => setConfirming(false)}>Cancel</button>
+          <button ref={cancelRef} type="button" disabled={remove.isPending} onClick={() => setConfirming(false)}>Cancel</button>
           <button type="button" className="link-delete-yes" disabled={remove.isPending} onClick={confirm}>Delete</button>
         </div>
       ) : (
-        <button type="button" className="link-delete" onClick={() => setConfirming(true)}>Delete link</button>
+        <button ref={deleteRef} type="button" className="link-delete" onClick={() => setConfirming(true)}>Delete link</button>
       )}
       {remove.error && <p role="alert" className="selection-error">Couldn't delete the link. Please try again.</p>}
     </section>

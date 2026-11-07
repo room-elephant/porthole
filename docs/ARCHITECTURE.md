@@ -198,7 +198,7 @@ Uploaded SVGs are treated as hostile. `SvgSanitizer` rebuilds each one from an a
 
 ### External Links
 
-Links are pages Porthole doesn't run, such as a router. They are separate from containers on purpose: their own `links.json` file, `ExternalLinkService`, `/api/links` endpoints, React Query key and hooks. They never pass through the enrichment chain, `GET /api/containers` doesn't include them, and `preferences.json` holds no link records. A Docker problem therefore can't delay or hide a link.
+Links are pages Porthole doesn't run, such as a router. They are separate from containers on purpose: their own `links.json` file, `ExternalLinkService`, `/api/links` endpoints, React Query key and hooks. They never pass through the enrichment chain, `GET /api/containers` doesn't include them, and `preferences.json` holds no link records. A Docker failure therefore can't hide a link. Until the first container response arrives the page shows its loading state, so a slow Docker host can delay links on first load.
 
 A link record holds `id`, `name`, `url`, and optional `stack` and `icon`. The ID is random because a link can be renamed. `JsonExternalLinkStore` behaves like the preference store, sharing `AtomicFiles` for writes: it loads once at startup, an invalid file fails startup, and a failed write keeps the prior state. URLs follow the same http(s) rule as custom URLs (`HttpUrls`). At most 500 links are stored, because these endpoints have no login.
 
@@ -361,9 +361,9 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `core/port/inbound/` — `GetContainers`, `SelectContainerEndpoint`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
+- `core/port/inbound/` — `ManageLinks`, `GetContainers`, `SelectContainerEndpoint`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
 - `core/port/outbound/` — `DockerOperations`, `RegistryOperations`, `ContainerPreferencesStore`, `ExternalLinkStore`, and `IconFileStore`, implemented by outbound integrations.
-- `core/service/` — `ContainerService` coordinates mapping, enrichment, and response assembly. `DockerDiscoveryService` owns concurrent Docker retrieval, per-source deadlines, cancellation, and retrieval failure translation. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
+- `core/service/` — `ExternalLinkService` manages links and `UploadedIcons` the upload files that containers and links share. `ContainerService` coordinates mapping, enrichment, and response assembly. `DockerDiscoveryService` owns concurrent Docker retrieval, per-source deadlines, cancellation, and retrieval failure translation. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `name/`, `endpoint/`, `preferences/`, `endpointavailability/`, `icon/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
 - `core/enrichment/icon/` — `IconEnricher` assigns default icons using `IconResolver` and `IconSettings`. `ContainerPreferencesEnricher` overrides them with saved choices.
 - `core/enrichment/version/` — `VersionEnricher` attaches cached version results to containers.

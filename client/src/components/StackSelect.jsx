@@ -28,7 +28,7 @@ export default function StackSelect({ id, value, options, ariaLabel, describedBy
     openedInput.current = false;
   }, [adding]);
 
-  const names = value === null || options.includes(value) ? options : [...options, value].sort((a, b) => a.localeCompare(b));
+  const names = adding || value === null || options.includes(value) ? options : [...options, value].sort((a, b) => a.localeCompare(b));
   let selected = value === null ? NONE : optionValue(value);
   if (adding) selected = NEW;
 
