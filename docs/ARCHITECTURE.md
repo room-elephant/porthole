@@ -182,6 +182,8 @@ This is required because the Docker Registry API expects the full path:
 
 ### Custom Container Icons
 
+Porthole's own container without a custom icon gets its logo in `ContainerService`, where `self` is set after the chain.
+
 A container's preference record holds an optional `icon` beside `selectedEndpoint`, either `{"type":"library","name":"coredns"}` or `{"type":"upload","name":"<32 hex>.webp"}`. Each field updates independently, and a record is removed only when both are empty. There is no clear operation: choosing another icon replaces the previous one. The inventory exposes only the resolved `iconUrl`, so the client reads the icon in use from it: an `/api/icons/` path is an upload, and otherwise the last path segment is the library name.
 
 `ContainerIconService` runs each save under one lock. An upload is identified from its first bytes, ignoring its name and declared type, and rejected with 507 when 500 uploads are stored, since callers without login can invent container names. It is written to a temporary file, moved to a random name, then saved in preferences; if saving fails the new file is deleted and the old icon stays. The previous upload is deleted last, and a failed delete is only logged. At startup Porthole removes its own files that no record references, on a best-effort basis: other files in the folder are left alone, and a failure is logged rather than stopping startup. `FilesystemIconFileStore` keeps files in an `icons` folder beside the preference file. Multipart uploads stay in memory because images may have no writable temp folder.
@@ -284,9 +286,9 @@ The production handlers run in this order:
 1. `DisplayNameEnricher` resolves and applies display names using the full source inventory.
 2. `ContainerStateFilter` removes stopped containers unless `includeStopped` is enabled.
 3. `UrlCandidateEnricher` discovers URL candidates through the registered endpoint providers.
-4. `ContainerPreferencesEnricher` attaches the in-memory preference snapshot by `(sourceId, containerName)`, materializes the current custom candidate, and applies `EndpointSelectionResolver` after discovery and before availability filtering.
-5. `EndpointAvailabilityFilter` removes containers with an empty resolved candidate list unless `includeWithoutEndpoints` is enabled. Label-only and custom-only services remain discoverable.
-6. `IconEnricher` assigns each retained container's icon URL: the saved custom icon when there is one, otherwise from the image name using configured mappings and icon settings. It never touches the disk or network. Porthole's own container without a custom icon then gets its logo in `ContainerService`, where `self` is set after the chain.
+4. `IconEnricher` assigns each container's default icon URL from the image name using configured mappings and icon settings.
+5. `ContainerPreferencesEnricher` is the one stage that applies saved preferences. It attaches the in-memory preference snapshot by `(sourceId, containerName)`, materializes the current custom candidate, applies `EndpointSelectionResolver` before availability filtering, and overrides the default icon with `CustomIconResolver` when one is saved. It never touches the disk or network.
+6. `EndpointAvailabilityFilter` removes containers with an empty resolved candidate list unless `includeWithoutEndpoints` is enabled. Label-only and custom-only services remain discoverable.
 7. `VersionEnricher` attaches cached version information to retained containers and queues background checks for eligible cache misses without waiting for resolution.
 
 To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` in its own concern package under `core/enrichment/` and add it to the explicit list in `EnrichmentConfiguration` at the desired position. `PipelineWiringTest` discovers handler implementations independently and verifies that the configured chain includes every handler bean exactly once.
@@ -345,7 +347,7 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 - `core/port/outbound/` — `DockerOperations`, `RegistryOperations`, and `ContainerPreferencesStore`, implemented by outbound integrations.
 - `core/service/` — `ContainerService` coordinates mapping, enrichment, and response assembly. `DockerDiscoveryService` owns concurrent Docker retrieval, per-source deadlines, cancellation, and retrieval failure translation. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `name/`, `endpoint/`, `preferences/`, `endpointavailability/`, `icon/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
-- `core/enrichment/icon/` — `IconEnricher` assigns icons using `IconResolver` and `IconSettings`.
+- `core/enrichment/icon/` — `IconEnricher` assigns default icons using `IconResolver` and `IconSettings`. `ContainerPreferencesEnricher` overrides them with saved choices.
 - `core/enrichment/version/` — `VersionEnricher` attaches cached version results to containers.
 - `core/enrichment/version/refresh/` — `VersionRefreshService` owns background scheduling, refresh coordination, retries, and cache state; `VersionRefreshSettings` supplies its interval.
 - `core/enrichment/version/resolution/` — `VersionResolver` gathers version evidence; installed-version detection, retained observations, release selection, update policy, and numeric comparison live alongside it.

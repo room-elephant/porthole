@@ -23,7 +23,7 @@ public final class FilesystemIconFileStore implements IconFileStore {
     private final Path directory;
 
     public FilesystemIconFileStore(Path directory) {
-        this.directory = directory;
+        this.directory = directory.toAbsolutePath().normalize();
     }
 
     @Override
@@ -50,8 +50,8 @@ public final class FilesystemIconFileStore implements IconFileStore {
         if (!SelectedIcon.UPLOAD_NAME.matcher(name).matches()) {
             return Optional.empty();
         }
-        Path path = directory.resolve(name);
-        if (!Files.isRegularFile(path)) {
+        Path path = directory.resolve(name).normalize();
+        if (!path.startsWith(directory) || !Files.isRegularFile(path)) {
             return Optional.empty();
         }
         try {
@@ -66,8 +66,8 @@ public final class FilesystemIconFileStore implements IconFileStore {
         if (!SelectedIcon.UPLOAD_NAME.matcher(name).matches()) {
             return;
         }
-        Path path = directory.resolve(name);
-        if (!Files.isRegularFile(path)) {
+        Path path = directory.resolve(name).normalize();
+        if (!path.startsWith(directory) || !Files.isRegularFile(path)) {
             return;
         }
         try {

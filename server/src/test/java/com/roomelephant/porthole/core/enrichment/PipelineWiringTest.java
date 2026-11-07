@@ -6,12 +6,14 @@ import static org.mockito.Mockito.*;
 import com.roomelephant.porthole.config.EnrichmentConfiguration;
 import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.icon.*;
+import com.roomelephant.porthole.core.enrichment.preferences.CustomIconResolver;
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
+import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import java.util.List;
@@ -59,7 +61,6 @@ class PipelineWiringTest {
             assertThat(result).extracting(Container::version).containsExactly(version, version);
             assertThat(stopped.urlCandidates()).isEmpty();
             assertThat(stopped.iconUrl()).isEmpty();
-            assertThat(internal.iconUrl()).isEmpty();
             assertThat(stopped.version()).isNull();
             assertThat(internal.version()).isNull();
         }
@@ -67,6 +68,23 @@ class PipelineWiringTest {
 
     private AnnotationConfigApplicationContext context(VersionRefreshService versions) {
         return context(versions, Map.of());
+    }
+
+    @Test
+    void savedIconOverridesTheResolvedDefaultOnlyForItsContainer() {
+        var custom = new ContainerPreferences(null, SelectedIcon.library("coredns"));
+        try (var context = context(
+                mock(VersionRefreshService.class),
+                Map.of(new ContainerPreferencesKey("local", "project-web-1"), custom))) {
+            var chosen = container("project-web-1", "running", Set.of(8080));
+            var other = container("project-api-1", "running", Set.of(8081));
+
+            context.getBean(ContainerEnrichment.class)
+                    .enrich(List.of(chosen, other), new EnrichmentContext("local", "localhost", false, false));
+
+            assertThat(chosen.iconUrl()).isEqualTo("https://icons.example.com/coredns.svg");
+            assertThat(other.iconUrl()).isEqualTo("https://icons.example.com/nginx.svg");
+        }
     }
 
     @Test
@@ -109,9 +127,9 @@ class PipelineWiringTest {
         context.registerBean(
                 EndpointDiscovery.class,
                 () -> new EndpointDiscovery(List.of(new PublishedPortEndpointProvider(new PublishedHostResolver()))));
-        context.registerBean(
-                IconResolver.class,
-                () -> new IconResolver(Map.of(), new IconSettings("https://icons.example.com", ".svg")));
+        var iconSettings = new IconSettings("https://icons.example.com", ".svg");
+        context.registerBean(CustomIconResolver.class, () -> new CustomIconResolver(iconSettings));
+        context.registerBean(IconResolver.class, () -> new IconResolver(Map.of(), iconSettings));
         // Discover implementations independently so a new handler cannot be omitted from both lists.
         var scanner = new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter(new AssignableTypeFilter(ContainerEnricher.class));

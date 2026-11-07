@@ -3,6 +3,7 @@ package com.roomelephant.porthole.core.enrichment.preferences;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
+import com.roomelephant.porthole.core.enrichment.icon.IconSettings;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import java.util.HashMap;
@@ -12,6 +13,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ContainerPreferencesEnricherTest {
+    private static final CustomIconResolver ICONS =
+            new CustomIconResolver(new IconSettings("https://cdn.example.com/icons", ".svg"));
+
     private final EnrichmentContext context = new EnrichmentContext("local", "localhost", false, false);
 
     @Test
@@ -21,7 +25,7 @@ class ContainerPreferencesEnricherTest {
         container.setPreferences(new ContainerPreferences(new SelectedEndpoint("none", "none", null)));
 
         var batch = List.of(container);
-        assertThat(new ContainerPreferencesEnricher(store(Map.of())).enrich(batch, context))
+        assertThat(new ContainerPreferencesEnricher(store(Map.of()), ICONS).enrich(batch, context))
                 .isSameAs(batch);
 
         assertThat(container.preferences().selectedEndpoint()).isNull();
@@ -31,9 +35,11 @@ class ContainerPreferencesEnricherTest {
     void shouldMatchRawSourceAndNameAcrossRecreationWithoutUsingDisplayNames() {
         var custom = new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://app.example.com"));
         var none = new ContainerPreferences(new SelectedEndpoint("none", "none", null));
-        var enricher = new ContainerPreferencesEnricher(store(Map.of(
-                new ContainerPreferencesKey("local", "app"), custom,
-                new ContainerPreferencesKey("remote", "app"), none)));
+        var enricher = new ContainerPreferencesEnricher(
+                store(Map.of(
+                        new ContainerPreferencesKey("local", "app"), custom,
+                        new ContainerPreferencesKey("remote", "app"), none)),
+                ICONS);
         var original = container("old-id", "local", "app", List.of());
         original.setDisplayName("Pretty name");
         var recreated = container("new-id", "local", "app", List.of());
@@ -59,7 +65,7 @@ class ContainerPreferencesEnricherTest {
                 "app",
                 List.of(new Endpoint("traefik:app", "traefik", "https://app.example.com", false)));
 
-        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)))
+        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)), ICONS)
                 .enrich(List.of(container), context);
 
         assertThat(container.preferences()).isEqualTo(saved);
@@ -91,7 +97,7 @@ class ContainerPreferencesEnricherTest {
                 throw new AssertionError("Inventory must not persist preferences");
             }
         };
-        var enricher = new ContainerPreferencesEnricher(store);
+        var enricher = new ContainerPreferencesEnricher(store, ICONS);
         var first = container("first", "local", "app", List.of());
         var second = container("second", "local", "app", List.of());
 
@@ -112,7 +118,7 @@ class ContainerPreferencesEnricherTest {
                 "app",
                 List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", true)));
 
-        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)))
+        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)), ICONS)
                 .enrich(List.of(container), context);
 
         assertThat(container.preferences()).isEqualTo(saved);
@@ -131,7 +137,7 @@ class ContainerPreferencesEnricherTest {
                 "app",
                 List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", true)));
 
-        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)))
+        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)), ICONS)
                 .enrich(List.of(container), context);
 
         assertThat(container.urlCandidates())
@@ -146,7 +152,7 @@ class ContainerPreferencesEnricherTest {
                 "app",
                 List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", false)));
 
-        new ContainerPreferencesEnricher(store(Map.of())).enrich(List.of(container), context);
+        new ContainerPreferencesEnricher(store(Map.of()), ICONS).enrich(List.of(container), context);
 
         assertThat(container.preferences().selectedEndpoint()).isNull();
         assertThat(container.urlCandidates())
@@ -158,7 +164,7 @@ class ContainerPreferencesEnricherTest {
         var snapshot = new HashMap<ContainerPreferencesKey, ContainerPreferences>();
         var key = new ContainerPreferencesKey("local", "app");
         snapshot.put(key, new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://custom.example")));
-        var enricher = new ContainerPreferencesEnricher(store(snapshot));
+        var enricher = new ContainerPreferencesEnricher(store(snapshot), ICONS);
         var discovery = List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", false));
         var container = container("id", "local", "app", discovery);
         enricher.enrich(List.of(container), context);
@@ -171,6 +177,33 @@ class ContainerPreferencesEnricherTest {
         assertThat(container.urlCandidates())
                 .containsExactly(new Endpoint("published-port:80", "published-port", "http://localhost/", true));
         assertThat(container.preferences().selectedEndpoint().url()).isNull();
+    }
+
+    private String iconUrlAfterEnriching(ContainerPreferences preferences) {
+        var container = container("id", "local", "app", List.of());
+        container.setIconUrl("https://cdn.example.com/icons/default.svg");
+        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), preferences)), ICONS)
+                .enrich(List.of(container), new EnrichmentContext("local", null, true, false));
+        return container.iconUrl();
+    }
+
+    @Test
+    void savedLibraryIconOverridesTheDefaultIcon() {
+        assertThat(iconUrlAfterEnriching(new ContainerPreferences(null, SelectedIcon.library("coredns"))))
+                .isEqualTo("https://cdn.example.com/icons/coredns.svg");
+    }
+
+    @Test
+    void savedUploadOverridesTheDefaultIconEvenIfItsFileHasVanished() {
+        String name = "ffffffffffffffffffffffffffffffff.png";
+        assertThat(iconUrlAfterEnriching(new ContainerPreferences(null, SelectedIcon.upload(name))))
+                .isEqualTo("/api/icons/" + name);
+    }
+
+    @Test
+    void noSavedIconKeepsTheDefaultIcon() {
+        assertThat(iconUrlAfterEnriching(new ContainerPreferences(new SelectedEndpoint("none", "none", null))))
+                .isEqualTo("https://cdn.example.com/icons/default.svg");
     }
 
     private ContainerPreferencesStore store(Map<ContainerPreferencesKey, ContainerPreferences> snapshot) {

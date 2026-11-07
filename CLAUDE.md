@@ -76,7 +76,7 @@ Every inventory request fans out across all configured Docker connections concur
 
 ### Enrichment chain
 
-`ContainerService` runs an ordered chain of `ContainerEnricher` beans once per source batch, listed explicitly in `EnrichmentConfiguration` (display name → state filter → URL candidates → endpoint availability filter → icon → version). Order matters: display-name collision detection runs on the full inventory *before* filters, and endpoint discovery runs before the availability filter so label-only services stay discoverable. To add a stage, add a `@Component` in its own concern package under `core/enrichment/` and insert it into that explicit list — `PipelineWiringTest` checks every handler bean appears in the chain exactly once.
+`ContainerService` runs an ordered chain of `ContainerEnricher` beans once per source batch, listed explicitly in `EnrichmentConfiguration` (display name → state filter → URL candidates → icon → preferences → endpoint availability filter → version). Order matters: display-name collision detection runs on the full inventory *before* filters, and endpoint discovery runs before the availability filter so label-only services stay discoverable. Preferences run after the defaults they override, and `ContainerPreferencesEnricher` is the one stage that applies saved preferences. To add a stage, add a `@Component` in its own concern package under `core/enrichment/` and insert it into that explicit list — `PipelineWiringTest` checks every handler bean appears in the chain exactly once.
 
 `EndpointProvider` is a sealed interface; a new provider must be a final `@Component` added to the `permits` clause, and it is then picked up automatically by constructor injection.
 
