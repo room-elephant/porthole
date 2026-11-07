@@ -96,6 +96,15 @@ wait_for_url() {
   done
 }
 
+wait_for_docker_api() {
+  local host="$1" waited=0
+  until docker -H "$host" info >/dev/null 2>&1; do
+    ((waited < READY_TIMEOUT_SECONDS)) || fail "the Docker API at $host wasn't ready after ${READY_TIMEOUT_SECONDS}s."
+    sleep 1
+    waited=$((waited + 1))
+  done
+}
+
 docker info >/dev/null 2>&1 || fail "Docker isn't running. Start it and run make lab again."
 
 # Checked before the cleanup below, so a second make lab can't take down one that's already running.
@@ -109,6 +118,8 @@ log "Starting the fake Docker hosts..."
 daemons down --timeout 5 >/dev/null 2>&1 || true
 require_free 23751 23752 23759 18100-18119
 daemons up -d --wait
+wait_for_docker_api "tcp://127.0.0.1:23751"
+wait_for_docker_api "tcp://127.0.0.1:23752"
 
 log "Creating the fake containers (the first run downloads images)..."
 remove_containers # Leftovers from a run that didn't get to clean up.

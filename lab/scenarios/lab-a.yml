@@ -1,6 +1,6 @@
 # Container states and health, running inside the lab-a daemon.
 # Fixed container names keep saved preferences working when containers are recreated.
-name: lab-a
+name: stack-a
 
 x-web: &web
   image: nginx:1.29-alpine
