@@ -143,6 +143,23 @@ class EventStreamsTest {
     }
 
     @Test
+    void startingTwiceSubscribesOnce() {
+        streams.start();
+
+        assertThat(streams.isRunning()).isTrue();
+        subscriber();
+        heartbeat();
+    }
+
+    @Test
+    void stoppingTwiceIsHarmless() {
+        streams.stop();
+        streams.stop();
+
+        verify(unsubscribe).run();
+    }
+
+    @Test
     void refusesWhileStopped() {
         streams.stop();
 
