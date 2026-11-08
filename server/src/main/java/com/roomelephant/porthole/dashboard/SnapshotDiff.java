@@ -19,9 +19,11 @@ final class SnapshotDiff {
 
     static String describe(@Nullable SourceSnapshot before, SourceSnapshot after) {
         String source = after.source().id();
-        if (before == null)
-            return source + " " + after.status() + ": first listing, "
-                    + after.containers().size() + " containers";
+        if (before == null) {
+            return after.status() == SourceSnapshot.Status.UP
+                    ? source + " UP: first listing, " + after.containers().size() + " containers"
+                    : source + " " + after.status() + " (" + after.error() + ")";
+        }
         if (before.status() != after.status()) {
             String reason = after.error() == null ? "" : " (" + after.error() + ")";
             return source + ": " + before.status() + " → " + after.status() + reason;

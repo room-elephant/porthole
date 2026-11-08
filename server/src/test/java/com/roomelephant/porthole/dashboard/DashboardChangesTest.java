@@ -173,7 +173,7 @@ class DashboardChangesTest {
 
         assertThat(logLines())
                 .containsExactly(
-                        "Dashboard revision " + (START + 1) + ": walker DOWN: first listing, 0 containers",
+                        "Dashboard revision " + (START + 1) + ": walker DOWN (Waiting for first check)",
                         "Dashboard revision " + (START + 2) + ": entry container:lab-a:app saved: "
                                 + new EntryRecord(APP, "App", null, null, null),
                         "Dashboard revision " + (START + 3) + ": entry container:lab-a:app deleted",

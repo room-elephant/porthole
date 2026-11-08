@@ -31,6 +31,14 @@ class SnapshotDiffTest {
     }
 
     @Test
+    void describesAFailedFirstListingByItsError() {
+        SourceSnapshot down = SourceSnapshot.initial(LAB)
+                .failed(SourceSnapshot.Status.DOWN, "Docker is not reachable", T, Duration.ofHours(24));
+
+        assertThat(SnapshotDiff.describe(null, down)).isEqualTo("lab-a DOWN (Docker is not reachable)");
+    }
+
+    @Test
     void describesStateAndStatusChanges() {
         SourceSnapshot before =
                 up(container("restarting", "running", "Up 1 second"), container("web", "running", "Up"));
