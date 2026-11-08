@@ -370,10 +370,22 @@ class ContainerControllerTest {
                 .andExpect(jsonPath("$.containers[0].hasEndpoints").value(true));
     }
 
+    @Test
+    void sourcesIncludeLastSuccessAt() throws Exception {
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
+                .thenReturn(inventory(List.of()));
+        mockMvc.perform(get("/api/containers"))
+                .andExpect(jsonPath("$.sources[0].lastSuccessAt").value("2026-11-08T10:00:00Z"));
+    }
+
     private com.roomelephant.porthole.core.model.ContainerInventory inventory(List<Container> containers) {
         return new com.roomelephant.porthole.core.model.ContainerInventory(
                 List.of(new com.roomelephant.porthole.core.model.SourceState(
-                        "local", "Local", com.roomelephant.porthole.core.model.SourceStatus.UP, null)),
+                        "local",
+                        "Local",
+                        com.roomelephant.porthole.core.model.SourceStatus.UP,
+                        null,
+                        java.time.Instant.parse("2026-11-08T10:00:00Z"))),
                 containers);
     }
 

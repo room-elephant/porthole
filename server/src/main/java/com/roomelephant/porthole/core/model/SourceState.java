@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.core.model;
 
+import java.time.Instant;
 import org.jspecify.annotations.*;
 
 @NullMarked
@@ -7,4 +8,5 @@ public record SourceState(
         String id,
         String name,
         SourceStatus status,
-        @Nullable String error) {}
+        @Nullable String error,
+        @Nullable Instant lastSuccessAt) {}

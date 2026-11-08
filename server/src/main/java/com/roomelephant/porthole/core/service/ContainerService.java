@@ -18,17 +18,13 @@ public class ContainerService implements GetContainers {
 
     private static final String SELF_ICON = "porthole-mark.svg";
 
-    private final DockerDiscoveryService discovery;
+    private final Fleet fleet;
     private final ContainerMapper mapper;
     private final ContainerEnrichment enrichment;
     private final SelfContainer self;
 
-    public ContainerService(
-            DockerDiscoveryService discovery,
-            ContainerMapper mapper,
-            ContainerEnrichment enrichment,
-            SelfContainer self) {
-        this.discovery = discovery;
+    public ContainerService(Fleet fleet, ContainerMapper mapper, ContainerEnrichment enrichment, SelfContainer self) {
+        this.fleet = fleet;
         this.mapper = mapper;
         this.enrichment = enrichment;
         this.self = self;
@@ -36,30 +32,43 @@ public class ContainerService implements GetContainers {
 
     @Override
     public ContainerInventory getContainers(ContainerQuery query) {
-        List<Result> results = discovery.discover().stream()
-                .map(result -> present(result, query))
-                .toList();
+        List<Result> results =
+                fleet.snapshots().stream().map(result -> present(result, query)).toList();
         return new ContainerInventory(
                 results.stream().map(Result::source).toList(),
                 results.stream().flatMap(r -> r.containers().stream()).toList());
     }
 
-    private Result present(DockerDiscoveryResult result, ContainerQuery query) {
-        if (result.state().status() != SourceStatus.UP) return new Result(result.state(), List.of());
-        Source source = result.source();
+    private Result present(SourceSnapshot snapshot, ContainerQuery query) {
+        Source source = snapshot.source();
+        if (snapshot.containers().isEmpty()) return new Result(state(snapshot), List.of());
         try {
-            List<Container> mapped = mapper.toModels(result.containers(), source.id());
+            List<Container> mapped = mapper.toModels(snapshot.containers(), source.id());
             EnrichmentContext context = new EnrichmentContext(
                     source.id(), source.publishedHost(), query.includeWithoutEndpoints(), query.includeStopped());
             List<Container> containers = enrichment.enrich(mapped, context);
             containers.forEach(c -> markSelf(c, source.local()));
-            return new Result(result.state(), containers);
+            return new Result(state(snapshot), containers);
         } catch (RuntimeException e) {
             log.warn("Could not prepare containers from Docker source {}", source.id(), e);
             return new Result(
-                    new SourceState(source.id(), source.name(), SourceStatus.ERROR, "Could not retrieve containers"),
+                    new SourceState(
+                            source.id(),
+                            source.name(),
+                            SourceStatus.ERROR,
+                            "Could not retrieve containers",
+                            snapshot.lastSuccessAt()),
                     List.of());
         }
+    }
+
+    private static SourceState state(SourceSnapshot snapshot) {
+        return new SourceState(
+                snapshot.source().id(),
+                snapshot.source().name(),
+                SourceStatus.valueOf(snapshot.status().name()),
+                snapshot.error(),
+                snapshot.lastSuccessAt());
     }
 
     private void markSelf(Container container, boolean local) {
