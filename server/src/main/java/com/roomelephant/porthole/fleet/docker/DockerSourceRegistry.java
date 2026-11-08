@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.fleet.docker;
 
+import com.github.dockerjava.api.DockerClient;
 import java.io.IOException;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
@@ -23,13 +24,18 @@ public record DockerSourceRegistry(List<DockerConnection> sources) implements Au
     @Override
     public void close() throws IOException {
         IOException failure = null;
-        for (DockerConnection source : sources)
-            try {
-                source.client().close();
-            } catch (IOException e) {
-                if (failure == null) failure = e;
-                else failure.addSuppressed(e);
-            }
+        for (DockerConnection source : sources) {
+            List<DockerClient> clients = source.events() == source.client()
+                    ? List.of(source.client())
+                    : List.of(source.client(), source.events());
+            for (DockerClient client : clients)
+                try {
+                    client.close();
+                } catch (IOException e) {
+                    if (failure == null) failure = e;
+                    else failure.addSuppressed(e);
+                }
+        }
         if (failure != null) throw failure;
     }
 }

@@ -66,7 +66,7 @@ public final class DockerJavaOperations implements DockerOperations {
     public AutoCloseable watchContainerEvents(String sourceId, ContainerEventListener listener) {
         try {
             return sources.require(sourceId)
-                    .client()
+                    .events()
                     .eventsCmd()
                     .withEventTypeFilter(EventType.CONTAINER)
                     .exec(new ResultCallback.Adapter<Event>() {
