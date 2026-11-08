@@ -38,7 +38,10 @@ class VersionTrackerTest {
                 catalog,
                 resolver,
                 new VersionProperties(INTERVAL),
-                List.of(() -> notifications++),
+                List.of(change -> {
+                    notifications++;
+                    changes.add(change);
+                }),
                 clock,
                 workers,
                 scheduler,
@@ -46,6 +49,7 @@ class VersionTrackerTest {
     }
 
     private int notifications;
+    private final List<VersionChange> changes = new ArrayList<>();
 
     private static Source source(String id) {
         return new Source(id, id, null, true, Duration.ofSeconds(1));
@@ -254,6 +258,7 @@ class VersionTrackerTest {
         service.onSnapshot(up("local", "a"));
         workers.runAll();
         assertThat(notifications).isEqualTo(1);
+        assertThat(changes).containsExactly(new VersionChange.Result(A, null, old));
 
         clock.advance(INTERVAL);
         service.rescan("local", false);
@@ -264,6 +269,7 @@ class VersionTrackerTest {
         service.rescan("local", false);
         workers.runAll();
         assertThat(notifications).isEqualTo(2);
+        assertThat(changes).last().isEqualTo(new VersionChange.Result(A, old, fresh));
     }
 
     @Test
@@ -284,6 +290,10 @@ class VersionTrackerTest {
 
         assertThat(service.checks()).isEqualTo(new VersionChecks(false, clock.instant()));
         assertThat(notifications).isEqualTo(2);
+        assertThat(changes)
+                .endsWith(
+                        new VersionChange.Run(new VersionChecks(true, null)),
+                        new VersionChange.Run(new VersionChecks(false, clock.instant())));
     }
 
     @Test

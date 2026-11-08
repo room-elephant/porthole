@@ -1,13 +1,18 @@
 package com.roomelephant.porthole.dashboard;
 
 import com.roomelephant.porthole.entries.EntryListener;
+import com.roomelephant.porthole.entries.EntryRecord;
+import com.roomelephant.porthole.entries.EntryRef;
 import com.roomelephant.porthole.fleet.SnapshotListener;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
+import com.roomelephant.porthole.versions.VersionChange;
 import com.roomelephant.porthole.versions.VersionListener;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -16,7 +21,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongConsumer;
+import java.util.function.Supplier;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +45,8 @@ public final class DashboardChanges implements SnapshotListener, EntryListener, 
     private final Duration coalesce;
     private final List<LongConsumer> subscribers = new CopyOnWriteArrayList<>();
     private final AtomicBoolean pending = new AtomicBoolean();
+    // The last snapshot heard from each source, to describe what the next one changed.
+    private final Map<String, SourceSnapshot> lastSnapshots = new ConcurrentHashMap<>();
 
     @Autowired
     public DashboardChanges() {
@@ -66,21 +75,32 @@ public final class DashboardChanges implements SnapshotListener, EntryListener, 
 
     @Override
     public void onSnapshot(SourceSnapshot snapshot) {
-        changed();
+        SourceSnapshot previous = lastSnapshots.put(snapshot.source().id(), snapshot);
+        changed(() -> SnapshotDiff.describe(previous, snapshot));
     }
 
     @Override
-    public void onEntriesChanged() {
-        changed();
+    public void onEntriesChanged(EntryRef ref, @Nullable EntryRecord saved) {
+        changed(() -> saved == null ? "entry " + ref.id() + " deleted" : "entry " + ref.id() + " saved: " + saved);
     }
 
     @Override
-    public void onVersionsChanged() {
-        changed();
+    public void onVersionsChanged(VersionChange change) {
+        changed(() -> switch (change) {
+            case VersionChange.Result result ->
+                "version of " + result.key().sourceId() + "/" + result.key().containerId() + ": " + result.previous()
+                        + " → " + result.current();
+            case VersionChange.Run run ->
+                run.checks().running()
+                        ? "version check started"
+                        : "version check finished at " + run.checks().lastCompletedAt();
+        });
     }
 
-    private void changed() {
-        revision.incrementAndGet();
+    /** Bumps the revision; at DEBUG, logs the new revision with what caused it. */
+    private void changed(Supplier<String> cause) {
+        long current = revision.incrementAndGet();
+        if (log.isDebugEnabled()) log.debug("Dashboard revision {}: {}", current, cause.get());
         if (!pending.compareAndSet(false, true)) return;
         try {
             scheduler.schedule(this::deliver, coalesce.toNanos(), TimeUnit.NANOSECONDS);

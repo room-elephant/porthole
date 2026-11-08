@@ -143,7 +143,7 @@ public class VersionTracker implements SnapshotListener, AutoCloseable {
      * one is running.
      */
     public void startCheck() {
-        if (beginCheck()) notifyListeners();
+        if (beginCheck()) notifyListeners(new VersionChange.Run(checks()));
     }
 
     private synchronized boolean beginCheck() {
@@ -177,13 +177,13 @@ public class VersionTracker implements SnapshotListener, AutoCloseable {
             completed = forcedScans.remove(sourceId) && forcedScans.isEmpty() && !closed;
             if (completed) lastCompletedAt = clock.instant();
         }
-        if (completed) notifyListeners();
+        if (completed) notifyListeners(new VersionChange.Run(checks()));
     }
 
-    private void notifyListeners() {
+    private void notifyListeners(VersionChange change) {
         for (VersionListener listener : listeners) {
             try {
-                listener.onVersionsChanged();
+                listener.onVersionsChanged(change);
             } catch (RuntimeException e) {
                 log.warn("Version listener failed", e);
             }
@@ -231,15 +231,15 @@ public class VersionTracker implements SnapshotListener, AutoCloseable {
             }
             VersionObservation result = versionResolver.resolve(key, previous);
             VersionInfo value = result.toVersionInfo();
-            boolean changed = false;
+            @Nullable VersionChange change = null;
             synchronized (this) {
                 if (!closed && entries.get(key) == entry) {
-                    changed = !value.equals(entry.value);
+                    if (!value.equals(entry.value)) change = new VersionChange.Result(key, entry.value, value);
                     entry.observation = result;
                     entry.value = value;
                 }
             }
-            if (changed) notifyListeners();
+            if (change != null) notifyListeners(change);
         } catch (ContainerNotFoundException _) {
             synchronized (this) {
                 entries.remove(key, entry);

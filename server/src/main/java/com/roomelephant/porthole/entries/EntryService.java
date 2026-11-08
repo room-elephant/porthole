@@ -48,7 +48,7 @@ public class EntryService {
                 url == null ? null : new EndpointChoice.Custom(url.trim()),
                 draft.stack());
         if (state.linkCount() >= MAX_LINKS) throw new LinkLimitReachedException(MAX_LINKS);
-        commit(state.with(record));
+        commit(state.with(record), ref, record);
         return ref;
     }
 
@@ -69,7 +69,7 @@ public class EntryService {
                         : apply(patch.icon(), current.icon()),
                 apply(patch.endpoint(), current.endpoint()),
                 apply(patch.stack(), current.stack()));
-        commit(state.with(updated));
+        commit(state.with(updated), ref, updated);
     }
 
     /**
@@ -80,7 +80,7 @@ public class EntryService {
         EntryRef ref = EntryRef.parse(id);
         if (ref instanceof ContainerRef) throw new EntryNotDeletableException();
         if (state.find(ref).isEmpty()) throw new EntryNotFoundException(id);
-        commit(state.without(ref));
+        commit(state.without(ref), ref, null);
     }
 
     private EntryRecord current(EntryRef ref, String id) {
@@ -108,12 +108,12 @@ public class EntryService {
         return icon;
     }
 
-    private void commit(EntryState next) {
+    private void commit(EntryState next, EntryRef ref, @Nullable EntryRecord saved) {
         store.save(next);
         state = next;
         for (EntryListener listener : listeners) {
             try {
-                listener.onEntriesChanged();
+                listener.onEntriesChanged(ref, saved);
             } catch (RuntimeException e) {
                 log.warn("Entry listener failed", e);
             }
