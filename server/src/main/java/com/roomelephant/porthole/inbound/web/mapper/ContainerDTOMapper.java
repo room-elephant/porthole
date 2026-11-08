@@ -1,12 +1,9 @@
 package com.roomelephant.porthole.inbound.web.mapper;
 
 import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
 import com.roomelephant.porthole.inbound.web.dto.EndpointDTO;
-import com.roomelephant.porthole.inbound.web.dto.SelectedEndpointDTO;
 import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -40,9 +37,5 @@ public class ContainerDTOMapper {
                 container.version(),
                 container.isSelf(),
                 container.hasWebUi());
-    }
-
-    public @Nullable SelectedEndpoint toModel(@Nullable SelectedEndpointDTO selection) {
-        return selection == null ? null : new SelectedEndpoint(selection.id(), selection.source(), selection.url());
     }
 }

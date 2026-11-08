@@ -74,4 +74,15 @@ class IconSweeperTest {
         sweeper.close();
         sweeper.start();
     }
+
+    @Test
+    void startAfterCloseDoesNothing() {
+        IconService icons = mock(IconService.class);
+        IconSweeper sweeper = new IconSweeper(mock(EntryService.class), icons, PROPERTIES, clock);
+
+        sweeper.close();
+        sweeper.start();
+
+        org.mockito.Mockito.verifyNoInteractions(icons);
+    }
 }

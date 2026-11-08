@@ -18,11 +18,12 @@ import com.roomelephant.porthole.core.enrichment.icon.IconResolver;
 import com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher;
 import com.roomelephant.porthole.core.enrichment.state.ContainerStateFilter;
 import com.roomelephant.porthole.core.mapping.ContainerMapper;
-import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerQuery;
 import com.roomelephant.porthole.core.model.Endpoint;
-import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.SelfContainer;
+import com.roomelephant.porthole.entries.EntryRecord;
+import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
+import com.roomelephant.porthole.entries.Icon;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -310,7 +311,8 @@ class ContainerServiceTest {
         when(self.getId()).thenReturn("abcdef123456" + "0".repeat(52));
         when(listContainersCmd.exec()).thenReturn(List.of(self));
         ContainerEnricher custom = (containers, context) -> {
-            containers.forEach(c -> c.setPreferences(new ContainerPreferences(null, SelectedIcon.library("coredns"))));
+            containers.forEach(c -> c.setEntry(new EntryRecord(
+                    new ContainerRef(c.sourceId(), c.name()), null, new Icon.Library("coredns"), null, null)));
             return containers;
         };
 

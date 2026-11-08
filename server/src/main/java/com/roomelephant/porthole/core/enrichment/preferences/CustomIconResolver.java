@@ -1,7 +1,7 @@
 package com.roomelephant.porthole.core.enrichment.preferences;
 
 import com.roomelephant.porthole.core.enrichment.icon.IconSettings;
-import com.roomelephant.porthole.core.model.SelectedIcon;
+import com.roomelephant.porthole.entries.Icon;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
 
@@ -17,9 +17,10 @@ public class CustomIconResolver {
         this.settings = settings;
     }
 
-    public String resolve(SelectedIcon icon) {
-        return icon.selectsUpload()
-                ? UPLOADED_ICON_PATH + icon.name()
-                : settings.url() + "/" + icon.name() + settings.extension();
+    public String resolve(Icon icon) {
+        return switch (icon) {
+            case Icon.Upload upload -> UPLOADED_ICON_PATH + upload.id();
+            case Icon.Library library -> settings.url() + "/" + library.name() + settings.extension();
+        };
     }
 }

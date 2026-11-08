@@ -71,6 +71,18 @@ class EntryControllerTest {
     }
 
     @Test
+    void createWithNullIconPassesNull() throws Exception {
+        when(entries.createLink(any())).thenReturn(ROUTER);
+
+        mockMvc.perform(post("/api/entries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Router\",\"url\":\"http://192.168.50.1/\",\"icon\":null}"))
+                .andExpect(status().isCreated());
+
+        verify(entries).createLink(new LinkDraft("Router", "http://192.168.50.1/", null, null));
+    }
+
+    @Test
     void createInvalidIs400ProblemJson() throws Exception {
         when(entries.createLink(any())).thenThrow(new IllegalArgumentException("A link needs a name"));
 

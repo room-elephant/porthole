@@ -74,7 +74,7 @@ public class ContainerService implements GetContainers {
     private void markSelf(Container container, boolean local) {
         boolean matches = self.matches(container.id(), local);
         container.setSelf(matches);
-        if (matches && container.preferences().icon() == null) {
+        if (matches && (container.entry() == null || container.entry().icon() == null)) {
             container.setIconUrl(SELF_ICON);
         }
     }

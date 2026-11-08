@@ -3,6 +3,9 @@ package com.roomelephant.porthole.core.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.roomelephant.porthole.entries.EndpointChoice;
+import com.roomelephant.porthole.entries.EntryRecord;
+import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +16,7 @@ class ContainerTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.MethodSource("resolvedAvailability")
     void shouldDeriveWebUiFromCurrentCandidatesAndInternalNoneChoice(
-            List<Endpoint> endpoints, SelectedEndpoint selection, boolean expected) {
+            List<Endpoint> endpoints, EndpointChoice selection, boolean expected) {
         var container = new Container(
                 "id",
                 "local",
@@ -22,7 +25,10 @@ class ContainerTest {
                 "app:latest",
                 new Container.Details(Set.of(), Map.of(), null, "exited", "Exited"),
                 endpoints);
-        container.setPreferences(new ContainerPreferences(selection));
+        container.setEntry(
+                selection == null
+                        ? null
+                        : new EntryRecord(new ContainerRef("local", "app"), null, null, selection, null));
         assertThat(container.hasWebUi()).isEqualTo(expected);
         container.setUrlCandidates(List.of());
         assertThat(container.hasWebUi()).isFalse();
@@ -36,15 +42,14 @@ class ContainerTest {
                 org.junit.jupiter.params.provider.Arguments.of(List.of(), null, false),
                 org.junit.jupiter.params.provider.Arguments.of(List.of(port), null, true),
                 org.junit.jupiter.params.provider.Arguments.of(
-                        List.of(root), new SelectedEndpoint("missing", "traefik", null), true),
+                        List.of(root), new EndpointChoice.Discovered("missing"), true),
                 org.junit.jupiter.params.provider.Arguments.of(
                         List.of(root, new Endpoint("other", "traefik", "https://other/", false)), null, true),
                 org.junit.jupiter.params.provider.Arguments.of(
-                        List.of(custom), new SelectedEndpoint("custom", "custom", "https://custom/"), true),
+                        List.of(custom), new EndpointChoice.Custom("https://custom/"), true),
+                org.junit.jupiter.params.provider.Arguments.of(List.of(root), EndpointChoice.NONE, false),
                 org.junit.jupiter.params.provider.Arguments.of(
-                        List.of(root), new SelectedEndpoint("none", "none", null), false),
-                org.junit.jupiter.params.provider.Arguments.of(
-                        List.of(), new SelectedEndpoint("custom", "custom", "https://stale/"), false));
+                        List.of(), new EndpointChoice.Custom("https://stale/"), false));
     }
 
     @Test
