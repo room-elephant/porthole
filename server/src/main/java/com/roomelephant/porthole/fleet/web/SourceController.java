@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,8 +21,9 @@ public class SourceController {
         this.fleet = fleet;
     }
 
-    @GetMapping
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
+            operationId = "listSources",
             summary = "List Docker sources",
             description = "Returns every configured source in configuration order with its latest status, "
                     + "read from memory without contacting Docker. Always returns 200, even when every source is "
