@@ -231,6 +231,35 @@ class SourceMonitorTest {
     }
 
     @Test
+    void closingWhileASubscriptionOpensClosesIt() throws Exception {
+        AutoCloseable subscription = mock(AutoCloseable.class);
+        docker.watcher = (_, _) -> {
+            monitor.close();
+            return subscription;
+        };
+        start(settings(HOUR, Duration.ofMillis(10)));
+
+        await().atMost(Duration.ofSeconds(1))
+                .untilAsserted(() -> verify(subscription).close());
+    }
+
+    @Test
+    void aStreamEndingWhileItOpensIsClosedAndReplaced() throws Exception {
+        AutoCloseable first = mock(AutoCloseable.class);
+        AutoCloseable second = mock(AutoCloseable.class);
+        docker.watcher = (_, listener) -> {
+            if (docker.watchAttempts.size() > 1) return second;
+            listener.onClosed(new IllegalStateException("ended at once"));
+            return first;
+        };
+        start(settings(HOUR, Duration.ofMillis(10)));
+
+        await().atMost(Duration.ofSeconds(1)).until(() -> docker.watchAttempts.size() == 2);
+        await().atMost(Duration.ofSeconds(1)).untilAsserted(() -> verify(first).close());
+        verify(second, never()).close();
+    }
+
+    @Test
     void longLivedSubscriptionResetsBackoff() {
         MutableClock clock = new MutableClock(Instant.parse("2026-11-08T10:00:00Z"));
         docker.watcher = (_, _) -> {
