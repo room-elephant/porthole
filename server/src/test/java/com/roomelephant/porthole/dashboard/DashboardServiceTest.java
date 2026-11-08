@@ -4,10 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.core.model.SelfContainer;
-import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.endpoints.EndpointDiscovery;
 import com.roomelephant.porthole.entries.EntryRecord;
 import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
@@ -18,6 +15,9 @@ import com.roomelephant.porthole.fleet.ContainerSnapshot;
 import com.roomelephant.porthole.fleet.Fleet;
 import com.roomelephant.porthole.fleet.Source;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
+import com.roomelephant.porthole.versions.VersionChecks;
+import com.roomelephant.porthole.versions.VersionInfo;
+import com.roomelephant.porthole.versions.VersionTracker;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -32,7 +32,7 @@ class DashboardServiceTest {
     void combinesFleetEntriesAndVersions() {
         Fleet fleet = mock(Fleet.class);
         EntryService entries = mock(EntryService.class);
-        VersionRefreshService versions = mock(VersionRefreshService.class);
+        VersionTracker versions = mock(VersionTracker.class);
         ContainerSnapshot app =
                 new ContainerSnapshot("app-id", "app", "nginx", "img", Set.of(), Map.of(), "running", "Up");
         when(fleet.snapshots())

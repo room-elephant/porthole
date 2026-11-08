@@ -95,23 +95,6 @@ class ArchitectureTest {
                     resideOutsideOfPackage("com.roomelephant.porthole..").or(resideInAPackage(ROOT + "shared..")));
 
     @ArchTest
-    static final ArchRule portsAreInterfaces =
-            classes().that().resideInAPackage(ROOT + "core.port..").should().beInterfaces();
-
-    @ArchTest
-    static final ArchRule portsDependOnlyOnCoreModelsJdkAndNullabilityAnnotations = classes()
-            .that()
-            .resideInAPackage(ROOT + "core.port..")
-            .should()
-            .onlyDependOnClassesThat()
-            .resideInAnyPackage(
-                    ROOT + "core.port..",
-                    ROOT + "core.model..",
-                    ROOT + "shared..",
-                    "java..",
-                    "org.jspecify.annotations..");
-
-    @ArchTest
     static final ArchRule entriesDependsOnlyOnFleetAndShared = classes()
             .that()
             .resideInAPackage(ROOT + "entries..")
@@ -171,9 +154,9 @@ class ArchitectureTest {
                             ROOT + "endpoints",
                             ROOT + "entries",
                             ROOT + "shared..",
-                            // Versions still live in core until they move into their own slice.
-                            ROOT + "core.model",
-                            ROOT + "core.enrichment.version.refresh")));
+                            ROOT + "versions",
+                            // SelfContainer moves into fleet in the next step.
+                            ROOT + "core.model")));
 
     @ArchTest
     static final ArchRule nothingDependsOnDashboard = noClasses()

@@ -1,9 +1,9 @@
 package com.roomelephant.porthole.dashboard;
 
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionListener;
 import com.roomelephant.porthole.entries.EntryListener;
 import com.roomelephant.porthole.fleet.SnapshotListener;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
+import com.roomelephant.porthole.versions.VersionListener;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Duration;

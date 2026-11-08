@@ -1,7 +1,6 @@
 package com.roomelephant.porthole.config;
 
 import com.roomelephant.porthole.config.properties.*;
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings;
 import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.outbound.runtime.SelfContainerResolver;
 import java.nio.file.Path;
@@ -22,11 +21,5 @@ public class CoreConfig {
                 .resolve(p.selfContainerId());
         log.info("Resolved own container ID: {}", self.id() == null ? "none" : self.id());
         return self;
-    }
-
-    @Bean
-    @NonNull
-    VersionRefreshSettings versionRefreshSettings(@NonNull VersionProperties p) {
-        return new VersionRefreshSettings(p.refreshInterval());
     }
 }

@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
+import com.roomelephant.porthole.versions.VersionTracker;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -21,7 +21,7 @@ class VersionCheckControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private VersionRefreshService versions;
+    private VersionTracker versions;
 
     @Test
     void startsAVersionCheck() throws Exception {

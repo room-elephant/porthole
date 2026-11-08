@@ -1,12 +1,12 @@
 package com.roomelephant.porthole.dashboard.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.dashboard.ContainerFacts;
 import com.roomelephant.porthole.dashboard.DashboardEntry;
 import com.roomelephant.porthole.dashboard.ResolvedEndpoint;
 import com.roomelephant.porthole.entries.EntryRef;
 import com.roomelephant.porthole.entries.Icon;
+import com.roomelephant.porthole.versions.VersionInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;

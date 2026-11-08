@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
 import com.roomelephant.porthole.dashboard.Dashboard;
 import com.roomelephant.porthole.dashboard.DashboardEntry;
 import com.roomelephant.porthole.dashboard.DashboardService;
@@ -15,6 +14,7 @@ import com.roomelephant.porthole.dashboard.IconSource;
 import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
 import com.roomelephant.porthole.fleet.Source;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
+import com.roomelephant.porthole.versions.VersionChecks;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
