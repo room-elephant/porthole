@@ -43,11 +43,19 @@ public record SourceSnapshot(
         return new SourceSnapshot(source, failure, message, lastSuccessAt, retained ? containers : List.of());
     }
 
-    /** Equal apart from {@code lastSuccessAt}, which changes on every successful poll. */
+    /**
+     * Equal apart from {@code lastSuccessAt}, which changes on every successful poll, and the elapsed times in Docker's
+     * status text ("Up 3 minutes", "Exited (0) 2 hours ago"), which change on nearly every listing.
+     */
     public boolean sameContent(SourceSnapshot other) {
         return source.equals(other.source)
                 && status == other.status
                 && Objects.equals(error, other.error)
-                && containers.equals(other.containers);
+                && containers.stream()
+                        .map(ContainerSnapshot::withoutElapsedTime)
+                        .toList()
+                        .equals(other.containers.stream()
+                                .map(ContainerSnapshot::withoutElapsedTime)
+                                .toList());
     }
 }
