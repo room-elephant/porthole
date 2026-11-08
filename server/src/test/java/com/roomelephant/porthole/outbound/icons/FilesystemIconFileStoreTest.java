@@ -3,8 +3,8 @@ package com.roomelephant.porthole.outbound.icons;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.roomelephant.porthole.core.model.IconImageType;
 import com.roomelephant.porthole.core.model.SelectedIcon;
+import com.roomelephant.porthole.entries.IconImageType;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;

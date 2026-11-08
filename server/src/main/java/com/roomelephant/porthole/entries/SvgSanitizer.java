@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.service;
+package com.roomelephant.porthole.entries;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -21,7 +21,7 @@ import org.jspecify.annotations.NullMarked;
  * <p>DTD support is off, so entities are never loaded or expanded. The JDK parser's limits reject extreme nesting.
  */
 @NullMarked
-final class SvgSanitizer {
+public final class SvgSanitizer {
     private static final String SVG_NAMESPACE = "http://www.w3.org/2000/svg";
     private static final String XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
     private static final String ROOT = "svg";
@@ -193,7 +193,7 @@ final class SvgSanitizer {
     private SvgSanitizer() {}
 
     /** Returns the cleaned SVG, or empty if the input is not a well-formed SVG with something left to draw. */
-    static Optional<byte[]> sanitize(byte[] bytes) {
+    public static Optional<byte[]> sanitize(byte[] bytes) {
         ByteArrayOutputStream output = new ByteArrayOutputStream(bytes.length);
         try {
             XMLStreamReader reader = newInputFactory().createXMLStreamReader(new ByteArrayInputStream(bytes));

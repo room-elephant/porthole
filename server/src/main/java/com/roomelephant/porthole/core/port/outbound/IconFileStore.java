@@ -1,6 +1,6 @@
 package com.roomelephant.porthole.core.port.outbound;
 
-import com.roomelephant.porthole.core.model.IconImageType;
+import com.roomelephant.porthole.entries.IconImageType;
 import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.NullMarked;

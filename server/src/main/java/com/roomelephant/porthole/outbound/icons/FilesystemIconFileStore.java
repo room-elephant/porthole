@@ -1,8 +1,8 @@
 package com.roomelephant.porthole.outbound.icons;
 
-import com.roomelephant.porthole.core.model.IconImageType;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.IconFileStore;
+import com.roomelephant.porthole.entries.IconImageType;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;

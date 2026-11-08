@@ -5,9 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.ExternalLink;
-import com.roomelephant.porthole.core.model.IconImageType;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.exception.IconLimitReachedException;
+import com.roomelephant.porthole.entries.IconImageType;
 import com.roomelephant.porthole.outbound.icons.FilesystemIconFileStore;
 import com.roomelephant.porthole.outbound.links.JsonExternalLinkStore;
 import com.roomelephant.porthole.outbound.preferences.JsonContainerPreferencesStore;

@@ -52,7 +52,9 @@ class ArchitectureTest {
                             ROOT + "core.model..",
                             ROOT + "core.port.outbound..",
                             ROOT + "config.properties..",
-                            ROOT + "shared..")));
+                            ROOT + "shared..",
+                            // Legacy icon adapters use the entries image types until phase 2 deletes them.
+                            ROOT + "entries")));
 
     @ArchTest
     static final ArchRule fleetDependsOnNoOtherProductionPackage = classes()
@@ -104,5 +106,10 @@ class ArchitectureTest {
             .resideInAPackage(ROOT + "core.port..")
             .should()
             .onlyDependOnClassesThat()
-            .resideInAnyPackage(ROOT + "core.port..", ROOT + "core.model..", "java..", "org.jspecify.annotations..");
+            .resideInAnyPackage(
+                    ROOT + "core.port..",
+                    ROOT + "core.model..",
+                    ROOT + "entries",
+                    "java..",
+                    "org.jspecify.annotations..");
 }

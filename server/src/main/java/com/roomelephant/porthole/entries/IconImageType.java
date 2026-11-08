@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.model;
+package com.roomelephant.porthole.entries;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

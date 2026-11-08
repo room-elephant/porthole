@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.service;
+package com.roomelephant.porthole.entries;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

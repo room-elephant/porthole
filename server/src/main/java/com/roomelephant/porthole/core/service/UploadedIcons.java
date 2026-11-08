@@ -2,7 +2,6 @@ package com.roomelephant.porthole.core.service;
 
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ExternalLink;
-import com.roomelephant.porthole.core.model.IconImageType;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.UploadedIcon;
 import com.roomelephant.porthole.core.model.exception.IconLimitReachedException;
@@ -10,6 +9,8 @@ import com.roomelephant.porthole.core.port.inbound.ReadUploadedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import com.roomelephant.porthole.core.port.outbound.ExternalLinkStore;
 import com.roomelephant.porthole.core.port.outbound.IconFileStore;
+import com.roomelephant.porthole.entries.IconImageType;
+import com.roomelephant.porthole.entries.SvgSanitizer;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;

@@ -13,13 +13,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
-import com.roomelephant.porthole.core.model.IconImageType;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
 import com.roomelephant.porthole.core.port.outbound.ExternalLinkStore;
 import com.roomelephant.porthole.core.port.outbound.IconFileStore;
 import com.roomelephant.porthole.core.service.ContainerIconService;
 import com.roomelephant.porthole.core.service.UploadedIcons;
+import com.roomelephant.porthole.entries.IconImageType;
 import com.roomelephant.porthole.fleet.SourceCatalog;
 import java.util.Map;
 import java.util.Optional;
