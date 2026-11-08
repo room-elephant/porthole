@@ -53,6 +53,47 @@ class ArchitectureTest {
                             ROOT + "config.properties..")));
 
     @ArchTest
+    static final ArchRule fleetDependsOnNoOtherProductionPackage = classes()
+            .that()
+            .resideInAPackage(ROOT + "fleet..")
+            .should()
+            .onlyDependOnClassesThat(resideOutsideOfPackage("com.roomelephant.porthole..")
+                    .or(resideInAnyPackage(ROOT + "fleet..", ROOT + "shared..")));
+
+    @ArchTest
+    static final ArchRule fleetRootDoesNotDependOnItsAdapters = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "fleet")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(ROOT + "fleet.docker..", ROOT + "fleet.web..");
+
+    @ArchTest
+    static final ArchRule fleetDockerAdapterDoesNotDependOnWeb = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "fleet.docker..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage(ROOT + "fleet.web..");
+
+    @ArchTest
+    static final ArchRule fleetWebDoesNotDependOnDockerAdapter = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "fleet.web..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage(ROOT + "fleet.docker..")
+            .allowEmptyShould(true);
+
+    @ArchTest
+    static final ArchRule sharedDependsOnNothingInPorthole = classes()
+            .that()
+            .resideInAPackage(ROOT + "shared..")
+            .should()
+            .onlyDependOnClassesThat(
+                    resideOutsideOfPackage("com.roomelephant.porthole..").or(resideInAPackage(ROOT + "shared..")));
+
+    @ArchTest
     static final ArchRule portsAreInterfaces =
             classes().that().resideInAPackage(ROOT + "core.port..").should().beInterfaces();
 

@@ -1,7 +1,7 @@
 package com.roomelephant.porthole.core.service;
 
 import com.roomelephant.porthole.core.model.*;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
+import com.roomelephant.porthole.fleet.*;
 import jakarta.annotation.PreDestroy;
 import java.util.*;
 import java.util.concurrent.*;
@@ -16,13 +16,15 @@ public class DockerDiscoveryService implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(DockerDiscoveryService.class);
 
     private final DockerOperations sources;
+    private final SourceCatalog catalog;
     private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService deadlines = Executors.newSingleThreadScheduledExecutor(
             Thread.ofPlatform().daemon().name("docker-discovery-deadlines").factory());
     private final Set<CompletableFuture<DockerDiscoveryResult>> pending = ConcurrentHashMap.newKeySet();
     private boolean closed;
 
-    public DockerDiscoveryService(DockerOperations sources) {
+    public DockerDiscoveryService(SourceCatalog catalog, DockerOperations sources) {
+        this.catalog = catalog;
         this.sources = sources;
     }
 
@@ -30,12 +32,12 @@ public class DockerDiscoveryService implements AutoCloseable {
         List<CompletableFuture<DockerDiscoveryResult>> futures;
         synchronized (this) {
             if (closed) throw new IllegalStateException("Docker discovery is closed");
-            futures = sources.sources().stream().map(this::submit).toList();
+            futures = catalog.sources().stream().map(this::submit).toList();
         }
         return futures.stream().map(CompletableFuture::join).toList();
     }
 
-    private CompletableFuture<DockerDiscoveryResult> submit(DockerSource source) {
+    private CompletableFuture<DockerDiscoveryResult> submit(Source source) {
         CompletableFuture<DockerDiscoveryResult> result = new CompletableFuture<>();
         pending.add(result);
         try {
@@ -45,7 +47,7 @@ public class DockerDiscoveryService implements AutoCloseable {
                         if (result.complete(failure(source, SourceStatus.DOWN, "Docker request timed out")))
                             task.cancel(true);
                     },
-                    source.connectionTimeout().plus(source.responseTimeout()).toNanos(),
+                    source.deadline().toNanos(),
                     TimeUnit.NANOSECONDS);
             result.whenComplete((r, e) -> {
                 deadline.cancel(false);
@@ -58,20 +60,20 @@ public class DockerDiscoveryService implements AutoCloseable {
         return result;
     }
 
-    private DockerDiscoveryResult fetch(DockerSource source) {
+    private DockerDiscoveryResult fetch(Source source) {
         try {
             List<ContainerSnapshot> containers = sources.listContainers(source.id());
             return new DockerDiscoveryResult(
                     source, new SourceState(source.id(), source.name(), SourceStatus.UP, null), containers);
         } catch (RuntimeException e) {
             log.warn("Could not list containers from Docker source {}", source.id(), e);
-            return e instanceof com.roomelephant.porthole.core.model.exception.DockerUnavailableException
+            return e instanceof DockerUnavailableException
                     ? failure(source, SourceStatus.DOWN, "Docker is not reachable")
                     : failure(source, SourceStatus.ERROR, "Could not retrieve containers");
         }
     }
 
-    private DockerDiscoveryResult failure(DockerSource source, SourceStatus status, String message) {
+    private DockerDiscoveryResult failure(Source source, SourceStatus status, String message) {
         return new DockerDiscoveryResult(
                 source, new SourceState(source.id(), source.name(), status, message), List.of());
     }

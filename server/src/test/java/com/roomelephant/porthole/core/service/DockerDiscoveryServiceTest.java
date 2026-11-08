@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.roomelephant.porthole.core.model.*;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
+import com.roomelephant.porthole.fleet.*;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test;
 class DockerDiscoveryServiceTest {
     private final DockerOperations docker = mock(DockerOperations.class);
 
-    private DockerSource source(String id) {
-        return new DockerSource(id, id, null, Duration.ofSeconds(1), Duration.ofSeconds(1), true);
+    private Source source(String id) {
+        return new Source(id, id, null, true, Duration.ofSeconds(2));
     }
 
     @Test
@@ -25,8 +25,7 @@ class DockerDiscoveryServiceTest {
         var secondStarted = new CountDownLatch(1);
         var first = source("first");
         var second = source("second");
-        var snapshot = new ContainerSnapshot("a", "app", "nginx:1", Set.of(), Map.of(), "running", "Up");
-        when(docker.sources()).thenReturn(List.of(first, second));
+        var snapshot = new ContainerSnapshot("a", "app", "nginx:1", null, Set.of(), Map.of(), "running", "Up");
         when(docker.listContainers("first")).thenAnswer(_ -> {
             firstStarted.countDown();
             if (!secondStarted.await(1, TimeUnit.SECONDS)) throw new IllegalStateException("Second source was blocked");
@@ -37,7 +36,7 @@ class DockerDiscoveryServiceTest {
             if (!firstStarted.await(1, TimeUnit.SECONDS)) throw new IllegalStateException("First source was blocked");
             return List.of();
         });
-        try (var discovery = new DockerDiscoveryService(docker)) {
+        try (var discovery = new DockerDiscoveryService(new SourceCatalog(List.of(first, second)), docker)) {
             var result = discovery.discover();
             assertThat(result).extracting(r -> r.source().id()).containsExactly("first", "second");
             assertThat(result).extracting(r -> r.state().status()).containsExactly(SourceStatus.UP, SourceStatus.UP);
@@ -51,7 +50,6 @@ class DockerDiscoveryServiceTest {
         var started = new CountDownLatch(1);
         var interrupted = new CountDownLatch(1);
         var release = new CountDownLatch(1);
-        when(docker.sources()).thenReturn(List.of(source("local")));
         when(docker.listContainers("local")).thenAnswer(_ -> {
             started.countDown();
             try {
@@ -62,7 +60,7 @@ class DockerDiscoveryServiceTest {
             }
             return List.of();
         });
-        try (var discovery = new DockerDiscoveryService(docker);
+        try (var discovery = new DockerDiscoveryService(new SourceCatalog(List.of(source("local"))), docker);
                 var caller = Executors.newVirtualThreadPerTaskExecutor()) {
             var response = caller.submit(discovery::discover);
             try {

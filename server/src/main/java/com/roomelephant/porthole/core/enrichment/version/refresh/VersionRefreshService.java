@@ -2,13 +2,12 @@ package com.roomelephant.porthole.core.enrichment.version.refresh;
 
 import com.roomelephant.porthole.core.enrichment.version.resolution.VersionObservation;
 import com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver;
-import com.roomelephant.porthole.core.model.ContainerKey;
-import com.roomelephant.porthole.core.model.ContainerSnapshot;
-import com.roomelephant.porthole.core.model.DockerSource;
 import com.roomelephant.porthole.core.model.VersionInfo;
-import com.roomelephant.porthole.core.model.exception.NotFoundException;
 import com.roomelephant.porthole.core.port.inbound.RefreshVersions;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
+import com.roomelephant.porthole.fleet.*;
+import com.roomelephant.porthole.fleet.ContainerKey;
+import com.roomelephant.porthole.fleet.ContainerNotFoundException;
+import com.roomelephant.porthole.fleet.ContainerSnapshot;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;
@@ -39,6 +38,7 @@ import org.springframework.stereotype.Service;
 public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(VersionRefreshService.class);
 
+    private final SourceCatalog catalog;
     private final DockerOperations sources;
     private final VersionResolver versionResolver;
     private final VersionRefreshSettings properties;
@@ -55,8 +55,12 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
 
     @Autowired
     public VersionRefreshService(
-            DockerOperations sources, VersionResolver versionResolver, VersionRefreshSettings properties) {
+            SourceCatalog catalog,
+            DockerOperations sources,
+            VersionResolver versionResolver,
+            VersionRefreshSettings properties) {
         this(
+                catalog,
                 sources,
                 versionResolver,
                 properties,
@@ -64,12 +68,13 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
                 Executors.newFixedThreadPool(
                         4, Thread.ofVirtual().name("version-check-", 0).factory()),
                 Executors.newScheduledThreadPool(
-                        sources.sources().size(),
+                        catalog.sources().size(),
                         Thread.ofPlatform().daemon().name("version-refresh").factory()),
                 Executors.newVirtualThreadPerTaskExecutor());
     }
 
     VersionRefreshService(
+            SourceCatalog catalog,
             DockerOperations sources,
             VersionResolver versionResolver,
             VersionRefreshSettings properties,
@@ -77,6 +82,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
             ExecutorService workers,
             ScheduledExecutorService scheduler,
             ExecutorService coordinators) {
+        this.catalog = catalog;
         this.sources = sources;
         this.versionResolver = versionResolver;
         this.properties = properties;
@@ -90,7 +96,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     public synchronized void start() {
         if (started || closed) return;
         started = true;
-        for (DockerSource source : sources.sources())
+        for (Source source : catalog.sources())
             scheduler.scheduleWithFixedDelay(
                     () -> refreshSource(source.id()).join(),
                     0,
@@ -110,8 +116,8 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
     @Override
     public synchronized void requestRefresh() {
         if (closed) throw new RejectedExecutionException("Version refresh service is closed");
-        List<String> pending = sources.sources().stream()
-                .map(DockerSource::id)
+        List<String> pending = catalog.sources().stream()
+                .map(Source::id)
                 .filter(id -> !forcedScans.contains(id))
                 .toList();
         if (pending.isEmpty()) return;
@@ -225,7 +231,7 @@ public class VersionRefreshService implements RefreshVersions, AutoCloseable {
                     entry.value = value;
                 }
             }
-        } catch (NotFoundException _) {
+        } catch (ContainerNotFoundException _) {
             synchronized (this) {
                 entries.remove(id, entry);
             }

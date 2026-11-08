@@ -2,19 +2,16 @@ package com.roomelephant.porthole.core.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
-import com.roomelephant.porthole.core.model.DockerSource;
 import com.roomelephant.porthole.core.model.IconImageType;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.exception.IconLimitReachedException;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import com.roomelephant.porthole.core.port.outbound.IconFileStore;
+import com.roomelephant.porthole.fleet.SourceCatalog;
 import com.roomelephant.porthole.outbound.icons.FilesystemIconFileStore;
 import com.roomelephant.porthole.outbound.links.JsonExternalLinkStore;
 import com.roomelephant.porthole.outbound.preferences.JsonContainerPreferencesStore;
@@ -22,8 +19,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -41,7 +36,7 @@ class ContainerIconServiceTest {
     Path directory;
 
     private final ContainerPreferencesKey key = new ContainerPreferencesKey("walker", "app");
-    private final DockerOperations docker = mock(DockerOperations.class);
+    private final SourceCatalog docker = com.roomelephant.porthole.DockerTestSources.catalog("walker");
     private JsonContainerPreferencesStore preferences;
     private FilesystemIconFileStore files;
     private JsonExternalLinkStore links;
@@ -50,9 +45,6 @@ class ContainerIconServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(docker.sources())
-                .thenReturn(List.of(new DockerSource(
-                        "walker", "Walker", null, Duration.ofSeconds(1), Duration.ofSeconds(1), false)));
         preferences = new JsonContainerPreferencesStore(
                 directory.resolve("preferences.json"), JsonMapper.builder().build());
         files = new FilesystemIconFileStore(iconFolder());

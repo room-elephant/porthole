@@ -1,20 +1,16 @@
 package com.roomelephant.porthole.core.service;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
-import com.roomelephant.porthole.core.model.DockerSource;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
+import com.roomelephant.porthole.fleet.SourceCatalog;
 import com.roomelephant.porthole.outbound.preferences.JsonContainerPreferencesStore;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.time.Duration;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -24,15 +20,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.json.JsonMapper;
 
 class ContainerPreferencesServiceTest {
-    private static final DockerOperations SOURCES = sources("local", "offline-source", "other-source");
+    private static final SourceCatalog SOURCES = sources("local", "offline-source", "other-source");
 
-    private static DockerOperations sources(String... ids) {
-        var docker = mock(DockerOperations.class);
-        when(docker.sources())
-                .thenReturn(Stream.of(ids)
-                        .map(id -> new DockerSource(id, id, null, Duration.ofSeconds(1), Duration.ofSeconds(1), false))
-                        .toList());
-        return docker;
+    private static SourceCatalog sources(String... ids) {
+        return com.roomelephant.porthole.DockerTestSources.catalog(ids);
     }
 
     @TempDir

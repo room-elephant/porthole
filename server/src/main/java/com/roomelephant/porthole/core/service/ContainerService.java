@@ -4,6 +4,7 @@ import com.roomelephant.porthole.core.enrichment.*;
 import com.roomelephant.porthole.core.mapping.ContainerMapper;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.inbound.GetContainers;
+import com.roomelephant.porthole.fleet.*;
 import java.util.*;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
@@ -45,7 +46,7 @@ public class ContainerService implements GetContainers {
 
     private Result present(DockerDiscoveryResult result, ContainerQuery query) {
         if (result.state().status() != SourceStatus.UP) return new Result(result.state(), List.of());
-        DockerSource source = result.source();
+        Source source = result.source();
         try {
             List<Container> mapped = mapper.toModels(result.containers(), source.id());
             EnrichmentContext context = new EnrichmentContext(

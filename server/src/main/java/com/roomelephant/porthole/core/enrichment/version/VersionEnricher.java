@@ -21,7 +21,7 @@ public class VersionEnricher implements ContainerEnricher {
     public List<Container> enrich(List<Container> containers, EnrichmentContext context) {
         for (Container container : containers) {
             container.setVersion(versions.getCachedVersionAndRefresh(
-                    new com.roomelephant.porthole.core.model.ContainerKey(container.sourceId(), container.id())));
+                    new com.roomelephant.porthole.fleet.ContainerKey(container.sourceId(), container.id())));
         }
         return containers;
     }

@@ -395,16 +395,13 @@ class ContainerServiceTest {
                 new PublishedPortEndpointProvider(new PublishedHostResolver()),
                 new TraefikEndpointProvider(new TraefikRuleParser())));
         return new ContainerService(
-                discovery(new com.roomelephant.porthole.outbound.docker.DockerJavaOperations(
-                        new com.roomelephant.porthole.outbound.docker.DockerSourceRegistry(
-                                List.of(new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                                        "local",
-                                        "Local",
-                                        publishedHost,
-                                        java.time.Duration.ofSeconds(5),
-                                        java.time.Duration.ofSeconds(60),
-                                        local,
-                                        dockerClient))))),
+                discovery(
+                        new com.roomelephant.porthole.fleet.docker.DockerJavaOperations(
+                                new com.roomelephant.porthole.fleet.docker.DockerSourceRegistry(
+                                        List.of(new com.roomelephant.porthole.fleet.docker.DockerConnection(
+                                                "local", dockerClient)))),
+                        new com.roomelephant.porthole.fleet.Source(
+                                "local", "Local", publishedHost, local, java.time.Duration.ofSeconds(65))),
                 new ContainerMapper(),
                 new ContainerEnrichment(List.of(
                         new DisplayNameEnricher(),
@@ -416,8 +413,11 @@ class ContainerServiceTest {
                 self);
     }
 
-    private DockerDiscoveryService discovery(com.roomelephant.porthole.core.port.outbound.DockerOperations operations) {
-        var discovery = new DockerDiscoveryService(operations);
+    private DockerDiscoveryService discovery(
+            com.roomelephant.porthole.fleet.DockerOperations operations,
+            com.roomelephant.porthole.fleet.Source source) {
+        var discovery = new DockerDiscoveryService(
+                new com.roomelephant.porthole.fleet.SourceCatalog(List.of(source)), operations);
         discoveries.add(discovery);
         return discovery;
     }

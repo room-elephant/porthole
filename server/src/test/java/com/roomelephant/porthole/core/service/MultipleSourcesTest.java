@@ -8,8 +8,8 @@ import com.github.dockerjava.api.command.*;
 import com.roomelephant.porthole.core.enrichment.*;
 import com.roomelephant.porthole.core.mapping.*;
 import com.roomelephant.porthole.core.model.*;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
-import com.roomelephant.porthole.outbound.docker.*;
+import com.roomelephant.porthole.fleet.*;
+import com.roomelephant.porthole.fleet.docker.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
@@ -37,13 +37,16 @@ class MultipleSourcesTest {
         return client;
     }
 
+    private final List<Source> configured = new java.util.ArrayList<>();
+
     private DockerConnection source(String id, DockerClient client, Duration timeout) {
-        return new DockerConnection(
-                id, id, "192.168.50." + (id.equals("walker") ? "6" : "5"), timeout, timeout, true, client);
+        configured.add(
+                new Source(id, id, "192.168.50." + (id.equals("walker") ? "6" : "5"), true, timeout.plus(timeout)));
+        return new DockerConnection(id, client);
     }
 
     private ContainerService service(DockerOperations operations, ContainerEnrichment enrichment) {
-        var discovery = new DockerDiscoveryService(operations);
+        var discovery = new DockerDiscoveryService(new SourceCatalog(List.copyOf(configured)), operations);
         discoveries.add(discovery);
         return new ContainerService(discovery, new ContainerMapper(), enrichment, SelfContainer.none());
     }
@@ -171,7 +174,7 @@ class MultipleSourcesTest {
                 source("walker", client(), Duration.ofSeconds(1)), source("mike", client(), Duration.ofSeconds(1)))));
         ContainerEnricher failingEnricher = (containers, context) -> {
             if (containers.getFirst().sourceId().equals("walker"))
-                throw new com.roomelephant.porthole.core.model.exception.DockerUnavailableException(
+                throw new com.roomelephant.porthole.fleet.DockerUnavailableException(
                         new java.net.SocketException("private details"));
             return containers;
         };

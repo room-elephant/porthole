@@ -9,6 +9,7 @@ import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshS
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings;
 import com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver;
 import com.roomelephant.porthole.core.model.*;
+import com.roomelephant.porthole.fleet.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
@@ -32,7 +33,7 @@ class VersionEnricherTest {
     void attachesCachedValueToTheSameContainer() {
         var cache = mock(VersionRefreshService.class);
         var version = new VersionInfo("1.0", "2.0", true);
-        when(cache.getCachedVersionAndRefresh(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
+        when(cache.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
                 .thenReturn(version);
         var container = container();
         assertThat(new VersionEnricher(cache).enrich(List.of(container), context))
@@ -42,18 +43,22 @@ class VersionEnricherTest {
 
     @Test
     void missingVersionDoesNotWaitForSlowResolution() throws Exception {
-        var docker = mock(com.roomelephant.porthole.core.port.outbound.DockerOperations.class);
+        var docker = mock(com.roomelephant.porthole.fleet.DockerOperations.class);
         var resolver = new VersionResolver(
                 docker, mock(com.roomelephant.porthole.core.port.outbound.RegistryOperations.class));
         var running = new CountDownLatch(1);
         var release = new CountDownLatch(1);
-        when(docker.inspectContainer(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
+        when(docker.inspectContainer(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
                 .thenAnswer(call -> {
                     running.countDown();
                     release.await(5, TimeUnit.SECONDS);
                     return new ContainerInspection(null, null, List.of(), Map.of());
                 });
-        try (var cache = new VersionRefreshService(docker, resolver, new VersionRefreshSettings(Duration.ofHours(1)))) {
+        try (var cache = new VersionRefreshService(
+                com.roomelephant.porthole.DockerTestSources.catalog("local"),
+                docker,
+                resolver,
+                new VersionRefreshSettings(Duration.ofHours(1)))) {
             var enricher = new VersionEnricher(cache);
             var container = container();
             assertTimeoutPreemptively(
