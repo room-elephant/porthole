@@ -103,7 +103,8 @@ class LinkEntriesIT {
         assertThat(created.path("iconUrl").isNull()).isTrue();
 
         var updated = patch(id, "{\"name\":\"Gateway\",\"endpoint\":{\"url\":\"https://gw/\"},\"stack\":null}");
-        assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(updated.getBody()).contains("\"name\":\"Gateway\"");
         assertThat(links().get(0).path("name").asString()).isEqualTo("Gateway");
         assertThat(links().get(0).path("url").asString()).isEqualTo("https://gw/");
         assertThat(links().get(0).path("stack").isNull()).isTrue();

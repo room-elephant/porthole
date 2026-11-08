@@ -116,7 +116,7 @@ class IconUploadIT {
         headers.setContentType(MERGE_PATCH);
         var response =
                 http.exchange(appUrl() + ENTRY, HttpMethod.PATCH, new HttpEntity<>(patch, headers), String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     private ResponseEntity<String> post(byte[] bytes) {

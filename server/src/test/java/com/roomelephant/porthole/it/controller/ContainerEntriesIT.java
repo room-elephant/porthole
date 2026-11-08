@@ -115,8 +115,8 @@ class ContainerEntriesIT {
                 HttpMethod.PATCH,
                 new HttpEntity<>("{\"endpoint\":" + endpoint + "}", headers),
                 String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertThat(response.getBody()).isNull();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("\"id\":\"container:" + source + ":shared-app\"");
     }
 
     private String appUrl() {

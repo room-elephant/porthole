@@ -8,57 +8,35 @@ servers:
 - description: Current Porthole instance
   url: /
 tags:
-- description: "Pages the user added to the dashboard, separate from Docker containers."
-  name: Links
 - description: "Uploaded icon images, shared by content."
   name: Icons
 - description: What the user saved for containers and links.
   name: Entries
+- description: "Everything the dashboard shows, in one read."
+  name: Dashboard
 - description: Status of the configured Docker sources.
   name: Sources
-- description: Container inventory and service endpoint discovery across Docker sources.
-  name: Containers
 - description: Background image version refreshes.
   name: Versions
 paths:
-  /api/containers:
+  /api/dashboard:
     get:
-      description: "Returns the status of every configured Docker source and a combined\
-        \ container inventory. By default, excludes stopped containers and containers\
-        \ without resolved service endpoint candidates. Endpoints include the configured\
-        \ custom URL and selected flags for navigation; hasWebUi determines tile or\
-        \ chip availability. Explicit none keeps available candidates with all selected\
-        \ flags false. A failed source is reported as DOWN or ERROR in sources without\
-        \ discarding other sources' containers. Image version information comes from\
-        \ the background refresh cache and may initially be null."
-      operationId: getContainers
-      parameters:
-      - description: Include containers without resolved service endpoint candidates.
-        in: query
-        name: includeWithoutEndpoints
-        required: false
-        schema:
-          type: boolean
-          default: false
-      - description: Include stopped containers; containers without endpoints still
-          require includeWithoutEndpoints=true.
-        in: query
-        name: includeStopped
-        required: false
-        schema:
-          type: boolean
-          default: false
+      description: "Every configured source's state and every entry: each container\
+        \ a source lists or still retains after a failure, including stopped ones\
+        \ and ones without endpoints, then each link. Saved names, icons and endpoint\
+        \ choices are applied. Clients filter. Reads only memory, so it never waits\
+        \ on Docker or a registry."
+      operationId: getDashboard
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ContainerInventoryDTO"
-          description: "Container inventory and source statuses, including any source\
-            \ failures."
-      summary: List discovered containers
+                $ref: "#/components/schemas/DashboardResponse"
+          description: "The dashboard, including source failures"
+      summary: Read the dashboard
       tags:
-      - Containers
+      - Dashboard
   /api/entries:
     post:
       operationId: createLink
@@ -73,8 +51,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CreatedResponse"
-          description: Link added
+                $ref: "#/components/schemas/EntryResponse"
+          description: Link added; returns the link as the dashboard shows it
         "400":
           content:
             application/problem+json:
@@ -138,8 +116,18 @@ paths:
               type: object
         required: true
       responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EntryResponse"
+          description: Saved; returns the entry as the dashboard now shows it
         "204":
-          description: Saved
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EntryResponse"
+          description: Saved for a container no source currently lists
         "400":
           content:
             application/problem+json:
@@ -250,22 +238,6 @@ paths:
       summary: Get an uploaded icon
       tags:
       - Icons
-  /api/links:
-    get:
-      description: "Links are entries: add, change and delete them through /api/entries."
-      operationId: listLinks
-      responses:
-        "200":
-          content:
-            '*/*':
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LinkDTO"
-          description: All saved links
-      summary: List links
-      tags:
-      - Links
   /api/sources:
     get:
       description: "Returns every configured source in configuration order with its\
@@ -289,7 +261,7 @@ paths:
     post:
       description: Queues an immediate background scan across all configured Docker
         sources. Returns without waiting for Docker or registry checks to finish.
-        Read GET /api/containers for cached results while the refresh runs and updated
+        Read GET /api/dashboard for cached results while the refresh runs and updated
         results afterward. Repeated requests are coalesced while a source scan is
         queued or running.
       operationId: refreshVersions
@@ -301,38 +273,20 @@ paths:
       - Versions
 components:
   schemas:
-    ContainerDTO:
+    ContainerResponse:
       type: object
       properties:
-        displayName:
+        defaultName:
           type: string
-        endpoints:
-          type: array
-          items:
-            $ref: "#/components/schemas/EndpointDTO"
-        entryId:
-          type: string
-          description: "Entry ID, for PATCH /api/entries/{id}"
-        hasEndpoints:
-          type: boolean
-        hasWebUi:
-          type: boolean
-          description: "Whether the container has a web UI, including unresolved endpoint\
-            \ choices"
-        iconUrl:
-          type: string
-        id:
-          type: string
+          description: Name shown when none is saved
         image:
           type: string
         name:
           type: string
-        project:
-          type:
-          - string
-          - "null"
+          description: Docker container name
         self:
           type: boolean
+          description: Whether this is the container Porthole runs in
         sourceId:
           type: string
         state:
@@ -344,23 +298,10 @@ components:
           - string
           - "null"
         version:
+          description: Cached version check result; null until checked
           oneOf:
           - $ref: "#/components/schemas/VersionInfo"
           - type: "null"
-      required:
-      - entryId
-      - hasWebUi
-    ContainerInventoryDTO:
-      type: object
-      properties:
-        containers:
-          type: array
-          items:
-            $ref: "#/components/schemas/ContainerDTO"
-        sources:
-          type: array
-          items:
-            $ref: "#/components/schemas/SourceDTO"
     CreateLinkRequest:
       type: object
       description: A new link
@@ -399,23 +340,96 @@ components:
           type: string
       required:
       - id
-    EndpointDTO:
+    DashboardResponse:
       type: object
-      description: "Resolved service endpoint candidate, including the saved custom\
-        \ URL while configured"
+      description: "Every source's state and every entry, unfiltered"
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntryResponse"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceState"
+    EndpointResponse:
+      type: object
       properties:
         id:
           type: string
         selected:
           type: boolean
-          description: Whether this is the effective endpoint for navigation; at most
-            one candidate is selected
         source:
           type: string
         url:
           type: string
-      required:
-      - selected
+    EntryResponse:
+      type: object
+      description: "A container or link on the dashboard, with saved overrides applied"
+      properties:
+        container:
+          description: Docker facts; null for a link
+          oneOf:
+          - $ref: "#/components/schemas/ContainerResponse"
+          - type: "null"
+        endpoints:
+          type: array
+          description: Addresses the tile can open; at most one is selected
+          items:
+            $ref: "#/components/schemas/EndpointResponse"
+        hasWebUi:
+          type: boolean
+          description: False for an explicit no-web-UI choice or when there are no
+            endpoints
+        icon:
+          $ref: "#/components/schemas/IconResponse"
+        id:
+          type: string
+          description: "Entry ID, for /api/entries/{id}"
+          example: container:walker:smh-sonarr-1
+        kind:
+          type: string
+          description: container or link
+          enum:
+          - container
+          - link
+        name:
+          type: string
+          description: "Name shown on the tile: the saved name, else the container's\
+            \ default name"
+        stack:
+          type:
+          - string
+          - "null"
+          description: "Compose project for a container, saved stack for a link"
+    IconChoice:
+      type: object
+      description: Exactly one of library or upload
+      properties:
+        library:
+          type:
+          - string
+          - "null"
+          description: Dashboard Icons library name
+        upload:
+          type:
+          - string
+          - "null"
+          description: Uploaded icon ID
+    IconResponse:
+      type: object
+      description: "The icon shown, and the saved choice when the user picked one"
+      properties:
+        choice:
+          description: "The saved choice, or null when the default is shown"
+          oneOf:
+          - $ref: "#/components/schemas/IconChoice"
+          - type: "null"
+        url:
+          type:
+          - string
+          - "null"
+          description: Image URL; null for a link without an icon
     JsonNode:
       type: object
       properties:
@@ -478,33 +492,6 @@ components:
           deprecated: true
         valueNode:
           type: boolean
-    LinkDTO:
-      type: object
-      description: A page the user added to the dashboard
-      properties:
-        iconUrl:
-          type:
-          - string
-          - "null"
-          description: "URL of the chosen icon, or null when none was chosen"
-        id:
-          type: string
-          description: "Entry ID, for /api/entries/{id}"
-        name:
-          type: string
-          description: Name shown on the tile
-        stack:
-          type:
-          - string
-          - "null"
-          description: "Stack the link belongs to, or null"
-        url:
-          type: string
-          description: Absolute http or https URL
-      required:
-      - id
-      - name
-      - url
     ProblemDetail:
       type: object
       properties:
@@ -534,28 +521,6 @@ components:
           - string
           - "null"
           format: uri
-    SourceDTO:
-      type: object
-      properties:
-        error:
-          type:
-          - string
-          - "null"
-        id:
-          type: string
-        lastSuccessAt:
-          type:
-          - string
-          - "null"
-          format: date-time
-        name:
-          type: string
-        status:
-          type: string
-          enum:
-          - UP
-          - DOWN
-          - ERROR
     SourceResponse:
       type: object
       description: A configured Docker source and what Porthole last knew about it
@@ -583,6 +548,32 @@ components:
           type: string
           description: "UP when the latest check succeeded, DOWN when Docker could\
             \ not be reached in time, ERROR for other failures"
+          enum:
+          - UP
+          - DOWN
+          - ERROR
+    SourceState:
+      type: object
+      description: A configured Docker source and what Porthole last knew about it
+      properties:
+        error:
+          type:
+          - string
+          - "null"
+          description: Why the source is not UP
+        id:
+          type: string
+        lastSuccessAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: "When the source last answered, or null if it never has"
+        name:
+          type: string
+        status:
+          type: string
+          description: "UP, DOWN or ERROR"
           enum:
           - UP
           - DOWN
