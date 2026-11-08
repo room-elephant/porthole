@@ -141,7 +141,7 @@ server_pid=$job_pid
 start_job client npm --prefix "$ROOT/client" run dev -- --strictPort
 client_pid=$job_pid
 
-wait_for_url "http://localhost:9753/api/containers" "$server_pid" "back end"
+wait_for_url "http://localhost:9753/api/dashboard" "$server_pid" "back end"
 wait_for_url "$URL" "$client_pid" "front end"
 
 printf '\n[lab] Ready: %s\n[lab] Press Ctrl-C to stop. Settings and links save to lab/data/.\n\n' "$URL"
