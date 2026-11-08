@@ -294,7 +294,7 @@ The `fleet` slice keeps every source's state in memory. `Fleet` owns one `Source
 - **Keys and pruning:** results, retry state and in-flight work use `(sourceId, containerId)`. Only an `UP` snapshot prunes that source's missing containers.
 - **Never blocking:** successful results stay cached while refreshing, and the dashboard only reads the cache.
 
-Registry catalogue caches are keyed by normalized registry and repository. Installed version and digest comparisons stay specific to each container.
+Registry catalogue caches are keyed by normalized registry and repository. A failed catalogue lookup and manifest reads are shared for one minute, so replicas of one image checked together cost one registry request. Installed version and digest comparisons stay specific to each container.
 
 `POST /api/version-checks` returns `202 Accepted` and starts a check across every source. It bypasses the refresh interval and invalidates the registry catalogue cache in the background. A request while a check runs does nothing. Existing results stay visible while checks run. The dashboard's `versionChecks` reports `running` until every source's checks finish, then `lastCompletedAt`; each changed result and the run's start and end bump the revision.
 

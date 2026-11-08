@@ -83,6 +83,8 @@ class GhcrRegistryTest {
         manifest("1.0", A, "application/vnd.oci.image.index.v1+json", "first");
         manifest("1.0", A, "application/vnd.oci.image.index.v1+json", "first");
         assertFalse(changed(IMAGE, List.of(A)));
+        // Shared manifest reads would hide the second request; the token cache is separate.
+        service.invalidateCache();
         assertFalse(changed(IMAGE, List.of(A)));
         server.verify();
     }

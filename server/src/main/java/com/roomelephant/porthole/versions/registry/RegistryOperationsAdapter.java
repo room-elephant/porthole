@@ -4,35 +4,54 @@ import com.github.benmanes.caffeine.cache.*;
 import com.roomelephant.porthole.shared.ImageReference;
 import com.roomelephant.porthole.versions.*;
 import com.roomelephant.porthole.versions.RegistryOperations;
+import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.*;
 
 @NullMarked
 public final class RegistryOperationsAdapter implements RegistryOperations {
+    private static final int MANIFEST_ENTRIES = 1_000;
+
     private final List<RegistryClient> clients;
-    private final Cache<String, @Nullable TagCatalogue> catalogues;
+    /**
+     * How long a failed catalogue and manifest reads are shared. Long enough that containers checked in one run
+     * (often replicas of one image) share a lookup; short enough that a failure is retried on the next run.
+     */
+    static final Duration SHARED_LOOKUP = Duration.ofMinutes(1);
+
+    private final Cache<String, RegistryLookup<TagCatalogue>> catalogues;
+    private final Cache<ManifestKey, RegistryLookup<ManifestMetadata>> manifests;
 
     public RegistryOperationsAdapter(List<RegistryClient> clients, RegistryProperties.Cache cache) {
+        this(clients, cache, Ticker.systemTicker());
+    }
+
+    RegistryOperationsAdapter(List<RegistryClient> clients, RegistryProperties.Cache cache, Ticker ticker) {
         this.clients = List.copyOf(clients);
+        long complete = cache.ttl().toNanos();
+        long shared = Math.min(complete, SHARED_LOOKUP.toNanos());
         this.catalogues = Caffeine.newBuilder()
-                .expireAfterWrite(cache.ttl())
+                .ticker(ticker)
                 .maximumSize(cache.versionMaxSize())
+                .expireAfter(Expiry.<String, RegistryLookup<TagCatalogue>>writing(
+                        (_, lookup) -> lookup instanceof RegistryLookup.Available<TagCatalogue>
+                                ? Duration.ofNanos(complete)
+                                : Duration.ofNanos(shared)))
+                .build();
+        this.manifests = Caffeine.newBuilder()
+                .ticker(ticker)
+                .maximumSize(MANIFEST_ENTRIES)
+                .expireAfterWrite(Duration.ofNanos(shared))
                 .build();
     }
 
+    // A complete catalogue is kept for the cache TTL; a failed one only briefly, so concurrent checks of one
+    // repository wait for a single fetch instead of each repeating it.
     @Override
     public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
         RegistryClient client = clientFor(image);
         if (client == null) return new RegistryLookup.Unsupported<>();
-        AtomicReference<@Nullable RegistryLookup<TagCatalogue>> fetched = new AtomicReference<>();
-        @Nullable
-        TagCatalogue catalogue = catalogues.get(image.canonicalRepository(), key -> {
-            RegistryLookup<TagCatalogue> result = client.listTags(image);
-            fetched.set(result);
-            return result instanceof RegistryLookup.Available<TagCatalogue>(TagCatalogue tags) ? tags : null;
-        });
-        return catalogue == null ? Objects.requireNonNull(fetched.get()) : new RegistryLookup.Available<>(catalogue);
+        return catalogues.get(image.canonicalRepository(), _ -> client.listTags(image));
     }
 
     @Override
@@ -41,7 +60,8 @@ public final class RegistryOperationsAdapter implements RegistryOperations {
         if (client == null) return new ManifestEvidence(new RegistryLookup.Unsupported<>(), Map.of());
         if (installedDigests.isEmpty())
             return new ManifestEvidence(new RegistryLookup.Unavailable<>("No installed repository digest"), Map.of());
-        RegistryLookup<ManifestMetadata> tagged = client.readManifest(image, Objects.requireNonNull(image.lookupTag()));
+        RegistryLookup<ManifestMetadata> tagged =
+                readManifest(client, image, Objects.requireNonNull(image.lookupTag()));
         if (!(tagged instanceof RegistryLookup.Available<ManifestMetadata>(ManifestMetadata remote))
                 || remote.kind() == ManifestMetadata.Kind.UNKNOWN
                 || installedDigests.contains(remote.digest())) return new ManifestEvidence(tagged, Map.of());
@@ -49,15 +69,24 @@ public final class RegistryOperationsAdapter implements RegistryOperations {
         String algorithm = remote.digest().split(":", 2)[0];
         for (String digest : installedDigests) {
             if (ImageReference.tryParse("image@" + digest).isPresent() && digest.split(":", 2)[0].equals(algorithm))
-                installed.put(digest, client.readManifest(image, digest));
+                installed.put(digest, readManifest(client, image, digest));
         }
         return new ManifestEvidence(tagged, installed);
+    }
+
+    private RegistryLookup<ManifestMetadata> readManifest(
+            RegistryClient client, ImageReference image, String reference) {
+        return manifests.get(
+                new ManifestKey(image.canonicalRepository(), reference), _ -> client.readManifest(image, reference));
     }
 
     @Override
     public void invalidateCache() {
         catalogues.invalidateAll();
+        manifests.invalidateAll();
     }
+
+    private record ManifestKey(String repository, String reference) {}
 
     private @Nullable RegistryClient clientFor(ImageReference image) {
         if (!image.isMutable()) return null;

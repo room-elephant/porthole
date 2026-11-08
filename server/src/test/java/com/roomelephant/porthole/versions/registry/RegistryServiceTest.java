@@ -77,6 +77,7 @@ class RegistryServiceTest {
         assertInstanceOf(RegistryLookup.Missing.class, adapter.listTags(IMAGE));
         server.verify();
         server.reset();
+        adapter.invalidateCache();
         server.expect(requestTo(URL))
                 .andRespond(withSuccess(
                         "{\"results\":[{\"name\":\"9.0\"}],\"next\":\"?page=2\"}", MediaType.APPLICATION_JSON));
@@ -93,6 +94,7 @@ class RegistryServiceTest {
         server.expect(requestTo(URL))
                 .andRespond(withSuccess("{\"results\":[{\"name\":\"3.0\"}]}", MediaType.APPLICATION_JSON));
         assertInstanceOf(RegistryLookup.Unavailable.class, adapter.listTags(IMAGE));
+        adapter.invalidateCache();
         assertEquals(new RegistryLookup.Available<>(new TagCatalogue(List.of("3.0"))), adapter.listTags(IMAGE));
         server.verify();
     }

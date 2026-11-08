@@ -13,6 +13,8 @@ class RegistryOperationsAdapterTest {
     private static final RegistryProperties.Cache CACHE = new RegistryProperties.Cache(Duration.ofMinutes(5), 100);
     private static final String A = "sha256:" + "a".repeat(64), B = "sha256:" + "b".repeat(64);
 
+    private final java.util.concurrent.atomic.AtomicLong clock = new java.util.concurrent.atomic.AtomicLong();
+
     private static ImageReference ref(String name) {
         return ImageReference.tryParse(name).orElseThrow();
     }
@@ -38,31 +40,81 @@ class RegistryOperationsAdapterTest {
     }
 
     @Test
-    void emptyCataloguesAreCachedButFailuresAreRetried() {
+    void emptyCataloguesAreCachedForTheirTtl() {
         var hub = new Provider("docker.io", List.of());
-        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE);
+        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE, clock::get);
         adapter.listTags(ref("nginx"));
+        clock.addAndGet(Duration.ofMinutes(4).toNanos());
         adapter.listTags(ref("nginx"));
         assertEquals(1, hub.catalogues);
-        adapter.invalidateCache();
-        hub.result = new RegistryLookup.Unavailable<>("offline");
+        clock.addAndGet(Duration.ofMinutes(2).toNanos());
         adapter.listTags(ref("nginx"));
-        hub.result = new RegistryLookup.Available<>(new TagCatalogue(List.of("2.0")));
-        assertEquals(hub.result, adapter.listTags(ref("nginx")));
-        assertEquals(3, hub.catalogues);
+        assertEquals(2, hub.catalogues);
     }
 
     @Test
-    void manifestResultsStayFreshAndPreserveMissingInstalledMetadata() {
+    void aFailedCatalogueIsSharedForAMinuteThenRetried() {
         var hub = new Provider("docker.io", List.of());
-        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE);
+        hub.result = new RegistryLookup.Unavailable<>("Registry catalogue exceeded the page limit");
+        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE, clock::get);
+
+        assertEquals(hub.result, adapter.listTags(ref("nginx:1.29-alpine")));
+        clock.addAndGet(Duration.ofSeconds(59).toNanos());
+        assertEquals(hub.result, adapter.listTags(ref("nginx:1.29")));
+        assertEquals(1, hub.catalogues, "containers checked within the minute share the failure");
+
+        clock.addAndGet(Duration.ofSeconds(2).toNanos());
+        hub.result = new RegistryLookup.Available<>(new TagCatalogue(List.of("2.0")));
+        assertEquals(hub.result, adapter.listTags(ref("nginx")));
+        assertEquals(2, hub.catalogues);
+    }
+
+    @Test
+    void invalidatingRetriesAFailedCatalogueAtOnce() {
+        var hub = new Provider("docker.io", List.of());
+        hub.result = new RegistryLookup.Unavailable<>("offline");
+        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE, clock::get);
+        adapter.listTags(ref("nginx"));
+        adapter.invalidateCache();
+        adapter.listTags(ref("nginx"));
+        assertEquals(2, hub.catalogues);
+    }
+
+    @Test
+    void containersOnTheSameImageShareManifestReadsForAMinute() {
+        var hub = new Provider("docker.io", List.of());
+        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE, clock::get);
+        var image = ref("nginx");
+
+        var first = adapter.readManifests(image, List.of(A));
+        var second = adapter.readManifests(ref("docker.io/library/nginx:latest"), List.of(A));
+
+        assertEquals(first, second);
+        assertEquals(2, hub.manifests, "one read of the tag and one of the installed digest");
+    }
+
+    @Test
+    void manifestResultsRefreshAfterAMinuteAndPreserveMissingInstalledMetadata() {
+        var hub = new Provider("docker.io", List.of());
+        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE, clock::get);
         var image = ref("nginx");
         var first = adapter.readManifests(image, List.of(A));
         assertInstanceOf(RegistryLookup.Missing.class, first.installed().get(A));
         hub.remote = A;
+        clock.addAndGet(Duration.ofSeconds(61).toNanos());
         var second = adapter.readManifests(image, List.of(A));
         assertTrue(second.installed().isEmpty());
         assertEquals(3, hub.manifests);
+    }
+
+    @Test
+    void invalidatingRereadsManifests() {
+        var hub = new Provider("docker.io", List.of());
+        var adapter = new RegistryOperationsAdapter(List.of(hub), CACHE, clock::get);
+        adapter.readManifests(ref("nginx"), List.of(A));
+        adapter.invalidateCache();
+        adapter.readManifests(ref("nginx"), List.of(A));
+        assertEquals(4, hub.manifests);
     }
 
     @Test
