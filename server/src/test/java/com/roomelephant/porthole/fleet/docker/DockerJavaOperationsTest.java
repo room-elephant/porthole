@@ -160,6 +160,24 @@ class DockerJavaOperationsTest {
     }
 
     @Test
+    void watchUsesTheConnectionsEventClient() {
+        var requests = mock(com.github.dockerjava.api.DockerClient.class);
+        var events = mock(com.github.dockerjava.api.DockerClient.class);
+        var cmd = mock(EventsCmd.class);
+        when(events.eventsCmd()).thenReturn(cmd);
+        when(cmd.withEventTypeFilter(any(com.github.dockerjava.api.model.EventType[].class)))
+                .thenReturn(cmd);
+        when(cmd.exec(any())).thenAnswer(call -> call.getArgument(0));
+        var operations = new DockerJavaOperations(
+                new DockerSourceRegistry(List.of(new DockerConnection("one", requests, events))));
+
+        operations.watchContainerEvents("one", mock(ContainerEventListener.class));
+
+        verify(events).eventsCmd();
+        verifyNoInteractions(requests);
+    }
+
+    @Test
     void watchFiltersContainerEventsAndForwardsEach() {
         var listener = mock(ContainerEventListener.class);
         var callback = watch(listener);
