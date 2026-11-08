@@ -15,7 +15,6 @@ export const API = {
   ICON: '/api/containers/icon',
   ICON_UPLOAD: '/api/containers/icon/upload',
   VERSION_REFRESH: '/api/versions/refresh',
-  DOCKER_HEALTH: '/actuator/health/docker',
 };
 
 export const EXTERNAL = { ID: '_external', NAME: 'External' };
