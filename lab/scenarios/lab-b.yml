@@ -1,5 +1,5 @@
 # Endpoint discovery, names and versions, running inside the lab-b daemon.
-# Fixed container names keep saved preferences working when containers are recreated.
+# Fixed container names keep saved settings working when containers are recreated.
 name: stack-b
 
 x-web: &web

@@ -62,7 +62,7 @@ Regular JVM and native IT runs do not supply the recording property and therefor
 
 ### Spring AOT hints
 
-`DockerNativeConfig` (`server/src/main/java/.../config/nativehints/DockerNativeConfig.java`) registers additional Spring AOT hints for Docker SDK model, command, and configuration-file types used reflectively by Jackson. This covers types that the agent cannot observe because they are never instantiated during the IT run.
+`DockerNativeHints` (`server/src/main/java/.../nativehints/DockerNativeHints.java`) registers additional Spring AOT hints for Docker SDK model, command, and configuration-file types used reflectively by Jackson. This covers types that the agent cannot observe because they are never instantiated during the IT run.
 
 ### JVM vs Native Integration Tests
 
@@ -154,7 +154,7 @@ Porthole queries Docker Hub and public GitHub Container Registry packages for re
 - **Image identity and eligibility** use parsed references and matching local RepoDigests from the owning Docker source. Docker Hub aliases normalize to `docker.io`, and official images gain `library/`. GHCR retains its complete owner/image path. Digest pins, local identifiers, unsupported registries, and images without repository provenance supply no update evidence.
 - **Provider composition** uses concrete `DistributionClient` and `BearerTokenClient` collaborators. Each provider owns separate repository-scoped token state while sharing expiry, anonymous token decoding, and one refresh/retry after an authenticated request returns 401. Docker Hub catalogue requests remain unauthenticated. Private-package login and Docker credential discovery are outside this feature.
 - **Catalogue pagination** parses Hub `results[].name` and JSON `next`, or Distribution `tags[]` and `Link` headers. `TagPagination` follows complete same-origin/path catalogues with cycle, page-count, and elapsed-budget checks. It returns raw tags without selecting versions. `LinkHeaderParser` handles Distribution pagination metadata.
-- **Numeric releases** are selected by `ReleasePolicy` in `core.enrichment.version.resolution`, using arbitrary-precision numeric components, optional lowercase `v`, zero-padding, and deterministic alias ties. The existing dotted-numeric grammar and all-major-version policy are documented in [Registry Configuration](CONFIGURATION.md#registry-configuration).
+- **Numeric releases** are selected by `ReleasePolicy` in `versions`, using arbitrary-precision numeric components, optional lowercase `v`, zero-padding, and deterministic alias ties. The existing dotted-numeric grammar and all-major-version policy are documented in [Registry Configuration](CONFIGURATION.md#registry-configuration).
 - **Manifest facts** come from authenticated HEAD requests negotiating OCI image/index and Docker v2 image/list media types. `DistributionClient` returns validated digest and manifest-kind metadata. Core treats exact equality as unchanged and different same-algorithm digests with remotely confirmed matching manifest levels as changed. Missing old manifests, unknown types, and incompatible levels remain inconclusive. This compares repository manifests; a changed multi-platform index does not necessarily mean the installed platform changed. Platform-aware resolution is deferred.
 - **Independent evidence** distinguishes available, missing, unsupported, and unavailable remote lookups. A failed catalogue lookup does not prevent manifest checking, and a failed manifest lookup does not erase a newer release. Either positive channel establishes an update; incomplete required evidence is internally inconclusive. The public `VersionInfo` JSON shape remains unchanged.
 - **Refresh retention** preserves each channel's last successful facts independently for the same configured reference and installed image ID. Successful negative evidence can clear a prior positive in its channel. Changing the installed identity or losing repository provenance discards the previous evidence; Docker inspection failures retain the previous public result.
@@ -286,7 +286,7 @@ The `fleet` slice keeps every source's state in memory. `Fleet` owns one `Source
 
 ### Versions
 
-`VersionRefreshService` is a `SnapshotListener`.
+`VersionTracker` is a `SnapshotListener`.
 - **When it checks:** it checks new containers, and containers whose image ID changed, as soon as a snapshot shows them. It re-checks the rest from the latest snapshot every `porthole.versions.refresh-interval` (default `1h`), and never lists containers itself.
 - **Workers:** four shared workers inspect containers and images through their owning Docker client.
 - **Keys and pruning:** results, retry state and in-flight work use `(sourceId, containerId)`. Only an `UP` snapshot prunes that source's missing containers.
@@ -316,51 +316,43 @@ The browser keeps one `['dashboard']` query. After a successful PATCH, a dashboa
 
 ## Server Package Layout
 
-`server/src/main/java/com/roomelephant/porthole/`:
+`server/src/main/java/com/roomelephant/porthole/` is split into feature slices. Each slice keeps its model, services and ports in its root package, its adapters in subpackages, and its own `@ConfigurationProperties` and `@Configuration`.
 
-- `core/port/outbound/` — `RegistryOperations`, implemented by the registry integration.
-- `core/enrichment/version/refresh/` — `VersionRefreshService` owns background scheduling, manual checks and their `VersionChecks` state, retries, and cache state, and tells `VersionListener`s about changes; `VersionRefreshSettings` supplies its interval.
-- `core/enrichment/version/resolution/` — `VersionResolver` gathers version evidence; installed-version detection, retained observations, release selection, update policy, and numeric comparison live alongside it.
-- `core/model/` — version values, registry evidence and `SelfContainer`. Ports never expose SDK objects or client handles.
-- `inbound/web/` — the global exception handler.
-- `versions/web/` — `POST /api/version-checks`.
-- `fleet/` — configured sources (`SourceCatalog`), the `DockerOperations` port, `Fleet` and its per-source `SourceMonitor`s, `SourceSnapshot` and `SnapshotListener`. It depends on no other production package except `shared/`.
-- `fleet/docker/` — docker-java calls, container events, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
-- `fleet/web/` — `GET /api/sources`.
-- `entries/` — the entry model, `EntryService`, `IconService`, `IconSweeper`, `SvgSanitizer`, and the `StateStore` and `IconFileStore` ports. It depends only on `fleet/` and `shared/`.
-- `entries/store/` — `state.json` reading and writing.
-- `entries/icons/` — uploaded icon files on disk, named by content hash.
-- `entries/web/` — `/api/icons`.
-- `endpoints/` — endpoint providers, Traefik rule parsing, URL rules, `Candidate` and `EndpointSelection`. It depends only on `fleet/` and `shared/`.
-- `dashboard/` — `DashboardProjector`, `DisplayNames`, `DefaultIcons`, `DashboardService`, `DashboardChanges`, and the dashboard's properties and icon mappings. Nothing outside it depends on it.
-- `dashboard/web/` — `GET /api/dashboard`, `GET /api/events` with `EventStreams`, the `/api/entries` write endpoints, and `IconUrls`.
-- `shared/` — small rules several slices use: `Hosts`, `HttpUrls`, `AtomicFiles` and `ImageReference`.
-- `outbound/registry/` — `RegistryOperationsAdapter` implements the core port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares authenticated tag/manifest protocol, token lifecycle, and Link parsing. Numeric selection and update decisions belong to `core.enrichment.version.resolution`.
-- `config/` — Spring wiring, HTTP transport setup, and translation from bound properties to core settings.
-- `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`.
-- `config/nativehints/` — Spring AOT hints for library types the agent cannot observe.
+- `fleet/` — configured sources (`SourceCatalog`), the `DockerOperations` port, `Fleet` and its per-source `SourceMonitor`s, `SourceSnapshot` and `SnapshotListener`, and `SelfContainer` with its resolver.
+  - `fleet/docker/` — docker-java calls, container events, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
+  - `fleet/web/` — `GET /api/sources`.
+- `endpoints/` — the sealed `EndpointProvider` and its providers, Traefik rule parsing, URL rules, `Candidate` and `EndpointSelection`.
+- `versions/` — `VersionTracker` (background and manual checks, their `VersionChecks` state, retries and the result cache, told about containers by snapshots), `VersionResolver` with installed-version detection, retained observations, release selection, update policy and numeric comparison, the version and registry-evidence values, and the `RegistryOperations` port.
+  - `versions/registry/` — `RegistryOperationsAdapter` implements the port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares the authenticated tag and manifest protocol, token lifecycle and Link parsing. `RegistryProperties` (`porthole.registry.*`) and the HTTP client wiring live here.
+  - `versions/web/` — `POST /api/version-checks`.
+- `entries/` — the entry model, `EntryService`, `IconService`, `IconSweeper`, `SvgSanitizer`, and the `StateStore` and `IconFileStore` ports.
+  - `entries/store/` — `state.json` reading and writing.
+  - `entries/icons/` — uploaded icon files on disk, named by content hash.
+  - `entries/web/` — `/api/icons`.
+- `dashboard/` — `DashboardProjector`, `DisplayNames`, `DefaultIcons`, `DashboardService`, `DashboardChanges`, and the dashboard's properties and icon mappings.
+  - `dashboard/web/` — `GET /api/dashboard`, `GET /api/events` with `EventStreams`, the `/api/entries` write endpoints, and `IconUrls`.
+- `shared/` — small rules several slices use: `Hosts`, `HttpUrls`, `AtomicFiles` and `ImageReference`; `shared/web/` holds the global exception handler.
+- `nativehints/` — Spring AOT hints for library types the native-image agent cannot observe.
 
 ### Dependency boundaries
 
-Core owns the interfaces and values at its boundaries. Controllers call inbound
-ports; Docker and registry integrations implement outbound
-ports. Both adapter groups may depend on `config/properties/`, but not on
-configuration wiring classes. Configuration wires the implementations. Core does
-not import adapters, configuration-property
-beans, Docker SDK classes, servlet types, or HTTP clients. Spring component and
-lifecycle annotations remain allowed in core.
-
 ```text
-dashboard ──→ fleet, endpoints, entries, shared   (and versions, still in core)
-endpoints ──→ fleet, shared
-entries   ──→ fleet, shared
-fleet     ──→ shared
-inbound ──→ core ←── outbound;  config wires the legacy implementations
+dashboard ──→ fleet, endpoints, versions, entries
+endpoints ──→ fleet
+versions  ──→ fleet
+entries   ──→ fleet
+fleet     ──→ (no slice)
+every slice may use shared; shared and nativehints use no slice
 ```
 
-The feature slices replace the hexagon one at a time. Nothing depends on `dashboard`. Each slice's root package never imports its own adapter subpackages, and a slice's `web` package never imports another slice's adapters. The dashboard reads the version cache from `core` until versions get their own slice.
+`ArchitectureTest` checks these rules against production bytecode with ArchUnit:
 
-The dashboard only reads cached version results; registry HTTP and Docker inspection never run on a request. `ArchitectureTest` checks these rules against production bytecode with ArchUnit.
+- Slices have no cycles, and nothing depends on `dashboard`.
+- `dashboard` reaches other slices only through their root packages.
+- A slice's root package never imports its own adapter subpackages (`docker`, `registry`, `store`, `icons`, `web`), nor Docker SDK, servlet, `java.net.http` or Spring web and HTTP types. Ports keep SDK objects and client handles out of slice roots.
+- A `web` package never imports another slice's adapters.
+
+The dashboard only reads cached version results; registry HTTP and Docker inspection never run on a request.
 
 ## Integration Test Infrastructure
 
@@ -373,12 +365,6 @@ The dashboard only reads cached version results; registry HTTP and Docker inspec
 
 See [server test commands](../server/README.md#test) for component-test requirements and runtime selection.
 
-### Architecture migration test policy
+### Integration test policy
 
-Keep every file under `server/src/test/java/com/roomelephant/porthole/it` unchanged
-during structural migrations. Those tests exercise packaged application behavior
-against JVM and native images. Unit tests outside that directory follow the new
-production packages and test adapter translation and core behavior separately.
-
-Integration tests use the production HTTP DTOs in `inbound/web/dto/` and shared
-values in `core/model/`.
+Integration tests under `server/src/test/java/com/roomelephant/porthole/it` exercise packaged application behavior against JVM and native images, so they survive structural refactors; only `it/infra/` follows package changes. They read the API as JSON (`it/infra/DashboardView`) rather than through production response types. Unit tests follow the production packages.
