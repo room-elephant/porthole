@@ -1,5 +1,9 @@
-package com.roomelephant.porthole.entries.web;
+package com.roomelephant.porthole.dashboard.web;
 
+import com.roomelephant.porthole.dashboard.DashboardEntry;
+import com.roomelephant.porthole.dashboard.DashboardService;
+import com.roomelephant.porthole.entries.EntryRef;
+import com.roomelephant.porthole.entries.EntryRef.LinkRef;
 import com.roomelephant.porthole.entries.EntryService;
 import com.roomelephant.porthole.entries.Icon;
 import com.roomelephant.porthole.entries.LinkDraft;
@@ -13,6 +17,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,14 +36,18 @@ public class EntryController {
     static final String MERGE_PATCH_JSON = "application/merge-patch+json";
 
     private final EntryService entries;
+    private final DashboardService dashboard;
+    private final IconUrls icons;
 
-    public EntryController(EntryService entries) {
+    public EntryController(EntryService entries, DashboardService dashboard, IconUrls icons) {
         this.entries = entries;
+        this.dashboard = dashboard;
+        this.icons = icons;
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(operationId = "createLink", summary = "Add a link")
-    @ApiResponse(responseCode = "201", description = "Link added")
+    @ApiResponse(responseCode = "201", description = "Link added; returns the link as the dashboard shows it")
     @ApiResponse(
             responseCode = "400",
             description = "Invalid name, URL, stack or icon, or an icon that was never uploaded",
@@ -54,12 +63,13 @@ public class EntryController {
                             mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
     @ResponseStatus(HttpStatus.CREATED)
-    public CreatedResponse create(@RequestBody CreateLinkRequest request) {
+    public EntryResponse create(@RequestBody CreateLinkRequest request) {
         JsonNode iconNode = request.icon();
         @Nullable Icon icon = iconNode == null || iconNode.isNull() ? null : EntryPatchReader.icon(iconNode);
-        return new CreatedResponse(
-                entries.createLink(new LinkDraft(request.name(), request.url(), request.stack(), icon))
-                        .id());
+        LinkRef ref = entries.createLink(new LinkDraft(request.name(), request.url(), request.stack(), icon));
+        DashboardEntry created =
+                dashboard.entry(ref).orElseThrow(() -> new IllegalStateException("Saved link is missing: " + ref.id()));
+        return EntryResponse.from(created, icons);
     }
 
     @PatchMapping(
@@ -76,7 +86,8 @@ public class EntryController {
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
                             content = @Content(mediaType = MERGE_PATCH_JSON, schema = @Schema(type = "object"))))
-    @ApiResponse(responseCode = "204", description = "Saved")
+    @ApiResponse(responseCode = "200", description = "Saved; returns the entry as the dashboard now shows it")
+    @ApiResponse(responseCode = "204", description = "Saved for a container no source currently lists")
     @ApiResponse(
             responseCode = "400",
             description = "A field is invalid for this kind of entry",
@@ -91,9 +102,12 @@ public class EntryController {
                     @Content(
                             mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemDetail.class)))
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void update(@PathVariable String id, @RequestBody JsonNode patch) {
+    public ResponseEntity<EntryResponse> update(@PathVariable String id, @RequestBody JsonNode patch) {
         entries.update(id, EntryPatchReader.read(patch));
+        return dashboard
+                .entry(EntryRef.parse(id))
+                .map(entry -> ResponseEntity.ok(EntryResponse.from(entry, icons)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @DeleteMapping("/{id}")

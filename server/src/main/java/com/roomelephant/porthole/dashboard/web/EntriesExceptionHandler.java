@@ -1,9 +1,7 @@
-package com.roomelephant.porthole.entries.web;
+package com.roomelephant.porthole.dashboard.web;
 
 import com.roomelephant.porthole.entries.EntryNotDeletableException;
 import com.roomelephant.porthole.entries.EntryNotFoundException;
-import com.roomelephant.porthole.entries.IconLimitReachedException;
-import com.roomelephant.porthole.entries.IconTooLargeException;
 import com.roomelephant.porthole.entries.LinkLimitReachedException;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
@@ -36,14 +34,9 @@ public class EntriesExceptionHandler {
                 .body(ProblemDetail.forStatusAndDetail(HttpStatus.METHOD_NOT_ALLOWED, ex.getMessage()));
     }
 
-    @ExceptionHandler({LinkLimitReachedException.class, IconLimitReachedException.class})
-    public ProblemDetail storageFull(RuntimeException ex) {
+    @ExceptionHandler(LinkLimitReachedException.class)
+    public ProblemDetail linkLimit(LinkLimitReachedException ex) {
         log.warn(ex.getMessage());
         return ProblemDetail.forStatusAndDetail(HttpStatus.INSUFFICIENT_STORAGE, ex.getMessage());
-    }
-
-    @ExceptionHandler(IconTooLargeException.class)
-    public ProblemDetail tooLarge(IconTooLargeException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE, ex.getMessage());
     }
 }

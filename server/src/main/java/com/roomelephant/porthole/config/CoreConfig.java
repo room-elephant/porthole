@@ -4,6 +4,7 @@ import com.roomelephant.porthole.config.properties.*;
 import com.roomelephant.porthole.core.enrichment.icon.IconSettings;
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings;
 import com.roomelephant.porthole.core.model.SelfContainer;
+import com.roomelephant.porthole.dashboard.DashboardProperties;
 import com.roomelephant.porthole.outbound.runtime.SelfContainerResolver;
 import java.nio.file.Path;
 import org.jspecify.annotations.NonNull;

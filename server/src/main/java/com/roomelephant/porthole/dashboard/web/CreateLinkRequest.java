@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.entries.web;
+package com.roomelephant.porthole.dashboard.web;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.jspecify.annotations.NullMarked;

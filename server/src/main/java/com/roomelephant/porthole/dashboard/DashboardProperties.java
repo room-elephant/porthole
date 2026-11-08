@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.config.properties;
+package com.roomelephant.porthole.dashboard;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

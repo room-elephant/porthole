@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.entries.web;
+package com.roomelephant.porthole.dashboard.web;
 
 import com.roomelephant.porthole.entries.EndpointChoice;
 import com.roomelephant.porthole.entries.EntryPatch;

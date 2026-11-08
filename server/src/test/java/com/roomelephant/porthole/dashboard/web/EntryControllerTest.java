@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.entries.web;
+package com.roomelephant.porthole.dashboard.web;
 
 import static com.roomelephant.porthole.entries.PatchField.absent;
 import static com.roomelephant.porthole.entries.PatchField.removed;
@@ -17,23 +17,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.roomelephant.porthole.dashboard.DashboardService;
 import com.roomelephant.porthole.entries.EntryNotDeletableException;
 import com.roomelephant.porthole.entries.EntryNotFoundException;
 import com.roomelephant.porthole.entries.EntryPatch;
+import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
 import com.roomelephant.porthole.entries.EntryRef.LinkRef;
 import com.roomelephant.porthole.entries.EntryService;
 import com.roomelephant.porthole.entries.Icon;
 import com.roomelephant.porthole.entries.LinkDraft;
 import com.roomelephant.porthole.entries.LinkLimitReachedException;
 import java.net.URI;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(EntryController.class)
+@Import(WebFixtures.Config.class)
 class EntryControllerTest {
     private static final LinkRef ROUTER = new LinkRef("3f2a9c1e5b7d4e8a9c217d4e5f6a8b90");
     private static final MediaType MERGE_PATCH = MediaType.parseMediaType("application/merge-patch+json");
@@ -44,16 +49,22 @@ class EntryControllerTest {
     @MockitoBean
     private EntryService entries;
 
+    @MockitoBean
+    private DashboardService dashboard;
+
     @Test
-    void createReturns201WithId() throws Exception {
+    void createReturns201WithResolvedLink() throws Exception {
         when(entries.createLink(any())).thenReturn(ROUTER);
+        when(dashboard.entry(ROUTER)).thenReturn(Optional.of(WebFixtures.router()));
 
         mockMvc.perform(post("/api/entries")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Router\",\"url\":\"http://192.168.50.1/\",\"stack\":\"base\","
                                 + "\"icon\":{\"library\":\"router\"}}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(ROUTER.id()));
+                .andExpect(jsonPath("$.id").value(ROUTER.id()))
+                .andExpect(jsonPath("$.kind").value("link"))
+                .andExpect(jsonPath("$.endpoints[0].url").value("http://192.168.50.1/"));
 
         verify(entries).createLink(new LinkDraft("Router", "http://192.168.50.1/", "base", new Icon.Library("router")));
     }
@@ -61,6 +72,7 @@ class EntryControllerTest {
     @Test
     void createWithoutIconPassesNull() throws Exception {
         when(entries.createLink(any())).thenReturn(ROUTER);
+        when(dashboard.entry(ROUTER)).thenReturn(Optional.of(WebFixtures.router()));
 
         mockMvc.perform(post("/api/entries")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -73,6 +85,7 @@ class EntryControllerTest {
     @Test
     void createWithNullIconPassesNull() throws Exception {
         when(entries.createLink(any())).thenReturn(ROUTER);
+        when(dashboard.entry(ROUTER)).thenReturn(Optional.of(WebFixtures.router()));
 
         mockMvc.perform(post("/api/entries")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -187,5 +200,28 @@ class EntryControllerTest {
         mockMvc.perform(delete("/api/entries/{id}", ROUTER.id())).andExpect(status().isNoContent());
 
         verify(entries).delete(eq(ROUTER.id()));
+    }
+
+    @Test
+    void patchReturns200WithResolvedEntry() throws Exception {
+        when(dashboard.entry(new ContainerRef("walker", "smh-sonarr-1"))).thenReturn(Optional.of(WebFixtures.sonarr()));
+
+        mockMvc.perform(patch(URI.create("/api/entries/container:walker:smh-sonarr-1"))
+                        .contentType(MERGE_PATCH)
+                        .content("{\"name\":\"TV\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("container:walker:smh-sonarr-1"))
+                .andExpect(jsonPath("$.container.defaultName").value("sonarr"));
+    }
+
+    @Test
+    void patchOfUndiscoveredContainerIs204() throws Exception {
+        when(dashboard.entry(any())).thenReturn(Optional.empty());
+
+        mockMvc.perform(patch(URI.create("/api/entries/container:walker:gone"))
+                        .contentType(MERGE_PATCH)
+                        .content("{\"name\":\"Later\"}"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
     }
 }

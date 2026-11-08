@@ -1,9 +1,8 @@
-package com.roomelephant.porthole.config;
+package com.roomelephant.porthole.dashboard;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.roomelephant.porthole.config.properties.DashboardProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,7 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-class IconConfigTest {
+class DashboardConfigurationTest {
     @TempDir
     Path directory;
 
@@ -52,7 +51,7 @@ class IconConfigTest {
     }
 
     private Map<String, String> load(Path file) {
-        return new IconConfig()
+        return new DashboardConfiguration()
                 .iconMappings(new DashboardProperties(
                         new DashboardProperties.Icons(file.toString(), "https://icons.example/", ".webp")));
     }

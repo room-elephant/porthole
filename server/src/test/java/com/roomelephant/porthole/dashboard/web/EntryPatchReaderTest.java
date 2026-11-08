@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.entries.web;
+package com.roomelephant.porthole.dashboard.web;
 
 import static com.roomelephant.porthole.entries.PatchField.absent;
 import static com.roomelephant.porthole.entries.PatchField.removed;

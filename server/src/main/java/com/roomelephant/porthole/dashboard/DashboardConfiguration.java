@@ -1,6 +1,5 @@
-package com.roomelephant.porthole.config;
+package com.roomelephant.porthole.dashboard;
 
-import com.roomelephant.porthole.config.properties.DashboardProperties;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
@@ -9,6 +8,7 @@ import java.util.Map;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -19,8 +19,9 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.dataformat.yaml.YAMLMapper;
 
 @Configuration(proxyBeanMethods = false)
-public class IconConfig {
-    private static final Logger log = LoggerFactory.getLogger(IconConfig.class);
+@EnableConfigurationProperties(DashboardProperties.class)
+public class DashboardConfiguration {
+    private static final Logger log = LoggerFactory.getLogger(DashboardConfiguration.class);
 
     public static final String FILE_NAME = "icons.yml";
 
