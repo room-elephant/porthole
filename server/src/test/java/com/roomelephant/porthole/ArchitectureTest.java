@@ -82,8 +82,7 @@ class ArchitectureTest {
             .resideInAPackage(ROOT + "fleet.web..")
             .should()
             .dependOnClassesThat()
-            .resideInAPackage(ROOT + "fleet.docker..")
-            .allowEmptyShould(true);
+            .resideInAPackage(ROOT + "fleet.docker..");
 
     @ArchTest
     static final ArchRule sharedDependsOnNothingInPorthole = classes()
