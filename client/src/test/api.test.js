@@ -26,7 +26,7 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchDashboard, fetchIconLibrary, refreshVersions, patchEntry, toEndpointPatch, selectContainerEndpoint, uploadIcon, selectEntryIcon, uploadEntryIcon, createLink, updateLink, deleteEntry } = await import('../api');
+const { fetchDashboard, fetchIconLibrary, startVersionCheck, patchEntry, toEndpointPatch, selectContainerEndpoint, uploadIcon, selectEntryIcon, uploadEntryIcon, createLink, updateLink, deleteEntry } = await import('../api');
 
 const MERGE_PATCH = { headers: { 'Content-Type': 'application/merge-patch+json' } };
 
@@ -35,10 +35,10 @@ describe('api', () => {
     vi.clearAllMocks();
   });
 
-  it('posts a manual version refresh', async () => {
+  it('starts a version check', async () => {
     mockPost.mockResolvedValue({ status: 202 });
-    await refreshVersions();
-    expect(mockPost).toHaveBeenCalledWith('/api/versions/refresh');
+    await startVersionCheck();
+    expect(mockPost).toHaveBeenCalledWith('/api/version-checks');
   });
 
   it('patches an entry by its encoded id with merge-patch json', async () => {

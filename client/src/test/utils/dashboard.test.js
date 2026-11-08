@@ -79,7 +79,17 @@ describe('dashboard', () => {
   });
 
   it('splits an empty or missing dashboard', () => {
-    expect(splitDashboard(undefined)).toEqual({ sources: [], containers: [], links: [] });
+    expect(splitDashboard(undefined)).toEqual({
+      revision: null, versionChecks: { running: false, lastCompletedAt: null }, sources: [], containers: [], links: [],
+    });
+  });
+
+  it('carries the revision and version-check state', () => {
+    const versionChecks = { running: true, lastCompletedAt: '2026-11-08T09:00:00Z' };
+    const split = splitDashboard({ revision: 42, versionChecks, sources: [], entries: [] });
+
+    expect(split.revision).toBe(42);
+    expect(split.versionChecks).toBe(versionChecks);
   });
 
   it('filters stopped and endpoint-less containers locally', () => {
