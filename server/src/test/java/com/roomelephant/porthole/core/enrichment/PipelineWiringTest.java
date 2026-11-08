@@ -11,6 +11,9 @@ import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshS
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.model.VersionInfo;
+import com.roomelephant.porthole.endpoints.EndpointDiscovery;
+import com.roomelephant.porthole.endpoints.PublishedHostResolver;
+import com.roomelephant.porthole.endpoints.PublishedPortEndpointProvider;
 import com.roomelephant.porthole.entries.EndpointChoice;
 import com.roomelephant.porthole.entries.EntryRecord;
 import com.roomelephant.porthole.entries.EntryRef.ContainerRef;

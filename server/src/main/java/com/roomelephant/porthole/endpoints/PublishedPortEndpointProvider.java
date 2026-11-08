@@ -1,8 +1,5 @@
-package com.roomelephant.porthole.core.enrichment.endpoint;
+package com.roomelephant.porthole.endpoints;
 
-import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
-import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.model.Endpoint;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
@@ -17,14 +14,14 @@ public final class PublishedPortEndpointProvider implements EndpointProvider {
     }
 
     @Override
-    public List<Endpoint> discover(Container container, EnrichmentContext context) {
-        return container.publishedPorts().stream()
+    public List<Candidate> discover(EndpointTarget target) {
+        return target.publishedPorts().stream()
                 .sorted()
-                .map(port -> new Endpoint(
+                .map(port -> new Candidate(
                         "published-port:" + port,
                         "published-port",
-                        EndpointUrls.publishedPortUrl(hostResolver.resolve(context), port),
-                        false))
+                        EndpointUrls.publishedPortUrl(hostResolver.resolve(target.publishedHost()), port),
+                        CandidateKind.DIRECT))
                 .toList();
     }
 }

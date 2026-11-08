@@ -3,8 +3,8 @@ package com.roomelephant.porthole.core.enrichment.preferences;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.roomelephant.porthole.core.enrichment.endpoint.EndpointUrls;
 import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.endpoints.EndpointUrls;
 import com.roomelephant.porthole.entries.EndpointChoice;
 import java.util.ArrayList;
 import java.util.List;

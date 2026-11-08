@@ -1,8 +1,5 @@
-package com.roomelephant.porthole.core.enrichment.endpoint;
+package com.roomelephant.porthole.endpoints;
 
-import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
-import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.model.Endpoint;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,15 +15,15 @@ public class EndpointDiscovery {
         this.providers = List.copyOf(providers);
     }
 
-    public List<Endpoint> discover(Container container, EnrichmentContext context) {
-        LinkedHashMap<String, Endpoint> endpoints = new LinkedHashMap<>();
+    public List<Candidate> discover(EndpointTarget target) {
+        LinkedHashMap<String, Candidate> endpoints = new LinkedHashMap<>();
         for (EndpointProvider provider : providers) {
-            for (Endpoint endpoint : provider.discover(container, context)) {
+            for (Candidate endpoint : provider.discover(target)) {
                 endpoints.putIfAbsent(endpoint.id(), endpoint);
             }
         }
         return endpoints.values().stream()
-                .sorted(Comparator.comparing(Endpoint::source).thenComparing(Endpoint::url))
+                .sorted(Comparator.comparing(Candidate::source).thenComparing(Candidate::url))
                 .toList();
     }
 }

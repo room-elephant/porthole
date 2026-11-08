@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.enrichment.endpoint;
+package com.roomelephant.porthole.endpoints;
 
 import java.util.ArrayList;
 import java.util.List;

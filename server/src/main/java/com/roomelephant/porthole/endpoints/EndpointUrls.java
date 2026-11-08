@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.enrichment.endpoint;
+package com.roomelephant.porthole.endpoints;
 
 import com.roomelephant.porthole.shared.Hosts;
 import java.net.URI;

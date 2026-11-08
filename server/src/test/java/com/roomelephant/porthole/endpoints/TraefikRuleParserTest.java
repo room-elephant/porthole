@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.enrichment.endpoint;
+package com.roomelephant.porthole.endpoints;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

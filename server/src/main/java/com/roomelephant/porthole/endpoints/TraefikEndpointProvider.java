@@ -1,9 +1,6 @@
-package com.roomelephant.porthole.core.enrichment.endpoint;
+package com.roomelephant.porthole.endpoints;
 
-import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
-import com.roomelephant.porthole.core.enrichment.endpoint.TraefikRuleParser.Route;
-import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.endpoints.TraefikRuleParser.Route;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -30,11 +27,11 @@ public final class TraefikEndpointProvider implements EndpointProvider {
     }
 
     @Override
-    public List<Endpoint> discover(Container container, EnrichmentContext context) {
+    public List<Candidate> discover(EndpointTarget target) {
         TreeMap<String, String> labels = new TreeMap<>();
-        container.labels().forEach((key, value) -> labels.put(key.toLowerCase(Locale.ROOT), value));
+        target.labels().forEach((key, value) -> labels.put(key.toLowerCase(Locale.ROOT), value));
         if (labels.getOrDefault("traefik.enable", "").strip().equalsIgnoreCase("false")) return List.of();
-        ArrayList<Endpoint> endpoints = new ArrayList<>();
+        ArrayList<Candidate> endpoints = new ArrayList<>();
         labels.forEach((key, rule) -> {
             if (!key.startsWith(ROUTER_PREFIX)
                     || !key.endsWith(RULE_SUFFIX)
@@ -42,16 +39,16 @@ public final class TraefikEndpointProvider implements EndpointProvider {
             String router = key.substring(0, key.length() - RULE_SUFFIX.length());
             Optional<Route> route = parser.parse(rule);
             if (route.isEmpty()) {
-                log.debug("Skipping unsupported router {} on container {}", router, container.name());
+                log.debug("Skipping unsupported router {} on container {}", router, target.containerName());
                 return;
             }
             String url = EndpointUrls.routeUrl(
                     scheme(labels, router), route.get().host(), route.get().path());
-            endpoints.add(new Endpoint("traefik:" + url, "traefik", url, false));
+            endpoints.add(new Candidate("traefik:" + url, "traefik", url, CandidateKind.ROUTED));
         });
         return endpoints.stream()
                 .distinct()
-                .sorted(Comparator.comparing(Endpoint::url))
+                .sorted(Comparator.comparing(Candidate::url))
                 .toList();
     }
 
