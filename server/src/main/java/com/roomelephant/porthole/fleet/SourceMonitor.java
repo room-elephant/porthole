@@ -48,6 +48,7 @@ final class SourceMonitor implements AutoCloseable {
     private @Nullable ScheduledFuture<?> resubscribe;
     private @Nullable AutoCloseable subscription;
     private long generation;
+    private boolean subscribedBefore;
     private Duration backoff;
 
     SourceMonitor(
@@ -211,6 +212,9 @@ final class SourceMonitor implements AutoCloseable {
             synchronized (this) {
                 if (!closed && subscriber == generation) {
                     subscription = opened;
+                    // Events sent while no stream was open are lost, so a reopened stream starts with a listing.
+                    if (subscribedBefore) nudge();
+                    subscribedBefore = true;
                     return;
                 }
             }

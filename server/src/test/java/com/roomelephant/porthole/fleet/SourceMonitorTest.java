@@ -195,11 +195,24 @@ class SourceMonitorTest {
         ContainerEventListener first = docker.listener;
         first.onClosed(null);
         await().atMost(Duration.ofSeconds(1)).until(() -> docker.watchAttempts.size() == 2);
+        // The reopened stream lists once to catch events missed while it was closed.
+        await().atMost(Duration.ofSeconds(1)).until(() -> docker.listCalls.get() == 2);
         first.onEvent();
         first.onClosed(new IllegalStateException("late"));
         await().during(Duration.ofMillis(150))
                 .atMost(Duration.ofSeconds(1))
-                .until(() -> docker.listCalls.get() == 1 && docker.watchAttempts.size() == 2);
+                .until(() -> docker.listCalls.get() == 2 && docker.watchAttempts.size() == 2);
+    }
+
+    @Test
+    void resubscribingListsAgainToCatchMissedEvents() {
+        start(settings(HOUR, Duration.ofMillis(10)));
+        await().atMost(Duration.ofSeconds(1)).until(() -> docker.listener != null && docker.listCalls.get() == 1);
+
+        docker.listener.onClosed(new IllegalStateException("read timed out"));
+
+        await().atMost(Duration.ofSeconds(1)).until(() -> docker.watchAttempts.size() == 2);
+        await().atMost(Duration.ofSeconds(1)).until(() -> docker.listCalls.get() == 2);
     }
 
     @Test
