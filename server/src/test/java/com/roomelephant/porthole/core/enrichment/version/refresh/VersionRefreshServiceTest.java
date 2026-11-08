@@ -3,41 +3,65 @@ package com.roomelephant.porthole.core.enrichment.version.refresh;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.ListContainersCmd;
-import com.github.dockerjava.api.model.Container;
+import com.roomelephant.porthole.DockerTestSources;
 import com.roomelephant.porthole.core.enrichment.version.resolution.VersionObservation;
 import com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver;
 import com.roomelephant.porthole.core.model.VersionInfo;
-import com.roomelephant.porthole.fleet.ContainerNotFoundException;
+import com.roomelephant.porthole.fleet.*;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.*;
-import org.mockito.ArgumentCaptor;
 
 class VersionRefreshServiceTest {
-    private final DockerClient docker = mock(DockerClient.class);
-    private final ListContainersCmd list = mock(ListContainersCmd.class);
+    private static final Duration INTERVAL = Duration.ofHours(1);
+    private static final ContainerKey A = new ContainerKey("local", "a");
+
     private final VersionResolver resolver = mock(VersionResolver.class);
     private final ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
     private final ManualExecutor workers = new ManualExecutor();
     private final ManualExecutor coordinators = new ManualExecutor();
     private final MutableClock clock = new MutableClock();
     private final VersionInfo old = new VersionInfo("1.0", "2.0", true);
+    private final VersionInfo fresh = new VersionInfo("1.0", "3.0", true);
     private VersionRefreshService service;
 
-    @Test
-    void cacheReadersReuseTheProjectedResultWithoutRepeatingReleaseSelection() {
-        var id = new com.roomelephant.porthole.fleet.ContainerKey("local", "a");
-        var snapshot = mock(VersionObservation.class);
-        when(snapshot.toVersionInfo()).thenReturn(old);
-        when(resolver.resolve(eq(id), nullable(VersionObservation.class))).thenReturn(snapshot);
-        service.getCachedVersionAndRefresh(id);
-        workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(id)).isEqualTo(old);
-        assertThat(service.getCachedVersionAndRefresh(id)).isEqualTo(old);
-        verify(snapshot, times(1)).toVersionInfo();
+    @BeforeEach
+    void setUp() {
+        service = service(DockerTestSources.catalog("local", "mike"));
+    }
+
+    @AfterEach
+    void close() {
+        service.close();
+    }
+
+    private VersionRefreshService service(SourceCatalog catalog) {
+        return new VersionRefreshService(
+                catalog, resolver, new VersionRefreshSettings(INTERVAL), clock, workers, scheduler, coordinators);
+    }
+
+    private static Source source(String id) {
+        return new Source(id, id, null, true, Duration.ofSeconds(1));
+    }
+
+    /** Each argument is {@code id} or {@code id@imageId}. */
+    private static SourceSnapshot up(String sourceId, String... containers) {
+        List<ContainerSnapshot> listed = Arrays.stream(containers)
+                .map(spec -> {
+                    String[] parts = spec.split("@", 2);
+                    return new ContainerSnapshot(
+                            parts[0],
+                            parts[0],
+                            "nginx:1",
+                            parts.length > 1 ? parts[1] : "image",
+                            Set.of(),
+                            Map.of(),
+                            "running",
+                            "Up");
+                })
+                .toList();
+        return SourceSnapshot.initial(source(sourceId)).succeeded(listed, Instant.EPOCH);
     }
 
     private static VersionObservation observation(VersionInfo info) {
@@ -61,354 +85,247 @@ class VersionRefreshServiceTest {
                 manifests);
     }
 
-    @BeforeEach
-    void setUp() {
-        when(docker.listContainersCmd()).thenReturn(list);
-        when(list.withShowAll(true)).thenReturn(list);
-        when(list.exec()).thenReturn(List.of());
-        service = new VersionRefreshService(
-                com.roomelephant.porthole.DockerTestSources.catalog("local"),
-                com.roomelephant.porthole.DockerTestSources.operationsOf(docker),
-                resolver,
-                new VersionRefreshSettings(Duration.ofHours(1)),
-                clock,
-                workers,
-                scheduler,
-                coordinators);
-    }
-
-    @AfterEach
-    void close() {
-        service.close();
+    private void resolves(ContainerKey key, VersionInfo... results) {
+        var stub = when(resolver.resolve(eq(key), nullable(VersionObservation.class)));
+        for (VersionInfo result : results) stub = stub.thenReturn(observation(result));
     }
 
     @Test
-    void forcedRefreshBypassesIntervalAndKeepsOldResultWhileChecking() {
-        inventory("a");
-        var id = new com.roomelephant.porthole.fleet.ContainerKey("local", "a");
-        when(resolver.resolve(eq(id), nullable(VersionObservation.class)))
-                .thenReturn(observation(old), observation(new VersionInfo("1.0", "3.0", true)));
-        service.refreshSource("local");
+    void newContainerInSnapshotQueuesCheck() {
+        resolves(A, old);
+        service.onSnapshot(up("local", "a"));
+        assertThat(workers.tasks).hasSize(1);
+        assertThat(service.cachedVersion(A)).isNull();
+        workers.runAll();
+        assertThat(service.cachedVersion(A)).isEqualTo(old);
+    }
+
+    @Test
+    void cachedVersionReusesProjectedResultWithoutRepeatingReleaseSelection() {
+        var observation = mock(VersionObservation.class);
+        when(observation.toVersionInfo()).thenReturn(old);
+        when(resolver.resolve(eq(A), nullable(VersionObservation.class))).thenReturn(observation);
+        service.onSnapshot(up("local", "a"));
+        workers.runAll();
+        assertThat(service.cachedVersion(A)).isEqualTo(old);
+        assertThat(service.cachedVersion(A)).isEqualTo(old);
+        verify(observation, times(1)).toVersionInfo();
+    }
+
+    @Test
+    void changedImageIdChecksImmediately() {
+        resolves(A, old, fresh);
+        service.onSnapshot(up("local", "a@one"));
+        workers.runAll();
+        service.onSnapshot(up("local", "a@two"));
+        assertThat(workers.tasks).hasSize(1);
+        assertThat(service.cachedVersion(A))
+                .as("old result stays visible while checking")
+                .isEqualTo(old);
+        workers.runAll();
+        assertThat(service.cachedVersion(A)).isEqualTo(fresh);
+        verify(resolver, times(2)).resolve(eq(A), nullable(VersionObservation.class));
+    }
+
+    @Test
+    void checkForReplacedImageCannotOverwriteNewerEntry() {
+        when(resolver.resolve(eq(A), nullable(VersionObservation.class))).thenAnswer(_ -> {
+            service.onSnapshot(up("local", "a@two"));
+            return observation(old);
+        });
+        service.onSnapshot(up("local", "a@one"));
+        workers.tasks.remove().run();
+        assertThat(service.cachedVersion(A)).isNull();
+        assertThat(workers.tasks).hasSize(1);
+    }
+
+    @Test
+    void unchangedSnapshotDoesNotRecheckBeforeInterval() {
+        resolves(A, old);
+        service.onSnapshot(up("local", "a"));
+        workers.runAll();
+        service.onSnapshot(up("local", "a"));
+        assertThat(workers.tasks).isEmpty();
+    }
+
+    @Test
+    void failedSourceSnapshotNeitherPrunesNorChecks() {
+        resolves(A, old);
+        service.onSnapshot(up("local", "a"));
+        workers.runAll();
+        service.onSnapshot(SourceSnapshot.initial(source("local"))
+                .failed(SourceSnapshot.Status.DOWN, "Docker is not reachable", Instant.EPOCH, INTERVAL));
+        assertThat(service.cachedVersion(A)).isEqualTo(old);
+        assertThat(workers.tasks).isEmpty();
+    }
+
+    @Test
+    void upSnapshotPrunesMissingKeysOfThatSourceOnly() {
+        var mike = new ContainerKey("mike", "a");
+        resolves(A, old);
+        resolves(mike, fresh);
+        service.onSnapshot(up("local", "a"));
+        service.onSnapshot(up("mike", "a"));
+        workers.runAll();
+        service.onSnapshot(up("local"));
+        assertThat(service.cachedVersion(A)).isNull();
+        assertThat(service.cachedVersion(mike)).isEqualTo(fresh);
+    }
+
+    @Test
+    void readinessSchedulesOneFixedDelayScanPerSourceAfterAnInterval() {
+        service.start();
+        service.start();
+        verify(scheduler, times(2))
+                .scheduleWithFixedDelay(
+                        any(Runnable.class), eq(INTERVAL.toNanos()), eq(INTERVAL.toNanos()), eq(TimeUnit.NANOSECONDS));
+    }
+
+    @Test
+    void periodicScanUsesStoredSnapshotAndRespectsRetryTime() {
+        resolves(A, old, fresh);
+        service.onSnapshot(up("local", "a"));
+        workers.runAll();
+        assertThat(service.rescan("local", false)).isCompleted();
+        assertThat(workers.tasks).isEmpty();
+        clock.advance(INTERVAL);
+        var scan = service.rescan("local", false);
+        assertThat(workers.tasks).hasSize(1);
+        workers.runAll();
+        assertThat(scan).isCompleted();
+        assertThat(service.cachedVersion(A)).isEqualTo(fresh);
+    }
+
+    @Test
+    void scanWithoutUpSnapshotDoesNothing() {
+        assertThat(service.rescan("local", true)).isCompleted();
+        service.onSnapshot(SourceSnapshot.initial(source("local")));
+        assertThat(service.rescan("local", true)).isCompleted();
+        assertThat(workers.tasks).isEmpty();
+    }
+
+    @Test
+    void requestRefreshForcesChecksAndCoalesces() {
+        resolves(A, old, fresh);
+        service.onSnapshot(up("local", "a"));
         workers.runAll();
         service.requestRefresh();
         service.requestRefresh();
+        verify(resolver, never()).invalidateRegistryCache();
         assertThat(coordinators.tasks).hasSize(1);
         coordinators.runAll();
         verify(resolver).invalidateRegistryCache();
-        assertThat(service.getCachedVersionAndRefresh(id)).isEqualTo(old);
+        assertThat(service.cachedVersion(A)).isEqualTo(old);
         assertThat(workers.tasks).hasSize(1);
         workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(id).latestVersion()).isEqualTo("3.0");
-    }
-
-    @Test
-    void forcedRefreshChecksAllSourcesAndRecoversFromSourceFailure() {
-        service.close();
-        var remoteDocker = mock(DockerClient.class);
-        var remoteList = mock(ListContainersCmd.class);
-        when(remoteDocker.listContainersCmd()).thenReturn(remoteList);
-        when(remoteList.withShowAll(true)).thenReturn(remoteList);
-        var dockerSources = new com.roomelephant.porthole.fleet.docker.DockerSourceRegistry(List.of(
-                new com.roomelephant.porthole.fleet.docker.DockerConnection("local", docker),
-                new com.roomelephant.porthole.fleet.docker.DockerConnection("remote", remoteDocker)));
-        var freshWorkers = new ManualExecutor();
-        var freshCoordinators = new ManualExecutor();
-        service = new VersionRefreshService(
-                com.roomelephant.porthole.DockerTestSources.catalog("local", "remote"),
-                new com.roomelephant.porthole.fleet.docker.DockerJavaOperations(dockerSources),
-                resolver,
-                new VersionRefreshSettings(Duration.ofHours(1)),
-                clock,
-                freshWorkers,
-                scheduler,
-                freshCoordinators);
-        var discovered = mock(Container.class);
-        when(discovered.getId()).thenReturn("a");
-        when(list.exec()).thenThrow(new IllegalStateException("source unavailable"));
-        when(remoteList.exec()).thenReturn(List.of(discovered));
-        var remote = new com.roomelephant.porthole.fleet.ContainerKey("remote", "a");
-        when(resolver.resolve(eq(remote), nullable(VersionObservation.class))).thenReturn(observation(old));
+        assertThat(service.cachedVersion(A)).isEqualTo(fresh);
         service.requestRefresh();
-        assertThat(freshCoordinators.tasks).hasSize(1);
-        verify(docker, never()).listContainersCmd();
-        freshCoordinators.runAll();
-        freshWorkers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(remote)).isEqualTo(old);
-        service.requestRefresh();
-        assertThat(freshCoordinators.tasks).hasSize(1);
-    }
-
-    @Test
-    void manualRequestDoesNotInvalidateCacheOnRequestThread() {
-        service.requestRefresh();
-        verify(resolver, never()).invalidateRegistryCache();
-    }
-
-    @Test
-    void manualRequestForcesRecentlyCheckedContainersDuringAnActiveScan() {
-        inventory("a");
-        var a = new com.roomelephant.porthole.fleet.ContainerKey("local", "a");
-        when(resolver.resolve(eq(a), nullable(VersionObservation.class)))
-                .thenReturn(observation(old), observation(new VersionInfo("1.0", "3.0", true)));
-        service.refreshSource("local");
-        workers.runAll();
-        inventory("a", "b");
-        service.refreshSource("local");
-        assertThat(workers.tasks).hasSize(1);
-        service.requestRefresh();
-        coordinators.runAll();
-        assertThat(workers.tasks).hasSize(2);
-        workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(a).latestVersion()).isEqualTo("3.0");
-    }
-
-    @Test
-    void olderScheduledInventoryCannotPruneNewerForcedDiscovery() {
-        var discovered = mock(Container.class);
-        when(discovered.getId()).thenReturn("new");
-        var id = new com.roomelephant.porthole.fleet.ContainerKey("local", "new");
-        when(resolver.resolve(eq(id), nullable(VersionObservation.class))).thenReturn(observation(old));
-        when(list.exec())
-                .thenAnswer(_ -> {
-                    service.requestRefresh();
-                    coordinators.runAll();
-                    return List.of();
-                })
-                .thenReturn(List.of(discovered));
-        service.refreshSource("local");
-        workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(id)).isEqualTo(old);
+        assertThat(coordinators.tasks).hasSize(1);
     }
 
     @Test
     void forcedRefreshReusesActiveContainerCheck() {
-        inventory("a");
-        service.refreshSource("local");
+        service.onSnapshot(up("local", "a"));
         service.requestRefresh();
         coordinators.runAll();
         assertThat(workers.tasks).hasSize(1);
     }
 
     @Test
-    void successfulScanPrunesOnlyItsSource() {
-        var local = new com.roomelephant.porthole.fleet.ContainerKey("local", "same-id");
-        var remote = new com.roomelephant.porthole.fleet.ContainerKey("mike", "same-id");
-        when(resolver.resolve(eq(local), nullable(VersionObservation.class))).thenReturn(observation(old));
-        when(resolver.resolve(eq(remote), nullable(VersionObservation.class))).thenReturn(observation(old));
-        service.getCachedVersionAndRefresh(local);
-        service.getCachedVersionAndRefresh(remote);
-        workers.runAll();
-        service.refreshSource("local");
-        assertThat(service.getCachedVersionAndRefresh(local)).isNull();
-        assertThat(service.getCachedVersionAndRefresh(remote)).isEqualTo(old);
+    void requestRefreshAfterCloseIsRejected() {
+        service.close();
+        assertThatThrownBy(service::requestRefresh).isInstanceOf(RejectedExecutionException.class);
     }
 
     @Test
     void sameContainerIdOnTwoSourcesHasIndependentVersions() {
-        var a = new com.roomelephant.porthole.fleet.ContainerKey("local", "same-id");
-        var b = new com.roomelephant.porthole.fleet.ContainerKey("mike", "same-id");
-        when(resolver.resolve(eq(a), nullable(VersionObservation.class))).thenReturn(observation(old));
-        when(resolver.resolve(eq(b), nullable(VersionObservation.class)))
-                .thenReturn(observation(new VersionInfo("9", null, false)));
-        assertThat(service.getCachedVersionAndRefresh(a)).isNull();
-        assertThat(service.getCachedVersionAndRefresh(b)).isNull();
+        var mike = new ContainerKey("mike", "a");
+        resolves(A, old);
+        resolves(mike, new VersionInfo("9", null, false));
+        service.onSnapshot(up("local", "a"));
+        service.onSnapshot(up("mike", "a"));
         workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(a)).isEqualTo(old);
-        assertThat(service.getCachedVersionAndRefresh(b).currentVersion()).isEqualTo("9");
+        assertThat(service.cachedVersion(A)).isEqualTo(old);
+        assertThat(service.cachedVersion(mike).currentVersion()).isEqualTo("9");
     }
 
     @Test
-    void missesQueueOneCheckAndPublishItsResult() {
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
-                .thenReturn(observation(old));
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isNull();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isNull();
-        assertThat(workers.tasks).hasSize(1);
+    void failedCheckKeepsPreviousResultAndOthersProgress() {
+        var b = new ContainerKey("local", "b");
+        resolves(A, old);
+        service.onSnapshot(up("local", "a"));
         workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isEqualTo(old);
-        assertThat(workers.tasks).isEmpty();
-    }
-
-    @Test
-    void readinessQueuesImmediateFixedDelayRefreshWithoutCallingDocker() {
-        service.start();
-        var job = ArgumentCaptor.forClass(Runnable.class);
-        verify(scheduler)
-                .scheduleWithFixedDelay(
-                        job.capture(), eq(0L), eq(Duration.ofHours(1).toNanos()), eq(TimeUnit.NANOSECONDS));
-        verify(docker, never()).listContainersCmd();
-        job.getValue().run();
-        verify(list).withShowAll(true);
-    }
-
-    @Test
-    void refreshKeepsOldValueUntilReplacementAndCoalescesBatches() {
-        inventory("a");
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
-                .thenReturn(observation(old), observation(new VersionInfo("1.0", "3.0", true)));
-        var first = service.refreshSource("local");
-        workers.runAll();
-        assertThat(first).isCompleted();
-        clock.advance(Duration.ofHours(1));
-        var second = service.refreshSource("local");
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isEqualTo(old);
-        assertThat(service.refreshSource("local")).isSameAs(second);
-        assertThat(workers.tasks).hasSize(1);
-        workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a"))
-                        .latestVersion())
-                .isEqualTo("3.0");
-    }
-
-    @Test
-    void failedRefreshKeepsSuccessfulResultAndOtherContainersProgress() {
-        inventory("a");
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
-                .thenReturn(observation(old));
-        service.refreshSource("local");
-        workers.runAll();
-        clock.advance(Duration.ofHours(1));
-        inventory("a", "b");
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
+        clock.advance(INTERVAL);
+        when(resolver.resolve(eq(A), nullable(VersionObservation.class)))
                 .thenThrow(new IllegalStateException("registry unavailable"));
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "b")),
-                        nullable(VersionObservation.class)))
-                .thenReturn(observation(new VersionInfo("5.0", null, false)));
-        var refresh = service.refreshSource("local");
+        resolves(b, fresh);
+        service.onSnapshot(up("local", "a", "b"));
+        var scan = service.rescan("local", false);
         workers.runAll();
-        assertThat(refresh).isCompleted();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isEqualTo(old);
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "b"))
-                        .currentVersion())
-                .isEqualTo("5.0");
+        assertThat(scan).isCompleted();
+        assertThat(service.cachedVersion(A)).isEqualTo(old);
+        assertThat(service.cachedVersion(b)).isEqualTo(fresh);
     }
 
     @Test
-    void failedFirstCheckIsRetriedOnlyAfterConfiguredInterval() {
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
+    void failedFirstCheckIsRetriedOnlyAfterInterval() {
+        when(resolver.resolve(eq(A), nullable(VersionObservation.class)))
                 .thenThrow(new IllegalStateException("outage"))
                 .thenReturn(observation(old));
-        service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a"));
+        service.onSnapshot(up("local", "a"));
         workers.runAll();
         clock.advance(Duration.ofMinutes(59));
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isNull();
+        service.rescan("local", false);
         assertThat(workers.tasks).isEmpty();
         clock.advance(Duration.ofMinutes(1));
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isNull();
-        assertThat(workers.tasks).hasSize(1);
+        service.rescan("local", false);
         workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isEqualTo(old);
-    }
-
-    @Test
-    void inventoryFailureKeepsCacheAndDoesNotStopLaterScans() {
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
-                .thenReturn(observation(old));
-        service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a"));
-        workers.runAll();
-        when(list.exec())
-                .thenThrow(new IllegalStateException("docker unavailable"))
-                .thenReturn(List.of());
-        assertThat(service.refreshSource("local")).isCompleted();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isEqualTo(old);
-        service.refreshSource("local");
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isNull();
-    }
-
-    @Test
-    void prunedQueuedWorkCannotRestoreRemovedResult() {
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
-                .thenReturn(observation(old));
-        service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a"));
-        service.refreshSource("local");
-        workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isNull();
-    }
-
-    @Test
-    void observationDuringScanSurvivesOlderInventory() {
-        when(list.exec()).thenAnswer(call -> {
-            service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "new"));
-            return List.of();
-        });
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "new")),
-                        nullable(VersionObservation.class)))
-                .thenReturn(observation(old));
-        service.refreshSource("local");
-        workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "new")))
-                .isEqualTo(old);
-    }
-
-    @Test
-    void lateRunningResultCannotRestorePrunedEntry() {
-        service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a"));
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
-                .thenAnswer(call -> {
-                    service.refreshSource("local");
-                    return observation(old);
-                });
-        workers.runAll();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isNull();
+        assertThat(service.cachedVersion(A)).isEqualTo(old);
     }
 
     @Test
     void disappearingContainerDoesNotStopBatch() {
-        inventory("a", "b");
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")),
-                        nullable(VersionObservation.class)))
+        var b = new ContainerKey("local", "b");
+        when(resolver.resolve(eq(A), nullable(VersionObservation.class)))
                 .thenThrow(new ContainerNotFoundException("a"));
-        when(resolver.resolve(
-                        eq(new com.roomelephant.porthole.fleet.ContainerKey("local", "b")),
-                        nullable(VersionObservation.class)))
-                .thenReturn(observation(old));
-        var refresh = service.refreshSource("local");
+        resolves(b, old);
+        service.onSnapshot(up("local", "a", "b"));
+        var scan = service.rescan("local", true);
         workers.runAll();
-        assertThat(refresh).isCompleted();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "b")))
-                .isEqualTo(old);
+        assertThat(scan).isCompleted();
+        assertThat(service.cachedVersion(A)).isNull();
+        assertThat(service.cachedVersion(b)).isEqualTo(old);
+    }
+
+    @Test
+    void prunedQueuedWorkCannotRestoreRemovedResult() {
+        resolves(A, old);
+        service.onSnapshot(up("local", "a"));
+        service.onSnapshot(up("local"));
+        workers.runAll();
+        assertThat(service.cachedVersion(A)).isNull();
     }
 
     @Test
     void closeStopsResourcesAndPreventsNewChecks() {
         service.close();
-        assertThat(service.getCachedVersionAndRefresh(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
-                .isNull();
+        service.onSnapshot(up("local", "a"));
+        assertThat(service.cachedVersion(A)).isNull();
+        assertThat(service.rescan("local", true)).isCompleted();
         assertThat(workers.isShutdown()).isTrue();
         assertThat(coordinators.isShutdown()).isTrue();
         assertThat(workers.tasks).isEmpty();
         verify(scheduler).shutdownNow();
+        service.start();
+        verifyNoMoreInteractions(scheduler);
+    }
+
+    @Test
+    void rejectedWorkIsRetriedAfterInterval() {
+        workers.shutdown();
+        service.onSnapshot(up("local", "a"));
+        assertThat(service.cachedVersion(A)).isNull();
+        assertThat(service.rescan("local", false)).isCompleted();
     }
 
     @Test
@@ -416,8 +333,7 @@ class VersionRefreshServiceTest {
         var running = new CountDownLatch(4);
         var release = new CountDownLatch(1);
         var entered = new java.util.concurrent.atomic.AtomicInteger();
-        when(resolver.resolve(
-                        any(com.roomelephant.porthole.fleet.ContainerKey.class), nullable(VersionObservation.class)))
+        when(resolver.resolve(any(ContainerKey.class), nullable(VersionObservation.class)))
                 .thenAnswer(call -> {
                     entered.incrementAndGet();
                     running.countDown();
@@ -425,40 +341,17 @@ class VersionRefreshServiceTest {
                     return observation(old);
                 });
         try (var actual = new VersionRefreshService(
-                com.roomelephant.porthole.DockerTestSources.catalog("local"),
-                com.roomelephant.porthole.DockerTestSources.operationsOf(docker),
-                resolver,
-                new VersionRefreshSettings(Duration.ofHours(1)))) {
-            for (int i = 0; i < 8; i++)
-                assertThat(actual.getCachedVersionAndRefresh(
-                                new com.roomelephant.porthole.fleet.ContainerKey("local", "c" + i)))
-                        .isNull();
+                DockerTestSources.catalog("local"), resolver, new VersionRefreshSettings(INTERVAL))) {
+            actual.onSnapshot(up("local", "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"));
             assertThat(running.await(5, TimeUnit.SECONDS)).isTrue();
             assertThat(entered.get()).isEqualTo(4);
-            assertTimeoutPreemptively(
+            Assertions.assertTimeoutPreemptively(
                     Duration.ofSeconds(1),
-                    () -> assertThat(actual.getCachedVersionAndRefresh(
-                                    new com.roomelephant.porthole.fleet.ContainerKey("local", "c0")))
+                    () -> assertThat(actual.cachedVersion(new ContainerKey("local", "c0")))
                             .isNull());
-            release.countDown();
         } finally {
             release.countDown();
         }
-    }
-
-    private static void assertTimeoutPreemptively(Duration duration, org.junit.jupiter.api.function.Executable action) {
-        Assertions.assertTimeoutPreemptively(duration, action);
-    }
-
-    private void inventory(String... ids) {
-        var containers = Arrays.stream(ids)
-                .map(id -> {
-                    var c = mock(Container.class);
-                    when(c.getId()).thenReturn(id);
-                    return c;
-                })
-                .toList();
-        when(list.exec()).thenReturn(containers);
     }
 
     static class MutableClock extends Clock {

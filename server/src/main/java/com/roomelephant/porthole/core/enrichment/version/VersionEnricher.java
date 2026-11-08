@@ -4,6 +4,7 @@ import com.roomelephant.porthole.core.enrichment.ContainerEnricher;
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.core.model.Container;
+import com.roomelephant.porthole.fleet.ContainerKey;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
@@ -20,8 +21,7 @@ public class VersionEnricher implements ContainerEnricher {
     @Override
     public List<Container> enrich(List<Container> containers, EnrichmentContext context) {
         for (Container container : containers) {
-            container.setVersion(versions.getCachedVersionAndRefresh(
-                    new com.roomelephant.porthole.fleet.ContainerKey(container.sourceId(), container.id())));
+            container.setVersion(versions.cachedVersion(new ContainerKey(container.sourceId(), container.id())));
         }
         return containers;
     }
