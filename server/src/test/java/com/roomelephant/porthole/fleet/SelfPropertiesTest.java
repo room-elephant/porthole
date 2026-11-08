@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.config.properties;
+package com.roomelephant.porthole.fleet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

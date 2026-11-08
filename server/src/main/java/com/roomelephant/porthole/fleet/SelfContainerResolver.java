@@ -1,6 +1,5 @@
-package com.roomelephant.porthole.outbound.runtime;
+package com.roomelephant.porthole.fleet;
 
-import com.roomelephant.porthole.core.model.SelfContainer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;

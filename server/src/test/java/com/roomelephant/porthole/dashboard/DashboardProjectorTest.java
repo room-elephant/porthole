@@ -2,7 +2,6 @@ package com.roomelephant.porthole.dashboard;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.endpoints.EndpointDiscovery;
 import com.roomelephant.porthole.endpoints.PublishedHostResolver;
 import com.roomelephant.porthole.endpoints.PublishedPortEndpointProvider;
@@ -16,6 +15,7 @@ import com.roomelephant.porthole.entries.EntryState;
 import com.roomelephant.porthole.entries.Icon;
 import com.roomelephant.porthole.fleet.ContainerKey;
 import com.roomelephant.porthole.fleet.ContainerSnapshot;
+import com.roomelephant.porthole.fleet.SelfContainer;
 import com.roomelephant.porthole.fleet.Source;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
 import com.roomelephant.porthole.versions.VersionChecks;

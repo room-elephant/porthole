@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.config.nativehints;
+package com.roomelephant.porthole.nativehints;
 
 import java.util.Arrays;
 import org.jspecify.annotations.NonNull;
@@ -13,8 +13,8 @@ import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
 @Configuration(proxyBeanMethods = false)
-@ImportRuntimeHints(DockerNativeConfig.class)
-class DockerNativeConfig implements RuntimeHintsRegistrar {
+@ImportRuntimeHints(DockerNativeHints.class)
+class DockerNativeHints implements RuntimeHintsRegistrar {
 
     @Override
     public void registerHints(@NonNull RuntimeHints hints, @Nullable ClassLoader classLoader) {

@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.config.properties;
+package com.roomelephant.porthole.fleet;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;

@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.config.nativehints;
+package com.roomelephant.porthole.nativehints;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -12,15 +12,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.predicate.RuntimeHintsPredicates;
 
-@DisplayName("DockerNativeConfig")
-class DockerNativeConfigTest {
+@DisplayName("DockerNativeHints")
+class DockerNativeHintsTest {
 
     private RuntimeHints hints;
 
     @BeforeEach
     void setUp() {
         hints = new RuntimeHints();
-        new DockerNativeConfig().registerHints(hints, null);
+        new DockerNativeHints().registerHints(hints, null);
     }
 
     @Test

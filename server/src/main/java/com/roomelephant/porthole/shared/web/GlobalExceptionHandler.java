@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.inbound.web;
+package com.roomelephant.porthole.shared.web;
 
 import java.net.URI;
 import org.jspecify.annotations.NonNull;

@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.endpoints.EndpointDiscovery;
 import com.roomelephant.porthole.entries.EntryRecord;
 import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
@@ -13,6 +12,7 @@ import com.roomelephant.porthole.entries.EntryState;
 import com.roomelephant.porthole.fleet.ContainerKey;
 import com.roomelephant.porthole.fleet.ContainerSnapshot;
 import com.roomelephant.porthole.fleet.Fleet;
+import com.roomelephant.porthole.fleet.SelfContainer;
 import com.roomelephant.porthole.fleet.Source;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
 import com.roomelephant.porthole.versions.VersionChecks;
