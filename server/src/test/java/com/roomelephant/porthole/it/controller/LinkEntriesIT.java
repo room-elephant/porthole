@@ -4,35 +4,28 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.github.dockerjava.api.model.Bind;
-import com.github.dockerjava.api.model.Volume;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
-import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
-import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-class ExternalLinkIT {
+class LinkEntriesIT {
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3};
     private static final String ROUTER = "{\"name\":\"Router\",\"url\":\"http://192.168.50.1/\",\"stack\":\"base\"}";
+    private static final MediaType MERGE_PATCH = MediaType.parseMediaType("application/merge-patch+json");
 
     private WireMockServer docker;
     private GenericContainer<?> app;
-    private String volume;
-    private final RestTemplate http = new RestTemplate();
+    private final RestTemplate http = new RestTemplate(new JdkClientHttpRequestFactory());
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     @BeforeEach
@@ -41,45 +34,26 @@ class ExternalLinkIT {
         docker.start();
         docker.stubFor(get(urlPathMatching("/(?:v[0-9.]+/)?_ping")).willReturn(ok("OK")));
         docker.stubFor(get(urlPathMatching("/(?:v[0-9.]+/)?containers/json")).willReturn(okJson("[]")));
-        volume = "porthole-links-it-" + UUID.randomUUID();
-        DockerClientFactory.instance()
-                .client()
-                .createVolumeCmd()
-                .withName(volume)
-                .exec();
-        startApplication();
+        app = PortholeContainer.withCustomSocket("/tmp/unused.sock", docker.port());
+        app.withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_ID", "walker")
+                .withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_NAME", "Walker")
+                .withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "tcp://host.docker.internal:" + docker.port());
+        app.start();
     }
 
     @AfterEach
     void stop() {
         if (app != null) app.stop();
-        if (volume != null)
-            DockerClientFactory.instance().client().removeVolumeCmd(volume).exec();
         if (docker != null && docker.isRunning()) docker.stop();
-    }
-
-    private void startApplication() {
-        app = PortholeContainer.withCustomSocket("/tmp/unused.sock", docker.port());
-        app.withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_ID", "walker")
-                .withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_NAME", "Walker")
-                .withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "tcp://host.docker.internal:" + docker.port());
-        app.withCreateContainerCmdModifier(cmd -> {
-            var binds = new ArrayList<Bind>();
-            if (cmd.getHostConfig().getBinds() != null)
-                binds.addAll(Arrays.asList(cmd.getHostConfig().getBinds()));
-            binds.add(new Bind(volume, new Volume("/app/data")));
-            cmd.getHostConfig().withBinds(binds);
-        });
-        app.start();
     }
 
     private String url(String path) {
         return "http://localhost:" + app.getMappedPort(PortholeContainer.PORTHOLE_PORT) + path;
     }
 
-    private static HttpEntity<String> json(String body) {
+    private static HttpEntity<Object> body(Object body, MediaType type) {
         var headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setContentType(type);
         return new HttpEntity<>(body, headers);
     }
 
@@ -88,23 +62,19 @@ class ExternalLinkIT {
     }
 
     private String create() {
-        var response = http.postForEntity(url("/api/links"), json(ROUTER), String.class);
+        var response = http.postForEntity(url("/api/entries"), body(ROUTER, MediaType.APPLICATION_JSON), String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         return mapper.readTree(response.getBody()).path("id").asString();
     }
 
-    private ResponseEntity<String> upload(String id) {
-        var parts = new LinkedMultiValueMap<String, Object>();
-        parts.add("file", new ByteArrayResource(PNG) {
-            @Override
-            public String getFilename() {
-                return "logo.png";
-            }
-        });
-        var headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        return http.postForEntity(
-                url("/api/links/" + id + "/icon/upload"), new HttpEntity<>(parts, headers), String.class);
+    private ResponseEntity<String> patch(String id, String patch) {
+        return http.exchange(url("/api/entries/" + id), HttpMethod.PATCH, body(patch, MERGE_PATCH), String.class);
+    }
+
+    private String upload() {
+        var response = http.postForEntity(url("/api/icons"), body(PNG, MediaType.IMAGE_PNG), String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        return mapper.readTree(response.getBody()).path("id").asString();
     }
 
     @Test
@@ -112,82 +82,91 @@ class ExternalLinkIT {
         assertThat(links()).isEmpty();
 
         String id = create();
-        assertThat(id).matches("[0-9a-f]{32}");
+        assertThat(id).matches("link:[0-9a-f]{32}");
         JsonNode created = links().get(0);
+        assertThat(created.path("id").asString()).isEqualTo(id);
         assertThat(created.path("name").asString()).isEqualTo("Router");
         assertThat(created.path("url").asString()).isEqualTo("http://192.168.50.1/");
         assertThat(created.path("stack").asString()).isEqualTo("base");
         assertThat(created.path("iconUrl").isNull()).isTrue();
 
-        var updated = http.exchange(
-                url("/api/links/" + id),
-                HttpMethod.PUT,
-                json("{\"name\":\"Gateway\",\"url\":\"https://gw/\",\"stack\":null}"),
-                String.class);
-        assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.OK);
+        var updated = patch(id, "{\"name\":\"Gateway\",\"endpoint\":{\"url\":\"https://gw/\"},\"stack\":null}");
+        assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(links().get(0).path("name").asString()).isEqualTo("Gateway");
+        assertThat(links().get(0).path("url").asString()).isEqualTo("https://gw/");
         assertThat(links().get(0).path("stack").isNull()).isTrue();
 
-        http.delete(url("/api/links/" + id));
+        http.delete(url("/api/entries/" + id));
         assertThat(links()).isEmpty();
     }
 
     @Test
-    void rejectsJavascriptUrl() {
-        String body = "{\"name\":\"Bad\",\"url\":\"javascript:alert(1)\"}";
+    void createWithIconInOneRequest() {
+        String icon = upload();
+        String request = "{\"name\":\"NAS\",\"url\":\"http://nas/\",\"icon\":{\"upload\":\"" + icon + "\"}}";
 
-        assertThatThrownBy(() -> http.postForEntity(url("/api/links"), json(body), String.class))
+        http.postForEntity(url("/api/entries"), body(request, MediaType.APPLICATION_JSON), String.class);
+
+        assertThat(links().get(0).path("iconUrl").asString()).isEqualTo("/api/icons/" + icon);
+    }
+
+    @Test
+    void rejectsJavascriptUrl() {
+        String request = "{\"name\":\"Bad\",\"url\":\"javascript:alert(1)\"}";
+
+        assertThatThrownBy(() -> http.postForEntity(
+                        url("/api/entries"), body(request, MediaType.APPLICATION_JSON), String.class))
                 .isInstanceOf(HttpClientErrorException.BadRequest.class);
 
         assertThat(links()).isEmpty();
     }
 
     @Test
-    void unknownLinkIs404() {
-        String missing = "0123456789abcdef0123456789abcdef";
+    void removingALinksNameOrUrlIsRejected() {
+        String id = create();
 
-        assertThatThrownBy(() -> http.delete(url("/api/links/" + missing)))
+        assertThatThrownBy(() -> patch(id, "{\"name\":null}")).isInstanceOf(HttpClientErrorException.BadRequest.class);
+        assertThatThrownBy(() -> patch(id, "{\"endpoint\":null}"))
+                .isInstanceOf(HttpClientErrorException.BadRequest.class);
+        assertThat(links().get(0).path("name").asString()).isEqualTo("Router");
+    }
+
+    @Test
+    void unknownLinkIs404() {
+        String missing = "link:0123456789abcdef0123456789abcdef";
+
+        assertThatThrownBy(() -> http.delete(url("/api/entries/" + missing)))
                 .isInstanceOf(HttpClientErrorException.NotFound.class);
+        assertThatThrownBy(() -> patch(missing, "{\"name\":\"x\"}"))
+                .isInstanceOf(HttpClientErrorException.NotFound.class);
+    }
+
+    @Test
+    void containerEntriesCannotBeDeleted() {
+        assertThatThrownBy(() -> http.delete(url("/api/entries/container:walker:app")))
+                .isInstanceOfSatisfying(HttpClientErrorException.class, error -> {
+                    assertThat(error.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+                    assertThat(error.getResponseHeaders().getFirst("Allow")).isEqualTo("PATCH");
+                });
     }
 
     @Test
     void libraryAndUploadedIconsResolve() {
         String id = create();
 
-        http.exchange(url("/api/links/" + id + "/icon"), HttpMethod.PUT, json("{\"name\":\"router\"}"), String.class);
+        patch(id, "{\"icon\":{\"library\":\"router\"}}");
         assertThat(links().get(0).path("iconUrl").asString()).endsWith("/router.webp");
 
-        assertThat(upload(id).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        String icon = upload();
+        patch(id, "{\"icon\":{\"upload\":\"" + icon + "\"}}");
         String iconUrl = links().get(0).path("iconUrl").asString();
-        assertThat(iconUrl).matches("/api/icons/[0-9a-f]{32}\\.png");
+        assertThat(iconUrl).isEqualTo("/api/icons/" + icon).matches("/api/icons/[0-9a-f]{64}\\.png");
         var image = http.getForEntity(url(iconUrl), byte[].class);
         assertThat(image.getBody()).isEqualTo(PNG);
         assertThat(image.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_PNG);
-    }
 
-    @Test
-    void deletingALinkRemovesItsUploadedIcon() {
-        String id = create();
-        upload(id);
-        String iconUrl = links().get(0).path("iconUrl").asString();
-
-        http.delete(url("/api/links/" + id));
-
-        assertThatThrownBy(() -> http.getForEntity(url(iconUrl), byte[].class))
-                .isInstanceOf(HttpClientErrorException.NotFound.class);
-    }
-
-    @Test
-    void linksAndIconsSurviveReplacement() {
-        String id = create();
-        upload(id);
-        String iconUrl = links().get(0).path("iconUrl").asString();
-
-        app.stop();
-        startApplication();
-
-        assertThat(links().get(0).path("id").asString()).isEqualTo(id);
-        assertThat(http.getForEntity(url(iconUrl), byte[].class).getBody()).isEqualTo(PNG);
+        patch(id, "{\"icon\":null}");
+        assertThat(links().get(0).path("iconUrl").isNull()).isTrue();
     }
 
     @Test

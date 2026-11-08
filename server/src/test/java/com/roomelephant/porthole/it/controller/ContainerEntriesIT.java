@@ -21,18 +21,19 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.*;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-class ContainerPreferencesIT {
+class ContainerEntriesIT {
     private static final String CONTAINER_LIST = "/(?:v[0-9.]+/)?containers/json";
     private WireMockServer docker;
     private GenericContainer<?> app;
     private String volume;
-    private final RestTemplate http = new RestTemplate();
+    private final RestTemplate http = new RestTemplate(new JdkClientHttpRequestFactory());
 
     @BeforeEach
     void start() {
@@ -40,7 +41,7 @@ class ContainerPreferencesIT {
         docker.start();
         docker.stubFor(get(urlPathMatching("/(?:v[0-9.]+/)?_ping")).willReturn(ok("OK")));
         inventoryFixture("original-id");
-        volume = "porthole-preferences-it-" + UUID.randomUUID();
+        volume = "porthole-entries-it-" + UUID.randomUUID();
         DockerClientFactory.instance()
                 .client()
                 .createVolumeCmd()
@@ -97,7 +98,7 @@ class ContainerPreferencesIT {
         try {
             if (app != null && app.isRunning())
                 Files.writeString(
-                        Path.of("target", info.getTestMethod().orElseThrow().getName() + "-preferences.log"),
+                        Path.of("target", info.getTestMethod().orElseThrow().getName() + "-entries.log"),
                         app.getLogs());
         } finally {
             if (app != null) app.stop();
@@ -107,16 +108,13 @@ class ContainerPreferencesIT {
         }
     }
 
-    private void select(String source, String selection) {
+    private void select(String source, String endpoint) {
         var headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        String body = """
-                {"sourceId":"%s","containerName":"shared-app","selectedEndpoint":%s}
-                """.formatted(source, selection);
+        headers.setContentType(MediaType.parseMediaType("application/merge-patch+json"));
         var response = http.exchange(
-                appUrl() + "/api/containers/selected-url",
-                HttpMethod.PUT,
-                new HttpEntity<>(body, headers),
+                appUrl() + "/api/entries/container:" + source + ":shared-app",
+                HttpMethod.PATCH,
+                new HttpEntity<>("{\"endpoint\":" + endpoint + "}", headers),
                 String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getBody()).isNull();
@@ -141,8 +139,7 @@ class ContainerPreferencesIT {
         return mapper.treeToValue(inventory, ContainerInventoryDTO.class);
     }
 
-    private static final String CUSTOM =
-            "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https://shared.example.com/app\"}";
+    private static final String CUSTOM = "{\"url\":\"https://shared.example.com/app\"}";
 
     @Test
     void emptyNamedVolumeSupportsNonrootSaveAndCustomOnlyInventoryWithoutMixingSources() throws Exception {
@@ -151,7 +148,7 @@ class ContainerPreferencesIT {
         assertThat(inventory(false).containers()).isEmpty();
         assertThat(inventory(true).containers())
                 .allSatisfy(container -> assertThat(container.hasWebUi()).isFalse());
-        select("mike", "{\"id\":\"none\",\"source\":\"none\"}");
+        select("mike", "\"none\"");
         select("walker", CUSTOM);
         assertThat(inventory(false).containers()).singleElement().satisfies(container -> {
             assertThat(container.sourceId()).isEqualTo("walker");
@@ -172,12 +169,7 @@ class ContainerPreferencesIT {
     }
 
     @ParameterizedTest
-    @ValueSource(
-            strings = {
-                "null",
-                "{\"id\":\"none\",\"source\":\"none\"}",
-                "{\"id\":\"published-port:8080\",\"source\":\"published-port\"}"
-            })
+    @ValueSource(strings = {"null", "\"none\"", "{\"id\":\"published-port:8080\"}"})
     void replacingCustomDiscardsItsUrlAndRestoresNormalFiltering(String replacement) throws Exception {
         select("walker", CUSTOM);
         select("walker", replacement);
@@ -190,13 +182,13 @@ class ContainerPreferencesIT {
                     assertThat(c.endpoints()).isEmpty();
                     assertThat(c.hasEndpoints()).isFalse();
                 });
-        var file = app.execInContainer("cat", "/app/data/preferences.json");
+        var file = app.execInContainer("cat", "/app/data/state.json");
         assertThat(file.getExitCode()).isZero();
         assertThat(file.getStdout()).doesNotContain("https://shared.example.com/app");
     }
 
     @Test
-    void replacingApplicationAndRecreatingContainerRetainsPreferencesInReusedVolume() {
+    void replacingApplicationAndRecreatingContainerRetainsEntriesInReusedVolume() {
         select("walker", CUSTOM);
         String previousContainer = app.getContainerId();
         app.stop();
@@ -233,7 +225,7 @@ class ContainerPreferencesIT {
                                 new EndpointDTO(
                                         "published-port:8080", "published-port", "http://127.0.0.1:8080/", false),
                                 new EndpointDTO("custom", "custom", "https://shared.example.com/app", true)));
-        select("walker", "{\"id\":\"none\",\"source\":\"none\"}");
+        select("walker", "\"none\"");
         assertThat(inventory(false).containers())
                 .filteredOn(c -> c.sourceId().equals("walker"))
                 .singleElement()
@@ -255,16 +247,16 @@ class ContainerPreferencesIT {
 
     @ParameterizedTest
     @ValueSource(strings = {"published", "roots", "paths"})
-    void unavailableSavedChoiceFallsBackWithoutRewritingPreferences(String fallback) throws Exception {
+    void unavailableSavedChoiceFallsBackWithoutRewritingEntries(String fallback) throws Exception {
         inventoryFixture("original-id", "{}", PUBLISHED_PORT);
-        select("walker", "{\"id\":\"published-port:8080\",\"source\":\"published-port\"}");
+        select("walker", "{\"id\":\"published-port:8080\"}");
         assertThat(inventory(false).containers())
                 .filteredOn(c -> c.sourceId().equals("walker"))
                 .singleElement()
                 .satisfies(container -> assertThat(container.endpoints())
                         .containsExactly(new EndpointDTO(
                                 "published-port:8080", "published-port", "http://127.0.0.1:8080/", true)));
-        String before = preferencesFile();
+        String before = stateFile();
         if (fallback.equals("published")) {
             inventoryFixture("original-id", "{}", PUBLISHED_PORT.replace("8080", "9090"));
         } else {
@@ -291,12 +283,12 @@ class ContainerPreferencesIT {
                         assertThat(container.endpoints()).hasSize(2).allMatch(endpoint -> !endpoint.selected());
                     }
                 });
-        assertThat(preferencesFile()).isEqualTo(before);
+        assertThat(stateFile()).isEqualTo(before);
         assertThat(before).doesNotContain("\"selected\"", "\"endpoints\"", "http://127.0.0.1");
     }
 
-    private String preferencesFile() throws Exception {
-        var file = app.execInContainer("cat", "/app/data/preferences.json");
+    private String stateFile() throws Exception {
+        var file = app.execInContainer("cat", "/app/data/state.json");
         assertThat(file.getExitCode()).isZero();
         return file.getStdout();
     }

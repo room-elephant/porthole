@@ -28,9 +28,8 @@ The lab only needs Docker, Java, Maven and Node. It never connects to your real 
 | `scenarios/lab-a.yml` | Container states: healthy, unhealthy, health starting, restarting, paused, stopped, created. |
 | `scenarios/lab-b.yml` | Endpoints, names and versions: published ports, no ports, Traefik labels, colliding replicas, an outdated image. |
 | `application.yml` | Porthole's sources: `lab-a`, `lab-b`, and `lab-down`, which is unreachable and always shows as `DOWN`. |
-| `preferences.json` | Saved preferences, tracked in git. The app writes here directly, as it does for uploaded icons in `icons/`, so use `git restore` to undo changes you don't want to keep. |
-| `links.json` | External links, tracked in git and written the same way: `Router` with no stack and `NAS` in the `lab-a` stack. |
-| `icons/` | Uploaded icons, tracked in git. A file added by hand needs a generated name and an entry in `preferences.json` or `links.json`; otherwise the app ignores it or deletes it at startup, so uploading through the UI is easier. |
+| `data/state.json` | Saved container settings and links, tracked in git: `Router` and `NAS` in the `stack-a` stack, and `google` with none. The app writes here directly, as it does for uploaded icons in `data/icons/`, so use `git restore` to undo changes you don't want to keep. |
+| `data/icons/` | Uploaded icons, tracked in git. Each is named by the SHA-256 of its content and must be used by an entry in `state.json`; otherwise the app removes it after an hour, so uploading through the UI is easier. |
 
 Containers without endpoints, such as `no-ports`, and stopped ones are hidden until you turn them on in the dashboard's settings. Traefik isn't running, so Traefik URLs appear in the UI but may not open.
 

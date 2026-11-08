@@ -1,4 +1,4 @@
-# Porthole config for `make lab`. The launcher sets porthole.preferences.path to lab/preferences.json.
+# Porthole config for `make lab`. The launcher sets PORTHOLE_DATA_DIR to lab/data.
 porthole:
   docker:
     connections:

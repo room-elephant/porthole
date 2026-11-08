@@ -3,23 +3,28 @@ package com.roomelephant.porthole.it.controller;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
+import java.io.ByteArrayInputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
-import org.springframework.http.MediaType;
-import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.DockerClientFactory;
@@ -28,17 +33,17 @@ import org.testcontainers.images.builder.Transferable;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-class ContainerIconIT {
+class IconUploadIT {
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3};
+    private static final String ENTRY = "/api/entries/container:walker:shared-app";
     private static final String LIBRARY_URL =
             "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp/coredns.webp";
-    private static final String CUSTOM =
-            "{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https://shared.example.com/app\"}";
+    private static final MediaType MERGE_PATCH = MediaType.parseMediaType("application/merge-patch+json");
 
     private WireMockServer docker;
     private GenericContainer<?> app;
     private String volume;
-    private final RestTemplate http = new RestTemplate();
+    private final RestTemplate http = new RestTemplate(new JdkClientHttpRequestFactory());
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     @BeforeEach
@@ -53,7 +58,7 @@ class ContainerIconIT {
                 .createVolumeCmd()
                 .withName(volume)
                 .exec();
-        startReplacement();
+        startApplication("1h");
     }
 
     @AfterEach
@@ -71,11 +76,12 @@ class ContainerIconIT {
                         """.formatted(id))));
     }
 
-    private void startReplacement() {
+    private void startApplication(String unreferencedIconAge) {
         app = PortholeContainer.withCustomSocket("/tmp/unused.sock", docker.port());
         app.withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_ID", "walker")
                 .withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_NAME", "Walker")
-                .withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "tcp://host.docker.internal:" + docker.port());
+                .withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "tcp://host.docker.internal:" + docker.port())
+                .withEnv("PORTHOLE_DATA_UNREFERENCEDICONAGE", unreferencedIconAge);
         app.withCreateContainerCmdModifier(cmd -> {
             var binds = new ArrayList<Bind>();
             if (cmd.getHostConfig().getBinds() != null)
@@ -86,10 +92,10 @@ class ContainerIconIT {
         app.start();
     }
 
-    private void replaceApplication() {
+    private void replaceApplication(String unreferencedIconAge) {
         app.stop();
         inventoryFixture("recreated-id");
-        startReplacement();
+        startApplication(unreferencedIconAge);
     }
 
     private String appUrl() {
@@ -105,44 +111,44 @@ class ContainerIconIT {
         return container().path("iconUrl").asString();
     }
 
-    private void pickLibraryIcon() {
+    private void patch(String patch) {
         var headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        String body = "{\"sourceId\":\"walker\",\"containerName\":\"shared-app\",\"name\":\"coredns\"}";
-        var response = http.exchange(
-                appUrl() + "/api/containers/icon", HttpMethod.PUT, new HttpEntity<>(body, headers), String.class);
+        headers.setContentType(MERGE_PATCH);
+        var response =
+                http.exchange(appUrl() + ENTRY, HttpMethod.PATCH, new HttpEntity<>(patch, headers), String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     }
 
-    private ResponseEntity<String> upload(byte[] bytes) {
-        var parts = new LinkedMultiValueMap<String, Object>();
-        parts.add("sourceId", "walker");
-        parts.add("containerName", "shared-app");
-        parts.add("file", new ByteArrayResource(bytes) {
-            @Override
-            public String getFilename() {
-                return "logo.png";
-            }
-        });
+    private ResponseEntity<String> post(byte[] bytes) {
         var headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        return http.postForEntity(
-                appUrl() + "/api/containers/icon/upload", new HttpEntity<>(parts, headers), String.class);
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        return http.postForEntity(appUrl() + "/api/icons", new HttpEntity<>(bytes, headers), String.class);
+    }
+
+    private String upload(byte[] bytes) {
+        ResponseEntity<String> response = post(bytes);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        return mapper.readTree(response.getBody()).path("id").asString();
+    }
+
+    private void useUpload(String id) {
+        patch("{\"icon\":{\"upload\":\"" + id + "\"}}");
     }
 
     @Test
     void pickingLibraryIconChangesIconUrlOnInventory() {
-        pickLibraryIcon();
+        patch("{\"icon\":{\"library\":\"coredns\"}}");
         assertThat(iconUrl()).isEqualTo(LIBRARY_URL);
     }
 
     @Test
     void uploadIsServedWithContentTypeAndNosniffAndUsedAsIconUrl() {
-        assertThat(upload(PNG).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        String url = iconUrl();
-        assertThat(url).matches("/api/icons/[0-9a-f]{32}\\.png");
+        String id = upload(PNG);
+        assertThat(id).matches("[0-9a-f]{64}\\.png");
+        useUpload(id);
+        assertThat(iconUrl()).isEqualTo("/api/icons/" + id);
 
-        var image = http.getForEntity(appUrl() + url, byte[].class);
+        var image = http.getForEntity(appUrl() + iconUrl(), byte[].class);
         assertThat(image.getBody()).isEqualTo(PNG);
         assertThat(image.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_PNG);
         assertThat(image.getHeaders().getFirst("X-Content-Type-Options")).isEqualTo("nosniff");
@@ -150,34 +156,37 @@ class ContainerIconIT {
     }
 
     @Test
-    void replacingUploadWithLibraryIconRemovesTheFile() {
-        upload(PNG);
-        String url = iconUrl();
-        pickLibraryIcon();
-        assertThatThrownBy(() -> http.getForEntity(appUrl() + url, byte[].class))
-                .isInstanceOf(HttpClientErrorException.NotFound.class);
+    void sameImageGetsTheSameId() {
+        assertThat(upload(PNG)).isEqualTo(upload(PNG));
+    }
+
+    @Test
+    void savingAnIconThatWasNeverUploadedIsRejected() {
+        String missing = "f".repeat(64) + ".png";
+
+        assertThatThrownBy(() -> useUpload(missing)).isInstanceOf(HttpClientErrorException.BadRequest.class);
     }
 
     @Test
     void disguisedFileIsRejectedWith400() {
         byte[] text = "<html>not an image</html>".getBytes(StandardCharsets.UTF_8);
-        assertThatThrownBy(() -> upload(text)).isInstanceOf(HttpClientErrorException.BadRequest.class);
+        assertThatThrownBy(() -> post(text)).isInstanceOf(HttpClientErrorException.BadRequest.class);
     }
 
     @Test
     void malformedSvgIsRejectedWith400() {
         byte[] malformed = "<svg xmlns=\"http://www.w3.org/2000/svg\"><circle".getBytes(StandardCharsets.UTF_8);
-        assertThatThrownBy(() -> upload(malformed)).isInstanceOf(HttpClientErrorException.BadRequest.class);
+        assertThatThrownBy(() -> post(malformed)).isInstanceOf(HttpClientErrorException.BadRequest.class);
     }
 
     @Test
     void uploadedSvgIsServedWithoutItsScriptsAndSandboxed() {
-        upload("<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(1)\"><script>alert(2)</script>"
+        String id = upload("<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(1)\"><script>alert(2)</script>"
                 .concat("<circle r=\"1\"/></svg>")
                 .getBytes(StandardCharsets.UTF_8));
-        assertThat(iconUrl()).startsWith("/api/icons/").endsWith(".svg");
+        assertThat(id).endsWith(".svg");
 
-        ResponseEntity<byte[]> served = http.getForEntity(appUrl() + iconUrl(), byte[].class);
+        ResponseEntity<byte[]> served = http.getForEntity(appUrl() + "/api/icons/" + id, byte[].class);
 
         assertThat(served.getHeaders().getContentType()).hasToString("image/svg+xml");
         assertThat(served.getHeaders().getFirst("Content-Security-Policy")).contains("sandbox");
@@ -189,22 +198,40 @@ class ContainerIconIT {
     @Test
     void uploadOverOneMegabyteIsRejectedWith413() {
         byte[] oversized = Arrays.copyOf(PNG, 1_048_577);
-        assertThatThrownBy(() -> upload(oversized))
+        assertThatThrownBy(() -> post(oversized))
                 .isInstanceOfSatisfying(
                         HttpClientErrorException.class,
                         error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE));
     }
 
     @Test
+    void chunkedUploadOverOneMegabyteIsRejectedWith413() throws Exception {
+        byte[] oversized = Arrays.copyOf(PNG, 2 * 1_048_576);
+        HttpRequest request = HttpRequest.newBuilder(URI.create(appUrl() + "/api/icons"))
+                .header("Content-Type", "image/png")
+                .POST(HttpRequest.BodyPublishers.ofInputStream(() -> new ByteArrayInputStream(oversized)))
+                .build();
+
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(413);
+            assertThat(response.request().headers().firstValue("Content-Length"))
+                    .isEmpty();
+        }
+    }
+
+    @Test
     void uploadOfExactlyOneMegabyteIsAccepted() {
-        assertThat(upload(Arrays.copyOf(PNG, 1_048_576)).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(post(Arrays.copyOf(PNG, 1_048_576)).getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 
     @Test
     void iconSurvivesReplacingApplicationAndRecreatingContainer() {
-        upload(PNG);
+        useUpload(upload(PNG));
         String url = iconUrl();
-        replaceApplication();
+
+        replaceApplication("1h");
+
         assertThat(container().path("id").asString()).isEqualTo("recreated-id");
         assertThat(iconUrl()).isEqualTo(url);
         assertThat(http.getForEntity(appUrl() + url, byte[].class).getBody()).isEqualTo(PNG);
@@ -212,43 +239,40 @@ class ContainerIconIT {
 
     @Test
     void savingUrlKeepsIconAndSavingIconKeepsUrl() {
-        pickLibraryIcon();
-        var headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        String selection = "{\"sourceId\":\"walker\",\"containerName\":\"shared-app\",\"selectedEndpoint\":%s}";
-        http.exchange(
-                appUrl() + "/api/containers/selected-url",
-                HttpMethod.PUT,
-                new HttpEntity<>(selection.formatted(CUSTOM), headers),
-                String.class);
+        patch("{\"icon\":{\"library\":\"coredns\"}}");
+        patch("{\"endpoint\":{\"url\":\"https://shared.example.com/app\"}}");
         assertThat(iconUrl()).isEqualTo(LIBRARY_URL);
 
-        pickLibraryIcon();
+        patch("{\"icon\":{\"library\":\"coredns\"}}");
         assertThat(container().path("endpoints").get(0).path("url").asString())
                 .isEqualTo("https://shared.example.com/app");
 
-        http.exchange(
-                appUrl() + "/api/containers/selected-url",
-                HttpMethod.PUT,
-                new HttpEntity<>(selection.formatted("null"), headers),
-                String.class);
+        patch("{\"endpoint\":null}");
         assertThat(iconUrl()).isEqualTo(LIBRARY_URL);
     }
 
     @Test
-    void unreferencedFileIsRemovedAtStartup() {
-        upload(PNG);
-        String kept = iconUrl();
-        String orphan = "ffffffffffffffffffffffffffffffff.png";
+    void unreferencedFilesAreSweptAtStartupAndReferencedOnesKept() {
+        String kept = upload(PNG);
+        useUpload(kept);
+        String replaced = upload(Arrays.copyOf(PNG, 20));
+        String orphan = "f".repeat(64) + ".png";
         app.copyFileToContainer(Transferable.of(PNG), "/app/data/icons/" + orphan);
         assertThat(http.getForEntity(appUrl() + "/api/icons/" + orphan, byte[].class)
                         .getStatusCode())
                 .isEqualTo(HttpStatus.OK);
 
-        replaceApplication();
+        replaceApplication("0s");
 
-        assertThatThrownBy(() -> http.getForEntity(appUrl() + "/api/icons/" + orphan, byte[].class))
+        // The sweep starts once the application is ready, alongside the first requests.
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThatThrownBy(
+                                () -> http.getForEntity(appUrl() + "/api/icons/" + orphan, byte[].class))
+                        .isInstanceOf(HttpClientErrorException.NotFound.class));
+        assertThatThrownBy(() -> http.getForEntity(appUrl() + "/api/icons/" + replaced, byte[].class))
                 .isInstanceOf(HttpClientErrorException.NotFound.class);
-        assertThat(http.getForEntity(appUrl() + kept, byte[].class).getBody()).isEqualTo(PNG);
+        assertThat(http.getForEntity(appUrl() + "/api/icons/" + kept, byte[].class)
+                        .getBody())
+                .isEqualTo(PNG);
     }
 }

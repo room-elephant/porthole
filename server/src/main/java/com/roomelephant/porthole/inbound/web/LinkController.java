@@ -24,6 +24,7 @@ public class LinkController {
 
     @GetMapping
     @Operation(
+            operationId = "listLinks",
             summary = "List links",
             description = "Links are entries: add, change and delete them through /api/entries.")
     @ApiResponse(responseCode = "200", description = "All saved links")
