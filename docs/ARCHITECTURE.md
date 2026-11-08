@@ -184,7 +184,8 @@ This is required because the Docker Registry API expects the full path:
 | `/api/links/{id}/icon`                  | PUT    | Saves a Dashboard Icons library icon for a link                    |
 | `/api/links/{id}/icon/upload`           | POST   | Saves an uploaded PNG, WebP, JPEG or SVG icon of at most 1 MB for a link |
 | `/api/icons/{name}`                     | GET    | Serves an uploaded icon with an immutable cache lifetime and `nosniff` |
-| `/actuator/health`                      | GET    | Health check with Docker connectivity status                                                |
+| `/api/sources`                          | GET    | Status and `lastSuccessAt` of every configured Docker source; always 200                    |
+| `/actuator/health`                      | GET    | Health of Porthole itself; Docker status is not included                                    |
 
 ### Custom Container Icons
 
@@ -229,20 +230,28 @@ Source order follows configuration. Each container has a required `sourceId` in
 both its domain model and API DTO; Docker IDs remain unchanged. Host sections and
 Compose groups use source identity before project identity.
 
-A source with a successful list is `UP`, including an empty list. Transport
-failures/deadlines are `DOWN`; other per-source processing errors are `ERROR`.
-Failed sources contribute no containers. Completed inventories return 200 even
+A source whose latest listing succeeded is `UP`, including an empty list. Transport
+failures and deadlines are `DOWN`; other per-source processing errors are `ERROR`.
+Each source also reports `lastSuccessAt`. Completed inventories return 200 even
 when all sources failed; global request/orchestration errors remain 5xx. Diagnostic
 causes stay in server logs rather than public source errors.
 
-Each Docker retrieval is bounded by its connection timeout plus response timeout.
-`DockerDiscoveryService` retrieves sources concurrently, so the Docker retrieval
-phase is bounded by the largest budget rather than the sum. Presentation and
-enrichment run afterward and are outside the Docker deadline. The browser cancels
-through its request signal and overrides its normal ten-second Axios timeout for
-this aggregate request. A slow Docker source can delay discovery until its deadline.
-The frontend polls one aggregate request every 30 seconds, replaces failed-source containers with an error state,
-and does not use actuator health to suppress otherwise usable results.
+The `fleet` slice keeps every source's state in memory, so no HTTP request calls
+Docker. `Fleet` owns one `SourceMonitor` per configured source. A monitor lists
+containers on start, every `porthole.docker.poll-interval` (default `30s`), and
+about 500 ms after any container event from Docker's event stream; a burst of events
+causes one listing. Polls for one source never overlap. Each listing is bounded by
+the source's connection timeout plus response timeout. Events are only a signal to
+list again and are never applied as changes; when the stream fails or is blocked,
+the monitor reconnects with backoff from 1 to 30 seconds and polling continues.
+A failed listing keeps the source's last good containers until
+`porthole.docker.snapshot-retention` (default `24h`) has passed since its last
+success. Before its first listing a source is `DOWN` with "Waiting for first check".
+`SnapshotListener` beans are told about each snapshot whose content changed.
+`GET /api/sources` exposes the same state and always returns 200.
+
+The frontend polls one aggregate request every 30 seconds and replaces failed-source
+containers with an error state.
 
 `DockerSourceRegistry` owns each client's lifecycle. Mapping and enrichment receive
 a source-specific `EnrichmentContext` containing the configured published
@@ -252,12 +261,13 @@ React keys and stored endpoint/update preferences by source.
 
 Each container retains `endpoints`, `hasEndpoints`, and nullable `version` with
 `currentVersion`, `latestVersion`, and `updateAvailable`. `VersionRefreshService`
-starts a scan per source asynchronously on readiness and repeats after the source's
-completed scan plus `porthole.versions.refresh-interval` (default `1h`). Four shared
-workers inspect containers/images through their owning Docker client. Results,
-retry state, in-flight work, and revision guards use `(sourceId, containerId)`.
-Only a successful source scan prunes that source's missing containers; one source
-failure cannot erase another's results. Successful results remain cached while
+is a `SnapshotListener`: it checks new containers and containers whose image ID
+changed as soon as a snapshot shows them, and re-checks the rest from the latest
+snapshot every `porthole.versions.refresh-interval` (default `1h`). It never lists
+containers itself. Four shared workers inspect containers/images through their
+owning Docker client. Results, retry state and in-flight work use
+`(sourceId, containerId)`. Only an `UP` snapshot prunes that source's missing
+containers; one source failure cannot erase another's results. Successful results remain cached while
 refreshing; eligible misses queue deduplicated background work. HTTP enrichment
 never waits for registry HTTP or version inspection. Shared complete registry catalogue
 caches remain keyed by normalized registry/repository; installed version/digest
@@ -272,11 +282,9 @@ Porthole settings provides a **Check versions now** button with request progress
 confirmation, and retryable error feedback. The dashboard's regular polling picks
 up completed checks.
 
-`/actuator/health/docker` probes sources concurrently with a one-second common
-deadline and exposes per-source status in `details.sources`. At most one ping per
-source is in flight, including pings that exceed a health request's deadline.
-Top-level health is UP when any source answers and DOWN when none do; failed or
-unfinished sources are DOWN in the details. Managed executors stop on shutdown.
+Health endpoints report only Porthole itself. There is no Docker health
+indicator; the image's `HEALTHCHECK` calls `/actuator/health/liveness`, so an
+unreachable Docker host never marks the Porthole container unhealthy.
 
 Each endpoint has exactly these fields:
 
@@ -295,7 +303,7 @@ For names matching `<project>-<name>`, `displayName` removes the project prefix 
 
 ### Endpoint Provider Extension
 
-`DockerDiscoveryService` calls the core-owned `DockerOperations` port and returns per-source snapshots and retrieval status in `DockerDiscoveryResult`. Its outbound `DockerJavaOperations` implementation maps docker-java responses into `ContainerSnapshot` records. `ContainerService` maps those discovery results with `ContainerMapper`, builds an `EnrichmentContext` containing only source and request settings, then passes each source inventory once to the enrichment chain. `DisplayNameEnricher` resolves and applies names to the complete batch before filtering, preserving collisions involving filtered containers. Mapping and enrichment failures produce a source `ERROR` without discarding other sources. Docker metadata fields such as identity, name, and image are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `displayName`, `iconUrl`, and `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
+`Fleet` provides each source's latest `SourceSnapshot` through the fleet-owned `DockerOperations` port, whose `fleet/docker` implementation `DockerJavaOperations` maps docker-java responses into `ContainerSnapshot` records. `ContainerService` maps those snapshots with `ContainerMapper`, builds an `EnrichmentContext` containing only source and request settings, then passes each source inventory once to the enrichment chain. `DisplayNameEnricher` resolves and applies names to the complete batch before filtering, preserving collisions involving filtered containers. Mapping and enrichment failures produce a source `ERROR` without discarding other sources. Docker metadata fields such as identity, name, and image are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `displayName`, `iconUrl`, and `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
 
 The service applies the `ContainerEnrichment` chain once per source. `EnrichmentConfiguration` creates the chain with an explicit ordered list of Spring-managed `ContainerEnricher` beans; each handler receives the current `List<Container>` and the request-specific `EnrichmentContext`, and returns the batch for the next stage. Each stage finishes across the batch before the next starts. Enrichment handlers update the same container objects; filters return retained objects in encounter order without structurally modifying the input list. An empty batch stops the chain, an empty chain retains the input, and handler failures propagate to the existing source-level exception handling. Handlers keep request data local rather than retaining batches in singleton fields.
 
@@ -361,9 +369,9 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `core/port/inbound/` — `ManageLinks`, `GetContainers`, `SelectContainerEndpoint`, `RefreshVersions`, and `CheckDockerAvailability`, called by inbound adapters and implemented by core services.
-- `core/port/outbound/` — `DockerOperations`, `RegistryOperations`, `ContainerPreferencesStore`, `ExternalLinkStore`, and `IconFileStore`, implemented by outbound integrations.
-- `core/service/` — `ExternalLinkService` manages links and `UploadedIcons` the upload files that containers and links share. `ContainerService` coordinates mapping, enrichment, and response assembly. `DockerDiscoveryService` owns concurrent Docker retrieval, per-source deadlines, cancellation, and retrieval failure translation. `DockerAvailabilityService` probes Docker availability with a shared deadline and per-source in-flight deduplication.
+- `core/port/inbound/` — `ManageLinks`, `GetContainers`, `SelectContainerEndpoint`, and `RefreshVersions`, called by inbound adapters and implemented by core services.
+- `core/port/outbound/` — `RegistryOperations`, `ContainerPreferencesStore`, `ExternalLinkStore`, and `IconFileStore`, implemented by outbound integrations.
+- `core/service/` — `ExternalLinkService` manages links and `UploadedIcons` the upload files that containers and links share. `ContainerService` coordinates mapping, enrichment, and response assembly.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `name/`, `endpoint/`, `preferences/`, `endpointavailability/`, `icon/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
 - `core/enrichment/icon/` — `IconEnricher` assigns default icons using `IconResolver` and `IconSettings`. `ContainerPreferencesEnricher` overrides them with saved choices.
 - `core/enrichment/version/` — `VersionEnricher` attaches cached version results to containers.
@@ -373,8 +381,10 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 - `core/mapping/` — `ContainerMapper` converts discovery snapshots to core containers.
 - `core/enrichment/name/` — `DisplayNameResolver` resolves source-wide name collisions; `DisplayNameEnricher` resolves and applies names before filters run.
 - `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`; `IconController` calls `SelectContainerIcon` and `ReadUploadedIcon`; `LinkController` calls `ManageLinks`.
-- `inbound/health/` — translates `CheckDockerAvailability` results into actuator health responses; probing and timeout handling belong to the core service.
-- `outbound/docker/` — docker-java calls, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
+- `fleet/` — configured sources (`SourceCatalog`), the `DockerOperations` port, `Fleet` and its per-source `SourceMonitor`s, `SourceSnapshot` and `SnapshotListener`. It depends on no other production package except `shared/`.
+- `fleet/docker/` — docker-java calls, container events, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
+- `fleet/web/` — `GET /api/sources`.
+- `shared/` — small rules several slices use, such as `Hosts`.
 - `outbound/preferences/` — JSON preference loading, immutable snapshots, and atomic file replacement.
 - `outbound/links/` — JSON external link loading, immutable snapshots, and saving.
 - `outbound/file/` — `AtomicFiles`, the whole-file replacement that the preference and link stores share.
@@ -386,8 +396,8 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 
 ### Dependency boundaries
 
-Core owns the interfaces and values at its boundaries. Controllers and health
-adapters call inbound ports; Docker and registry integrations implement outbound
+Core owns the interfaces and values at its boundaries. Controllers call inbound
+ports; Docker and registry integrations implement outbound
 ports. Both adapter groups may depend on `config/properties/`, but not on
 configuration wiring classes. Configuration wires the implementations. Core does
 not import adapters, configuration-property
@@ -396,13 +406,20 @@ lifecycle annotations remain allowed in core.
 
 ```text
 inbound ──→ core ←── outbound
-              ↑
+              ↑ │
             config wires implementations
+                │
+                ▼
+              fleet   (sources, monitors, Docker port and adapter)
 ```
+
+`fleet` is the first feature slice of the architecture rework: core may use it,
+it uses nothing outside itself and `shared/`, and its root package never imports
+its `docker/` or `web/` adapters.
 
 Version enrichment only reads cached results and queues background work. Registry
 HTTP and Docker inspection stay off the inventory request path. Refresh state,
-revision guards, deduplication, and pruning retain one coordinator's ownership.
+deduplication, and pruning retain one coordinator's ownership.
 `ArchitectureTest` uses ArchUnit to check core isolation, adapter dependency
 direction, and port contracts against production bytecode, while behavior
 tests cover pipeline composition, source failures, and refresh races.

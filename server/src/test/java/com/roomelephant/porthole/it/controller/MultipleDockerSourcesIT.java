@@ -116,30 +116,35 @@ class MultipleDockerSourcesIT {
     }
 
     @Test
-    void partialOutagePreservesHealthyResultsAndRecoveryRestoresSource() {
+    void partialOutageKeepsRetainedContainersAndRecoveryRestoresSource() {
         var failure = mike.stubFor(get(urlPathMatching(LIST))
                 .atPriority(1)
                 .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> inventory().sources().get(1).status() == SourceStatus.DOWN);
         var result = inventory();
-        assertThat(result.containers()).extracting(ContainerDTO::sourceId).containsExactly("walker");
         assertThat(result.sources()).extracting(SourceDTO::status).containsExactly(SourceStatus.UP, SourceStatus.DOWN);
+        assertThat(result.sources().get(1).lastSuccessAt()).isNotNull();
+        assertThat(result.containers()).extracting(ContainerDTO::sourceId).containsExactly("walker", "mike");
         mike.removeStub(failure);
-        assertThat(inventory().containers()).extracting(ContainerDTO::sourceId).containsExactly("walker", "mike");
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> inventory().sources().get(1).status() == SourceStatus.UP);
     }
 
     @Test
-    void allUnavailableSourcesRemainDistinctFromConnectedEmptySources() {
+    void connectedEmptySourceIsUpAndUnreachableSourcesAreDown() {
         var empty = mike.stubFor(get(urlPathMatching(LIST)).atPriority(1).willReturn(okJson("[]")));
-        var healthy = inventory();
-        assertThat(healthy.sources().get(1).status()).isEqualTo(SourceStatus.UP);
-        assertThat(healthy.containers()).extracting(ContainerDTO::sourceId).containsExactly("walker");
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> inventory().containers().stream()
+                        .noneMatch(c -> c.sourceId().equals("mike")));
+        assertThat(inventory().sources().get(1).status()).isEqualTo(SourceStatus.UP);
         mike.removeStub(empty);
         for (var docker : List.of(walker, mike))
             docker.stubFor(get(urlPathMatching(LIST))
                     .atPriority(1)
                     .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
-        var down = inventory();
-        assertThat(down.containers()).isEmpty();
-        assertThat(down.sources()).extracting(SourceDTO::status).containsExactly(SourceStatus.DOWN, SourceStatus.DOWN);
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> inventory().sources().stream().allMatch(source -> source.status() == SourceStatus.DOWN));
+        assertThat(inventory().containers()).extracting(ContainerDTO::sourceId).containsExactly("walker");
     }
 }

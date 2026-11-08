@@ -24,6 +24,6 @@ COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
 EXPOSE 9753
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:9753/actuator/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:9753/actuator/health/liveness || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh", "./porthole", "--spring.config.additional-location=file:/app/config/"]

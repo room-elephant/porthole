@@ -23,12 +23,9 @@ import com.roomelephant.porthole.core.model.ContainerQuery;
 import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.SelfContainer;
-import java.net.SocketException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,12 +41,6 @@ class ContainerServiceTest {
     private ListContainersCmd listContainersCmd;
 
     private ContainerService containerService;
-    private final List<DockerDiscoveryService> discoveries = new ArrayList<>();
-
-    @AfterEach
-    void closeDiscoveries() {
-        discoveries.forEach(DockerDiscoveryService::close);
-    }
 
     @BeforeEach
     void setUp() {
@@ -254,28 +245,6 @@ class ContainerServiceTest {
     }
 
     @Test
-    void sourceConnectionFailuresDoNotThrowOrLeakDetails() {
-        when(listContainersCmd.exec()).thenThrow(new RuntimeException("secret", new SocketException("private path")));
-        var result =
-                containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false));
-        assertThat(result.containers()).isEmpty();
-        assertThat(result.sources().getFirst().status())
-                .isEqualTo(com.roomelephant.porthole.core.model.SourceStatus.DOWN);
-        assertThat(result.sources().getFirst().error()).isEqualTo("Docker is not reachable");
-    }
-
-    @Test
-    void otherSourceFailuresHaveErrorStatus() {
-        when(listContainersCmd.exec()).thenThrow(new RuntimeException("private path"));
-        assertThat(containerService
-                        .getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(true, false))
-                        .sources()
-                        .getFirst()
-                        .status())
-                .isEqualTo(com.roomelephant.porthole.core.model.SourceStatus.ERROR);
-    }
-
-    @Test
     void shouldReturnEmptyListWhenDockerHasNoContainers() {
         when(listContainersCmd.exec()).thenReturn(List.of());
         assertThat(containerService
@@ -394,17 +363,18 @@ class ContainerServiceTest {
         EndpointDiscovery discovery = new EndpointDiscovery(List.of(
                 new PublishedPortEndpointProvider(new PublishedHostResolver()),
                 new TraefikEndpointProvider(new TraefikRuleParser())));
+        var source = new com.roomelephant.porthole.fleet.Source(
+                "local", "Local", publishedHost, local, java.time.Duration.ofSeconds(65));
+        var operations = new com.roomelephant.porthole.fleet.docker.DockerJavaOperations(
+                new com.roomelephant.porthole.fleet.docker.DockerSourceRegistry(
+                        List.of(new com.roomelephant.porthole.fleet.docker.DockerConnection("local", dockerClient))));
+        var fleet = mock(com.roomelephant.porthole.fleet.Fleet.class);
+        lenient()
+                .when(fleet.snapshots())
+                .thenAnswer(_ -> List.of(com.roomelephant.porthole.fleet.SourceSnapshot.initial(source)
+                        .succeeded(operations.listContainers("local"), java.time.Instant.EPOCH)));
         return new ContainerService(
-                discovery(new com.roomelephant.porthole.outbound.docker.DockerJavaOperations(
-                        new com.roomelephant.porthole.outbound.docker.DockerSourceRegistry(
-                                List.of(new com.roomelephant.porthole.outbound.docker.DockerConnection(
-                                        "local",
-                                        "Local",
-                                        publishedHost,
-                                        java.time.Duration.ofSeconds(5),
-                                        java.time.Duration.ofSeconds(60),
-                                        local,
-                                        dockerClient))))),
+                fleet,
                 new ContainerMapper(),
                 new ContainerEnrichment(List.of(
                         new DisplayNameEnricher(),
@@ -414,12 +384,6 @@ class ContainerServiceTest {
                         preferences,
                         new IconEnricher(icon))),
                 self);
-    }
-
-    private DockerDiscoveryService discovery(com.roomelephant.porthole.core.port.outbound.DockerOperations operations) {
-        var discovery = new DockerDiscoveryService(operations);
-        discoveries.add(discovery);
-        return discovery;
     }
 
     private Container container(String name, Integer publicPort, Map<String, String> labels) {

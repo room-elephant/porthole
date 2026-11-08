@@ -1,10 +1,17 @@
 package com.roomelephant.porthole.it.infra;
 
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.awaitility.Awaitility;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -12,6 +19,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 public class PortholeContainer extends GenericContainer<PortholeContainer> {
 
     public static final int PORTHOLE_PORT = 9753;
+    private static final String FIRST_CHECK_PENDING = "Waiting for first check";
     static final String IMAGE_TAG = System.getProperty("porthole.it.image", "porthole-jvm:latest");
 
     private static final List<PortholeContainer> recordingContainers = new CopyOnWriteArrayList<>();
@@ -20,7 +28,7 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
     public PortholeContainer(int wireMockPort) {
         this(wireMockPort, "/var/run/docker.sock");
         withFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
-        waitingFor(Wait.forHttp("/actuator/health").forPort(PORTHOLE_PORT));
+        waitingFor(Wait.forHttp("/actuator/health/liveness").forPort(PORTHOLE_PORT));
     }
 
     private PortholeContainer(int wireMockPort, String socketPath) {
@@ -29,6 +37,8 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
         withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_ID", "local");
         withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_NAME", "Local");
         withEnv("PORTHOLE_DOCKER_CONNECTIONS_0_HOST", "unix://" + socketPath);
+        // Tests change Docker state and expect to see it quickly.
+        withEnv("PORTHOLE_DOCKER_POLLINTERVAL", "250ms");
         applyRegistryEnv(this, wireMockPort);
         recordingNativeHints = applyNativeAgentIfEnabled();
         if (recordingNativeHints) recordingContainers.add(this);
@@ -54,6 +64,21 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
         recordingContainers.clear();
     }
 
+    /** Every source has been checked once, so tests never see the startup placeholder. */
+    @Override
+    protected void containerIsStarted(InspectContainerResponse containerInfo) {
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request =
+                HttpRequest.newBuilder(URI.create(baseUrl() + "/api/sources")).build();
+        Awaitility.await("first Docker poll")
+                .atMost(Duration.ofSeconds(30))
+                .pollInterval(Duration.ofMillis(100))
+                .until(() -> {
+                    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                    return response.statusCode() == 200 && !response.body().contains(FIRST_CHECK_PENDING);
+                });
+    }
+
     public String baseUrl() {
         return "http://localhost:" + getMappedPort(PORTHOLE_PORT);
     }
@@ -64,8 +89,7 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
      */
     public static GenericContainer<?> withCustomSocket(String socketPath, int wireMockPort) {
         PortholeContainer container = new PortholeContainer(wireMockPort, socketPath);
-        container.waitingFor(
-                Wait.forHttp("/actuator/health").forPort(PORTHOLE_PORT).forStatusCodeMatching(status -> status >= 100));
+        container.waitingFor(Wait.forHttp("/actuator/health/liveness").forPort(PORTHOLE_PORT));
         return container;
     }
 

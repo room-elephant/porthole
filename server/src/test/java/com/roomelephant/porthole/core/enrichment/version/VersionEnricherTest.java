@@ -1,17 +1,13 @@
 package com.roomelephant.porthole.core.enrichment.version;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.*;
 
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshSettings;
-import com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver;
 import com.roomelephant.porthole.core.model.*;
-import java.time.Duration;
+import com.roomelephant.porthole.fleet.*;
 import java.util.*;
-import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 
 class VersionEnricherTest {
@@ -32,7 +28,7 @@ class VersionEnricherTest {
     void attachesCachedValueToTheSameContainer() {
         var cache = mock(VersionRefreshService.class);
         var version = new VersionInfo("1.0", "2.0", true);
-        when(cache.getCachedVersionAndRefresh(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
+        when(cache.cachedVersion(new com.roomelephant.porthole.fleet.ContainerKey("local", "a")))
                 .thenReturn(version);
         var container = container();
         assertThat(new VersionEnricher(cache).enrich(List.of(container), context))
@@ -41,30 +37,12 @@ class VersionEnricherTest {
     }
 
     @Test
-    void missingVersionDoesNotWaitForSlowResolution() throws Exception {
-        var docker = mock(com.roomelephant.porthole.core.port.outbound.DockerOperations.class);
-        var resolver = new VersionResolver(
-                docker, mock(com.roomelephant.porthole.core.port.outbound.RegistryOperations.class));
-        var running = new CountDownLatch(1);
-        var release = new CountDownLatch(1);
-        when(docker.inspectContainer(new com.roomelephant.porthole.core.model.ContainerKey("local", "a")))
-                .thenAnswer(call -> {
-                    running.countDown();
-                    release.await(5, TimeUnit.SECONDS);
-                    return new ContainerInspection(null, null, List.of(), Map.of());
-                });
-        try (var cache = new VersionRefreshService(docker, resolver, new VersionRefreshSettings(Duration.ofHours(1)))) {
-            var enricher = new VersionEnricher(cache);
-            var container = container();
-            assertTimeoutPreemptively(
-                    Duration.ofSeconds(1),
-                    () -> assertThat(enricher.enrich(List.of(container), context))
-                            .containsExactly(container));
-            assertThat(running.await(5, TimeUnit.SECONDS)).isTrue();
-            assertThat(container.version()).isNull();
-            assertTimeoutPreemptively(Duration.ofSeconds(1), () -> enricher.enrich(List.of(container), context));
-        } finally {
-            release.countDown();
-        }
+    void readsCachedVersionOnly() {
+        var cache = mock(VersionRefreshService.class);
+        var container = container();
+        new VersionEnricher(cache).enrich(List.of(container), context);
+        assertThat(container.version()).isNull();
+        verify(cache).cachedVersion(new ContainerKey("local", "a"));
+        verifyNoMoreInteractions(cache);
     }
 }

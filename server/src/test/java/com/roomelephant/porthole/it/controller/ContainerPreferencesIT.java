@@ -2,6 +2,7 @@ package com.roomelephant.porthole.it.controller;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
@@ -11,6 +12,7 @@ import com.roomelephant.porthole.inbound.web.dto.*;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.UUID;
@@ -26,6 +28,7 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 class ContainerPreferencesIT {
+    private static final String CONTAINER_LIST = "/(?:v[0-9.]+/)?containers/json";
     private WireMockServer docker;
     private GenericContainer<?> app;
     private String volume;
@@ -51,11 +54,24 @@ class ContainerPreferencesIT {
     }
 
     private void inventoryFixture(String id, String labels, String ports) {
-        docker.stubFor(get(urlPathMatching("/(?:v[0-9.]+/)?containers/json"))
-                .willReturn(okJson("""
+        docker.stubFor(get(urlPathMatching(CONTAINER_LIST)).willReturn(okJson("""
                         [{"Id":"%s","Names":["/shared-app"],"Image":"local-app:latest",
                         "ImageID":"local-image","State":"running","Status":"Up","Labels":%s,"Ports":%s}]
                         """.formatted(id, labels, ports))));
+        if (app != null && app.isRunning()) awaitPollsAfterFixtureChange();
+    }
+
+    // Inventory is served from background snapshots; a second list call per source after the stub change means the
+    // poll that read the new fixture has already been published.
+    private void awaitPollsAfterFixtureChange() {
+        int before = containerListCalls();
+        await().atMost(Duration.ofSeconds(5)).until(() -> containerListCalls() >= before + 4);
+    }
+
+    private int containerListCalls() {
+        return docker.countRequestsMatching(
+                        getRequestedFor(urlPathMatching(CONTAINER_LIST)).build())
+                .getCount();
     }
 
     private void startReplacement() {

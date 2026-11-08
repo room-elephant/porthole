@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.mapping.ContainerMapper;
-import com.roomelephant.porthole.core.model.ContainerSnapshot;
+import com.roomelephant.porthole.fleet.ContainerSnapshot;
 import com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +28,7 @@ class IconEnricherTest {
             delimiter = '|',
             nullValues = "NULL")
     void enrichesImageIconAndPreservesTheApiValue(String image, String expectedIcon) {
-        var snapshot = new ContainerSnapshot("id", "app", image, Set.of(), Map.of(), "running", "Up");
+        var snapshot = new ContainerSnapshot("id", "app", image, null, Set.of(), Map.of(), "running", "Up");
         var container = new ContainerMapper().toModel(snapshot, "local");
         var resolver = new IconResolver(
                 Map.of("postgres", "postgresql"), new IconSettings("https://cdn.example.com/icons", ".svg"));

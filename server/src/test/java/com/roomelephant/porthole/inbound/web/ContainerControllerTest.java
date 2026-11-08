@@ -13,16 +13,14 @@ import com.roomelephant.porthole.core.enrichment.preferences.CustomIconResolver;
 import com.roomelephant.porthole.core.model.Container;
 import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
-import com.roomelephant.porthole.core.model.DockerSource;
 import com.roomelephant.porthole.core.model.Endpoint;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.core.port.inbound.GetContainers;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import com.roomelephant.porthole.core.service.ContainerPreferencesService;
+import com.roomelephant.porthole.fleet.SourceCatalog;
 import com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -54,15 +52,12 @@ class ContainerControllerTest {
     private ContainerPreferencesStore preferencesStore;
 
     @MockitoBean
-    private DockerOperations dockerOperations;
+    private SourceCatalog sourceCatalog;
 
     @BeforeEach
     void saveConfirmedPreferences() {
-        when(dockerOperations.sources())
-                .thenReturn(List.of(
-                        new DockerSource("local", "Local", null, Duration.ofSeconds(1), Duration.ofSeconds(1), true),
-                        new DockerSource(
-                                "remote", "Remote", null, Duration.ofSeconds(1), Duration.ofSeconds(1), false)));
+        when(sourceCatalog.contains(any()))
+                .thenAnswer(call -> java.util.Set.of("local", "remote").contains(call.<String>getArgument(0)));
         when(preferencesStore.replaceSelection(any(), nullable(SelectedEndpoint.class)))
                 .thenAnswer(invocation -> new ContainerPreferences(invocation.getArgument(1)));
     }
@@ -375,10 +370,22 @@ class ContainerControllerTest {
                 .andExpect(jsonPath("$.containers[0].hasEndpoints").value(true));
     }
 
+    @Test
+    void sourcesIncludeLastSuccessAt() throws Exception {
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
+                .thenReturn(inventory(List.of()));
+        mockMvc.perform(get("/api/containers"))
+                .andExpect(jsonPath("$.sources[0].lastSuccessAt").value("2026-11-08T10:00:00Z"));
+    }
+
     private com.roomelephant.porthole.core.model.ContainerInventory inventory(List<Container> containers) {
         return new com.roomelephant.porthole.core.model.ContainerInventory(
                 List.of(new com.roomelephant.porthole.core.model.SourceState(
-                        "local", "Local", com.roomelephant.porthole.core.model.SourceStatus.UP, null)),
+                        "local",
+                        "Local",
+                        com.roomelephant.porthole.core.model.SourceStatus.UP,
+                        null,
+                        java.time.Instant.parse("2026-11-08T10:00:00Z"))),
                 containers);
     }
 

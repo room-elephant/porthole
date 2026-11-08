@@ -3,184 +3,113 @@ package com.roomelephant.porthole.core.service;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.github.dockerjava.api.*;
-import com.github.dockerjava.api.command.*;
 import com.roomelephant.porthole.core.enrichment.*;
-import com.roomelephant.porthole.core.mapping.*;
+import com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher;
+import com.roomelephant.porthole.core.mapping.ContainerMapper;
 import com.roomelephant.porthole.core.model.*;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
-import com.roomelephant.porthole.outbound.docker.*;
+import com.roomelephant.porthole.fleet.*;
 import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.*;
-import org.junit.jupiter.api.AfterEach;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class MultipleSourcesTest {
-    private final List<DockerDiscoveryService> discoveries = new ArrayList<>();
+    private static final Instant T = Instant.parse("2026-11-08T10:00:00Z");
+    private static final Duration RETENTION = Duration.ofHours(24);
+    private static final Source WALKER = new Source("walker", "Walker", "192.168.50.6", true, Duration.ofSeconds(1));
+    private static final Source MIKE = new Source("mike", "Mike", "192.168.50.5", false, Duration.ofSeconds(1));
 
-    @AfterEach
-    void closeDiscoveries() {
-        discoveries.forEach(DockerDiscoveryService::close);
+    private final Fleet fleet = mock(Fleet.class);
+
+    private static ContainerSnapshot snapshot(String name, Map<String, String> labels) {
+        return new ContainerSnapshot("same-id", name, "nginx:1", "sha256:a", Set.of(), labels, "running", "Up");
     }
 
-    private DockerClient client() {
-        var client = mock(DockerClient.class);
-        var list = mock(ListContainersCmd.class);
-        when(client.listContainersCmd()).thenReturn(list);
-        when(list.withShowAll(true)).thenReturn(list);
-        var container = mock(com.github.dockerjava.api.model.Container.class);
-        when(container.getId()).thenReturn("same-id");
-        when(container.getNames()).thenReturn(new String[] {"/same-name"});
-        when(container.getImage()).thenReturn("nginx:1");
-        when(list.exec()).thenReturn(List.of(container));
-        return client;
+    private static SourceSnapshot up(Source source, ContainerSnapshot... containers) {
+        return SourceSnapshot.initial(source).succeeded(List.of(containers), T);
     }
 
-    private DockerConnection source(String id, DockerClient client, Duration timeout) {
-        return new DockerConnection(
-                id, id, "192.168.50." + (id.equals("walker") ? "6" : "5"), timeout, timeout, true, client);
-    }
-
-    private ContainerService service(DockerOperations operations, ContainerEnrichment enrichment) {
-        var discovery = new DockerDiscoveryService(operations);
-        discoveries.add(discovery);
-        return new ContainerService(discovery, new ContainerMapper(), enrichment, SelfContainer.none());
+    private ContainerService service(ContainerEnrichment enrichment, SourceSnapshot... snapshots) {
+        when(fleet.snapshots()).thenReturn(List.of(snapshots));
+        return new ContainerService(fleet, new ContainerMapper(), enrichment, SelfContainer.none());
     }
 
     @Test
-    void closedDiscoveryRejectsInventoryRequests() {
+    void oneRequestCombinesEverySourceAndKeepsMatchingIdsSeparate() {
         var service = service(
-                new DockerJavaOperations(
-                        new DockerSourceRegistry(List.of(source("walker", client(), Duration.ofSeconds(1))))),
-                new ContainerEnrichment(List.of()));
-        discoveries.getFirst().close();
-        var query = new ContainerQuery(true, true);
-        assertThatThrownBy(() -> service.getContainers(query)).isInstanceOf(IllegalStateException.class);
-    }
-
-    @Test
-    void oneRequestFetchesEverySourceAndKeepsMatchingIdsSeparate() {
-        var registry = new DockerJavaOperations(new DockerSourceRegistry(List.of(
-                source("walker", client(), Duration.ofSeconds(1)), source("mike", client(), Duration.ofSeconds(1)))));
-        var service = service(registry, new ContainerEnrichment(List.of()));
+                new ContainerEnrichment(List.of()),
+                up(WALKER, snapshot("same-name", Map.of())),
+                up(MIKE, snapshot("same-name", Map.of())));
         var result = service.getContainers(new ContainerQuery(true, true));
         assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker", "mike");
         assertThat(result.containers()).extracting(Container::id).containsExactly("same-id", "same-id");
-        assertThat(result.sources()).extracting(SourceState::status).containsExactly(SourceStatus.UP, SourceStatus.UP);
+        assertThat(result.sources())
+                .containsExactly(
+                        new SourceState("walker", "Walker", SourceStatus.UP, null, T),
+                        new SourceState("mike", "Mike", SourceStatus.UP, null, T));
     }
 
     @Test
     void resolvesNameCollisionsSeparatelyForEachSource() {
-        var first = client();
-        var second = client();
-        for (var client : List.of(first, second)) {
-            var container = client.listContainersCmd().withShowAll(true).exec().getFirst();
-            when(container.getNames()).thenReturn(new String[] {"/project-web-1"});
-            when(container.getLabels()).thenReturn(Map.of("com.docker.compose.project", "project"));
-        }
-        var registry = new DockerJavaOperations(new DockerSourceRegistry(List.of(
-                source("walker", first, Duration.ofSeconds(1)), source("mike", second, Duration.ofSeconds(1)))));
+        var labels = Map.of("com.docker.compose.project", "project");
         var service = service(
-                registry,
-                new ContainerEnrichment(
-                        List.of(new com.roomelephant.porthole.core.enrichment.name.DisplayNameEnricher())));
-
+                new ContainerEnrichment(List.of(new DisplayNameEnricher())),
+                up(WALKER, snapshot("project-web-1", labels)),
+                up(MIKE, snapshot("project-web-1", labels)));
         assertThat(service.getContainers(new ContainerQuery(true, true)).containers())
                 .extracting(Container::displayName)
                 .containsExactly("web", "web");
     }
 
     @Test
-    void slowOrFailedSourceCannotDiscardHealthyResults() {
-        var a = client();
-        var b = client();
-        var release = new CountDownLatch(1);
-        when(b.listContainersCmd().withShowAll(true).exec()).thenAnswer(i -> {
-            release.await();
-            return List.of();
-        });
-        var registry = new DockerJavaOperations(new DockerSourceRegistry(
-                List.of(source("mike", b, Duration.ofMillis(50)), source("walker", a, Duration.ofSeconds(1)))));
-        var service = service(registry, new ContainerEnrichment(List.of()));
-        try {
-            var result = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
-                    Duration.ofSeconds(2), () -> service.getContainers(new ContainerQuery(true, true)));
-            assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker");
-            assertThat(result.sources())
-                    .extracting(SourceState::status)
-                    .containsExactly(SourceStatus.DOWN, SourceStatus.UP);
-            assertThat(result.sources().getFirst().error()).doesNotContain("sock");
-        } finally {
-            release.countDown();
-        }
-    }
-
-    @Test
-    void dockerDeadlineDoesNotCancelEnrichment() throws Exception {
-        var entered = new CountDownLatch(1);
-        var release = new CountDownLatch(1);
-        ContainerEnricher slowEnricher = (containers, context) -> {
-            entered.countDown();
-            try {
-                if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Enrichment was not released");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(e);
-            }
-            return containers;
-        };
-        var service = service(
-                new DockerJavaOperations(
-                        new DockerSourceRegistry(List.of(source("walker", client(), Duration.ofMillis(100))))),
-                new ContainerEnrichment(List.of(slowEnricher)));
-        try (var caller = Executors.newVirtualThreadPerTaskExecutor()) {
-            var response = caller.submit(() -> service.getContainers(new ContainerQuery(true, true)));
-            try {
-                assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
-                assertThatThrownBy(() -> response.get(500, TimeUnit.MILLISECONDS))
-                        .isInstanceOf(TimeoutException.class);
-                release.countDown();
-                var result = response.get(2, TimeUnit.SECONDS);
-                assertThat(result.sources()).extracting(SourceState::status).containsExactly(SourceStatus.UP);
-                assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker");
-            } finally {
-                release.countDown();
-            }
-        }
-    }
-
-    @Test
-    void allSourceFailuresAreReportedInsteadOfAnEmptySuccess() {
-        var client = client();
-        when(client.listContainersCmd().withShowAll(true).exec())
-                .thenThrow(new RuntimeException(new java.net.SocketException("secret socket path")));
-        var service = service(
-                new DockerJavaOperations(
-                        new DockerSourceRegistry(List.of(source("walker", client, Duration.ofSeconds(1))))),
-                new ContainerEnrichment(List.of()));
+    void sourceBeforeFirstPollIsDownWithoutContainers() {
+        var service = service(new ContainerEnrichment(List.of()), SourceSnapshot.initial(WALKER), up(MIKE));
         var result = service.getContainers(new ContainerQuery(true, true));
         assertThat(result.containers()).isEmpty();
-        assertThat(result.sources().getFirst().status()).isEqualTo(SourceStatus.DOWN);
-        assertThat(result.sources().getFirst().error()).isEqualTo("Docker is not reachable");
+        assertThat(result.sources().getFirst())
+                .isEqualTo(new SourceState("walker", "Walker", SourceStatus.DOWN, "Waiting for first check", null));
+        verify(fleet).snapshots();
+        verifyNoMoreInteractions(fleet);
     }
 
     @Test
-    void enrichmentFailureDoesNotDiscardOtherSourcesOrReportDockerAsDown() {
-        var registry = new DockerJavaOperations(new DockerSourceRegistry(List.of(
-                source("walker", client(), Duration.ofSeconds(1)), source("mike", client(), Duration.ofSeconds(1)))));
-        ContainerEnricher failingEnricher = (containers, context) -> {
-            if (containers.getFirst().sourceId().equals("walker"))
-                throw new com.roomelephant.porthole.core.model.exception.DockerUnavailableException(
-                        new java.net.SocketException("private details"));
-            return containers;
-        };
-        var service = service(registry, new ContainerEnrichment(List.of(failingEnricher)));
+    void downSourceStillListsRetainedContainers() {
+        var down = up(WALKER, snapshot("app", Map.of()))
+                .failed(SourceSnapshot.Status.DOWN, "Docker is not reachable", T.plusSeconds(60), RETENTION);
+        var service = service(new ContainerEnrichment(List.of()), down, up(MIKE));
         var result = service.getContainers(new ContainerQuery(true, true));
+        assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker");
+        assertThat(result.sources().getFirst())
+                .isEqualTo(new SourceState("walker", "Walker", SourceStatus.DOWN, "Docker is not reachable", T));
+    }
+
+    @Test
+    void failedSourceWithoutRetainedContainersDoesNotDiscardHealthyResults() {
+        var error = SourceSnapshot.initial(MIKE)
+                .failed(SourceSnapshot.Status.ERROR, "Could not retrieve containers", T, RETENTION);
+        var service = service(new ContainerEnrichment(List.of()), error, up(WALKER, snapshot("app", Map.of())));
+        var result = service.getContainers(new ContainerQuery(true, true));
+        assertThat(result.containers()).extracting(Container::sourceId).containsExactly("walker");
         assertThat(result.sources())
                 .extracting(SourceState::status)
                 .containsExactly(SourceStatus.ERROR, SourceStatus.UP);
-        assertThat(result.sources().getFirst().error()).doesNotContain("private");
+    }
+
+    @Test
+    void enrichmentFailureKeepsLastSuccessAtAndOtherSources() {
+        ContainerEnricher failingEnricher = (containers, context) -> {
+            if (containers.getFirst().sourceId().equals("walker")) throw new IllegalStateException("private details");
+            return containers;
+        };
+        var service = service(
+                new ContainerEnrichment(List.of(failingEnricher)),
+                up(WALKER, snapshot("app", Map.of())),
+                up(MIKE, snapshot("app", Map.of())));
+        var result = service.getContainers(new ContainerQuery(true, true));
+        assertThat(result.sources().getFirst())
+                .isEqualTo(new SourceState("walker", "Walker", SourceStatus.ERROR, "Could not retrieve containers", T));
         assertThat(result.containers()).extracting(Container::sourceId).containsExactly("mike");
     }
 }
