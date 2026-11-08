@@ -85,7 +85,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
         try {
             assertThat(entered.await(20, TimeUnit.SECONDS)).isTrue();
             var response = new org.springframework.web.client.RestTemplate()
-                    .postForEntity(porthole.baseUrl() + "/api/versions/refresh", null, String.class);
+                    .postForEntity(porthole.baseUrl() + "/api/version-checks", null, String.class);
             assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.ACCEPTED);
             ContainerView container = listedFixture();
             assertThat(container.version()).isNull();
@@ -106,7 +106,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
         wireMockClient()
                 .stubFor(get(urlEqualTo(TAGS)).atPriority(1).willReturn(okJson("{\"results\":[{\"name\":\"3.0\"}]}")));
         var response = new org.springframework.web.client.RestTemplate()
-                .postForEntity(porthole.baseUrl() + "/api/versions/refresh", null, String.class);
+                .postForEntity(porthole.baseUrl() + "/api/version-checks", null, String.class);
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.ACCEPTED);
         await().atMost(Duration.ofSeconds(10))
                 .untilAsserted(() ->

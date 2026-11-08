@@ -73,6 +73,8 @@ Docker state lives in memory: `fleet` keeps one `SourceMonitor` per configured c
 
 `GET /api/dashboard` is the client's only read. `DashboardProjector` builds it as a pure function of the fleet's snapshots, the saved entries and the version cache. It computes default names over each source's whole listing, discovers endpoints, then applies each entry's saved name, icon and endpoint choice over the defaults. The browser does all filtering. Icon URLs are built only in `dashboard/web/IconUrls`.
 
+`DashboardChanges` bumps the dashboard's `revision` on every fleet snapshot change, entry write and version result or run, and `GET /api/events` signals it to browsers as coalesced server-sent events; the client refetches when the revision differs from its cached one and otherwise polls every 5 minutes. A new kind of change reaches browsers only if its owner tells a listener that `DashboardChanges` implements.
+
 `EndpointProvider` (in `endpoints/`) is a sealed interface; a new provider must be a final `@Component` added to the `permits` clause, and it is then picked up automatically by constructor injection. Providers mark candidates `ROUTED` (proxy routes) or `DIRECT` (published ports), and `EndpointSelection` prefers routed ones when nothing is saved.
 
 Version checks run in the background from snapshots; the dashboard only reads their cache, so registry HTTP and Docker inspection never run on a request.

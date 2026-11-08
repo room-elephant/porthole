@@ -15,8 +15,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(VersionController.class)
-class VersionControllerTest {
+@WebMvcTest(VersionCheckController.class)
+class VersionCheckControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
@@ -24,19 +24,25 @@ class VersionControllerTest {
     private VersionRefreshService versions;
 
     @Test
-    void acceptsManualVersionRefresh() throws Exception {
-        mockMvc.perform(post("/api/versions/refresh"))
+    void startsAVersionCheck() throws Exception {
+        mockMvc.perform(post("/api/version-checks"))
                 .andExpect(status().isAccepted())
                 .andExpect(content().string(""));
         verify(versions).startCheck();
     }
 
     @Test
-    void doesNotAllowCrossOriginRefreshPreflight() throws Exception {
-        mockMvc.perform(options("/api/versions/refresh")
+    void doesNotAllowCrossOriginPreflight() throws Exception {
+        mockMvc.perform(options("/api/version-checks")
                         .header("Origin", "https://untrusted.example")
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+        verify(versions, never()).startCheck();
+    }
+
+    @Test
+    void theOldRefreshPathIsGone() throws Exception {
+        mockMvc.perform(post("/api/versions/refresh")).andExpect(status().isNotFound());
         verify(versions, never()).startCheck();
     }
 }

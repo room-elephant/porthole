@@ -10,14 +10,14 @@ servers:
 tags:
 - description: "Uploaded icon images, shared by content."
   name: Icons
+- description: Image version checks.
+  name: Versions
 - description: What the user saved for containers and links.
   name: Entries
 - description: "Everything the dashboard shows, in one read."
   name: Dashboard
 - description: Status of the configured Docker sources.
   name: Sources
-- description: Background image version refreshes.
-  name: Versions
 paths:
   /api/dashboard:
     get:
@@ -143,6 +143,26 @@ paths:
       summary: Change an entry
       tags:
       - Entries
+  /api/events:
+    get:
+      description: "Server-sent events that signal dashboard changes without carrying\
+        \ them. The stream opens with one `changed` event and sends another, coalesced\
+        \ over 250 ms, whenever the dashboard changes; each has data `{\"revision\"\
+        :N}`. Refetch GET /api/dashboard when the revision differs from the one you\
+        \ have. A keepalive comment follows every 15 seconds, and `retry` asks clients\
+        \ to reconnect after 5 seconds. At most 100 streams are open at once."
+      operationId: streamEvents
+      responses:
+        "200":
+          content:
+            text/event-stream: {}
+          description: The event stream
+        "503":
+          description: "Too many open streams, or the server is stopping; the response\
+            \ has no body"
+      summary: Stream dashboard changes
+      tags:
+      - Dashboard
   /api/icons:
     post:
       description: "Takes the raw image as the body, with any content type. Accepts\
@@ -257,18 +277,18 @@ paths:
       summary: List Docker sources
       tags:
       - Sources
-  /api/versions/refresh:
+  /api/version-checks:
     post:
-      description: Queues an immediate background scan across all configured Docker
-        sources. Returns without waiting for Docker or registry checks to finish.
-        Read GET /api/dashboard for cached results while the refresh runs and updated
-        results afterward. Repeated requests are coalesced while a source scan is
-        queued or running.
-      operationId: refreshVersions
+      description: "Checks every container on every source for image updates in the\
+        \ background, bypassing cached registry answers. Returns without waiting for\
+        \ Docker or registries. While it runs, GET /api/dashboard reports versionChecks.running,\
+        \ and GET /api/events signals each result and the end of the run. A request\
+        \ while a check is running does nothing."
+      operationId: startVersionCheck
       responses:
         "202":
-          description: Refresh queued; the response has no body.
-      summary: Request an image version refresh
+          description: Check started or already running; no body
+      summary: Start a version check
       tags:
       - Versions
 components:
@@ -348,10 +368,17 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EntryResponse"
+        revision:
+          type: integer
+          format: int64
+          description: Changes whenever anything shown here changes; GET /api/events
+            signals new ones
         sources:
           type: array
           items:
             $ref: "#/components/schemas/SourceState"
+        versionChecks:
+          $ref: "#/components/schemas/VersionChecksResponse"
     EndpointResponse:
       type: object
       properties:
@@ -578,6 +605,19 @@ components:
           - UP
           - DOWN
           - ERROR
+    VersionChecksResponse:
+      type: object
+      description: Manual version checks started with POST /api/version-checks
+      properties:
+        lastCompletedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: "When the last check finished, or null if none has since startup"
+        running:
+          type: boolean
+          description: Whether a check is running
     VersionInfo:
       type: object
       properties:
