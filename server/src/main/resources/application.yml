@@ -40,6 +40,10 @@ management:
         enabled: true
 
 porthole:
+  data:
+    dir: data
+    icon-sweep-interval: 15m
+    unreferenced-icon-age: 1h
   preferences:
     path: data/preferences.json
   # Docker configuration
