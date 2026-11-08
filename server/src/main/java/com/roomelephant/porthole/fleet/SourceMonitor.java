@@ -207,6 +207,7 @@ final class SourceMonitor implements AutoCloseable {
         Instant since = clock.instant();
         try {
             AutoCloseable opened = docker.watchContainerEvents(source.id(), new Listener(subscriber, since));
+            // The lock was released while the stream opened: close() or the stream ending may have replaced it.
             synchronized (this) {
                 if (!closed && subscriber == generation) {
                     subscription = opened;

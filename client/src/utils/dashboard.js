@@ -57,5 +57,5 @@ export const isShown = (container, { showAll, showStopped, showSelf }) => {
 /** The container as the cached dashboard has it now, which can be ahead of the props React delivered. */
 export const cachedContainer = (queryClient, entryId) => {
   const entry = queryClient.getQueryData(DASHBOARD_KEY)?.entries?.find(candidate => candidate.id === entryId);
-  return entry && entry.kind === 'container' ? toContainerView(entry) : undefined;
+  return entry?.kind === 'container' ? toContainerView(entry) : undefined;
 };
