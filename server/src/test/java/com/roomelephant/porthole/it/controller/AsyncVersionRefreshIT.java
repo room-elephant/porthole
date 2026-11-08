@@ -18,7 +18,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 class AsyncVersionRefreshIT extends IntegrationTestBase {
-    private static final String TAGS = "/v2/repositories/library/busybox/tags?page_size=100";
+    private static final String TAGS = "/v2/library/busybox/tags/list?n=1000";
     private final CountDownLatch entered = new CountDownLatch(1);
     private final CountDownLatch release = new CountDownLatch(1);
     private final CountDownLatch completed = new CountDownLatch(1);
@@ -60,7 +60,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
                 .withCommand("sh", "-c", "echo ready; sleep 3600")
                 .waitingFor(Wait.forLogMessage(".*ready.*", 1));
         fixture.start();
-        wireMockClient().stubFor(get(urlEqualTo(TAGS)).willReturn(okJson("{\"results\":[{\"name\":\"2.0\"}]}")));
+        wireMockClient().stubFor(get(urlEqualTo(TAGS)).willReturn(okJson("{\"tags\":[\"2.0\"]}")));
     }
 
     @AfterEach
@@ -103,8 +103,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
                 .withEnv("PORTHOLE_REGISTRY_CACHE_TTL", "1h")
                 .withEnv("PORTHOLE_REGISTRY_CACHE_VERSIONMAXSIZE", "1000");
         assertThat(fetchCachedVersion(fixture.getContainerId()).latestVersion()).isEqualTo("2.0");
-        wireMockClient()
-                .stubFor(get(urlEqualTo(TAGS)).atPriority(1).willReturn(okJson("{\"results\":[{\"name\":\"3.0\"}]}")));
+        wireMockClient().stubFor(get(urlEqualTo(TAGS)).atPriority(1).willReturn(okJson("{\"tags\":[\"3.0\"]}")));
         var response = new org.springframework.web.client.RestTemplate()
                 .postForEntity(porthole.baseUrl() + "/api/version-checks", null, String.class);
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.ACCEPTED);
@@ -118,7 +117,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
         porthole.withEnv("PORTHOLE_VERSIONS_REFRESHINTERVAL", "250ms");
         assertThat(fetchCachedVersion(fixture.getContainerId()).latestVersion()).isEqualTo("2.0");
         var newer = wireMockClient()
-                .stubFor(get(urlEqualTo(TAGS)).atPriority(1).willReturn(okJson("{\"results\":[{\"name\":\"3.0\"}]}")));
+                .stubFor(get(urlEqualTo(TAGS)).atPriority(1).willReturn(okJson("{\"tags\":[\"3.0\"]}")));
         await().atMost(Duration.ofSeconds(10))
                 .untilAsserted(() ->
                         assertThat(listedFixture().version().latestVersion()).isEqualTo("3.0"));
