@@ -56,7 +56,7 @@ describe('ContainerChip', () => {
     });
 
     it('shows no badge when the update preference is off', () => {
-      localStorage.setItem('version_check_v2_["local","test-container"]', 'false');
+      localStorage.setItem('version_check_v3_container:local:test-container', 'false');
       renderWithQuery(<ContainerChip container={headless({ version })} />);
       const chip = screen.getByRole('button', { name: 'Test Container settings' });
       expect(chip.querySelector('.chip-update-badge')).toBeNull();

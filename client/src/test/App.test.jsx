@@ -2,24 +2,32 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, within, fireEvent, waitFor } from '@testing-library/react';
 import App from '../App';
 import { renderWithQuery, createMockContainer } from './testUtils';
-import { useContainers } from '../hooks/useContainers';
-import { useLinks } from '../hooks/useLinks';
+import { useDashboard } from '../hooks/useDashboard';
 import { createLink, fetchIconLibrary, selectEntryIcon } from '../api';
 
-vi.mock('../hooks/useContainers');
+vi.mock('../hooks/useDashboard');
 vi.mock('../api', async importOriginal => ({ ...await importOriginal(), updateLink: vi.fn().mockResolvedValue(), createLink: vi.fn(), selectEntryIcon: vi.fn(), fetchIconLibrary: vi.fn() }));
-vi.mock('../hooks/useLinks', async importOriginal => ({ ...await importOriginal(), useLinks: vi.fn() }));
+
+/** What the mocked dashboard query returns: containers and sources, links, or a loading or failed read. */
+let inventory = { data: { sources: [], containers: [] } };
+let links = [];
+useDashboard.mockImplementation(() => (inventory.data
+  ? { data: { ...inventory.data, links }, isLoading: false, error: null }
+  : { data: undefined, isLoading: Boolean(inventory.isLoading), error: inventory.error ?? null }));
+const loading = () => { inventory = { isLoading: true }; };
+const failing = () => { inventory = { error: { response: { status: 502 } } }; };
+const setLinks = value => { links = value; };
 
 const walker = { id: 'walker', name: 'Walker', status: 'UP', error: null };
 const mike = { id: 'mike', name: 'Mike', status: 'UP', error: null };
-const query = data => useContainers.mockReturnValue({ data, isLoading: false, error: null });
+const query = data => { inventory = { data }; };
 const filter = () => screen.getByRole('searchbox', { name: 'Filter containers and links' });
 
 describe('App', () => {
-  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); useLinks.mockReturnValue({ data: [], isError: false }); });
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); setLinks([]); query({ sources: [], containers: [] }); });
 
   it('shows six horizontal skeletons and a status while loading', () => {
-    useContainers.mockReturnValue({ isLoading: true });
+    loading();
     renderWithQuery(<App />);
     expect(document.querySelectorAll('.skeleton-tile')).toHaveLength(6);
     expect(screen.getByRole('status')).toHaveTextContent('Connecting…');
@@ -28,7 +36,7 @@ describe('App', () => {
   });
 
   it('reports global fetch errors without identifying a Docker host as down', () => {
-    useContainers.mockReturnValue({ error: { response: { status: 502 } }, isLoading: false });
+    failing();
     renderWithQuery(<App />);
     expect(screen.getByRole('alert')).toHaveTextContent('Failed to fetch containers');
     expect(screen.queryByText(/Can't reach/)).not.toBeInTheDocument();
@@ -123,11 +131,9 @@ describe('App', () => {
     expect(screen.queryByText('Docker unavailable')).not.toBeInTheDocument();
   });
 
-  it('keeps last-known containers of a host that went down', () => {
-    query({ sources: [walker, mike], containers: [createMockContainer({ id: 'm1', sourceId: 'mike', displayName: 'Mike app' })] });
-    const view = renderWithQuery(<App />);
-    query({ sources: [walker, { ...mike, status: 'DOWN', error: 'gone' }], containers: [] });
-    view.rerender(<App />);
+  it('shows the containers the server retains for a host that went down', () => {
+    query({ sources: [walker, { ...mike, status: 'DOWN', error: 'gone' }], containers: [createMockContainer({ id: 'm1', sourceId: 'mike', displayName: 'Mike app' })] });
+    renderWithQuery(<App />);
     const region = screen.getByRole('region', { name: 'Mike' });
     expect(within(region).getByText('Mike app')).toBeInTheDocument();
     expect(within(region).getByRole('alert')).toHaveTextContent("Can't reach Mike");
@@ -181,7 +187,7 @@ describe('App', () => {
     expect(screen.queryByText('No containers found')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Include stopped' }));
-    expect(useContainers).toHaveBeenLastCalledWith({ showAll: false, showStopped: true });
+    expect(localStorage.getItem('porthole_showStopped')).toBe('true');
     expect(screen.queryByRole('button', { name: 'Include stopped' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }));
@@ -198,7 +204,23 @@ describe('App', () => {
     expect(rows[0]).toHaveTextContent('Connected');
     expect(rows[1]).toHaveTextContent('Unreachable');
     fireEvent.click(screen.getByLabelText('Show stopped containers'));
-    expect(useContainers).toHaveBeenLastCalledWith({ showAll: false, showStopped: true });
+    expect(localStorage.getItem('porthole_showStopped')).toBe('true');
+  });
+
+  it('filters stopped, endpoint-less and self containers locally', () => {
+    query({ sources: [walker], containers: [
+      createMockContainer({ sourceId: 'walker', name: 'web', displayName: 'Web' }),
+      createMockContainer({ sourceId: 'walker', name: 'old', displayName: 'Old', state: 'exited' }),
+      createMockContainer({ sourceId: 'walker', name: 'quiet', displayName: 'Quiet', endpoints: [], hasEndpoints: false, hasWebUi: false }),
+    ] });
+    renderWithQuery(<App />);
+    expect(screen.getByText('Web')).toBeInTheDocument();
+    expect(screen.queryByText('Old')).not.toBeInTheDocument();
+    expect(screen.queryByText('Quiet')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByLabelText('Show stopped containers'));
+    expect(screen.getByText('Old')).toBeInTheDocument();
+    expect(screen.queryByText('Quiet')).not.toBeInTheDocument();
   });
 
   it('re-groups the page when Stack is chosen in settings', () => {
@@ -219,7 +241,7 @@ describe('App links', () => {
   const router = { id: 'r'.repeat(32), name: 'Router', url: 'http://192.168.50.1/', stack: null, iconUrl: null };
   const app = createMockContainer({ id: 'a', sourceId: 'walker', displayName: 'Sonarr' });
 
-  beforeEach(() => { useLinks.mockReturnValue({ data: [router], isError: false }); });
+  beforeEach(() => { setLinks([router]); });
 
   it('shows the External section beside hosts', () => {
     query({ sources: [walker], containers: [app] });
@@ -228,15 +250,15 @@ describe('App links', () => {
     expect(screen.getByRole('button', { name: /^External/ })).toBeInTheDocument();
   });
 
-  it('shows links under the error when containers fail', () => {
-    useContainers.mockReturnValue({ error: { response: { status: 502 } }, isLoading: false });
+  it('shows the error without links when the dashboard read fails', () => {
+    failing();
     renderWithQuery(<App />);
     expect(screen.getByRole('alert')).toHaveTextContent('Failed to fetch containers');
-    expect(screen.getByRole('link', { name: /Router/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Router/ })).not.toBeInTheDocument();
   });
 
   it('keeps skeletons, without links, while containers load', () => {
-    useContainers.mockReturnValue({ isLoading: true });
+    loading();
     renderWithQuery(<App />);
     expect(document.querySelectorAll('.skeleton-tile')).toHaveLength(6);
     expect(screen.queryByRole('link', { name: /Router/ })).not.toBeInTheDocument();
@@ -248,7 +270,7 @@ describe('App links', () => {
     fireEvent.click(screen.getByRole('button', { name: /^External/ }));
     expect(screen.queryByText('Sonarr')).not.toBeInTheDocument();
 
-    useLinks.mockReturnValue({ data: [], isError: false });
+    setLinks([]);
     rerender(<App />);
 
     expect(screen.getByText('Sonarr')).toBeInTheDocument();
@@ -271,14 +293,6 @@ describe('App links', () => {
     expect(screen.queryByRole('link', { name: /Router/ })).not.toBeInTheDocument();
     expect(screen.getByText(/zzz/)).toBeInTheDocument();
   });
-
-  it('copes with links still loading', () => {
-    useLinks.mockReturnValue({ isLoading: true });
-    query({ sources: [walker], containers: [app] });
-    renderWithQuery(<App />);
-    expect(screen.getByText('Sonarr')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^External/ })).not.toBeInTheDocument();
-  });
 });
 
 describe('App link settings', () => {
@@ -288,7 +302,7 @@ describe('App link settings', () => {
   const settingsOpen = () => screen.queryByRole('textbox', { name: 'Name' });
 
   beforeEach(() => {
-    useLinks.mockReturnValue({ data: [router], isError: false });
+    setLinks([router]);
     query({ sources: [walker], containers: [web] });
   });
 
@@ -297,7 +311,7 @@ describe('App link settings', () => {
     openSettings();
     settingsOpen().focus();
 
-    useLinks.mockReturnValue({ data: [{ ...router, stack: 'home' }], isError: false });
+    setLinks([{ ...router, stack: 'home' }]);
     rerender(<App />);
 
     expect(settingsOpen()).toBeInTheDocument();
@@ -308,7 +322,7 @@ describe('App link settings', () => {
     const { rerender } = renderWithQuery(<App />);
     openSettings();
 
-    useLinks.mockReturnValue({ data: [], isError: false });
+    setLinks([]);
     rerender(<App />);
 
     expect(settingsOpen()).not.toBeInTheDocument();
@@ -318,7 +332,7 @@ describe('App link settings', () => {
   it('returns focus to the link menu on closing, even after the tile moved', async () => {
     const { rerender } = renderWithQuery(<App />);
     openSettings();
-    useLinks.mockReturnValue({ data: [{ ...router, stack: 'home' }], isError: false });
+    setLinks([{ ...router, stack: 'home' }]);
     rerender(<App />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
@@ -332,7 +346,7 @@ describe('App link settings', () => {
     createLink.mockResolvedValue(created);
     selectEntryIcon.mockRejectedValue(new Error('down'));
     fetchIconLibrary.mockResolvedValue({ router: {} });
-    useLinks.mockReturnValue({ data: [router, created], isError: false });
+    setLinks([router, created]);
     renderWithQuery(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add external link' }));

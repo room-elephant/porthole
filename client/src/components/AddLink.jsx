@@ -116,7 +116,7 @@ export default function AddLink({ stacks, onCancel, onClose, onAdded, onIconFail
         onClose={onClose}
         className="settings-modal"
       >
-        <IconPicker iconUrl={held?.iconUrl ?? null} startingSearch={name.trim()} icon={icon} onSaved={closePicker} />
+        <IconPicker iconUrl={held?.iconUrl ?? null} iconChoice={held?.name ? { library: held.name } : null} startingSearch={name.trim()} icon={icon} onSaved={closePicker} />
       </Modal>
     );
   }

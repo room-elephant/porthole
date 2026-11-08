@@ -3,15 +3,15 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider, useQuery, onlineManager } from '@tanstack/react-query';
 import { useEndpointSelection } from '../../hooks/useEndpointSelection';
 import { selectContainerEndpoint } from '../../api';
-import { createMockContainer } from '../testUtils';
+import { createMockContainer, dashboardQuery, toDashboard } from '../testUtils';
+import { DASHBOARD_KEY, splitDashboard } from '../../utils/dashboard';
 
 vi.mock('../../api', () => ({ selectContainerEndpoint: vi.fn() }));
 const port = { id: 'published-port:80', source: 'published-port', url: 'http://192.168.50.6/', selected: false };
 const root = { id: 'traefik:root', source: 'traefik', url: 'https://app.example.com/', selected: true };
 const none = { id: 'none', source: 'none' };
 const custom = { id: 'custom', source: 'custom', url: 'https://custom.example.com/', selected: true };
-const key = ['containers', { showAll: true, showStopped: false }];
-const alternate = ['containers', { showAll: false, showStopped: true }];
+const key = DASHBOARD_KEY;
 const deferred = () => { let resolve; let reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const container = (selection = null, overrides = {}) => createMockContainer({ name: 'app', endpoints: [port, root], hasWebUi: selection?.source !== 'none', ...overrides });
 const inventory = containers => ({ sources: [{ id: 'local', name: 'Local', status: 'UP', error: null }], containers });
@@ -20,10 +20,10 @@ const noUi = () => container(none, { endpoints: [port, { ...root, selected: fals
 const confirmation = undefined;
 const setup = (initial = container(), fetch = vi.fn().mockResolvedValue(inventory([initial]))) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  client.setQueryData(key, inventory([initial]));
+  client.setQueryData(key, toDashboard(inventory([initial])));
   const wrapper = ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   const useSelection = () => {
-    const { data } = useQuery({ queryKey: key, queryFn: fetch });
+    const { data } = useQuery(dashboardQuery(fetch));
     return useEndpointSelection(data.containers[0]);
   };
   return { client, wrapper, useSelection, fetch };
@@ -56,17 +56,11 @@ describe('shared endpoint selection', () => {
     expect(result.current.custom.selectedEndpointId).toBe('custom');
   });
 
-  it('keeps the old selection pending through PUT and active GET, and refreshes stale filtered inventory on use', async () => {
+  it('holds the save open until one dashboard GET confirms it, without touching browser storage', async () => {
     const write = deferred();
     const refresh = deferred();
-    const filteredRefresh = deferred();
     const fetch = vi.fn().mockReturnValue(refresh.promise);
-    const filteredFetch = vi.fn().mockReturnValue(filteredRefresh.promise);
-    const { client, wrapper, useSelection } = setup(container(), fetch);
-    const remote = container(null, { sourceId: 'other' });
-    client.setQueryData(alternate, inventory([container(null, { id: 'recreated' }), remote]));
-    client.setQueryDefaults(alternate, { queryFn: filteredFetch });
-    client.setQueryData(['containers', 'empty'], inventory([]));
+    const { wrapper, useSelection } = setup(container(), fetch);
     selectContainerEndpoint.mockReturnValue(write.promise);
     const { result } = renderHook(useSelection, { wrapper });
     act(() => result.current.selectEndpoint(none));
@@ -77,19 +71,10 @@ describe('shared endpoint selection', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     expect(result.current.isSaving).toBe(true);
     expect(result.current.selectedEndpoint).toEqual(root);
-    expect(client.getQueryState(alternate).isInvalidated).toBe(true);
-    expect(client.getQueryState(['containers', 'empty']).isInvalidated).toBe(true);
-    expect(filteredFetch).not.toHaveBeenCalled();
-    expect(client.getQueryData(alternate).containers[1]).toEqual(remote);
     await act(async () => refresh.resolve(inventory([noUi()])));
     await waitFor(() => expect(result.current.isSaving).toBe(false));
     expect(result.current.selectedEndpointId).toBe('none');
     expect(selectContainerEndpoint).toHaveBeenCalledWith({ entryId: 'container:local:app', selectedEndpoint: none });
-    const filtered = renderHook(() => useQuery({ queryKey: alternate }), { wrapper });
-    await waitFor(() => expect(filteredFetch).toHaveBeenCalledTimes(1));
-    await act(async () => filteredRefresh.resolve(inventory([noUi(), remote])));
-    await waitFor(() => expect(filtered.result.current.data.containers[0].hasWebUi).toBe(false));
-    expect(filtered.result.current.data.containers[1]).toEqual(remote);
     expect(localStorage.setItem).not.toHaveBeenCalled();
   });
 
@@ -140,7 +125,7 @@ describe('shared endpoint selection', () => {
     const { result } = renderHook(useSelection, { wrapper });
     act(() => result.current.selectEndpoint(none));
     await waitFor(() => expect(result.current.refreshError?.message).toBe('Offline'));
-    await act(async () => client.setQueryData(key, inventory([container(null, { sourceId: 'remote' })])));
+    await act(async () => client.setQueryData(key, toDashboard(inventory([container(null, { sourceId: 'remote' })]))));
     await waitFor(() => expect(result.current.refreshError).toBeNull());
   });
 
@@ -167,7 +152,7 @@ describe('shared endpoint selection', () => {
     await waitFor(() => expect(result.current.selectedEndpointId).toBe('none'));
     await act(async () => { old.resolve(inventory([container()])); during.resolve(inventory([container()])); await Promise.all([beforeRequest, duringRequest]); });
     expect(result.current.selectedEndpoint).toBeNull();
-    expect(client.getQueryData(key).containers[0].hasWebUi).toBe(false);
+    expect(splitDashboard(client.getQueryData(key)).containers[0].hasWebUi).toBe(false);
   });
 
   it('keeps a container save locked when a different source starts saving during its confirmation GET', async () => {

@@ -1,16 +1,7 @@
 import { useRef } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createLink, deleteEntry, fetchLinks, selectEntryIcon, updateLink, uploadEntryIcon } from '../api';
-
-const LINKS_KEY = ['links'];
-
-export const useLinks = () => useQuery({
-  queryKey: LINKS_KEY,
-  queryFn: ({ signal }) => fetchLinks({ signal }),
-  retry: false,
-  staleTime: 30 * 1000,
-  refetchInterval: 30 * 1000,
-});
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createLink, deleteEntry, selectEntryIcon, updateLink, uploadEntryIcon } from '../api';
+import { DASHBOARD_KEY } from '../utils/dashboard';
 
 /**
  * Cancels polls around a write so one begun earlier can't overwrite it, then refetches.
@@ -19,10 +10,10 @@ export const useLinks = () => useQuery({
 const useRefreshOptions = () => {
   const queryClient = useQueryClient();
   return {
-    onMutate: () => queryClient.cancelQueries({ queryKey: LINKS_KEY }),
+    onMutate: () => queryClient.cancelQueries({ queryKey: DASHBOARD_KEY }),
     onSettled: async () => {
-      await queryClient.cancelQueries({ queryKey: LINKS_KEY });
-      await queryClient.invalidateQueries({ queryKey: LINKS_KEY });
+      await queryClient.cancelQueries({ queryKey: DASHBOARD_KEY });
+      await queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   };
 };

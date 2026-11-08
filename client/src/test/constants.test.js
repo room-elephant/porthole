@@ -1,8 +1,9 @@
 import {describe,it,expect} from 'vitest';
 import {STORAGE_KEYS,ASSETS} from '../constants';
 describe('scoped preference keys', () => {
- it('separates sources and encodes names without delimiter collisions', () => {
-  expect(STORAGE_KEYS.VERSION_CHECK('a','b:c')).not.toBe(STORAGE_KEYS.VERSION_CHECK('a:b','c'));
+ it('keys update preferences by entry ID', () => {
+  expect(STORAGE_KEYS.VERSION_CHECK('container:a:b')).toBe('version_check_v3_container:a:b');
+  expect(STORAGE_KEYS.VERSION_CHECK('container:a:b')).not.toBe(STORAGE_KEYS.VERSION_CHECK('container:a:c'));
  });
 });
 

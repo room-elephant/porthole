@@ -290,7 +290,7 @@ describe('ContainerTile', () => {
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
       fireEvent.click(screen.getAllByRole('button', { name: settingsName })[0]);
       fireEvent.click(screen.getByRole('checkbox'));
-      expect(localStorage.getItem('version_check_v2_["local","test-container"]')).toBe('false');
+      expect(localStorage.getItem('version_check_v3_container:local:test-container')).toBe('false');
     });
   });
 
@@ -322,7 +322,7 @@ describe('ContainerTile', () => {
     });
 
     it('keeps the stored preference for hiding update notifications', () => {
-      localStorage.setItem('version_check_v2_["local","test-container"]', 'false');
+      localStorage.setItem('version_check_v3_container:local:test-container', 'false');
       renderWithQuery(<ContainerTile container={createMockContainer({ version: update })} />);
       expect(screen.queryByTitle('Update available')).not.toBeInTheDocument();
       openSettings();
@@ -342,7 +342,7 @@ describe('ContainerTile', () => {
       expect(tile()).not.toHaveClass('tile--dashed');
       expect(selectContainerEndpoint).toHaveBeenCalledWith({ entryId: 'container:local:test-container', selectedEndpoint: { id: 'none', source: 'none' } });
       await user.click(screen.getByRole('checkbox'));
-      expect(localStorage.getItem('version_check_v2_["local","test-container"]')).toBe('false');
+      expect(localStorage.getItem('version_check_v3_container:local:test-container')).toBe('false');
       await user.click(screen.getByRole('radio', { name: 'http://localhost:53/' }));
       await user.keyboard('{Escape}');
       expect(screen.getByRole('link', { name: /Test Container/ })).toHaveAttribute('href', 'http://localhost:53/');
