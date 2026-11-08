@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import ContainerSettings from '../../components/ContainerSettings';
 import ContainerTile from '../../components/ContainerTile';
-import { fetchIconLibrary, selectContainerIcon } from '../../api';
+import { fetchIconLibrary, selectEntryIcon } from '../../api';
 import { createMockContainer, publishedEndpoint, renderInventory, renderWithQuery } from '../testUtils';
 
 vi.mock('../../api', () => ({
   fetchIconLibrary: vi.fn(),
   selectContainerEndpoint: vi.fn(),
-  selectContainerIcon: vi.fn(),
-  uploadContainerIcon: vi.fn(),
+  selectEntryIcon: vi.fn(),
+  uploadEntryIcon: vi.fn(),
 }));
 
 const CDN = 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp';
@@ -232,7 +232,7 @@ describe('Changing an icon from a tile', () => {
 
   it('keeps saving after the modal closes, and the tile shows the new icon', async () => {
     const write = deferred();
-    selectContainerIcon.mockReturnValue(write.promise);
+    selectEntryIcon.mockReturnValue(write.promise);
     const updated = { ...inventory, containers: [{ ...container, iconUrl: `${CDN}/coredns.webp` }] };
     const fetch = vi.fn().mockResolvedValue(updated);
     renderTile(fetch);
@@ -246,6 +246,6 @@ describe('Changing an icon from a tile', () => {
     write.resolve();
     await waitFor(() => expect(fetch).toHaveBeenCalled());
     await waitFor(() => expect(document.querySelector('.container-icon img')).toHaveAttribute('src', `${CDN}/coredns.webp`));
-    expect(selectContainerIcon).toHaveBeenCalledWith({ sourceId: 'local', containerName: 'transmission-1', name: 'coredns' });
+    expect(selectEntryIcon).toHaveBeenCalledWith({ entryId: 'container:local:transmission-1', name: 'coredns' });
   });
 });

@@ -84,7 +84,7 @@ describe('shared endpoint selection', () => {
     await act(async () => refresh.resolve(inventory([noUi()])));
     await waitFor(() => expect(result.current.isSaving).toBe(false));
     expect(result.current.selectedEndpointId).toBe('none');
-    expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'local', containerName: 'app', selectedEndpoint: none });
+    expect(selectContainerEndpoint).toHaveBeenCalledWith({ entryId: 'container:local:app', selectedEndpoint: none });
     const filtered = renderHook(() => useQuery({ queryKey: alternate }), { wrapper });
     await waitFor(() => expect(filteredFetch).toHaveBeenCalledTimes(1));
     await act(async () => filteredRefresh.resolve(inventory([noUi(), remote])));
@@ -230,7 +230,7 @@ describe('shared endpoint selection', () => {
     expect(result.current.second.isSaving).toBe(true);
     act(() => result.current.second.selectEndpoint(port));
     expect(selectContainerEndpoint).toHaveBeenCalledTimes(2);
-    expect(selectContainerEndpoint.mock.calls.map(([request]) => request.sourceId)).toEqual(['local', 'remote']);
+    expect(selectContainerEndpoint.mock.calls.map(([request]) => request.entryId)).toEqual(['container:local:app', 'container:remote:app']);
     await act(async () => refresh.resolve(inventory([noUi()])));
     await waitFor(() => expect(result.current.first.isSaving).toBe(false));
   });

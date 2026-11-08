@@ -5,10 +5,12 @@ const mockGet = vi.fn();
 const mockPost = vi.fn();
 const mockPut = vi.fn();
 const mockDelete = vi.fn();
+const mockPatch = vi.fn();
 const mockAxiosInstance = {
   get: mockGet,
   post: mockPost,
   put: mockPut,
+  patch: mockPatch,
   delete: mockDelete,
   interceptors: {
     response: {
@@ -24,7 +26,9 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchIconLibrary, refreshVersions, selectContainerEndpoint, selectContainerIcon, uploadContainerIcon, fetchLinks, createLink, updateLink, deleteLink, selectLinkIcon, uploadLinkIcon } = await import('../api');
+const { fetchContainers, fetchIconLibrary, refreshVersions, patchEntry, toEndpointPatch, selectContainerEndpoint, uploadIcon, selectEntryIcon, uploadEntryIcon, fetchLinks, createLink, updateLink, deleteEntry } = await import('../api');
+
+const MERGE_PATCH = { headers: { 'Content-Type': 'application/merge-patch+json' } };
 
 describe('api', () => {
   beforeEach(() => {
@@ -37,33 +41,61 @@ describe('api', () => {
     expect(mockPost).toHaveBeenCalledWith('/api/versions/refresh');
   });
 
-  it('replaces the shared selection', async () => {
-    const selection = { id: 'custom', source: 'custom', url: 'https://app.example.com/' };
-    mockPut.mockResolvedValue({ status: 204 });
-    const request = { sourceId: 'remote', containerName: 'app', selectedEndpoint: selection };
-    expect(await selectContainerEndpoint(request)).toBeUndefined();
-    expect(mockPut).toHaveBeenCalledWith('/api/containers/selected-url', request);
-    await selectContainerEndpoint({ ...request, selectedEndpoint: null });
-    expect(mockPut).toHaveBeenLastCalledWith('/api/containers/selected-url', { ...request, selectedEndpoint: null });
+  it('patches an entry by its encoded id with merge-patch json', async () => {
+    mockPatch.mockResolvedValue({ status: 204 });
+    expect(await patchEntry('container:walker:a.b', { name: 'App' })).toBeUndefined();
+    expect(mockPatch).toHaveBeenCalledWith('/api/entries/container%3Awalker%3Aa.b', { name: 'App' }, MERGE_PATCH);
   });
 
-  it('saves a library icon', async () => {
-    mockPut.mockResolvedValue({ status: 204 });
-    const request = { sourceId: 'remote', containerName: 'app', name: 'coredns' };
-    expect(await selectContainerIcon(request)).toBeUndefined();
-    expect(mockPut).toHaveBeenCalledWith('/api/containers/icon', request);
+  it('maps every endpoint selection to its patch value', () => {
+    expect(toEndpointPatch(null)).toBeNull();
+    expect(toEndpointPatch(undefined)).toBeNull();
+    expect(toEndpointPatch({ id: 'none', source: 'none' })).toBe('none');
+    expect(toEndpointPatch({ id: 'custom', source: 'custom', url: 'https://app.example.com/' })).toEqual({ url: 'https://app.example.com/' });
+    expect(toEndpointPatch({ id: 'traefik:https://a/', source: 'traefik' })).toEqual({ id: 'traefik:https://a/' });
   });
 
-  it('uploads an icon as multipart with a longer timeout', async () => {
-    mockPost.mockResolvedValue({ status: 204 });
+  it('saves an endpoint selection on the container entry', async () => {
+    mockPatch.mockResolvedValue({ status: 204 });
+    await selectContainerEndpoint({ entryId: 'container:remote:app', selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://app.example.com/' } });
+    expect(mockPatch).toHaveBeenCalledWith('/api/entries/container%3Aremote%3Aapp', { endpoint: { url: 'https://app.example.com/' } }, MERGE_PATCH);
+    await selectContainerEndpoint({ entryId: 'container:remote:app', selectedEndpoint: null });
+    expect(mockPatch).toHaveBeenLastCalledWith('/api/entries/container%3Aremote%3Aapp', { endpoint: null }, MERGE_PATCH);
+  });
+
+  it('saves a library icon on an entry', async () => {
+    mockPatch.mockResolvedValue({ status: 204 });
+    expect(await selectEntryIcon({ entryId: 'container:remote:app', name: 'coredns' })).toBeUndefined();
+    expect(mockPatch).toHaveBeenCalledWith('/api/entries/container%3Aremote%3Aapp', { icon: { library: 'coredns' } }, MERGE_PATCH);
+  });
+
+  it('posts raw icon bytes with the file type and a longer timeout', async () => {
+    mockPost.mockResolvedValue({ status: 201, data: { id: 'abc.png' } });
     const file = new File(['x'], 'logo.png', { type: 'image/png' });
-    expect(await uploadContainerIcon({ sourceId: 'remote', containerName: 'app', file })).toBeUndefined();
-    const [url, body, config] = mockPost.mock.calls[0];
-    expect(url).toBe('/api/containers/icon/upload');
-    expect(body.get('sourceId')).toBe('remote');
-    expect(body.get('containerName')).toBe('app');
-    expect(body.get('file')).toBe(file);
-    expect(config).toEqual({ timeout: 30000 });
+    expect(await uploadIcon(file)).toBe('abc.png');
+    expect(mockPost).toHaveBeenCalledWith('/api/icons', file, { headers: { 'Content-Type': 'image/png' }, timeout: 30000 });
+  });
+
+  it('posts a file without a type as octet-stream', async () => {
+    mockPost.mockResolvedValue({ status: 201, data: { id: 'abc.svg' } });
+    const file = new File(['<svg/>'], 'logo');
+    await uploadIcon(file);
+    expect(mockPost.mock.calls[0][2].headers).toEqual({ 'Content-Type': 'application/octet-stream' });
+  });
+
+  it('uploads an icon and then saves it on the entry', async () => {
+    mockPost.mockResolvedValue({ status: 201, data: { id: 'abc.png' } });
+    mockPatch.mockResolvedValue({ status: 204 });
+    const file = new File(['x'], 'logo.png', { type: 'image/png' });
+    expect(await uploadEntryIcon({ entryId: 'link:00', file })).toBeUndefined();
+    expect(mockPatch).toHaveBeenCalledWith('/api/entries/link%3A00', { icon: { upload: 'abc.png' } }, MERGE_PATCH);
+  });
+
+  it('does not patch when the upload fails', async () => {
+    mockPost.mockRejectedValue(new Error('too large'));
+    const file = new File(['x'], 'logo.png', { type: 'image/png' });
+    await expect(uploadEntryIcon({ entryId: 'link:00', file })).rejects.toThrow('too large');
+    expect(mockPatch).not.toHaveBeenCalled();
   });
 
   it('fetches the icon library metadata', async () => {
@@ -126,7 +158,7 @@ describe('api', () => {
 });
 
 describe('links api', () => {
-  const id = 'a'.repeat(32);
+  const id = `link:${'a'.repeat(32)}`;
   const details = { name: 'Router', url: 'http://r/', stack: null };
 
   beforeEach(() => { vi.clearAllMocks(); });
@@ -138,37 +170,21 @@ describe('links api', () => {
     expect(mockGet).toHaveBeenCalledWith('/api/links', { signal });
   });
 
-  it('creates a link and returns it', async () => {
+  it('creates a link entry and returns its id', async () => {
     mockPost.mockResolvedValue({ data: { id } });
     await expect(createLink(details)).resolves.toEqual({ id });
-    expect(mockPost).toHaveBeenCalledWith('/api/links', details);
+    expect(mockPost).toHaveBeenCalledWith('/api/entries', details);
   });
 
-  it('updates a link', async () => {
-    mockPut.mockResolvedValue({ data: {} });
+  it('updates a link by patching its name, url and stack', async () => {
+    mockPatch.mockResolvedValue({});
     await updateLink(id, details);
-    expect(mockPut).toHaveBeenCalledWith(`/api/links/${id}`, details);
+    expect(mockPatch).toHaveBeenCalledWith(`/api/entries/${encodeURIComponent(id)}`, { name: 'Router', endpoint: { url: 'http://r/' }, stack: null }, MERGE_PATCH);
   });
 
-  it('deletes a link', async () => {
+  it('deletes an entry', async () => {
     mockDelete.mockResolvedValue({});
-    await deleteLink(id);
-    expect(mockDelete).toHaveBeenCalledWith(`/api/links/${id}`);
-  });
-
-  it('selects a library icon', async () => {
-    mockPut.mockResolvedValue({});
-    await selectLinkIcon(id, 'router');
-    expect(mockPut).toHaveBeenCalledWith(`/api/links/${id}/icon`, { name: 'router' });
-  });
-
-  it('uploads an icon', async () => {
-    mockPost.mockResolvedValue({});
-    const file = new File(['x'], 'logo.png', { type: 'image/png' });
-    await uploadLinkIcon(id, file);
-    const [url, body, options] = mockPost.mock.calls[0];
-    expect(url).toBe(`/api/links/${id}/icon/upload`);
-    expect(body.get('file')).toBe(file);
-    expect(options).toEqual({ timeout: 30000 });
+    await deleteEntry(id);
+    expect(mockDelete).toHaveBeenCalledWith(`/api/entries/${encodeURIComponent(id)}`);
   });
 });

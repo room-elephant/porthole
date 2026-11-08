@@ -340,7 +340,7 @@ describe('ContainerTile', () => {
       await user.click(screen.getByRole('radio', { name: 'No web UI' }));
       expect(screen.queryByRole('link')).not.toBeInTheDocument();
       expect(tile()).not.toHaveClass('tile--dashed');
-      expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'local', containerName: 'test-container', selectedEndpoint: { id: 'none', source: 'none' } });
+      expect(selectContainerEndpoint).toHaveBeenCalledWith({ entryId: 'container:local:test-container', selectedEndpoint: { id: 'none', source: 'none' } });
       await user.click(screen.getByRole('checkbox'));
       expect(localStorage.getItem('version_check_v2_["local","test-container"]')).toBe('false');
       await user.click(screen.getByRole('radio', { name: 'http://localhost:53/' }));

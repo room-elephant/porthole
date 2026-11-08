@@ -4,10 +4,10 @@ import App from '../App';
 import { renderWithQuery, createMockContainer } from './testUtils';
 import { useContainers } from '../hooks/useContainers';
 import { useLinks } from '../hooks/useLinks';
-import { createLink, fetchIconLibrary, selectLinkIcon } from '../api';
+import { createLink, fetchIconLibrary, selectEntryIcon } from '../api';
 
 vi.mock('../hooks/useContainers');
-vi.mock('../api', async importOriginal => ({ ...await importOriginal(), updateLink: vi.fn().mockResolvedValue(), createLink: vi.fn(), selectLinkIcon: vi.fn(), fetchIconLibrary: vi.fn() }));
+vi.mock('../api', async importOriginal => ({ ...await importOriginal(), updateLink: vi.fn().mockResolvedValue(), createLink: vi.fn(), selectEntryIcon: vi.fn(), fetchIconLibrary: vi.fn() }));
 vi.mock('../hooks/useLinks', async importOriginal => ({ ...await importOriginal(), useLinks: vi.fn() }));
 
 const walker = { id: 'walker', name: 'Walker', status: 'UP', error: null };
@@ -330,7 +330,7 @@ describe('App link settings', () => {
   it('opens Link settings with an alert when an icon failed while adding', async () => {
     const created = { ...router, id: 'c'.repeat(32), name: 'Created' };
     createLink.mockResolvedValue(created);
-    selectLinkIcon.mockRejectedValue(new Error('down'));
+    selectEntryIcon.mockRejectedValue(new Error('down'));
     fetchIconLibrary.mockResolvedValue({ router: {} });
     useLinks.mockReturnValue({ data: [router, created], isError: false });
     renderWithQuery(<App />);
