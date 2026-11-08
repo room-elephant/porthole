@@ -1,7 +1,10 @@
 package com.roomelephant.porthole.fleet.docker;
 
+import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ContainerConfig;
+import com.github.dockerjava.api.model.Event;
+import com.github.dockerjava.api.model.EventType;
 import com.roomelephant.porthole.fleet.*;
 import java.util.*;
 import org.jspecify.annotations.*;
@@ -61,7 +64,30 @@ public final class DockerJavaOperations implements DockerOperations {
 
     @Override
     public AutoCloseable watchContainerEvents(String sourceId, ContainerEventListener listener) {
-        throw new UnsupportedOperationException("Container events are not supported yet");
+        try {
+            return sources.require(sourceId)
+                    .client()
+                    .eventsCmd()
+                    .withEventTypeFilter(EventType.CONTAINER)
+                    .exec(new ResultCallback.Adapter<Event>() {
+                        @Override
+                        public void onNext(Event event) {
+                            listener.onEvent();
+                        }
+
+                        @Override
+                        public void onError(Throwable failure) {
+                            listener.onClosed(failure);
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            listener.onClosed(null);
+                        }
+                    });
+        } catch (RuntimeException e) {
+            throw translate(e);
+        }
     }
 
     private RuntimeException translate(RuntimeException e) {

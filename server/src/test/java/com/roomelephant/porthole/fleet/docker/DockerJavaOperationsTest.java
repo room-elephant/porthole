@@ -144,4 +144,61 @@ class DockerJavaOperationsTest {
         doThrow(new IllegalStateException("bad response")).when(client).listContainersCmd();
         assertThatThrownBy(() -> docker.listContainers("one")).isInstanceOf(DockerOperationException.class);
     }
+
+    @SuppressWarnings("unchecked")
+    private com.github.dockerjava.api.async.ResultCallback.Adapter<com.github.dockerjava.api.model.Event> watch(
+            ContainerEventListener listener) {
+        var cmd = mock(EventsCmd.class);
+        when(client.eventsCmd()).thenReturn(cmd);
+        when(cmd.withEventTypeFilter(any(com.github.dockerjava.api.model.EventType[].class)))
+                .thenReturn(cmd);
+        when(cmd.exec(any())).thenAnswer(call -> call.getArgument(0));
+        docker.watchContainerEvents("one", listener);
+        var captor = org.mockito.ArgumentCaptor.forClass(com.github.dockerjava.api.async.ResultCallback.Adapter.class);
+        verify(cmd).withEventTypeFilter(com.github.dockerjava.api.model.EventType.CONTAINER);
+        verify(cmd).exec(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    void watchFiltersContainerEventsAndForwardsEach() {
+        var listener = mock(ContainerEventListener.class);
+        var callback = watch(listener);
+        callback.onNext(new com.github.dockerjava.api.model.Event("start", "id", "nginx", 1L));
+        callback.onNext(new com.github.dockerjava.api.model.Event("die", "id", "nginx", 2L));
+        verify(listener, times(2)).onEvent();
+        verify(listener, never()).onClosed(any());
+    }
+
+    @Test
+    void watchReportsStreamErrorAndCompletion() {
+        var listener = mock(ContainerEventListener.class);
+        var callback = watch(listener);
+        var boom = new IllegalStateException("boom");
+        callback.onError(boom);
+        verify(listener).onClosed(boom);
+        var completed = mock(ContainerEventListener.class);
+        watch(completed).onComplete();
+        verify(completed).onClosed(null);
+    }
+
+    @Test
+    void closingSubscriptionClosesCallback() throws Exception {
+        var cmd = mock(EventsCmd.class);
+        var callback = mock(com.github.dockerjava.api.async.ResultCallback.Adapter.class);
+        when(client.eventsCmd()).thenReturn(cmd);
+        when(cmd.withEventTypeFilter(any(com.github.dockerjava.api.model.EventType[].class)))
+                .thenReturn(cmd);
+        when(cmd.exec(any())).thenReturn(callback);
+        docker.watchContainerEvents("one", mock(ContainerEventListener.class)).close();
+        verify(callback).close();
+    }
+
+    @Test
+    void watchTranslatesTransportFailure() {
+        when(client.eventsCmd()).thenThrow(new RuntimeException(new SocketException("private socket")));
+        var listener = mock(ContainerEventListener.class);
+        assertThatThrownBy(() -> docker.watchContainerEvents("one", listener))
+                .isInstanceOf(DockerUnavailableException.class);
+    }
 }

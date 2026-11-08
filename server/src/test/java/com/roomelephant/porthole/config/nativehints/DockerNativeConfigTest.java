@@ -49,4 +49,15 @@ class DockerNativeConfigTest {
         assertThat(RuntimeHintsPredicates.reflection().onType(DockerContextMetaFile.class))
                 .accepts(hints);
     }
+
+    @Test
+    @DisplayName("should register Docker event types for reflection")
+    void registersEventTypes() {
+        assertThat(RuntimeHintsPredicates.reflection().onType(com.github.dockerjava.api.model.Event.class))
+                .accepts(hints);
+        assertThat(RuntimeHintsPredicates.reflection().onType(com.github.dockerjava.api.model.EventActor.class))
+                .accepts(hints);
+        assertThat(RuntimeHintsPredicates.reflection().onType(com.github.dockerjava.api.model.EventType.class))
+                .accepts(hints);
+    }
 }
