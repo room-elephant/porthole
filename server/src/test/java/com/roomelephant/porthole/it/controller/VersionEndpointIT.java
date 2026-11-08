@@ -95,6 +95,8 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldReturn404ForRemovedVersionEndpoint() {
+        // Neither the old per-container version route nor the container list exists any more.
+        assertThat(fetch("/api/containers").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         String nonExistentId = "non-existent-id";
 
         ResponseEntity<String> response = fetch("/api/containers/" + nonExistentId + "/version");

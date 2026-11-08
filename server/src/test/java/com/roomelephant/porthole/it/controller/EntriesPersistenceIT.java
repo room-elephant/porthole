@@ -96,8 +96,8 @@ class EntriesPersistenceIT {
     }
 
     private JsonNode container() {
-        return mapper.readTree(http.getForObject(url("/api/containers"), String.class))
-                .path("containers")
+        return mapper.readTree(http.getForObject(url("/api/dashboard"), String.class))
+                .path("entries")
                 .get(0);
     }
 
@@ -121,12 +121,14 @@ class EntriesPersistenceIT {
         app = application();
         app.start();
 
-        assertThat(container().path("entryId").asString()).isEqualTo("container:walker:shared-app");
-        assertThat(container().path("iconUrl").asString()).isEqualTo("/api/icons/" + icon);
+        assertThat(container().path("id").asString()).isEqualTo("container:walker:shared-app");
+        assertThat(container().path("icon").path("url").asString()).isEqualTo("/api/icons/" + icon);
         assertThat(container().path("endpoints").get(0).path("url").asString()).isEqualTo("https://app.example/");
-        JsonNode links = mapper.readTree(http.getForObject(url("/api/links"), String.class));
-        assertThat(links.get(0).path("id").asString()).isEqualTo(link);
-        assertThat(links.get(0).path("stack").asString()).isEqualTo("base");
+        JsonNode linkEntry = mapper.readTree(http.getForObject(url("/api/dashboard"), String.class))
+                .path("entries")
+                .get(1);
+        assertThat(linkEntry.path("id").asString()).isEqualTo(link);
+        assertThat(linkEntry.path("stack").asString()).isEqualTo("base");
         assertThat(http.getForEntity(url("/api/icons/" + icon), byte[].class).getBody())
                 .isEqualTo(PNG);
         String state = app.execInContainer("cat", "/app/data/state.json").getStdout();

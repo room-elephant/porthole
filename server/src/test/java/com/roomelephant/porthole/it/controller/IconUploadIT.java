@@ -103,12 +103,12 @@ class IconUploadIT {
     }
 
     private JsonNode container() {
-        String body = http.getForObject(appUrl() + "/api/containers?includeWithoutEndpoints=true", String.class);
-        return mapper.readTree(body).path("containers").get(0);
+        String body = http.getForObject(appUrl() + "/api/dashboard", String.class);
+        return mapper.readTree(body).path("entries").get(0);
     }
 
     private String iconUrl() {
-        return container().path("iconUrl").asString();
+        return container().path("icon").path("url").asString();
     }
 
     private void patch(String patch) {
@@ -232,7 +232,7 @@ class IconUploadIT {
 
         replaceApplication("1h");
 
-        assertThat(container().path("id").asString()).isEqualTo("recreated-id");
+        assertThat(container().path("id").asString()).isEqualTo("container:walker:shared-app");
         assertThat(iconUrl()).isEqualTo(url);
         assertThat(http.getForEntity(appUrl() + url, byte[].class).getBody()).isEqualTo(PNG);
     }

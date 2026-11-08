@@ -39,9 +39,7 @@ class ArchitectureTest {
                             ROOT + "core.model..",
                             ROOT + "core.port.inbound..",
                             ROOT + "config.properties..",
-                            ROOT + "shared..",
-                            // The legacy container DTO names each container's entry ID until the dashboard replaces it.
-                            ROOT + "entries")));
+                            ROOT + "shared..")));
 
     @ArchTest
     static final ArchRule outboundAdaptersUseCoreModelsAndOutboundPorts = classes()
@@ -152,4 +150,44 @@ class ArchitectureTest {
             .should()
             .dependOnClassesThat()
             .resideInAnyPackage(ROOT + "entries.store..", ROOT + "entries.icons..");
+
+    @ArchTest
+    static final ArchRule endpointsDependsOnlyOnFleetAndShared = classes()
+            .that()
+            .resideInAPackage(ROOT + "endpoints..")
+            .should()
+            .onlyDependOnClassesThat(resideOutsideOfPackage("com.roomelephant.porthole..")
+                    .or(resideInAnyPackage(ROOT + "endpoints..", ROOT + "fleet", ROOT + "shared..")));
+
+    @ArchTest
+    static final ArchRule dashboardDependsOnSliceRootsAndShared = classes()
+            .that()
+            .resideInAPackage(ROOT + "dashboard..")
+            .should()
+            .onlyDependOnClassesThat(resideOutsideOfPackage("com.roomelephant.porthole..")
+                    .or(resideInAnyPackage(
+                            ROOT + "dashboard..",
+                            ROOT + "fleet",
+                            ROOT + "endpoints",
+                            ROOT + "entries",
+                            ROOT + "shared..",
+                            // Versions still live in core until they move into their own slice.
+                            ROOT + "core.model",
+                            ROOT + "core.enrichment.version.refresh")));
+
+    @ArchTest
+    static final ArchRule nothingDependsOnDashboard = noClasses()
+            .that()
+            .resideOutsideOfPackage(ROOT + "dashboard..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage(ROOT + "dashboard..");
+
+    @ArchTest
+    static final ArchRule dashboardRootDoesNotDependOnWeb = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "dashboard")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage(ROOT + "dashboard.web..");
 }

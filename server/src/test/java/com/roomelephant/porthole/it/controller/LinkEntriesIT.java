@@ -57,8 +57,20 @@ class LinkEntriesIT {
         return new HttpEntity<>(body, headers);
     }
 
+    /** The link entries, in the shape the old links list had. */
     private JsonNode links() {
-        return mapper.readTree(http.getForObject(url("/api/links"), String.class));
+        var links = mapper.createArrayNode();
+        for (JsonNode entry : mapper.readTree(http.getForObject(url("/api/dashboard"), String.class))
+                .path("entries")) {
+            if (!entry.path("kind").asString().equals("link")) continue;
+            var link = links.addObject();
+            link.put("id", entry.path("id").asString());
+            link.put("name", entry.path("name").asString());
+            link.put("url", entry.path("endpoints").get(0).path("url").asString());
+            link.set("stack", entry.path("stack"));
+            link.set("iconUrl", entry.path("icon").path("url"));
+        }
+        return links;
     }
 
     private String create() {
@@ -179,12 +191,11 @@ class LinkEntriesIT {
     }
 
     @Test
-    void containersResponseStaysSeparate() {
+    void linksDontAppearAsSources() {
         create();
 
-        JsonNode inventory = mapper.readTree(http.getForObject(url("/api/containers"), String.class));
+        JsonNode inventory = mapper.readTree(http.getForObject(url("/api/dashboard"), String.class));
 
-        assertThat(inventory.has("links")).isFalse();
         assertThat(inventory.path("sources")).hasSize(1);
         assertThat(inventory.path("sources").get(0).path("id").asString()).isEqualTo("walker");
     }
