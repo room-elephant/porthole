@@ -2,6 +2,7 @@ package com.roomelephant.porthole.dashboard;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
 import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.endpoints.EndpointDiscovery;
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 class DashboardProjectorTest {
+    private static final VersionChecks NO_CHECKS = new VersionChecks(false, null);
     private static final Instant T = Instant.parse("2026-11-08T10:00:00Z");
     private static final Source WALKER = new Source("walker", "Walker", "walker.lan", true, Duration.ofSeconds(1));
     private static final Source MIKE = new Source("mike", "Mike", null, false, Duration.ofSeconds(1));
@@ -79,7 +81,7 @@ class DashboardProjectorTest {
     }
 
     private Dashboard project(List<SourceSnapshot> sources, EntryState entries) {
-        return projector.project(sources, entries, NO_VERSIONS);
+        return projector.project(7, NO_CHECKS, sources, entries, NO_VERSIONS);
     }
 
     private DashboardEntry only(Dashboard dashboard) {
@@ -291,10 +293,22 @@ class DashboardProjectorTest {
     }
 
     @Test
+    void carriesTheRevisionAndRunState() {
+        VersionChecks running = new VersionChecks(true, Instant.EPOCH);
+
+        Dashboard dashboard = projector.project(9, running, List.of(), EntryState.EMPTY, NO_VERSIONS);
+
+        assertThat(dashboard.revision()).isEqualTo(9);
+        assertThat(dashboard.versionChecks()).isEqualTo(running);
+    }
+
+    @Test
     void versionLookedUpBySourceAndContainerId() {
         VersionInfo version = new VersionInfo("1.0", "1.1", true);
 
         Dashboard dashboard = projector.project(
+                7,
+                NO_CHECKS,
                 List.of(up(WALKER, container("app", Set.of()))),
                 EntryState.EMPTY,
                 key -> key.equals(new ContainerKey("walker", "app-id")) ? version : null);

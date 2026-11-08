@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.core.model.VersionInfo;
@@ -40,14 +41,22 @@ class DashboardServiceTest {
         when(entries.state()).thenReturn(EntryState.EMPTY.with(new EntryRecord(ref, "App", null, null, null)));
         VersionInfo version = new VersionInfo("1", "2", true);
         when(versions.cachedVersion(new ContainerKey("walker", "app-id"))).thenReturn(version);
+        DashboardChanges changes = mock(DashboardChanges.class);
+        when(changes.revision()).thenReturn(5L);
+        VersionChecks checks = new VersionChecks(true, null);
+        when(versions.checks()).thenReturn(checks);
         DashboardService service = new DashboardService(
                 fleet,
                 entries,
                 versions,
+                changes,
                 new DashboardProjector(
                         new EndpointDiscovery(List.of()), new DefaultIcons(Map.of()), SelfContainer.none()));
 
         Dashboard dashboard = service.current();
+
+        assertThat(dashboard.revision()).isEqualTo(5L);
+        assertThat(dashboard.versionChecks()).isEqualTo(checks);
 
         assertThat(dashboard.entries()).singleElement().satisfies(entry -> {
             assertThat(entry.name()).isEqualTo("App");
