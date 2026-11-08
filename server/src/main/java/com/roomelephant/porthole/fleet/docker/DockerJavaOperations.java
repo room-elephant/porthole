@@ -72,7 +72,7 @@ public final class DockerJavaOperations implements DockerOperations {
                     .exec(new ResultCallback.Adapter<Event>() {
                         @Override
                         public void onNext(Event event) {
-                            listener.onEvent();
+                            if (changesListing(event)) listener.onEvent();
                         }
 
                         @Override
@@ -95,4 +95,18 @@ public final class DockerJavaOperations implements DockerOperations {
                 ? new DockerUnavailableException(e)
                 : new DockerOperationException(e);
     }
+
+    /**
+     * Health checks run as execs, so a container with a health check emits exec events every interval. Those, and
+     * other actions that leave the container's listing as it was, must not trigger a listing. Unknown actions do.
+     */
+    static boolean changesListing(Event event) {
+        String action = event.getAction() != null ? event.getAction() : event.getStatus();
+        if (action == null) return true;
+        String name = action.split(":", 2)[0].trim();
+        return !name.startsWith("exec_") && !LISTING_NEUTRAL.contains(name);
+    }
+
+    private static final Set<String> LISTING_NEUTRAL =
+            Set.of("attach", "detach", "resize", "top", "export", "commit", "copy", "archive-path", "extract-to-dir");
 }
