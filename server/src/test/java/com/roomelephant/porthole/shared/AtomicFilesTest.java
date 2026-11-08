@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.outbound.file;
+package com.roomelephant.porthole.shared;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

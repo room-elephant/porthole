@@ -7,7 +7,7 @@ import com.roomelephant.porthole.core.model.ExternalLinkValidation;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.exception.LinkNotFoundException;
 import com.roomelephant.porthole.core.port.outbound.ExternalLinkStore;
-import com.roomelephant.porthole.outbound.file.AtomicFiles;
+import com.roomelephant.porthole.shared.AtomicFiles;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

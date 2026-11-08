@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.core.model;
 
+import com.roomelephant.porthole.shared.HttpUrls;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 

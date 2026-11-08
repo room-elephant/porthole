@@ -7,7 +7,7 @@ import com.roomelephant.porthole.core.model.ContainerPreferencesValidation;
 import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
-import com.roomelephant.porthole.outbound.file.AtomicFiles;
+import com.roomelephant.porthole.shared.AtomicFiles;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

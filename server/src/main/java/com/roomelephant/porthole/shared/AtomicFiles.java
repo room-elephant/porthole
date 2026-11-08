@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.outbound.file;
+package com.roomelephant.porthole.shared;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

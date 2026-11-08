@@ -1,4 +1,4 @@
-package com.roomelephant.porthole.core.model;
+package com.roomelephant.porthole.shared;
 
 import java.net.URI;
 import org.jspecify.annotations.NullMarked;

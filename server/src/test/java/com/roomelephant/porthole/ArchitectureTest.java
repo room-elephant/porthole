@@ -38,7 +38,8 @@ class ArchitectureTest {
                             ROOT + "inbound..",
                             ROOT + "core.model..",
                             ROOT + "core.port.inbound..",
-                            ROOT + "config.properties..")));
+                            ROOT + "config.properties..",
+                            ROOT + "shared..")));
 
     @ArchTest
     static final ArchRule outboundAdaptersUseCoreModelsAndOutboundPorts = classes()
@@ -50,7 +51,8 @@ class ArchitectureTest {
                             ROOT + "outbound..",
                             ROOT + "core.model..",
                             ROOT + "core.port.outbound..",
-                            ROOT + "config.properties..")));
+                            ROOT + "config.properties..",
+                            ROOT + "shared..")));
 
     @ArchTest
     static final ArchRule fleetDependsOnNoOtherProductionPackage = classes()
