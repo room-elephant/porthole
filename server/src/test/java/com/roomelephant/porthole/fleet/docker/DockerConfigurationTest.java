@@ -8,6 +8,7 @@ import com.roomelephant.porthole.fleet.*;
 import java.time.Duration;
 import java.util.List;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 class DockerConfigurationTest {
@@ -53,7 +54,7 @@ class DockerConfigurationTest {
         var b = mock(DockerClient.class);
         var config = new DockerConfiguration(properties(connection("a"), connection("b"))) {
             @Override
-            DockerClient createClient(@NonNull DockerConnectionProperties p) {
+            DockerClient createClient(@NonNull DockerConnectionProperties p, @Nullable Duration responseTimeout) {
                 return p.id().equals("a") ? a : b;
             }
         };
@@ -62,8 +63,29 @@ class DockerConfigurationTest {
             assertThat(sources.require("b").client()).isSameAs(b);
             verifyNoInteractions(a, b);
         }
-        verify(a).close();
-        verify(b).close();
+        verify(a, atLeastOnce()).close();
+        verify(b, atLeastOnce()).close();
+    }
+
+    @Test
+    void eventStreamsUseAClientWithoutAResponseTimeout() throws Exception {
+        var requests = mock(DockerClient.class);
+        var events = mock(DockerClient.class);
+        var timeouts = new java.util.ArrayList<@Nullable Duration>();
+        var config = new DockerConfiguration(properties(connection("a"))) {
+            @Override
+            DockerClient createClient(@NonNull DockerConnectionProperties p, @Nullable Duration responseTimeout) {
+                timeouts.add(responseTimeout);
+                return responseTimeout == null ? events : requests;
+            }
+        };
+        try (var sources = config.dockerSources()) {
+            assertThat(sources.require("a").client()).isSameAs(requests);
+            assertThat(sources.require("a").events()).isSameAs(events);
+        }
+        assertThat(timeouts).containsExactly(connection("a").responseTimeout(), null);
+        verify(requests).close();
+        verify(events).close();
     }
 
     @Test
@@ -71,13 +93,13 @@ class DockerConfigurationTest {
         var client = mock(DockerClient.class);
         var config = new DockerConfiguration(properties(connection("a"), connection("b"))) {
             @Override
-            DockerClient createClient(@NonNull DockerConnectionProperties p) {
+            DockerClient createClient(@NonNull DockerConnectionProperties p, @Nullable Duration responseTimeout) {
                 if (p.id().equals("b")) throw new IllegalStateException("failed");
                 return client;
             }
         };
         assertThatThrownBy(config::dockerSources).hasMessage("failed");
-        verify(client).close();
+        verify(client, times(2)).close();
     }
 
     @Test

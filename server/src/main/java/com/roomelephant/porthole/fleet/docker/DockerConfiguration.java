@@ -7,9 +7,11 @@ import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import com.roomelephant.porthole.fleet.DockerConnectionProperties;
 import com.roomelephant.porthole.fleet.DockerOperations;
 import com.roomelephant.porthole.fleet.DockerProperties;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -25,15 +27,20 @@ public class DockerConfiguration {
     @Bean
     public DockerSourceRegistry dockerSources() {
         List<DockerConnection> connections = new ArrayList<>();
+        List<DockerClient> created = new ArrayList<>();
         try {
             for (DockerConnectionProperties p : properties.connections()) {
-                connections.add(new DockerConnection(p.id(), createClient(p)));
+                DockerClient client = createClient(p, p.responseTimeout());
+                created.add(client);
+                DockerClient events = createClient(p, null);
+                created.add(events);
+                connections.add(new DockerConnection(p.id(), client, events));
             }
             return new DockerSourceRegistry(connections);
         } catch (RuntimeException e) {
-            for (DockerConnection connection : connections)
+            for (DockerClient client : created)
                 try {
-                    connection.client().close();
+                    client.close();
                 } catch (Exception cleanup) {
                     e.addSuppressed(cleanup);
                 }
@@ -46,17 +53,18 @@ public class DockerConfiguration {
         return new DockerJavaOperations(sources);
     }
 
-    DockerClient createClient(DockerConnectionProperties p) {
+    /** A client for the source; a null {@code responseTimeout} lets responses take as long as they need. */
+    DockerClient createClient(DockerConnectionProperties p, @Nullable Duration responseTimeout) {
         DefaultDockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
                 .withDockerHost(p.host())
                 .build();
-        ZerodepDockerHttpClient http = new ZerodepDockerHttpClient.Builder()
+        ZerodepDockerHttpClient.Builder builder = new ZerodepDockerHttpClient.Builder()
                 .dockerHost(config.getDockerHost())
                 .sslConfig(config.getSSLConfig())
                 .maxConnections(100)
-                .connectionTimeout(p.connectionTimeout())
-                .responseTimeout(p.responseTimeout())
-                .build();
+                .connectionTimeout(p.connectionTimeout());
+        if (responseTimeout != null) builder.responseTimeout(responseTimeout);
+        ZerodepDockerHttpClient http = builder.build();
         try {
             return DockerClientImpl.getInstance(config, http);
         } catch (RuntimeException e) {
