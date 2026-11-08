@@ -59,10 +59,12 @@ class EntryServiceTest {
 
     private static final class CountingListener implements EntryListener {
         private int calls;
+        private final List<String> changes = new ArrayList<>();
 
         @Override
-        public void onEntriesChanged() {
+        public void onEntriesChanged(EntryRef ref, @org.jspecify.annotations.Nullable EntryRecord saved) {
             calls++;
+            changes.add(ref.id() + (saved == null ? " deleted" : " saved"));
         }
     }
 
@@ -73,6 +75,7 @@ class EntryServiceTest {
         entries.delete(router.id());
 
         assertThat(listener.calls).isEqualTo(3);
+        assertThat(listener.changes).containsExactly(router.id() + " saved", APP + " saved", router.id() + " deleted");
     }
 
     @Test
@@ -86,7 +89,7 @@ class EntryServiceTest {
 
     @Test
     void aFailingListenerDoesNotFailTheWrite() {
-        EntryListener failing = () -> {
+        EntryListener failing = (_, _) -> {
             throw new IllegalStateException("boom");
         };
         EntryService service =

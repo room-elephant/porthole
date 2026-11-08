@@ -258,6 +258,8 @@ Each stream opens with the current revision. Changes are coalesced over 250 ms, 
 
 The browser refetches the dashboard when an event's revision differs from the one it holds, which also covers reconnecting after a restart. A failed stream is reopened after 30 seconds, and the dashboard is also polled every 5 minutes, so a lost stream only delays changes.
 
+At DEBUG, `DashboardChanges` logs each revision with its cause, for example `Dashboard revision 1762596000042: lab-a: restarting state running → restarting` or `entry container:walker:app saved: …`. `make lab` turns it on; elsewhere set `LOGGING_LEVEL_COM_ROOMELEPHANT_PORTHOLE_DASHBOARD_DASHBOARDCHANGES=DEBUG`.
+
 For names matching `<project>-<name>`, the default name drops the project prefix and a trailing numeric replica suffix (for example, `smh-sonarr-1` becomes `sonarr`). If that makes two names in one project collide, both keep their replica suffixes. A saved name replaces the default name without taking part in collisions; `container.defaultName` always reports the computed one, and `container.name` the Docker name.
 
 A source whose latest listing succeeded is `UP`, including an empty list. Transport failures and deadlines are `DOWN`; other errors are `ERROR`. Diagnostic causes stay in server logs.
