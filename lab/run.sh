@@ -144,7 +144,7 @@ client_pid=$job_pid
 wait_for_url "http://localhost:9753/api/dashboard" "$server_pid" "back end"
 wait_for_url "$URL" "$client_pid" "front end"
 
-printf '\n[lab] Ready: %s\n[lab] Press Ctrl-C to stop. Settings and links save to lab/data/.\n\n' "$URL"
+printf '\n[lab] Ready: %s\n[lab] Press Ctrl-C to stop. Settings and links save to lab/data/.\n[lab] Change containers from another terminal with lab/container.sh (try: lab/container.sh list).\n\n' "$URL"
 
 while is_running "$server_pid" && is_running "$client_pid"; do
   sleep 1
