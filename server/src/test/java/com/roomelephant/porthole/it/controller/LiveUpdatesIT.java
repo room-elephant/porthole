@@ -78,7 +78,25 @@ class LiveUpdatesIT {
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.headers().firstValue("Content-Type"))
                 .hasValueSatisfying(type -> assertThat(type).startsWith("text/event-stream"));
-        reader = Thread.ofVirtual().start(() -> response.body().forEach(lines::add));
+        reader = Thread.ofVirtual().start(() -> {
+            try {
+                response.body().forEach(lines::add);
+            } catch (java.io.UncheckedIOException _) {
+                // The test ended and interrupted the read.
+            }
+        });
+    }
+
+    /**
+     * The revision of the first {@code changed} event after {@code after} within the timeout. A stream can repeat a
+     * revision: a change made just before it opened is counted in its first event and delivered again once coalesced.
+     */
+    private long revisionAfter(long after, Duration timeout) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (true) {
+            long revision = nextRevision(Duration.ofNanos(deadline - System.nanoTime()));
+            if (revision > after) return revision;
+        }
     }
 
     /** The revision of the next {@code changed} event within the timeout. */
@@ -108,8 +126,7 @@ class LiveUpdatesIT {
                         .getStatusCode())
                 .isEqualTo(HttpStatus.CREATED);
 
-        long changed = nextRevision(Duration.ofSeconds(5));
-        assertThat(changed).isGreaterThan(opened);
+        long changed = revisionAfter(opened, Duration.ofSeconds(5));
         assertThat(dashboard().path("revision").asLong()).isGreaterThanOrEqualTo(changed);
     }
 
