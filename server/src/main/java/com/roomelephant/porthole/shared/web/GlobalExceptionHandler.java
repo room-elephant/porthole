@@ -2,6 +2,7 @@ package com.roomelephant.porthole.shared.web;
 
 import java.net.URI;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -51,6 +53,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public @NonNull ProblemDetail handleUnreadableRequest() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid request body");
+    }
+
+    /**
+     * A client that went away, such as a closed tab on {@code /api/events}. There is nobody to answer, and the response
+     * may already be an event stream, so nothing is written.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public @Nullable ResponseEntity<Void> handleDisconnectedClient(@NonNull AsyncRequestNotUsableException ex) {
+        log.debug("Client disconnected: {}", ex.getMessage());
+        return null;
     }
 
     @ExceptionHandler(Exception.class)
