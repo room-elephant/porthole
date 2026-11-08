@@ -52,7 +52,50 @@ class EntryServiceTest {
     }
 
     private EntryService service() {
-        return new EntryService(store, icons, DockerTestSources.catalog("walker"));
+        return new EntryService(store, icons, DockerTestSources.catalog("walker"), List.of(listener));
+    }
+
+    private final CountingListener listener = new CountingListener();
+
+    private static final class CountingListener implements EntryListener {
+        private int calls;
+
+        @Override
+        public void onEntriesChanged() {
+            calls++;
+        }
+    }
+
+    @Test
+    void notifiesListenersAfterEachCommittedWrite() {
+        LinkRef router = router();
+        entries.update(APP, nameOnly(set("App")));
+        entries.delete(router.id());
+
+        assertThat(listener.calls).isEqualTo(3);
+    }
+
+    @Test
+    void doesNotNotifyWhenAWriteIsRejected() {
+        assertThatThrownBy(() -> entries.update("link:" + "0".repeat(32), nameOnly(set("x"))))
+                .isInstanceOf(EntryNotFoundException.class);
+        assertThatThrownBy(() -> entries.delete(APP)).isInstanceOf(EntryNotDeletableException.class);
+
+        assertThat(listener.calls).isZero();
+    }
+
+    @Test
+    void aFailingListenerDoesNotFailTheWrite() {
+        EntryListener failing = () -> {
+            throw new IllegalStateException("boom");
+        };
+        EntryService service =
+                new EntryService(store, icons, DockerTestSources.catalog("walker"), List.of(failing, listener));
+
+        service.update(APP, nameOnly(set("App")));
+
+        assertThat(service.state().find(EntryRef.parse(APP))).isPresent();
+        assertThat(listener.calls).isEqualTo(1);
     }
 
     private EntryState reloaded() {

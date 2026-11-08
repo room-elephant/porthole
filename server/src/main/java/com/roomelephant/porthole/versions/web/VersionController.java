@@ -1,6 +1,6 @@
-package com.roomelephant.porthole.inbound.web;
+package com.roomelephant.porthole.versions.web;
 
-import com.roomelephant.porthole.core.port.inbound.RefreshVersions;
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/versions")
 @Tag(name = "Versions", description = "Background image version refreshes.")
 public class VersionController {
-    private final RefreshVersions versions;
+    private final VersionRefreshService versions;
 
-    public VersionController(RefreshVersions versions) {
+    public VersionController(VersionRefreshService versions) {
         this.versions = versions;
     }
 
@@ -28,6 +28,6 @@ public class VersionController {
                     + "Repeated requests are coalesced while a source scan is queued or running.")
     @ApiResponse(responseCode = "202", description = "Refresh queued; the response has no body.", content = @Content)
     public void refreshVersions() {
-        versions.requestRefresh();
+        versions.startCheck();
     }
 }

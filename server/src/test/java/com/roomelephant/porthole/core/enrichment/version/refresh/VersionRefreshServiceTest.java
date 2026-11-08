@@ -38,8 +38,17 @@ class VersionRefreshServiceTest {
 
     private VersionRefreshService service(SourceCatalog catalog) {
         return new VersionRefreshService(
-                catalog, resolver, new VersionRefreshSettings(INTERVAL), clock, workers, scheduler, coordinators);
+                catalog,
+                resolver,
+                new VersionRefreshSettings(INTERVAL),
+                List.of(() -> notifications++),
+                clock,
+                workers,
+                scheduler,
+                coordinators);
     }
+
+    private int notifications;
 
     private static Source source(String id) {
         return new Source(id, id, null, true, Duration.ofSeconds(1));
@@ -205,12 +214,12 @@ class VersionRefreshServiceTest {
     }
 
     @Test
-    void requestRefreshForcesChecksAndCoalesces() {
+    void startCheckForcesChecksAndCoalesces() {
         resolves(A, old, fresh);
         service.onSnapshot(up("local", "a"));
         workers.runAll();
-        service.requestRefresh();
-        service.requestRefresh();
+        service.startCheck();
+        service.startCheck();
         verify(resolver, never()).invalidateRegistryCache();
         assertThat(coordinators.tasks).hasSize(1);
         coordinators.runAll();
@@ -219,22 +228,83 @@ class VersionRefreshServiceTest {
         assertThat(workers.tasks).hasSize(1);
         workers.runAll();
         assertThat(service.cachedVersion(A)).isEqualTo(fresh);
-        service.requestRefresh();
+        service.startCheck();
         assertThat(coordinators.tasks).hasSize(1);
     }
 
     @Test
     void forcedRefreshReusesActiveContainerCheck() {
         service.onSnapshot(up("local", "a"));
-        service.requestRefresh();
+        service.startCheck();
         coordinators.runAll();
         assertThat(workers.tasks).hasSize(1);
     }
 
     @Test
-    void requestRefreshAfterCloseIsRejected() {
+    void startCheckAfterCloseIsRejected() {
         service.close();
-        assertThatThrownBy(service::requestRefresh).isInstanceOf(RejectedExecutionException.class);
+        assertThatThrownBy(service::startCheck).isInstanceOf(RejectedExecutionException.class);
+    }
+
+    @Test
+    void noRunHasCompletedAtStartup() {
+        assertThat(service.checks()).isEqualTo(new VersionChecks(false, null));
+    }
+
+    @Test
+    void notifiesWhenAResultChanges() {
+        resolves(A, old, old, fresh);
+        service.onSnapshot(up("local", "a"));
+        workers.runAll();
+        assertThat(notifications).isEqualTo(1);
+
+        clock.advance(INTERVAL);
+        service.rescan("local", false);
+        workers.runAll();
+        assertThat(notifications).as("same result").isEqualTo(1);
+
+        clock.advance(INTERVAL);
+        service.rescan("local", false);
+        workers.runAll();
+        assertThat(notifications).isEqualTo(2);
+    }
+
+    @Test
+    void aCheckRunsUntilEverySourceFinished() {
+        resolves(A, old);
+        service.onSnapshot(up("local", "a"));
+        workers.runAll();
+        notifications = 0;
+        clock.advance(Duration.ofMinutes(5));
+
+        service.startCheck();
+        assertThat(service.checks()).isEqualTo(new VersionChecks(true, null));
+        assertThat(notifications).isEqualTo(1);
+
+        coordinators.runAll();
+        assertThat(service.checks().running()).as("local still checking").isTrue();
+        workers.runAll();
+
+        assertThat(service.checks()).isEqualTo(new VersionChecks(false, clock.instant()));
+        assertThat(notifications).isEqualTo(2);
+    }
+
+    @Test
+    void aCheckWithNoSnapshotsStillCompletes() {
+        service.startCheck();
+        coordinators.runAll();
+
+        assertThat(service.checks()).isEqualTo(new VersionChecks(false, clock.instant()));
+        assertThat(notifications).isEqualTo(2);
+    }
+
+    @Test
+    void startingWhileRunningIsANoOp() {
+        service.startCheck();
+        service.startCheck();
+
+        assertThat(notifications).isEqualTo(1);
+        assertThat(coordinators.tasks).hasSize(1);
     }
 
     @Test
@@ -341,7 +411,7 @@ class VersionRefreshServiceTest {
                     return observation(old);
                 });
         try (var actual = new VersionRefreshService(
-                DockerTestSources.catalog("local"), resolver, new VersionRefreshSettings(INTERVAL))) {
+                DockerTestSources.catalog("local"), resolver, new VersionRefreshSettings(INTERVAL), List.of())) {
             actual.onSnapshot(up("local", "c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7"));
             assertThat(running.await(5, TimeUnit.SECONDS)).isTrue();
             assertThat(entered.get()).isEqualTo(4);

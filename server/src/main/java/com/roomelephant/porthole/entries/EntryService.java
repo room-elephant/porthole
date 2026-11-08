@@ -3,8 +3,11 @@ package com.roomelephant.porthole.entries;
 import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
 import com.roomelephant.porthole.entries.EntryRef.LinkRef;
 import com.roomelephant.porthole.fleet.SourceCatalog;
+import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -15,16 +18,19 @@ import org.springframework.stereotype.Service;
 @Service
 public class EntryService {
     public static final int MAX_LINKS = 500;
+    private static final Logger log = LoggerFactory.getLogger(EntryService.class);
 
     private final StateStore store;
     private final IconService icons;
     private final SourceCatalog sources;
+    private final List<EntryListener> listeners;
     private volatile EntryState state;
 
-    public EntryService(StateStore store, IconService icons, SourceCatalog sources) {
+    public EntryService(StateStore store, IconService icons, SourceCatalog sources, List<EntryListener> listeners) {
         this.store = store;
         this.icons = icons;
         this.sources = sources;
+        this.listeners = List.copyOf(listeners);
         this.state = store.load();
     }
 
@@ -105,5 +111,12 @@ public class EntryService {
     private void commit(EntryState next) {
         store.save(next);
         state = next;
+        for (EntryListener listener : listeners) {
+            try {
+                listener.onEntriesChanged();
+            } catch (RuntimeException e) {
+                log.warn("Entry listener failed", e);
+            }
+        }
     }
 }

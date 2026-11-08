@@ -1,14 +1,14 @@
-package com.roomelephant.porthole.inbound.web;
+package com.roomelephant.porthole.versions.web;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.roomelephant.porthole.core.port.inbound.RefreshVersions;
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -21,14 +21,14 @@ class VersionControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private RefreshVersions versions;
+    private VersionRefreshService versions;
 
     @Test
     void acceptsManualVersionRefresh() throws Exception {
         mockMvc.perform(post("/api/versions/refresh"))
                 .andExpect(status().isAccepted())
                 .andExpect(content().string(""));
-        verify(versions).requestRefresh();
+        verify(versions).startCheck();
     }
 
     @Test
@@ -37,6 +37,6 @@ class VersionControllerTest {
                         .header("Origin", "https://untrusted.example")
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
-        verifyNoInteractions(versions);
+        verify(versions, never()).startCheck();
     }
 }
