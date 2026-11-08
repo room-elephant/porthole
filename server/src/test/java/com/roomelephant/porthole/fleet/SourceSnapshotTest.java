@@ -15,7 +15,44 @@ class SourceSnapshotTest {
     private static final Duration RETENTION = Duration.ofHours(24);
 
     private static ContainerSnapshot container(String imageId) {
-        return new ContainerSnapshot("id", "app", "nginx:1", imageId, Set.of(), Map.of(), "running", "Up");
+        return withStatus(imageId, "Up");
+    }
+
+    private static ContainerSnapshot withStatus(String imageId, @org.jspecify.annotations.Nullable String status) {
+        return new ContainerSnapshot("id", "app", "nginx:1", imageId, Set.of(), Map.of(), "running", status);
+    }
+
+    private static boolean sameContent(String before, @org.jspecify.annotations.Nullable String after) {
+        SourceSnapshot first = SourceSnapshot.initial(SOURCE).succeeded(List.of(withStatus("a", before)), T);
+        return first.sameContent(first.succeeded(List.of(withStatus("a", after)), T));
+    }
+
+    @Test
+    void sameContentIgnoresElapsedTimeInStatus() {
+        assertThat(sameContent("Up 2 seconds", "Up 41 seconds")).isTrue();
+        assertThat(sameContent("Up Less than a second", "Up About a minute")).isTrue();
+        assertThat(sameContent("Up 3 minutes (healthy)", "Up 4 minutes (healthy)"))
+                .isTrue();
+        assertThat(sameContent("Up About an hour", "Up 2 hours")).isTrue();
+        assertThat(sameContent("Up 6 days", "Up 1 week")).isTrue();
+        assertThat(sameContent("Restarting (1) 39 seconds ago", "Restarting (1) 41 seconds ago"))
+                .isTrue();
+        assertThat(sameContent("Exited (0) 3 minutes ago", "Exited (0) 2 hours ago"))
+                .isTrue();
+    }
+
+    @Test
+    void sameContentNoticesWhatTheStatusSaysBesidesTime() {
+        assertThat(sameContent("Up 3 minutes (health: starting)", "Up 3 minutes (healthy)"))
+                .isFalse();
+        assertThat(sameContent("Up 3 minutes (healthy)", "Up 4 minutes (unhealthy)"))
+                .isFalse();
+        assertThat(sameContent("Exited (0) 3 minutes ago", "Exited (137) 3 minutes ago"))
+                .isFalse();
+        assertThat(sameContent("Restarting (1) 39 seconds ago", "Restarting (2) 39 seconds ago"))
+                .isFalse();
+        assertThat(sameContent("Up 2 hours", "Up 2 hours (Paused)")).isFalse();
+        assertThat(sameContent("Up 2 hours", null)).isFalse();
     }
 
     @Test

@@ -171,6 +171,28 @@ class DockerJavaOperationsTest {
     }
 
     @Test
+    void watchIgnoresEventsThatCannotChangeTheListing() {
+        var listener = mock(ContainerEventListener.class);
+        var callback = watch(listener);
+        for (String action : new String[] {
+            "exec_create: /bin/sh -c curl -f http://localhost/",
+            "exec_start: /bin/sh -c curl -f http://localhost/",
+            "exec_die",
+            "attach",
+            "resize",
+            "top",
+            "archive-path"
+        }) {
+            callback.onNext(new com.github.dockerjava.api.model.Event(action, "id", "nginx", 1L));
+        }
+        verify(listener, never()).onEvent();
+
+        callback.onNext(new com.github.dockerjava.api.model.Event("health_status: healthy", "id", "nginx", 2L));
+        callback.onNext(new com.github.dockerjava.api.model.Event(null, "id", "nginx", 3L));
+        verify(listener, times(2)).onEvent();
+    }
+
+    @Test
     void watchReportsStreamErrorAndCompletion() {
         var listener = mock(ContainerEventListener.class);
         var callback = watch(listener);
