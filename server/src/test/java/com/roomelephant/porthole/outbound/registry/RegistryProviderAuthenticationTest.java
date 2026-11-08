@@ -7,6 +7,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.roomelephant.porthole.config.RegistryConfig;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.model.*;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

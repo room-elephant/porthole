@@ -204,9 +204,8 @@ class GhcrRegistryTest {
                 .andRespond(withSuccess("", MediaType.parseMediaType(type)).header("Docker-Content-Digest", digest));
     }
 
-    private static com.roomelephant.porthole.core.model.ImageReference ref(String image) {
-        return com.roomelephant.porthole.core.model.ImageReference.tryParse(image)
-                .orElseThrow();
+    private static com.roomelephant.porthole.shared.ImageReference ref(String image) {
+        return com.roomelephant.porthole.shared.ImageReference.tryParse(image).orElseThrow();
     }
 
     private String latest(String image) {

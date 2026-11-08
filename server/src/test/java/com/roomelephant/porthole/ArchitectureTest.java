@@ -106,7 +106,12 @@ class ArchitectureTest {
             .resideInAPackage(ROOT + "core.port..")
             .should()
             .onlyDependOnClassesThat()
-            .resideInAnyPackage(ROOT + "core.port..", ROOT + "core.model..", "java..", "org.jspecify.annotations..");
+            .resideInAnyPackage(
+                    ROOT + "core.port..",
+                    ROOT + "core.model..",
+                    ROOT + "shared..",
+                    "java..",
+                    "org.jspecify.annotations..");
 
     @ArchTest
     static final ArchRule entriesDependsOnlyOnFleetAndShared = classes()

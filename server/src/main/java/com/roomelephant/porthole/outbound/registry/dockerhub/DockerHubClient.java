@@ -4,6 +4,7 @@ import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.outbound.registry.*;
 import com.roomelephant.porthole.outbound.registry.distribution.*;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.net.URI;
 import java.time.Duration;
 import java.util.*;

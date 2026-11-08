@@ -67,7 +67,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void retaggedImageWithMissingRemoteRepositoryHasNoUpdate() {
-        var localReference = com.roomelephant.porthole.core.model.ImageReference.tryParse(TEST_LOCAL_IMAGE_TAG)
+        var localReference = com.roomelephant.porthole.shared.ImageReference.tryParse(TEST_LOCAL_IMAGE_TAG)
                 .orElseThrow();
         var digests = localContainer
                 .getDockerClient()
