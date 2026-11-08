@@ -8,6 +8,13 @@ import { plural } from '../utils/containers';
 
 const NO_CHECKS = { running: false, lastCompletedAt: null };
 
+/** The version-check button's label: starting a check wins over one already running. */
+const versionCheckLabel = (refreshState, checking) => {
+    if (refreshState === 'pending') return 'Starting check…';
+    if (checking) return 'Checking versions…';
+    return 'Check versions now';
+};
+
 const STATUS_TEXT = { UP: 'Connected', DOWN: 'Unreachable', ERROR: 'Error', CHECKING: 'Checking…' };
 const GROUP_OPTIONS = [
     { value: GROUP_BY.HOST_STACK, label: 'Host › Stack' },
@@ -108,7 +115,6 @@ function AppSettings({
         }
     };
     const startedShown = refreshState === 'started' && versionChecks.lastCompletedAt === startedAfter;
-    const buttonLabel = refreshState === 'pending' ? 'Starting check…' : checking ? 'Checking versions…' : 'Check versions now';
     if (adding) {
         return <AddLink stacks={stacks} onCancel={closeForm} onClose={onClose} onAdded={closeForm} onIconFailed={onLinkIconFailed} />;
     }
@@ -153,7 +159,7 @@ function AppSettings({
                 <p className="settings-description">Check all containers for updates now. Results appear automatically when ready.</p>
                 <button type="button" className="settings-btn-primary" onClick={checkVersions} disabled={refreshState === 'pending' || checking}>
                     {(refreshState === 'pending' || checking) && <Loader2 size={16} className="status-spinner" aria-hidden="true" />}
-                    {buttonLabel}
+                    {versionCheckLabel(refreshState, checking)}
                 </button>
                 {startedShown && <output className="settings-description">Version check started.</output>}
                 {versionChecks.lastCompletedAt && !checking && (
