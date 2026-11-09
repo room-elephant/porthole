@@ -21,8 +21,5 @@ public record CreateLinkRequest(
         @Schema(description = "Stack the link belongs to; blank or null for none") @Nullable
         String stack,
 
-        @Schema(
-                description = "Icon choice: {\"library\": name} or {\"upload\": id from POST /api/icons}",
-                example = "{\"library\": \"router\"}")
-        @Nullable
+        @Schema(implementation = EntryPatchSchema.IconChoice.class) @Nullable
         JsonNode icon) {}

@@ -75,7 +75,10 @@ public class EntryController {
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
-                            content = @Content(mediaType = MERGE_PATCH_JSON, schema = @Schema(type = "object"))))
+                            content =
+                                    @Content(
+                                            mediaType = MERGE_PATCH_JSON,
+                                            schema = @Schema(implementation = EntryPatchSchema.class))))
     @ApiResponse(responseCode = "204", description = "Saved")
     @ApiResponse(
             responseCode = "400",

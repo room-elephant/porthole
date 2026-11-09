@@ -135,7 +135,7 @@ paths:
         content:
           application/merge-patch+json:
             schema:
-              type: object
+              $ref: "#/components/schemas/EntryPatch"
         required: true
       responses:
         "204":
@@ -366,12 +366,8 @@ components:
       description: A new link
       properties:
         icon:
-          description: "Icon choice: {\"library\": name} or {\"upload\": id from POST\
-            \ /api/icons}"
-          example:
-            library: router
           oneOf:
-          - $ref: "#/components/schemas/JsonNode"
+          - $ref: "#/components/schemas/IconChoice"
           - type: "null"
         name:
           type:
@@ -399,6 +395,24 @@ components:
           type: string
       required:
       - id
+    CustomEndpoint:
+      type: object
+      description: An address of your own
+      properties:
+        url:
+          type: string
+          description: Absolute HTTP(S) URL without credentials
+      required:
+      - url
+    DiscoveredEndpoint:
+      type: object
+      description: One of the container's discovered endpoints
+      properties:
+        id:
+          type: string
+          description: Candidate ID from the entry's endpoints
+      required:
+      - id
     EndpointDTO:
       type: object
       description: "Resolved service endpoint candidate, including the saved custom\
@@ -416,68 +430,52 @@ components:
           type: string
       required:
       - selected
-    JsonNode:
+    EntryPatch:
       type: object
+      description: JSON Merge Patch of an entry. A missing field is kept; null removes
+        the saved value.
       properties:
-        array:
-          type: boolean
-        bigDecimal:
-          type: boolean
-        bigInteger:
-          type: boolean
-        binary:
-          type: boolean
-        boolean:
-          type: boolean
-        container:
-          type: boolean
-        double:
-          type: boolean
-        embeddedValue:
-          type: boolean
-        empty:
-          type: boolean
-        float:
-          type: boolean
-        floatingPointNumber:
-          type: boolean
-        int:
-          type: boolean
-        integralNumber:
-          type: boolean
-        long:
-          type: boolean
-        missingNode:
-          type: boolean
-        nodeType:
+        endpoint:
+          description: Endpoint choice. A link needs a URL; a discovered candidate
+            or none is for containers.
+          oneOf:
+          - $ref: "#/components/schemas/DiscoveredEndpoint"
+          - $ref: "#/components/schemas/CustomEndpoint"
+          - type: string
+            description: The container has no web UI
+            enum:
+            - none
+          - type: "null"
+        icon:
+          oneOf:
+          - $ref: "#/components/schemas/IconChoice"
+          - type: "null"
+        name:
+          type:
+          - string
+          - "null"
+          description: "Name shown on the tile, 1–255 characters. Required for links."
+        stack:
+          type:
+          - string
+          - "null"
+          description: Stack the link belongs to; blank or null for none. Links only.
+    IconChoice:
+      description: Icon choice
+      oneOf:
+      - $ref: "#/components/schemas/LibraryIcon"
+      - $ref: "#/components/schemas/UploadedIcon"
+    LibraryIcon:
+      type: object
+      description: An icon from the icon library
+      example:
+        library: router
+      properties:
+        library:
           type: string
-          enum:
-          - ARRAY
-          - BINARY
-          - BOOLEAN
-          - MISSING
-          - "NULL"
-          - NUMBER
-          - OBJECT
-          - POJO
-          - STRING
-        "null":
-          type: boolean
-        number:
-          type: boolean
-        object:
-          type: boolean
-        pojo:
-          type: boolean
-        short:
-          type: boolean
-        string:
-          type: boolean
-        textual:
-          type: boolean
-          deprecated: true
-        valueNode:
-          type: boolean
+          description: Library icon name
+      required:
+      - library
     LinkDTO:
       type: object
       description: A page the user added to the dashboard
@@ -587,6 +585,15 @@ components:
           - UP
           - DOWN
           - ERROR
+    UploadedIcon:
+      type: object
+      description: An uploaded icon
+      properties:
+        upload:
+          type: string
+          description: ID returned by POST /api/icons
+      required:
+      - upload
     VersionInfo:
       type: object
       properties:
