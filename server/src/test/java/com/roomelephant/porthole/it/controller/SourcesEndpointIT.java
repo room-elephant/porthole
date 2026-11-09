@@ -3,10 +3,8 @@ package com.roomelephant.porthole.it.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
@@ -34,8 +32,7 @@ class SourcesEndpointIT extends ContainerAwareIntegrationTestBase {
                 .withExposedPorts(8080)) {
             late.start();
             await().atMost(Duration.ofSeconds(5))
-                    .until(() -> Arrays.stream(fetch("/api/containers", ContainerDTO[].class)
-                                    .getBody())
+                    .until(() -> dashboard().containers().stream()
                             .anyMatch(container -> container.name().equals(name)));
         }
     }

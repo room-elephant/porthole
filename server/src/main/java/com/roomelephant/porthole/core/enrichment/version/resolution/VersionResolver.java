@@ -3,6 +3,7 @@ package com.roomelephant.porthole.core.enrichment.version.resolution;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.*;
 import com.roomelephant.porthole.fleet.*;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.util.*;
 import org.jspecify.annotations.*;
 import org.springframework.stereotype.Service;

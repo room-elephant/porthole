@@ -1,19 +1,17 @@
 package com.roomelephant.porthole.it.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.http.HttpStatus.OK;
 
-import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
-import com.roomelephant.porthole.inbound.web.dto.EndpointDTO;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
-import java.util.Arrays;
+import com.roomelephant.porthole.it.infra.DashboardView;
+import com.roomelephant.porthole.it.infra.DashboardView.ContainerView;
+import com.roomelephant.porthole.it.infra.DashboardView.EndpointView;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.ResponseEntity;
 import org.testcontainers.containers.GenericContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -42,7 +40,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
             replicaOne.start();
             replicaTwo.start();
 
-            Map<String, ContainerDTO> containers = fetchContainers(false, false);
+            Map<String, ContainerView> containers = fetchContainers(false, false);
             assertThat(containers.get(uniqueName).displayName()).isEqualTo("sonarr");
             assertThat(containers.get(replicaOneName).displayName()).isEqualTo("web-1");
             assertThat(containers.get(replicaTwoName).displayName()).isEqualTo("web-2");
@@ -52,15 +50,14 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldReturnRunningContainers() {
-        Map<String, ContainerDTO> containersByName = fetchContainers(false, false);
+        Map<String, ContainerView> containersByName = fetchContainers(false, false);
 
         assertThat(containersByName)
                 .doesNotContainKey(TEST_NO_PORTS_CONTAINER_NAME)
                 .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
 
-        ContainerDTO container = containersByName.get(TEST_APP_CONTAINER_NAME);
+        ContainerView container = containersByName.get(TEST_APP_CONTAINER_NAME);
         assertThat(container).isNotNull();
-        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_APP_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_IMAGE);
         assertThat(container.endpoints()).size().isEqualTo(1);
@@ -77,7 +74,6 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
         container = containersByName.get(TEST_LOCAL_CONTAINER_NAME);
         assertThat(container).isNotNull();
-        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_LOCAL_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo("my-local-image:1.0");
         assertThat(container.endpoints()).size().isEqualTo(1);
@@ -95,16 +91,15 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldShowContainersWithoutPorts() {
-        Map<String, ContainerDTO> containersByName = fetchContainers(true, false);
+        Map<String, ContainerView> containersByName = fetchContainers(true, false);
 
         assertThat(containersByName)
                 .containsKey(TEST_APP_CONTAINER_NAME)
                 .containsKey(TEST_LOCAL_CONTAINER_NAME)
                 .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
 
-        ContainerDTO container = containersByName.get(TEST_NO_PORTS_CONTAINER_NAME);
+        ContainerView container = containersByName.get(TEST_NO_PORTS_CONTAINER_NAME);
         assertThat(container).isNotNull();
-        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_NO_PORTS_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_LATEST_IMAGE);
         assertThat(container.endpoints()).isEmpty();
@@ -118,16 +113,15 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
     @Test
     void shouldShowStoppedContainers() {
         // stopped container has no ports, so includeWithoutEndpoints must also be true for it to appear
-        Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
+        Map<String, ContainerView> containersByName = fetchContainers(true, true);
 
         assertThat(containersByName)
                 .containsKey(TEST_APP_CONTAINER_NAME)
                 .containsKey(TEST_LOCAL_CONTAINER_NAME)
                 .containsKey(TEST_NO_PORTS_CONTAINER_NAME);
 
-        ContainerDTO container = containersByName.get(TEST_STOPPED_CONTAINER_NAME);
+        ContainerView container = containersByName.get(TEST_STOPPED_CONTAINER_NAME);
         assertThat(container).isNotNull();
-        assertThat(container.id()).isNotBlank();
         assertThat(container.displayName()).isEqualTo(TEST_STOPPED_CONTAINER_NAME);
         assertThat(container.image()).isEqualTo(PAUSE_IMAGE);
         assertThat(container.endpoints()).isEmpty();
@@ -140,7 +134,7 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldShowAllContainersWhenBothFlagsEnabled() {
-        Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
+        Map<String, ContainerView> containersByName = fetchContainers(true, true);
 
         assertThat(containersByName)
                 .containsKey(TEST_APP_CONTAINER_NAME)
@@ -151,20 +145,20 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldFlagOnlyPortholesOwnContainerAsSelf() {
-        Map<String, ContainerDTO> containersByName = fetchContainers(true, true);
+        Map<String, ContainerView> containersByName = fetchContainers(true, true);
 
         assertThat(containersByName.values())
-                .filteredOn(ContainerDTO::self)
-                .extracting(ContainerDTO::id)
-                .containsExactly(porthole.getContainerId());
+                .filteredOn(ContainerView::self)
+                .extracting(ContainerView::name)
+                .containsExactly(porthole.getContainerInfo().getName().substring(1));
     }
 
     @Test
     void shouldIncludeTraefikContainerWithoutPublishedPorts() {
-        ContainerDTO container = fetchContainers(false, false).get(TEST_PROXY_CONTAINER_NAME);
+        ContainerView container = fetchContainers(false, false).get(TEST_PROXY_CONTAINER_NAME);
         assertThat(container).isNotNull();
         assertThat(container.endpoints())
-                .containsExactly(new EndpointDTO(
+                .containsExactly(new EndpointView(
                         "traefik:https://jellyfin.example.com/", "traefik", "https://jellyfin.example.com/", true));
     }
 
@@ -174,48 +168,48 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
         for (String hostname : java.util.List.of("localhost", "127.0.0.1")) {
             var headers = new org.springframework.http.HttpHeaders();
             headers.set("X-Forwarded-Host", "forwarded.example.com");
-            var response = new org.springframework.web.client.RestTemplate()
+            String body = new org.springframework.web.client.RestTemplate()
                     .exchange(
-                            "http://" + hostname + ":" + porthole.getMappedPort(9753) + "/api/containers",
+                            "http://" + hostname + ":" + porthole.getMappedPort(9753) + DashboardView.PATH,
                             org.springframework.http.HttpMethod.GET,
                             new org.springframework.http.HttpEntity<>(headers),
-                            com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO.class)
+                            String.class)
                     .getBody();
-            assertThat(response).isNotNull();
-            var container = response.containers().stream()
+            assertThat(body).isNotNull();
+            var container = DashboardView.parse(body).containers().stream()
                     .filter(candidate -> candidate.name().equals(TEST_APP_CONTAINER_NAME))
                     .findFirst()
                     .orElseThrow();
             int port = testAppContainer.getMappedPort(8080);
             assertThat(container.endpoints())
-                    .containsExactly(new EndpointDTO(
+                    .containsExactly(new EndpointView(
                             "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/", true));
         }
     }
 
     @Test
     void shouldReturnProxyAndPublishedPortCandidates() {
-        ContainerDTO container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
+        ContainerView container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
         int port = mixedContainer.getMappedPort(51413);
         assertThat(container.endpoints())
-                .contains(new EndpointDTO(
+                .contains(new EndpointView(
                         "published-port:" + port, "published-port", "http://127.0.0.1:" + port + "/", false));
-        assertThat(container.endpoints()).extracting(EndpointDTO::source).contains("traefik", "published-port");
+        assertThat(container.endpoints()).extracting(EndpointView::source).contains("traefik", "published-port");
     }
 
     @Test
     void shouldKeepDistinctRoutesAndDeduplicateEquivalentRouters() {
-        ContainerDTO container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
+        ContainerView container = fetchContainers(false, false).get(TEST_MIXED_CONTAINER_NAME);
         assertThat(container.endpoints().stream()
                         .filter(endpoint -> endpoint.source().equals("traefik"))
                         .toList())
                 .containsExactly(
-                        new EndpointDTO(
+                        new EndpointView(
                                 "traefik:https://transmission.example.com/",
                                 "traefik",
                                 "https://transmission.example.com/",
                                 true),
-                        new EndpointDTO(
+                        new EndpointView(
                                 "traefik:https://transmission.example.com/dl/",
                                 "traefik",
                                 "https://transmission.example.com/dl/",
@@ -224,9 +218,9 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
 
     @Test
     void shouldSkipDisabledAndUnsupportedRoutersWithoutLosingOtherCandidates() {
-        Map<String, ContainerDTO> containers = fetchContainers(false, false);
+        Map<String, ContainerView> containers = fetchContainers(false, false);
         assertThat(containers).doesNotContainKey(TEST_UNSUPPORTED_CONTAINER_NAME);
-        ContainerDTO disabled = containers.get(TEST_DISABLED_CONTAINER_NAME);
+        ContainerView disabled = containers.get(TEST_DISABLED_CONTAINER_NAME);
         assertThat(disabled.endpoints()).hasSize(1);
         assertThat(disabled.endpoints().getFirst().source()).isEqualTo("published-port");
         assertThat(containers.get(TEST_MIXED_CONTAINER_NAME).endpoints()).hasSize(3);
@@ -241,58 +235,57 @@ class ContainersEndpointIT extends ContainerAwareIntegrationTestBase {
                 .containsKeys(TEST_NO_PORTS_CONTAINER_NAME, TEST_UNSUPPORTED_CONTAINER_NAME)
                 .doesNotContainKey(TEST_STOPPED_CONTAINER_NAME);
         assertThat(fetchContainers(true, true)).containsKey(TEST_STOPPED_CONTAINER_NAME);
-        ResponseEntity<ContainerDTO[]> response =
-                fetch("/api/containers?includeWithoutPorts=true", ContainerDTO[].class);
-        assertThat(Arrays.stream(response.getBody()).map(ContainerDTO::name).toList())
-                .doesNotContain(TEST_NO_PORTS_CONTAINER_NAME);
+    }
+
+    @Test
+    void dashboardReturnsEveryContainerUnfiltered() {
+        assertThat(dashboard().containers())
+                .extracting(ContainerView::name)
+                .contains(
+                        TEST_APP_CONTAINER_NAME,
+                        TEST_NO_PORTS_CONTAINER_NAME,
+                        TEST_STOPPED_CONTAINER_NAME,
+                        TEST_UNSUPPORTED_CONTAINER_NAME);
     }
 
     @Test
     void shouldSerializeOnlyEndpointContract() throws Exception {
-        JsonNode body = new JsonMapper().readTree(fetch("/api/containers").getBody());
+        JsonNode body = new JsonMapper().readTree(fetch(DashboardView.PATH).getBody());
         boolean found = false;
-        for (JsonNode container : body.path("containers")) {
-            assertThat(container.has("preferences")).isFalse();
-            assertThat(container.has("hasWebUi")).isTrue();
-            assertThat(container.path("hasWebUi").isBoolean()).isTrue();
-            assertThat(container.path("hasWebUi").asBoolean()).isTrue();
-            assertThat(container.has("exposedPorts")).isFalse();
-            assertThat(container.has("hasPublicPorts")).isFalse();
-            assertThat(container.has("labels")).isFalse();
-            assertThat(container.has("publishedPorts")).isFalse();
-            assertThat(container.has("urlCandidates")).isFalse();
-            assertThat(container.path("hasEndpoints").asBoolean()).isTrue();
-            long selected = container
-                    .path("endpoints")
+        for (JsonNode entry : body.path("entries")) {
+            if (!entry.path("kind").asText().equals("container")) continue;
+            assertThat(entry.properties().stream().map(Map.Entry::getKey).toList())
+                    .containsExactlyInAnyOrder(
+                            "id", "kind", "name", "stack", "icon", "endpoints", "hasWebUi", "container");
+            assertThat(entry.path("container").properties().stream()
+                            .map(Map.Entry::getKey)
+                            .toList())
+                    .containsExactlyInAnyOrder(
+                            "sourceId", "name", "defaultName", "image", "state", "status", "self", "version");
+            assertThat(entry.path("hasWebUi").isBoolean()).isTrue();
+            long selected = entry.path("endpoints")
                     .valueStream()
                     .filter(endpoint -> endpoint.path("selected").asBoolean())
                     .count();
             assertThat(selected).isLessThanOrEqualTo(1);
-            for (JsonNode endpoint : container.path("endpoints")) {
+            for (JsonNode endpoint : entry.path("endpoints")) {
                 assertThat(endpoint.properties().stream().map(Map.Entry::getKey).toList())
                         .containsExactlyInAnyOrder("id", "source", "url", "selected");
                 assertThat(endpoint.path("selected").isBoolean()).isTrue();
                 assertThat(endpoint.path("url").asText()).startsWith("http");
             }
-            if (container.path("name").asText().equals(TEST_PROXY_CONTAINER_NAME)) {
+            if (entry.path("container").path("name").asText().equals(TEST_PROXY_CONTAINER_NAME)) {
                 found = true;
-                assertThat(container.path("endpoints").get(0).path("url").asText())
+                assertThat(entry.path("endpoints").get(0).path("url").asText())
                         .isEqualTo("https://jellyfin.example.com/");
             }
         }
         assertThat(found).isTrue();
     }
 
-    private @NotNull Map<String, ContainerDTO> fetchContainers(
+    private @NotNull Map<String, ContainerView> fetchContainers(
             boolean includeWithoutEndpoints, boolean includeStopped) {
-        ResponseEntity<ContainerDTO @NotNull []> response = fetch(
-                "/api/containers?includeWithoutEndpoints=" + includeWithoutEndpoints + "&includeStopped="
-                        + includeStopped,
-                ContainerDTO[].class);
-
-        assertThat(response.getStatusCode()).isEqualTo(OK);
-        assertThat(response.getBody()).isNotNull();
-
-        return Arrays.stream(response.getBody()).collect(Collectors.toMap(ContainerDTO::name, Function.identity()));
+        return dashboard().containers(includeWithoutEndpoints, includeStopped).stream()
+                .collect(Collectors.toMap(ContainerView::name, Function.identity()));
     }
 }

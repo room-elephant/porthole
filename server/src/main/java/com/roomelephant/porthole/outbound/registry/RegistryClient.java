@@ -1,6 +1,7 @@
 package com.roomelephant.porthole.outbound.registry;
 
 import com.roomelephant.porthole.core.model.*;
+import com.roomelephant.porthole.shared.ImageReference;
 import org.jspecify.annotations.NullMarked;
 
 /** Provider contract internal to the registry adapter. */

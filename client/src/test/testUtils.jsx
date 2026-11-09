@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
+import { DASHBOARD_KEY, splitDashboard } from '../utils/dashboard';
 
 /**
  * Creates a wrapper with QueryClientProvider for testing hooks.
@@ -68,13 +69,61 @@ export const withEntryId = container => ({ entryId: `container:${container.sourc
 
 export const publishedEndpoint = (port, selected = false) => ({ id: `published-port:${port}`, source: 'published-port', url: `http://localhost:${port}/`, selected });
 
+/** The dashboard entry the server sends for a container view fixture. */
+export const toEntry = (view) => {
+  const container = withEntryId(view);
+  return {
+    id: container.entryId,
+    kind: 'container',
+    name: container.displayName,
+    stack: container.project ?? null,
+    icon: { url: container.iconUrl ?? null, choice: container.iconChoice ?? null },
+    endpoints: container.endpoints,
+    hasWebUi: container.hasWebUi,
+    container: {
+      sourceId: container.sourceId,
+      name: container.name,
+      defaultName: container.defaultName ?? container.displayName,
+      image: container.image,
+      state: container.state ?? null,
+      status: container.status ?? null,
+      self: Boolean(container.self),
+      version: container.version ?? null,
+    },
+  };
+};
+
+/** The link entry the server sends for a link view fixture. */
+export const toLinkEntry = link => ({
+  id: link.id,
+  kind: 'link',
+  name: link.name,
+  stack: link.stack ?? null,
+  icon: { url: link.iconUrl ?? null, choice: link.iconChoice ?? null },
+  endpoints: [{ id: 'custom', source: 'custom', url: link.url, selected: true }],
+  hasWebUi: true,
+  container: null,
+});
+
+/** GET /api/dashboard for view fixtures: `{ sources, containers, links }`. */
+export const toDashboard = ({ sources = [], containers = [], links = [] }) => ({
+  sources,
+  entries: [...containers.map(toEntry), ...links.map(toLinkEntry)],
+});
+
+/** A dashboard query in a test, with the same key and view selection as the app. */
+export const dashboardQuery = queryFn => ({
+  queryKey: DASHBOARD_KEY,
+  queryFn: async context => toDashboard(await queryFn(context)),
+  select: splitDashboard,
+});
+
 /** Render the real inventory-to-component flow so confirmed cache updates reach props. */
 export const renderInventory = (children, inventory, queryFn = () => inventory) => {
   function InventoryView() {
     const { data } = useQuery({
-      queryKey: ['containers', { showAll: true, showStopped: true }],
-      queryFn,
-      initialData: inventory,
+      ...dashboardQuery(queryFn),
+      initialData: toDashboard(inventory),
       staleTime: Infinity,
     });
     return children(data);

@@ -24,7 +24,7 @@ public class VersionController {
             summary = "Request an image version refresh",
             description = "Queues an immediate background scan across all configured Docker sources. "
                     + "Returns without waiting for Docker or registry checks to finish. "
-                    + "Read GET /api/containers for cached results while the refresh runs and updated results afterward. "
+                    + "Read GET /api/dashboard for cached results while the refresh runs and updated results afterward. "
                     + "Repeated requests are coalesced while a source scan is queued or running.")
     @ApiResponse(responseCode = "202", description = "Refresh queued; the response has no body.", content = @Content)
     public void refreshVersions() {

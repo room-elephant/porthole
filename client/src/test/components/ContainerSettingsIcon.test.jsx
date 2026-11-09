@@ -18,6 +18,7 @@ const container = createMockContainer({
   displayName: 'transmission',
   image: 'lscr.io/linuxserver/transmission:latest',
   iconUrl: `${CDN}/transmission.webp`,
+  iconChoice: { library: 'transmission' },
   endpoints: [publishedEndpoint(80)],
 });
 const iconActions = (overrides = {}) => ({

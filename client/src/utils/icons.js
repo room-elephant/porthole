@@ -1,17 +1,9 @@
-import { ICON_LIBRARY, UPLOADED_ICON_PATH } from '../constants';
+import { ICON_LIBRARY } from '../constants';
 
 const MAX_ICON_BYTES = 1024 * 1024;
 const ACCEPTED_ICON_TYPES = new Set(['image/png', 'image/webp', 'image/jpeg', 'image/svg+xml']);
 
 const normalize = value => value.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-export const isUploadedIcon = iconUrl => Boolean(iconUrl?.startsWith(UPLOADED_ICON_PATH));
-
-/** The library name in use, read from the last path segment of the inventory's iconUrl. */
-export const currentIconName = (iconUrl) => {
-  if (!iconUrl || isUploadedIcon(iconUrl)) return null;
-  return iconUrl.split('/').pop().replace(/\.[^.]*$/, '');
-};
 
 /** A search starting point: the image name without its registry, path, tag or digest. */
 export const imageSearchTerm = (image) => {

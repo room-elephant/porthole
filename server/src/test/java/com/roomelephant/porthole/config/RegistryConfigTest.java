@@ -5,10 +5,10 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.roomelephant.porthole.config.properties.RegistryProperties;
-import com.roomelephant.porthole.core.model.ImageReference;
 import com.roomelephant.porthole.core.model.RegistryLookup;
 import com.roomelephant.porthole.core.model.TagCatalogue;
 import com.roomelephant.porthole.outbound.registry.RegistryClient;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.params.ParameterizedTest;

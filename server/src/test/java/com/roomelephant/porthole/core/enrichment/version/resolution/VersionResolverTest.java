@@ -13,6 +13,7 @@ import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.RegistryOperations;
 import com.roomelephant.porthole.fleet.ContainerNotFoundException;
 import com.roomelephant.porthole.fleet.DockerOperationException;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -572,7 +573,7 @@ class VersionResolverTest {
         when(inspectContainerResponse.getImageId()).thenReturn("sha256:abc123");
         when(dockerClient.inspectImageCmd("sha256:abc123")).thenReturn(inspectImageCmd);
         when(inspectImageCmd.exec()).thenReturn(inspectImageResponse);
-        String repository = com.roomelephant.porthole.core.model.ImageReference.tryParse(containerConfig.getImage())
+        String repository = com.roomelephant.porthole.shared.ImageReference.tryParse(containerConfig.getImage())
                 .orElseThrow()
                 .canonicalRepository();
         when(inspectImageResponse.getRepoDigests()).thenReturn(List.of(repository + "@" + LOCAL_DIGEST));

@@ -1,0 +1,27 @@
+package com.roomelephant.porthole.dashboard;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import org.jspecify.annotations.NullMarked;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
+
+@NullMarked
+@ConfigurationProperties(prefix = "porthole.dashboard")
+@Validated
+@RegisterReflectionForBinding(DashboardProperties.class)
+public record DashboardProperties(
+        @Valid @NotNull(message = "Icons configuration is required")
+        Icons icons) {
+    public record Icons(
+            @NotBlank(message = "Icons path must be configured")
+            String path,
+
+            @NotBlank(message = "Icons URL must be configured")
+            String url,
+
+            @NotBlank(message = "Icons extension must be configured")
+            String extension) {}
+}

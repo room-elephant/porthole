@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { useContainerIcon } from '../../hooks/useContainerIcon';
 import { useIconLibrary } from '../../hooks/useIconLibrary';
 import { fetchIconLibrary, selectEntryIcon, uploadEntryIcon } from '../../api';
-import { createMockContainer } from '../testUtils';
+import { createMockContainer , dashboardQuery, toDashboard } from '../testUtils';
+import { DASHBOARD_KEY } from '../../utils/dashboard';
 
 vi.mock('../../api', () => ({
   fetchIconLibrary: vi.fn(),
@@ -13,7 +14,7 @@ vi.mock('../../api', () => ({
   uploadEntryIcon: vi.fn(),
 }));
 
-const key = ['containers', { showAll: true, showStopped: false }];
+const key = DASHBOARD_KEY;
 const container = createMockContainer({ sourceId: 'walker', name: 'app' });
 const inventory = { sources: [], containers: [container] };
 const image = new File(['x'], 'logo.png', { type: 'image/png' });
@@ -21,10 +22,10 @@ const deferred = () => { let resolve; const promise = new Promise(yes => { resol
 
 const setup = (fetch = vi.fn().mockResolvedValue(inventory)) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  client.setQueryData(key, inventory);
+  client.setQueryData(key, toDashboard(inventory));
   const wrapper = ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   const useIcon = () => {
-    useQuery({ queryKey: key, queryFn: fetch });
+    useQuery(dashboardQuery(fetch));
     return useContainerIcon(container);
   };
   return { wrapper, useIcon, fetch };

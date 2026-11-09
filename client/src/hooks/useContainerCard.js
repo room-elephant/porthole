@@ -4,6 +4,7 @@ import { useContainerIcon } from './useContainerIcon';
 import { useContainerPrefs } from './useContainerPrefs';
 import ContainerSettings from '../components/ContainerSettings';
 import { containerStatus } from '../utils/status';
+import { cachedContainer } from '../utils/dashboard';
 
 /**
  * Shared behaviour of a container tile or chip: preferences, derived status and
@@ -35,9 +36,7 @@ export const useContainerCard = (container, { sourceOnline = true, sourceName, o
   const closeSettings = useCallback(() => {
     setOpen(false);
     // Active confirmation can reach the cache before React delivers updated inventory props.
-    const confirmed = queryClient.getQueriesData({ queryKey: ['containers'], type: 'active' })
-      .flatMap(([, inventory]) => inventory?.containers ?? [])
-      .find(candidate => candidate.sourceId === container.sourceId && candidate.name === container.name);
+    const confirmed = cachedContainer(queryClient, container.entryId);
     onSettingsOpenChange?.(confirmed ?? container, false);
   }, [onSettingsOpenChange, container, queryClient]);
 

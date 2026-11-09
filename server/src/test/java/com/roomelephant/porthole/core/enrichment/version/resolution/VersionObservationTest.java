@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.*;
 import com.roomelephant.porthole.fleet.*;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.util.*;
 import org.junit.jupiter.api.*;
 import tools.jackson.databind.json.JsonMapper;

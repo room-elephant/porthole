@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  currentIconName,
   imageSearchTerm,
-  isUploadedIcon,
   libraryIconUrl,
   parseIconLibrary,
   searchIcons,
@@ -73,25 +71,7 @@ describe('imageSearchTerm', () => {
   });
 });
 
-describe('iconUrl helpers', () => {
-  it('recognizes uploads by their path', () => {
-    expect(isUploadedIcon('/api/icons/abc.webp')).toBe(true);
-    expect(isUploadedIcon('https://cdn.jsdelivr.net/gh/x/webp/coredns.webp')).toBe(false);
-    expect(isUploadedIcon('porthole-mark.svg')).toBe(false);
-    expect(isUploadedIcon(undefined)).toBe(false);
-  });
-
-  it('reads the library name from the last path segment', () => {
-    expect(currentIconName('https://cdn.jsdelivr.net/gh/x/webp/coredns.webp')).toBe('coredns');
-    expect(currentIconName('https://cdn.example.com/icons/some.name.svg')).toBe('some.name');
-    expect(currentIconName('porthole-mark.svg')).toBe('porthole-mark');
-  });
-
-  it('has no library name for an upload or a missing url', () => {
-    expect(currentIconName('/api/icons/abc.webp')).toBeNull();
-    expect(currentIconName(undefined)).toBeNull();
-  });
-
+describe('library icon urls', () => {
   it('builds library tile urls', () => {
     expect(libraryIconUrl('coredns')).toBe('https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/webp/coredns.webp');
   });
