@@ -86,15 +86,18 @@ export default function AddLink({ stacks, onCancel, onClose, onAdded, onIconFail
       return;
     }
     if (create.isPending || setLinkIcon.isPending) return;
+    // A library icon goes with the link; a file can only be uploaded once the link exists.
+    const details = { name: name.trim(), url: url.trim(), stack: stack?.trim() || null };
+    if (held?.name) details.icon = { library: held.name };
     let link;
     try {
-      link = await create.mutateAsync({ name: name.trim(), url: url.trim(), stack: stack?.trim() || null });
+      link = await create.mutateAsync(details);
     } catch {
       return;
     }
-    if (held) {
+    if (held?.file) {
       try {
-        await setLinkIcon.mutateAsync({ id: link.id, name: held.name, file: held.file });
+        await setLinkIcon.mutateAsync({ id: link.id, file: held.file });
       } catch {
         onIconFailed(link.id);
         return;
