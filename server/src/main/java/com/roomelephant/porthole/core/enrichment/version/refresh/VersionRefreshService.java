@@ -3,7 +3,6 @@ package com.roomelephant.porthole.core.enrichment.version.refresh;
 import com.roomelephant.porthole.core.enrichment.version.resolution.VersionObservation;
 import com.roomelephant.porthole.core.enrichment.version.resolution.VersionResolver;
 import com.roomelephant.porthole.core.model.VersionInfo;
-import com.roomelephant.porthole.core.port.inbound.RefreshVersions;
 import com.roomelephant.porthole.fleet.ContainerKey;
 import com.roomelephant.porthole.fleet.ContainerNotFoundException;
 import com.roomelephant.porthole.fleet.ContainerSnapshot;
@@ -42,12 +41,13 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @NullMarked
-public class VersionRefreshService implements RefreshVersions, SnapshotListener, AutoCloseable {
+public class VersionRefreshService implements SnapshotListener, AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(VersionRefreshService.class);
 
     private final SourceCatalog catalog;
     private final VersionResolver versionResolver;
     private final VersionRefreshSettings properties;
+    private final List<VersionListener> listeners;
     private final Clock clock;
     private final ExecutorService workers;
     private final ScheduledExecutorService scheduler;
@@ -55,16 +55,21 @@ public class VersionRefreshService implements RefreshVersions, SnapshotListener,
     private final Map<ContainerKey, Entry> entries = new HashMap<>();
     private final Map<String, SourceSnapshot> latest = new HashMap<>();
     private final Set<String> forcedScans = new HashSet<>();
+    private @Nullable Instant lastCompletedAt;
     private boolean started;
     private boolean closed;
 
     @Autowired
     public VersionRefreshService(
-            SourceCatalog catalog, VersionResolver versionResolver, VersionRefreshSettings properties) {
+            SourceCatalog catalog,
+            VersionResolver versionResolver,
+            VersionRefreshSettings properties,
+            List<VersionListener> listeners) {
         this(
                 catalog,
                 versionResolver,
                 properties,
+                listeners,
                 Clock.systemUTC(),
                 Executors.newFixedThreadPool(
                         4, Thread.ofVirtual().name("version-check-", 0).factory()),
@@ -77,6 +82,7 @@ public class VersionRefreshService implements RefreshVersions, SnapshotListener,
             SourceCatalog catalog,
             VersionResolver versionResolver,
             VersionRefreshSettings properties,
+            List<VersionListener> listeners,
             Clock clock,
             ExecutorService workers,
             ScheduledExecutorService scheduler,
@@ -84,6 +90,7 @@ public class VersionRefreshService implements RefreshVersions, SnapshotListener,
         this.catalog = catalog;
         this.versionResolver = versionResolver;
         this.properties = properties;
+        this.listeners = List.copyOf(listeners);
         this.clock = clock;
         this.workers = workers;
         this.scheduler = scheduler;
@@ -129,15 +136,24 @@ public class VersionRefreshService implements RefreshVersions, SnapshotListener,
         entries.keySet().removeIf(key -> key.sourceId().equals(sourceId) && !present.contains(key));
     }
 
-    /** Queues an immediate scan of every source without doing Docker or registry I/O on the caller. */
-    @Override
-    public synchronized void requestRefresh() {
+    /** Whether a manual check is running, and when the last one completed. */
+    public synchronized VersionChecks checks() {
+        return new VersionChecks(!forcedScans.isEmpty(), lastCompletedAt);
+    }
+
+    /**
+     * Starts a manual check of every source without doing Docker or registry I/O on the caller. Does nothing while
+     * one is running.
+     */
+    public void startCheck() {
+        if (beginCheck()) notifyListeners(new VersionChange.Run(checks()));
+    }
+
+    private synchronized boolean beginCheck() {
         if (closed) throw new RejectedExecutionException("Version refresh service is closed");
-        List<String> pending = catalog.sources().stream()
-                .map(Source::id)
-                .filter(id -> !forcedScans.contains(id))
-                .toList();
-        if (pending.isEmpty()) return;
+        if (!forcedScans.isEmpty()) return false;
+        List<String> pending = catalog.sources().stream().map(Source::id).toList();
+        if (pending.isEmpty()) return false;
         forcedScans.addAll(pending);
         try {
             CompletableFuture<Void> invalidation =
@@ -155,10 +171,26 @@ public class VersionRefreshService implements RefreshVersions, SnapshotListener,
             pending.forEach(forcedScans::remove);
             throw e;
         }
+        return true;
     }
 
-    private synchronized void completeForcedScan(String sourceId) {
-        forcedScans.remove(sourceId);
+    private void completeForcedScan(String sourceId) {
+        boolean completed;
+        synchronized (this) {
+            completed = forcedScans.remove(sourceId) && forcedScans.isEmpty() && !closed;
+            if (completed) lastCompletedAt = clock.instant();
+        }
+        if (completed) notifyListeners(new VersionChange.Run(checks()));
+    }
+
+    private void notifyListeners(VersionChange change) {
+        for (VersionListener listener : listeners) {
+            try {
+                listener.onVersionsChanged(change);
+            } catch (RuntimeException e) {
+                log.warn("Version listener failed", e);
+            }
+        }
     }
 
     /** Checks the containers of the source's latest available snapshot. Completes when those checks finish. */
@@ -202,12 +234,15 @@ public class VersionRefreshService implements RefreshVersions, SnapshotListener,
             }
             VersionObservation result = versionResolver.resolve(key, previous);
             VersionInfo value = result.toVersionInfo();
+            @Nullable VersionChange change = null;
             synchronized (this) {
                 if (!closed && entries.get(key) == entry) {
+                    if (!value.equals(entry.value)) change = new VersionChange.Result(key, entry.value, value);
                     entry.observation = result;
                     entry.value = value;
                 }
             }
+            if (change != null) notifyListeners(change);
         } catch (ContainerNotFoundException _) {
             synchronized (this) {
                 entries.remove(key, entry);

@@ -21,8 +21,9 @@ export const fetchDashboard = async ({ signal }) => {
   return data;
 };
 
-export const refreshVersions = async () => {
-  await api.post(API.VERSION_REFRESH);
+/** Starts a background version check of every container; progress shows on the dashboard. */
+export const startVersionCheck = async () => {
+  await api.post(API.VERSION_CHECKS);
 };
 
 const MERGE_PATCH = 'application/merge-patch+json';

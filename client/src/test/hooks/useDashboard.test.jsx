@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useDashboard } from '../../hooks/useDashboard';
+import { useDashboard, SAFETY_POLL } from '../../hooks/useDashboard';
 import { fetchDashboard } from '../../api';
 
 vi.mock('../../api', () => ({ fetchDashboard: vi.fn() }));
@@ -41,6 +41,23 @@ describe('useDashboard', () => {
     expect(result.current.data.sources).toEqual(dashboard.sources);
     expect(result.current.data.containers.map(container => container.entryId)).toEqual(['container:walker:app']);
     expect(result.current.data.links).toEqual([{ id: 'link:00', name: 'Router', url: 'http://r/', stack: null, iconUrl: null, iconChoice: null }]);
+  });
+
+  it('polls every five minutes as a fallback for change events', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      fetchDashboard.mockResolvedValue(dashboard);
+      const { result } = renderHook(() => useDashboard(), { wrapper });
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(SAFETY_POLL - 2000); });
+      expect(fetchDashboard).toHaveBeenCalledTimes(1);
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      await waitFor(() => expect(fetchDashboard).toHaveBeenCalledTimes(2));
+      expect(SAFETY_POLL).toBe(5 * 60 * 1000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reports a failed read', async () => {

@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.dashboard;
 
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
 import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.endpoints.Candidate;
 import com.roomelephant.porthole.endpoints.EndpointDiscovery;
@@ -46,13 +47,18 @@ public class DashboardProjector {
     }
 
     /** Containers by source in configuration and listing order, then links in the order they were saved. */
-    public Dashboard project(List<SourceSnapshot> snapshots, EntryState entries, VersionLookup versions) {
+    public Dashboard project(
+            long revision,
+            VersionChecks checks,
+            List<SourceSnapshot> snapshots,
+            EntryState entries,
+            VersionLookup versions) {
         List<DashboardEntry> projected = new ArrayList<>();
         for (SourceSnapshot snapshot : snapshots) projected.addAll(containers(snapshot, entries, versions));
         for (EntryRecord record : entries.entries()) {
             if (record.ref() instanceof LinkRef) projected.add(link(record));
         }
-        return new Dashboard(snapshots, projected);
+        return new Dashboard(revision, snapshots, projected, checks);
     }
 
     /** The one entry, or empty for an unknown link or a container no snapshot lists. */

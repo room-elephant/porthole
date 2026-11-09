@@ -21,3 +21,8 @@ porthole:
         published-host: 127.0.0.1
         connection-timeout: 2s
         response-timeout: 10s
+
+# Log what caused each dashboard revision, to see why the browser refetched.
+logging:
+  level:
+    com.roomelephant.porthole.dashboard.DashboardChanges: DEBUG

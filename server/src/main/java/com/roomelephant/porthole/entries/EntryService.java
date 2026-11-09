@@ -3,8 +3,11 @@ package com.roomelephant.porthole.entries;
 import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
 import com.roomelephant.porthole.entries.EntryRef.LinkRef;
 import com.roomelephant.porthole.fleet.SourceCatalog;
+import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -15,16 +18,19 @@ import org.springframework.stereotype.Service;
 @Service
 public class EntryService {
     public static final int MAX_LINKS = 500;
+    private static final Logger log = LoggerFactory.getLogger(EntryService.class);
 
     private final StateStore store;
     private final IconService icons;
     private final SourceCatalog sources;
+    private final List<EntryListener> listeners;
     private volatile EntryState state;
 
-    public EntryService(StateStore store, IconService icons, SourceCatalog sources) {
+    public EntryService(StateStore store, IconService icons, SourceCatalog sources, List<EntryListener> listeners) {
         this.store = store;
         this.icons = icons;
         this.sources = sources;
+        this.listeners = List.copyOf(listeners);
         this.state = store.load();
     }
 
@@ -42,7 +48,7 @@ public class EntryService {
                 url == null ? null : new EndpointChoice.Custom(url.trim()),
                 draft.stack());
         if (state.linkCount() >= MAX_LINKS) throw new LinkLimitReachedException(MAX_LINKS);
-        commit(state.with(record));
+        commit(state.with(record), ref, record);
         return ref;
     }
 
@@ -63,7 +69,7 @@ public class EntryService {
                         : apply(patch.icon(), current.icon()),
                 apply(patch.endpoint(), current.endpoint()),
                 apply(patch.stack(), current.stack()));
-        commit(state.with(updated));
+        commit(state.with(updated), ref, updated);
     }
 
     /**
@@ -74,7 +80,7 @@ public class EntryService {
         EntryRef ref = EntryRef.parse(id);
         if (ref instanceof ContainerRef) throw new EntryNotDeletableException();
         if (state.find(ref).isEmpty()) throw new EntryNotFoundException(id);
-        commit(state.without(ref));
+        commit(state.without(ref), ref, null);
     }
 
     private EntryRecord current(EntryRef ref, String id) {
@@ -102,8 +108,15 @@ public class EntryService {
         return icon;
     }
 
-    private void commit(EntryState next) {
+    private void commit(EntryState next, EntryRef ref, @Nullable EntryRecord saved) {
         store.save(next);
         state = next;
+        for (EntryListener listener : listeners) {
+            try {
+                listener.onEntriesChanged(ref, saved);
+            } catch (RuntimeException e) {
+                log.warn("Entry listener failed", e);
+            }
+        }
     }
 }

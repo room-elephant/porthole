@@ -12,7 +12,7 @@ import { buildSections } from './utils/containers';
 import { stackOptions } from './utils/links';
 import { isShown } from './utils/dashboard';
 
-const EMPTY = { sources: [], containers: [], links: [] };
+const EMPTY = { revision: null, versionChecks: { running: false, lastCompletedAt: null }, sources: [], containers: [], links: [] };
 const LINK_ICON_FAILED = "Link added, but its icon couldn't be saved.";
 
 const isOffline = source => source.status === 'DOWN' || source.status === 'ERROR';
@@ -145,6 +145,7 @@ function App() {
           onClose={() => setShowSettings(false)}
           sources={initialError ? [] : data.sources}
           linkCount={links.length}
+          versionChecks={data.versionChecks}
           linksUnavailable={Boolean(initialError)}
           stacks={stacks}
           onLinkIconFailed={(id) => { setShowSettings(false); setEditingLink({ id, alert: LINK_ICON_FAILED }); }}

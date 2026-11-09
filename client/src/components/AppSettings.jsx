@@ -1,10 +1,19 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { refreshVersions } from '../api';
+import { startVersionCheck } from '../api';
 import { Link, Loader2, Plus } from 'lucide-react';
 import AddLink from './AddLink';
 import Modal from './Modal';
 import { ASSETS, GROUP_BY } from '../constants';
 import { plural } from '../utils/containers';
+
+const NO_CHECKS = { running: false, lastCompletedAt: null };
+
+/** The version-check button's label: starting a check wins over one already running. */
+const versionCheckLabel = (refreshState, checking) => {
+    if (refreshState === 'pending') return 'Starting check…';
+    if (checking) return 'Checking versions…';
+    return 'Check versions now';
+};
 
 const STATUS_TEXT = { UP: 'Connected', DOWN: 'Unreachable', ERROR: 'Error', CHECKING: 'Checking…' };
 const GROUP_OPTIONS = [
@@ -75,6 +84,7 @@ function AppSettings({
     linksUnavailable = false,
     stacks = [],
     onLinkIconFailed,
+    versionChecks = NO_CHECKS,
 }) {
     const [adding, setAdding] = useState(false);
     const addRef = useRef(null);
@@ -90,16 +100,21 @@ function AppSettings({
         setAdding(false);
     };
     const [refreshState, setRefreshState] = useState('idle');
+    // The completion time seen when this dialog started a check; a newer one means that check finished.
+    const [startedAfter, setStartedAfter] = useState(null);
+    const checking = versionChecks.running;
     const checkVersions = async () => {
-        if (refreshState === 'pending') return;
+        if (refreshState === 'pending' || checking) return;
         setRefreshState('pending');
+        setStartedAfter(versionChecks.lastCompletedAt);
         try {
-            await refreshVersions();
+            await startVersionCheck();
             setRefreshState('started');
         } catch {
             setRefreshState('error');
         }
     };
+    const startedShown = refreshState === 'started' && versionChecks.lastCompletedAt === startedAfter;
     if (adding) {
         return <AddLink stacks={stacks} onCancel={closeForm} onClose={onClose} onAdded={closeForm} onIconFailed={onLinkIconFailed} />;
     }
@@ -142,11 +157,14 @@ function AppSettings({
             <section className="settings-block">
                 <h3 className="settings-heading-sm">Version updates</h3>
                 <p className="settings-description">Check all containers for updates now. Results appear automatically when ready.</p>
-                <button type="button" className="settings-btn-primary" onClick={checkVersions} disabled={refreshState === 'pending'}>
-                    {refreshState === 'pending' && <Loader2 size={16} className="status-spinner" aria-hidden="true" />}
-                    {refreshState === 'pending' ? 'Starting check…' : 'Check versions now'}
+                <button type="button" className="settings-btn-primary" onClick={checkVersions} disabled={refreshState === 'pending' || checking}>
+                    {(refreshState === 'pending' || checking) && <Loader2 size={16} className="status-spinner" aria-hidden="true" />}
+                    {versionCheckLabel(refreshState, checking)}
                 </button>
-                {refreshState === 'started' && <output className="settings-description">Version check started.</output>}
+                {startedShown && <output className="settings-description">Version check started.</output>}
+                {versionChecks.lastCompletedAt && !checking && (
+                    <p className="settings-description">Last checked {new Date(versionChecks.lastCompletedAt).toLocaleString()}</p>
+                )}
                 {refreshState === 'error' && <p className="settings-description version-refresh-error" role="alert">Could not start version check. Please try again.</p>}
             </section>
         </Modal>
