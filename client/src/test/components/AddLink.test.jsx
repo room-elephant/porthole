@@ -161,17 +161,19 @@ const chooseFile = async () => {
 };
 
 describe('AddLink icon', () => {
-  it('holds a library pick until the link exists, then saves it', async () => {
+  it('holds a library pick until submit, then sends it with the link', async () => {
     const { onAdded } = setup();
     fill();
     await pickLibraryIcon();
-    expect(selectEntryIcon).not.toHaveBeenCalled();
     expect(createLink).not.toHaveBeenCalled();
     expect(iconButton().querySelector('img').src).toMatch(/router\.webp$/);
 
     fireEvent.click(submit());
     await waitFor(() => expect(onAdded).toHaveBeenCalled());
-    expect(selectEntryIcon).toHaveBeenCalledWith({ entryId: ID, name: 'router' });
+    expect(createLink).toHaveBeenCalledWith({
+      name: 'Router', url: 'http://192.168.50.1/', stack: null, icon: { library: 'router' },
+    });
+    expect(selectEntryIcon).not.toHaveBeenCalled();
   });
 
   it('holds a file until the link exists, then uploads it', async () => {
@@ -186,11 +188,11 @@ describe('AddLink icon', () => {
     expect(uploadEntryIcon).toHaveBeenCalledWith({ entryId: ID, file: png });
   });
 
-  it('reports a failed icon with the new link, not as added', async () => {
-    selectEntryIcon.mockRejectedValue(new Error('down'));
+  it('reports a failed upload with the new link, not as added', async () => {
+    uploadEntryIcon.mockRejectedValue(new Error('down'));
     const { onAdded, onIconFailed } = setup();
     fill();
-    await pickLibraryIcon();
+    await chooseFile();
     fireEvent.click(submit());
     await waitFor(() => expect(onIconFailed).toHaveBeenCalledWith(ID));
     expect(onAdded).not.toHaveBeenCalled();
