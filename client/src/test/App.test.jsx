@@ -4,10 +4,10 @@ import App from '../App';
 import { renderWithQuery, createMockContainer } from './testUtils';
 import { useContainers } from '../hooks/useContainers';
 import { useLinks } from '../hooks/useLinks';
-import { createLink, fetchIconLibrary, selectEntryIcon } from '../api';
+import { createLink, fetchIconLibrary, uploadEntryIcon } from '../api';
 
 vi.mock('../hooks/useContainers');
-vi.mock('../api', async importOriginal => ({ ...await importOriginal(), updateLink: vi.fn().mockResolvedValue(), createLink: vi.fn(), selectEntryIcon: vi.fn(), fetchIconLibrary: vi.fn() }));
+vi.mock('../api', async importOriginal => ({ ...await importOriginal(), updateLink: vi.fn().mockResolvedValue(), createLink: vi.fn(), uploadEntryIcon: vi.fn(), fetchIconLibrary: vi.fn() }));
 vi.mock('../hooks/useLinks', async importOriginal => ({ ...await importOriginal(), useLinks: vi.fn() }));
 
 const walker = { id: 'walker', name: 'Walker', status: 'UP', error: null };
@@ -327,11 +327,13 @@ describe('App link settings', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Router link settings' })).toHaveFocus());
   });
 
-  it('opens Link settings with an alert when an icon failed while adding', async () => {
+  it('opens Link settings with an alert when an uploaded icon failed while adding', async () => {
     const created = { ...router, id: 'c'.repeat(32), name: 'Created' };
     createLink.mockResolvedValue(created);
-    selectEntryIcon.mockRejectedValue(new Error('down'));
+    uploadEntryIcon.mockRejectedValue(new Error('down'));
     fetchIconLibrary.mockResolvedValue({ router: {} });
+    URL.createObjectURL = vi.fn(() => 'blob:preview');
+    URL.revokeObjectURL = vi.fn();
     useLinks.mockReturnValue({ data: [router, created], isError: false });
     renderWithQuery(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
@@ -339,12 +341,16 @@ describe('App link settings', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Created' } });
     fireEvent.change(screen.getByLabelText('URL'), { target: { value: 'http://c/' } });
     fireEvent.click(screen.getByRole('button', { name: 'Choose icon for this link' }));
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search icons' }), { target: { value: '' } });
-    fireEvent.click(await screen.findByRole('button', { name: 'router' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    fireEvent.change(document.querySelector('input[type="file"]'), {
+      target: { files: [new File(['x'], 'logo.png', { type: 'image/png' })] },
+    });
     fireEvent.click(await screen.findByRole('button', { name: 'Add link' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Link added, but its icon couldn't be saved.");
     expect(screen.getByRole('heading', { name: 'Created' })).toBeInTheDocument();
+    delete URL.createObjectURL;
+    delete URL.revokeObjectURL;
   });
 });
 
