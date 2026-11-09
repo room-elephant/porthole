@@ -74,7 +74,8 @@ public class EntryController {
 
     @PatchMapping(
             path = "/{id}",
-            consumes = {MERGE_PATCH_JSON, MediaType.APPLICATION_JSON_VALUE})
+            consumes = {MERGE_PATCH_JSON, MediaType.APPLICATION_JSON_VALUE},
+            produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             operationId = "updateEntry",
             summary = "Change an entry",
@@ -85,9 +86,15 @@ public class EntryController {
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
-                            content = @Content(mediaType = MERGE_PATCH_JSON, schema = @Schema(type = "object"))))
+                            content =
+                                    @Content(
+                                            mediaType = MERGE_PATCH_JSON,
+                                            schema = @Schema(implementation = EntryPatchSchema.class))))
     @ApiResponse(responseCode = "200", description = "Saved; returns the entry as the dashboard now shows it")
-    @ApiResponse(responseCode = "204", description = "Saved for a container no source currently lists")
+    @ApiResponse(
+            responseCode = "204",
+            description = "Saved for a container no source currently lists",
+            content = @Content)
     @ApiResponse(
             responseCode = "400",
             description = "A field is invalid for this kind of entry",
