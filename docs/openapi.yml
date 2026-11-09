@@ -118,15 +118,11 @@ paths:
       responses:
         "200":
           content:
-            '*/*':
+            application/json:
               schema:
                 $ref: "#/components/schemas/EntryResponse"
           description: Saved; returns the entry as the dashboard now shows it
         "204":
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/EntryResponse"
           description: Saved for a container no source currently lists
         "400":
           content:

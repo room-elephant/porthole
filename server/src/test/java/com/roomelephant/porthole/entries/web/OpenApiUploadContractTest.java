@@ -63,4 +63,16 @@ class OpenApiUploadContractTest {
         assertThat(String.valueOf(create.get("icon"))).contains("#/components/schemas/IconChoice");
         assertThat(schemas).doesNotContainKey("JsonNode");
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishedSpecSaysWhichPatchResponsesHaveABody() throws IOException {
+        Map<String, Object> spec = new Yaml().load(Files.readString(Path.of("../docs/openapi.yml")));
+        var paths = (Map<String, Map<String, Map<String, Object>>>) spec.get("paths");
+        var responses = (Map<String, Map<String, Object>>)
+                paths.get("/api/entries/{id}").get("patch").get("responses");
+
+        assertThat((Map<String, Object>) responses.get("200").get("content")).containsOnlyKeys("application/json");
+        assertThat(responses.get("204")).doesNotContainKey("content");
+    }
 }
