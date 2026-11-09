@@ -1,7 +1,5 @@
 package com.roomelephant.porthole.dashboard;
 
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
-import com.roomelephant.porthole.core.model.SelfContainer;
 import com.roomelephant.porthole.endpoints.Candidate;
 import com.roomelephant.porthole.endpoints.EndpointDiscovery;
 import com.roomelephant.porthole.endpoints.EndpointSelection;
@@ -15,8 +13,10 @@ import com.roomelephant.porthole.entries.EntryState;
 import com.roomelephant.porthole.entries.Icon;
 import com.roomelephant.porthole.fleet.ContainerKey;
 import com.roomelephant.porthole.fleet.ContainerSnapshot;
+import com.roomelephant.porthole.fleet.SelfContainer;
 import com.roomelephant.porthole.fleet.Source;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
+import com.roomelephant.porthole.versions.VersionChecks;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;

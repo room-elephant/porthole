@@ -8,7 +8,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
-import com.roomelephant.porthole.core.model.VersionInfo;
+import com.roomelephant.porthole.versions.VersionInfo;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;

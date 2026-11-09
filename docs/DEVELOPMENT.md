@@ -20,6 +20,15 @@ make lab
 
 When it prints `Ready`, open [http://localhost:5173](http://localhost:5173). Frontend edits appear instantly; restart `make lab` to pick up server changes. Press Ctrl-C to stop the app and remove the fake containers. Downloaded images stay cached, so later starts are quick. The first run also needs internet to download them.
 
+While it runs, change a container's state from another terminal and watch the dashboard update within a second:
+
+```bash
+lab/container.sh list                     # every lab container and its state
+lab/container.sh pause healthy            # pause, play, stop, start or restart
+lab/container.sh play healthy             # resumes a paused container or starts a stopped one
+lab/container.sh stop shared-name lab-b   # name the host when both have the container
+```
+
 The lab only needs Docker, Java, Maven and Node. It never connects to your real Docker, so your own containers stay out of it. Everything it uses lives in [`lab/`](../lab):
 
 | Path | Purpose |
@@ -28,6 +37,7 @@ The lab only needs Docker, Java, Maven and Node. It never connects to your real 
 | `scenarios/lab-a.yml` | Container states: healthy, unhealthy, health starting, restarting, paused, stopped, created. |
 | `scenarios/lab-b.yml` | Endpoints, names and versions: published ports, no ports, Traefik labels, colliding replicas, an outdated image. |
 | `application.yml` | Porthole's sources: `lab-a`, `lab-b`, and `lab-down`, which is unreachable and always shows as `DOWN`. |
+| `container.sh` | Pauses, plays, stops, starts or restarts a lab container while the lab runs, to watch the dashboard follow. |
 | `data/state.json` | Saved container settings and links, tracked in git: `Router` and `NAS` in the `stack-a` stack, and `google` with none. The app writes here directly, as it does for uploaded icons in `data/icons/`, so use `git restore` to undo changes you don't want to keep. |
 | `data/icons/` | Uploaded icons, tracked in git. Each is named by the SHA-256 of its content and must be used by an entry in `state.json`; otherwise the app removes it after an hour, so uploading through the UI is easier. |
 
@@ -118,7 +128,7 @@ make server-native-hints
 Every IT application instance records separately under `server/target/native-hints/`. After the tests pass, GraalVM merges all recordings into
 `server/src/main/resources/META-INF/native-image/com.roomelephant/porthole-agent/reachability-metadata.json`; incomplete recordings fail generation rather than silently losing coverage.
 
-Commit the updated `reachability-metadata.json` and rebuild the native image. If a class isn't reached by the ITs, register it explicitly in `DockerNativeConfig` using `RuntimeHints` or `@RegisterReflectionForBinding` rather than editing the generated file by hand.
+Commit the updated `reachability-metadata.json` and rebuild the native image. If a class isn't reached by the ITs, register it explicitly in `nativehints/DockerNativeHints` using `RuntimeHints` or `@RegisterReflectionForBinding` rather than editing the generated file by hand.
 
 See [Native Image Hints](ARCHITECTURE.md#native-image-hints) for how generation works.
 
