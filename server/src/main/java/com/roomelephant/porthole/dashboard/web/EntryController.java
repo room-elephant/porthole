@@ -85,7 +85,10 @@ public class EntryController {
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
-                            content = @Content(mediaType = MERGE_PATCH_JSON, schema = @Schema(type = "object"))))
+                            content =
+                                    @Content(
+                                            mediaType = MERGE_PATCH_JSON,
+                                            schema = @Schema(implementation = EntryPatchSchema.class))))
     @ApiResponse(responseCode = "200", description = "Saved; returns the entry as the dashboard now shows it")
     @ApiResponse(responseCode = "204", description = "Saved for a container no source currently lists")
     @ApiResponse(
