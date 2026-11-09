@@ -46,7 +46,7 @@ describe('App endpoint selection refresh', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Custom URL' }), { target: { value: url } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(document.querySelector('.tile-main')).toHaveAttribute('href', url));
-    expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'local', containerName: 'test-container', selectedEndpoint: { id: 'custom', source: 'custom', url } });
+    expect(selectContainerEndpoint).toHaveBeenCalledWith({ entryId: 'container:local:test-container', selectedEndpoint: { id: 'custom', source: 'custom', url } });
     expect(await screen.findByRole('radio', { name: 'Custom URL' })).toBeChecked();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });

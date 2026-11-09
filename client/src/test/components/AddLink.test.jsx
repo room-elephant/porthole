@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import AddLink from '../../components/AddLink';
-import { createLink, fetchIconLibrary, selectLinkIcon, uploadLinkIcon } from '../../api';
+import { createLink, fetchIconLibrary, selectEntryIcon, uploadEntryIcon } from '../../api';
 import { renderWithQuery } from '../testUtils';
 
 vi.mock('../../api', () => ({
   createLink: vi.fn(),
   fetchIconLibrary: vi.fn(),
-  selectLinkIcon: vi.fn(),
-  uploadLinkIcon: vi.fn(),
+  selectEntryIcon: vi.fn(),
+  uploadEntryIcon: vi.fn(),
 }));
 
 const ID = 'a'.repeat(32);
@@ -33,8 +33,8 @@ beforeEach(() => {
   HTMLDialogElement.prototype.showModal ??= vi.fn();
   HTMLDialogElement.prototype.close ??= vi.fn();
   createLink.mockResolvedValue({ id: ID });
-  selectLinkIcon.mockResolvedValue();
-  uploadLinkIcon.mockResolvedValue();
+  selectEntryIcon.mockResolvedValue();
+  uploadEntryIcon.mockResolvedValue();
   fetchIconLibrary.mockResolvedValue({ router: {}, coredns: {} });
   URL.createObjectURL = vi.fn(() => 'blob:preview');
   URL.revokeObjectURL = vi.fn();
@@ -86,7 +86,7 @@ describe('AddLink saving', () => {
     fireEvent.click(submit());
     await waitFor(() => expect(onAdded).toHaveBeenCalled());
     expect(createLink).toHaveBeenCalledWith({ name: 'Router', url: 'http://192.168.50.1/', stack: 'base' });
-    expect(selectLinkIcon).not.toHaveBeenCalled();
+    expect(selectEntryIcon).not.toHaveBeenCalled();
   });
 
   it('sends no stack as null', async () => {
@@ -115,7 +115,7 @@ describe('AddLink saving', () => {
     fireEvent.click(submit());
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't add the link.");
     expect(name()).toHaveValue('Router');
-    expect(selectLinkIcon).not.toHaveBeenCalled();
+    expect(selectEntryIcon).not.toHaveBeenCalled();
     expect(onAdded).not.toHaveBeenCalled();
   });
 
@@ -161,36 +161,38 @@ const chooseFile = async () => {
 };
 
 describe('AddLink icon', () => {
-  it('holds a library pick until the link exists, then saves it', async () => {
+  it('holds a library pick until submit, then sends it with the link', async () => {
     const { onAdded } = setup();
     fill();
     await pickLibraryIcon();
-    expect(selectLinkIcon).not.toHaveBeenCalled();
     expect(createLink).not.toHaveBeenCalled();
     expect(iconButton().querySelector('img').src).toMatch(/router\.webp$/);
 
     fireEvent.click(submit());
     await waitFor(() => expect(onAdded).toHaveBeenCalled());
-    expect(selectLinkIcon).toHaveBeenCalledWith(ID, 'router');
+    expect(createLink).toHaveBeenCalledWith({
+      name: 'Router', url: 'http://192.168.50.1/', stack: null, icon: { library: 'router' },
+    });
+    expect(selectEntryIcon).not.toHaveBeenCalled();
   });
 
   it('holds a file until the link exists, then uploads it', async () => {
     const { onAdded } = setup();
     fill();
     await chooseFile();
-    expect(uploadLinkIcon).not.toHaveBeenCalled();
+    expect(uploadEntryIcon).not.toHaveBeenCalled();
     expect(iconButton().querySelector('img')).toHaveAttribute('src', 'blob:preview');
 
     fireEvent.click(submit());
     await waitFor(() => expect(onAdded).toHaveBeenCalled());
-    expect(uploadLinkIcon).toHaveBeenCalledWith(ID, png);
+    expect(uploadEntryIcon).toHaveBeenCalledWith({ entryId: ID, file: png });
   });
 
-  it('reports a failed icon with the new link, not as added', async () => {
-    selectLinkIcon.mockRejectedValue(new Error('down'));
+  it('reports a failed upload with the new link, not as added', async () => {
+    uploadEntryIcon.mockRejectedValue(new Error('down'));
     const { onAdded, onIconFailed } = setup();
     fill();
-    await pickLibraryIcon();
+    await chooseFile();
     fireEvent.click(submit());
     await waitFor(() => expect(onIconFailed).toHaveBeenCalledWith(ID));
     expect(onAdded).not.toHaveBeenCalled();

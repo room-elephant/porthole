@@ -16,7 +16,7 @@ Porthole is designed as a monolithic, single-artifact application for simplicity
 - **Framework**: React
 - **Bundler**: Vite
 - **Styling**: Vanilla CSS (Modern, Variables-based)
-- **State**: React Query inventory with shared endpoint preferences; LocalStorage for layout and update notifications
+- **State**: React Query inventory with shared endpoint choices; LocalStorage for layout and update notifications
 - **Testing**: Vitest + React Testing Library
 
 ## Build Process
@@ -174,34 +174,36 @@ This is required because the Docker Registry API expects the full path:
 | Endpoint                                | Method | Description                                                                                 |
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
 | `/api/containers`                       | GET    | Returns source outcomes and containers from every configured connection. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
-| `/api/containers/selected-url`          | PUT    | Replaces the shared endpoint choice for `(sourceId, containerName)` and returns confirmed preferences |
-| `/api/containers/icon`                  | PUT    | Saves a Dashboard Icons library icon for `(sourceId, containerName)` |
-| `/api/containers/icon/upload`           | POST   | Saves an uploaded PNG, WebP, JPEG or SVG icon of at most 1 MB for `(sourceId, containerName)` |
-| `/api/links`                            | GET    | Lists external links                                               |
-| `/api/links`                            | POST   | Adds an external link and returns it                               |
-| `/api/links/{id}`                       | PUT    | Replaces a link's name, URL and stack, and returns the link        |
-| `/api/links/{id}`                       | DELETE | Deletes a link and its uploaded icon                               |
-| `/api/links/{id}/icon`                  | PUT    | Saves a Dashboard Icons library icon for a link                    |
-| `/api/links/{id}/icon/upload`           | POST   | Saves an uploaded PNG, WebP, JPEG or SVG icon of at most 1 MB for a link |
-| `/api/icons/{name}`                     | GET    | Serves an uploaded icon with an immutable cache lifetime and `nosniff` |
+| `/api/links`                            | GET    | Lists link entries with their icon URLs                                                     |
+| `/api/entries`                          | POST   | Adds a link from `{name, url, stack?, icon?}`; 201 `{id}`, 507 at 500 links                 |
+| `/api/entries/{id}`                     | PATCH  | JSON Merge Patch of `name`, `icon`, `endpoint` and `stack` on a container or link; 204      |
+| `/api/entries/{id}`                     | DELETE | Deletes a link; 405 for a container                                                         |
+| `/api/icons`                            | POST   | Stores a raw PNG, WebP, JPEG or SVG body of at most 1 MB; 201 `{id}`                        |
+| `/api/icons/{id}`                       | GET    | Serves an uploaded icon with an immutable cache lifetime and `nosniff`                      |
 | `/api/sources`                          | GET    | Status and `lastSuccessAt` of every configured Docker source; always 200                    |
 | `/actuator/health`                      | GET    | Health of Porthole itself; Docker status is not included                                    |
 
-### Custom Container Icons
+### Entries
 
-Porthole's own container without a custom icon gets its logo in `ContainerService`, where `self` is set after the chain.
+An entry is what the user saved about one tile: a container, identified by `container:<sourceId>:<containerName>`, or a link, identified by `link:<32 hex>`. The `entries` slice owns the model (`EntryRef`, `EntryRecord`, `Icon`, `EndpointChoice`), keeps every record in an immutable in-memory `EntryState`, and is the only writer of the [data directory](CONFIGURATION.md#data-directory). Source IDs and Docker names can't contain `:`, so IDs parse unambiguously; a malformed ID names no entry and is a 404.
 
-A container's preference record holds an optional `icon` beside `selectedEndpoint`, either `{"type":"library","name":"coredns"}` or `{"type":"upload","name":"<32 hex>.webp"}`. Each field updates independently, and a record is removed only when both are empty. There is no clear operation: choosing another icon replaces the previous one. The inventory exposes only the resolved `iconUrl`, so the client reads the icon in use from it: an `/api/icons/` path is an upload, and otherwise the last path segment is the library name.
+A container record holds only overrides of what discovery supplies: `name`, `icon` and `endpoint`. A record with nothing left is removed. A link record holds its own `name`, a `{url}` endpoint and an optional `stack`. `PATCH /api/entries/{id}` is a JSON Merge Patch: a missing field keeps its value and `null` removes it, which on a container restores the discovered value and on a link's name or URL is a 400. A container's stack comes from Docker Compose, so `stack` on a container is a 400. A container can be patched while it isn't running, as long as its source is configured; links are deleted with `DELETE`, containers can't be.
 
-Uploaded SVGs are treated as hostile. `SvgSanitizer` rebuilds each one from an allowlist of elements and attributes before it is stored, dropping scripts, event handlers, embedded HTML, animation and references outside the document, with DTD processing off. A file with nothing left to draw is rejected. `GET /api/icons/{name}` also sends a sandboxing `Content-Security-Policy`, so an icon opened directly as a page cannot run anything.
+`EntryService` runs writes one at a time. Each builds the next `EntryState`, saves it through the `StateStore` port, and publishes it only after the save succeeded, so a failed write leaves memory and file as they were. `JsonStateStore` maps every field by hand to and from `state.json` with a `schemaVersion`, using `AtomicFiles` to replace the whole file. It loads once at startup; a newer `schemaVersion` or an invalid file fails startup. A record for a source that is no longer configured is kept.
 
-`UploadedIcons` holds the file handling that containers and links share, and runs each save under one lock, so the upload limit holds across both. An upload is identified from its first bytes, ignoring its name and declared type, and rejected with 507 when 500 uploads are stored, since callers without login can invent container names. It is written to a temporary file, moved to a random name, then saved in preferences; if saving fails the new file is deleted and the old icon stays. The previous upload is deleted last, and a failed delete is only logged. At startup Porthole removes its own files that no preference or link references, on a best-effort basis: other files in the folder are left alone, and a failure is logged rather than stopping startup. `FilesystemIconFileStore` keeps files in an `icons` folder beside the preference file. Multipart uploads stay in memory because images may have no writable temp folder.
+Until the dashboard read replaces them, `GET /api/containers` and `GET /api/links` read the entry state: `ContainerPreferencesEnricher` attaches each container's record, and `LinkListService` presents link records. Each container carries its `entryId`.
+
+### Uploaded Icons
+
+Icons upload separately from the entry that uses them: `POST /api/icons` takes the raw image as the body and returns an ID, which a `PATCH` or link `POST` then saves as `{"upload": id}`. The ID is the SHA-256 of the stored bytes plus the extension, so the same image is stored once and responses never change. An upload is identified from its first bytes, ignoring its name and declared type. The body is read up to 1 MB plus one byte, so a chunked request can't make Porthole buffer more. At 500 stored files a new upload gets 507; re-uploading an existing image doesn't count against the limit.
+
+Uploaded SVGs are treated as hostile. `SvgSanitizer` rebuilds each one from an allowlist of elements and attributes before it is stored, dropping scripts, event handlers, embedded HTML, animation and references outside the document, with DTD processing off. A file with nothing left to draw is rejected, and the ID is the hash of the sanitized bytes. `GET /api/icons/{id}` also sends a sandboxing `Content-Security-Policy`, so an icon opened directly as a page cannot run anything.
+
+Because one file can back several entries, a file is never deleted when an entry stops using it. `IconSweeper` removes files that no entry references and that haven't been used for an hour, at startup and every 15 minutes. Saving an upload on an entry, and re-uploading the same image, refresh the file's age, so a sweep can't remove an icon between its upload and its save. The inventory exposes only the resolved `iconUrl`; the client reads the icon in use from it, where an `/api/icons/` path is an upload. Porthole's own container without a custom icon gets its logo in `ContainerService`, where `self` is set after the chain.
 
 ### External Links
 
-Links are pages Porthole doesn't run, such as a router. They are separate from containers on purpose: their own `links.json` file, `ExternalLinkService`, `/api/links` endpoints, React Query key and hooks. They never pass through the enrichment chain, `GET /api/containers` doesn't include them, and `preferences.json` holds no link records. A Docker failure therefore can't hide a link. Until the first container response arrives the page shows its loading state, so a slow Docker host can delay links on first load.
-
-A link record holds `id`, `name`, `url`, and optional `stack` and `icon`. The ID is random because a link can be renamed. `JsonExternalLinkStore` behaves like the preference store, sharing `AtomicFiles` for writes: it loads once at startup, an invalid file fails startup, and a failed write keeps the prior state. URLs follow the same http(s) rule as custom URLs (`HttpUrls`). At most 500 links are stored, because these endpoints have no login.
+Links are pages Porthole doesn't run, such as a router. They are entries, saved and edited through `/api/entries` like containers, but they never pass through the enrichment chain and `GET /api/containers` doesn't include them. A Docker failure therefore can't hide a link. Until the first container response arrives the page shows its loading state, so a slow Docker host can delay links on first load. Link URLs follow the same http(s) rule as custom URLs (`HttpUrls`), and at most 500 links are stored, because these endpoints have no login.
 
 The External source exists only in the client: it isn't in the `sources` array, and it appears when there is at least one link. Its filter value `_external` can't clash with a Docker source ID, which can't start with `_`. In Stack view a link joins the section whose name exactly matches its stack, after the containers.
 
@@ -345,15 +347,13 @@ Place implementations and URL helpers in `core/enrichment/endpoint/`; shared end
 
 Published-port IDs use `published-port:<port>` independently of the configured hostname. Traefik IDs use `traefik:<normalized-url>`. The backend resolves saved IDs before Traefik defaults through the pure `EndpointSelectionResolver`. The client opens the selected API URL directly; automatic defaults and selection flags stay out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
 
-### Shared Endpoint Preferences
+### Shared Endpoint Choices
 
-`ContainerPreferencesKey(sourceId, containerName)` identifies preferences independently of Docker container IDs and display names. Core owns the immutable preference values, `ContainerPreferencesStore` outbound port, and `SelectContainerEndpoint` inbound use case. `ContainerPreferencesService` validates replacements; `JsonContainerPreferencesStore` is the filesystem adapter wired by `PreferencesConfiguration`. Core performs no filesystem work.
+A container's endpoint choice is the `endpoint` field of its entry: `{"id": candidate}` for a discovered endpoint, `{"url": url}` for a custom URL, or `"none"`. A discovered choice stores only the candidate ID, which already names its provider, never a resolved URL. `EndpointSelectionResolver` applies it before availability filtering. A missing or unavailable discovered choice falls back to the automatic policy without rewriting the file, and explicit none keeps discovered candidates with every flag false. A custom candidate exists only while that custom choice is stored; replacing it removes its URL.
 
-The adapter loads one JSON file at startup into immutable snapshots. Updates are serialized under a lock, written to a temporary file in the same directory, and atomically replace the prior file before publishing the new memory snapshot. Failed writes preserve both prior state and file. Records for absent containers are retained. There is no schema version field; records are read into typed models, so unknown fields are ignored on load and not written back. One Porthole instance owns the file; external edits require a restart. Missing files mean empty preferences, while malformed or unreadable existing files fail startup.
+`GET /api/containers` exposes only resolved presentation state: the `endpoints` array holds discovered candidates plus the saved custom candidate, each with a required boolean `selected`. Saved choices stay internal. Navigation trusts endpoint flags, custom URL editing reads the custom candidate, and tile/chip presentation uses `hasWebUi`. Clients save a choice with `PATCH /api/entries/{entryId}` and refetch the inventory to see its effect; `"endpoint": null` restores automatic selection.
 
-`GET /api/containers` exposes only resolved container presentation state; it does not include a `preferences` property. The `endpoints` array is effective presentation state: discovered candidates plus the current saved custom candidate, with a required boolean `selected` on each. Stored preferences remain internal. Navigation trusts endpoint flags, custom URL editing reads the custom candidate, and tile/chip presentation uses `hasWebUi`. `PUT /api/containers/selected-url` accepts `sourceId`, `containerName`, and `selectedEndpoint`, and returns `204 No Content`; clients refetch the inventory to see the effect. The selection object replaces the previous object entirely. Explicit null restores automatic selection; a missing selection field is invalid. Discovered selections store `id` and provider `source` without resolved URLs, `custom` stores an absolute HTTP(S) URL, and `none` stores no URL. Replacing custom discards its URL. Temporarily unavailable discovered selections remain saved while the backend applies its automatic fallback without rewriting the file. Explicit none retains discovered candidates with every flag false. A custom candidate exists only while that custom selection is stored; replacing it removes its URL from the returned list.
-
-The browser reads resolved endpoints and `hasWebUi` in its existing inventory requests, without a separate preferences fetch or polling timer. After a successful PUT, an existing inventory GET confirms the resolved state; the PUT response confirms storage only and never supplies navigation state. Older inventory reads are canceled so stale results cannot undo confirmation, and inactive filtered queries refresh when next used. Save controls serialize changes and stay pending through confirmation. A failed PUT retains the last confirmed selection; a successful PUT followed by a failed GET reports that the preference was saved but could not be refreshed, and retry repeats only the GET. Layout and update notifications remain browser-local, and existing local endpoint choices are not migrated. See [preference persistence](CONFIGURATION.md#preference-file-and-persistence) for paths, named volumes, and nonroot bind-mount permissions.
+The browser reads resolved endpoints and `hasWebUi` in its existing inventory requests, without a separate preferences fetch or polling timer. After a successful PATCH, an existing inventory GET confirms the resolved state; the PATCH response confirms storage only and never supplies navigation state. Older inventory reads are canceled so stale results cannot undo confirmation, and inactive filtered queries refresh when next used. Save controls serialize changes and stay pending through confirmation. A failed PATCH retains the last confirmed selection; a successful PATCH followed by a failed GET reports that the preference was saved but could not be refreshed, and retry repeats only the GET. Layout and update notifications remain browser-local, and existing local endpoint choices are not migrated. See [the data directory](CONFIGURATION.md#data-directory) for paths, named volumes, and nonroot bind-mount permissions.
 
 ## Directory Structure
 
@@ -369,9 +369,9 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `core/port/inbound/` — `ManageLinks`, `GetContainers`, `SelectContainerEndpoint`, and `RefreshVersions`, called by inbound adapters and implemented by core services.
-- `core/port/outbound/` — `RegistryOperations`, `ContainerPreferencesStore`, `ExternalLinkStore`, and `IconFileStore`, implemented by outbound integrations.
-- `core/service/` — `ExternalLinkService` manages links and `UploadedIcons` the upload files that containers and links share. `ContainerService` coordinates mapping, enrichment, and response assembly.
+- `core/port/inbound/` — `ListLinks`, `GetContainers` and `RefreshVersions`, called by inbound adapters and implemented by core services.
+- `core/port/outbound/` — `RegistryOperations`, implemented by the registry integration.
+- `core/service/` — `ContainerService` coordinates mapping, enrichment, and response assembly; `LinkListService` presents link entries.
 - `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `name/`, `endpoint/`, `preferences/`, `endpointavailability/`, `icon/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
 - `core/enrichment/icon/` — `IconEnricher` assigns default icons using `IconResolver` and `IconSettings`. `ContainerPreferencesEnricher` overrides them with saved choices.
 - `core/enrichment/version/` — `VersionEnricher` attaches cached version results to containers.
@@ -380,15 +380,15 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 - `core/model/` — application-owned container/source metadata, outcomes, queries, image references, version values, and exceptions. Ports never expose SDK objects or client handles.
 - `core/mapping/` — `ContainerMapper` converts discovery snapshots to core containers.
 - `core/enrichment/name/` — `DisplayNameResolver` resolves source-wide name collisions; `DisplayNameEnricher` resolves and applies names before filters run.
-- `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`; `IconController` calls `SelectContainerIcon` and `ReadUploadedIcon`; `LinkController` calls `ManageLinks`.
+- `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`; `LinkController` calls `ListLinks`.
 - `fleet/` — configured sources (`SourceCatalog`), the `DockerOperations` port, `Fleet` and its per-source `SourceMonitor`s, `SourceSnapshot` and `SnapshotListener`. It depends on no other production package except `shared/`.
 - `fleet/docker/` — docker-java calls, container events, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
 - `fleet/web/` — `GET /api/sources`.
-- `shared/` — small rules several slices use, such as `Hosts`.
-- `outbound/preferences/` — JSON preference loading, immutable snapshots, and atomic file replacement.
-- `outbound/links/` — JSON external link loading, immutable snapshots, and saving.
-- `outbound/file/` — `AtomicFiles`, the whole-file replacement that the preference and link stores share.
-- `outbound/icons/` — uploaded icon files on disk, with atomic writes and generated names.
+- `entries/` — the entry model, `EntryService`, `IconService`, `IconSweeper`, `SvgSanitizer`, and the `StateStore` and `IconFileStore` ports. It depends only on `fleet/` and `shared/`.
+- `entries/store/` — `state.json` reading and writing.
+- `entries/icons/` — uploaded icon files on disk, named by content hash.
+- `entries/web/` — `/api/entries` and `/api/icons`.
+- `shared/` — small rules several slices use: `Hosts`, `HttpUrls` and `AtomicFiles`.
 - `outbound/registry/` — `RegistryOperationsAdapter` implements the core port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares authenticated tag/manifest protocol, token lifecycle, and Link parsing. Numeric selection and update decisions belong to `core.enrichment.version.resolution`.
 - `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
 - `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`.

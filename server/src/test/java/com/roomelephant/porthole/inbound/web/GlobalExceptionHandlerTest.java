@@ -2,8 +2,6 @@ package com.roomelephant.porthole.inbound.web;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.roomelephant.porthole.core.model.exception.LinkLimitReachedException;
-import com.roomelephant.porthole.core.model.exception.LinkNotFoundException;
 import java.net.URI;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,24 +17,6 @@ class GlobalExceptionHandlerTest {
     @BeforeEach
     void setUp() {
         exceptionHandler = new GlobalExceptionHandler();
-    }
-
-    @Test
-    void linkNotFoundIs404() {
-        ProblemDetail problem = exceptionHandler.handleLinkNotFound(new LinkNotFoundException("abc"));
-        assertEquals(404, problem.getStatus());
-    }
-
-    @Test
-    void linkLimitIs507() {
-        ProblemDetail problem = exceptionHandler.handleLinkLimitReached(new LinkLimitReachedException(500));
-        assertEquals(507, problem.getStatus());
-    }
-
-    @Test
-    void invalidUploadDoesNotNameContainerFields() {
-        ProblemDetail problem = exceptionHandler.handleInvalidUploadRequest();
-        assertEquals("Upload is missing required multipart fields", problem.getDetail());
     }
 
     @Nested
@@ -109,8 +89,12 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("should return 413 for an upload over the size limit")
-    void returnsContentTooLargeForOversizedUpload() {
-        assertEquals(413, exceptionHandler.handleUploadTooLarge().getStatus());
+    void springRequestErrorsKeepTheirStatusAndHeaders() {
+        var ex = new org.springframework.web.HttpRequestMethodNotSupportedException("POST", java.util.List.of("GET"));
+
+        var response = exceptionHandler.handleRequestError(ex);
+
+        assertEquals(405, response.getStatusCode().value());
+        assertEquals("GET", response.getHeaders().getFirst("Allow"));
     }
 }

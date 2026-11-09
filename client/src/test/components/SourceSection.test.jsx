@@ -131,8 +131,8 @@ describe('source sections', () => {
   let completeRefresh;
   const refresh = new Promise(resolve => { completeRefresh = resolve; });
   const read = vi.fn(() => refresh);
-  selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
-   confirm = () => { savedSelections.push({ sourceId, containerName, selectedEndpoint }); resolve(); };
+  selectContainerEndpoint.mockImplementation(({ entryId, selectedEndpoint }) => new Promise(resolve => {
+   confirm = () => { savedSelections.push({ entryId, selectedEndpoint }); resolve(); };
   }));
   const startsAsChip = direction === 'chip-to-custom-tile';
   const initial = mk(startsAsChip ? { endpoints: [], hasEndpoints: false } : {});
@@ -208,8 +208,8 @@ describe('source sections', () => {
 
  it('releases a pending handoff when the sole open container disappears', async () => {
   let confirm;
-  selectContainerEndpoint.mockImplementation(({ sourceId, containerName, selectedEndpoint }) => new Promise(resolve => {
-   confirm = () => { savedSelections.push({ sourceId, containerName, selectedEndpoint }); resolve(); };
+  selectContainerEndpoint.mockImplementation(({ entryId, selectedEndpoint }) => new Promise(resolve => {
+   confirm = () => { savedSelections.push({ entryId, selectedEndpoint }); resolve(); };
   }));
   const { queryClient } = renderSection([mk()]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
@@ -344,7 +344,7 @@ describe('source sections', () => {
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'https://custom.example.com/' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(screen.queryByText('Saving selection…')).not.toBeInTheDocument());
-  expect(selectContainerEndpoint).toHaveBeenCalledWith({ sourceId: 'walker', containerName: 'test-container', selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://custom.example.com/' } });
+  expect(selectContainerEndpoint).toHaveBeenCalledWith({ entryId: 'container:walker:test-container', selectedEndpoint: { id: 'custom', source: 'custom', url: 'https://custom.example.com/' } });
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(document.querySelector('.chip')).not.toBeNull();
   fireEvent.keyDown(document, { key: 'Escape' });

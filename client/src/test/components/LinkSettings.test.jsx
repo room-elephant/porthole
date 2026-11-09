@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LinkSettings from '../../components/LinkSettings';
-import { deleteLink, fetchIconLibrary, selectLinkIcon, updateLink } from '../../api';
+import { deleteEntry, fetchIconLibrary, selectEntryIcon, updateLink } from '../../api';
 
 vi.mock('../../api', () => ({
-  deleteLink: vi.fn(),
+  deleteEntry: vi.fn(),
   fetchIconLibrary: vi.fn(),
-  selectLinkIcon: vi.fn(),
+  selectEntryIcon: vi.fn(),
   updateLink: vi.fn(),
-  uploadLinkIcon: vi.fn(),
+  uploadEntryIcon: vi.fn(),
 }));
 
 const link = { id: 'a'.repeat(32), name: 'Router', url: 'http://192.168.50.1/', stack: 'base', iconUrl: null };
@@ -37,8 +37,8 @@ const edit = (field, value) => {
 beforeEach(() => {
   vi.resetAllMocks();
   updateLink.mockResolvedValue();
-  deleteLink.mockResolvedValue();
-  selectLinkIcon.mockResolvedValue();
+  deleteEntry.mockResolvedValue();
+  selectEntryIcon.mockResolvedValue();
   fetchIconLibrary.mockResolvedValue({ router: {} });
 });
 
@@ -201,7 +201,7 @@ describe('LinkSettings deleting', () => {
     expect(screen.getByRole('alertdialog')).toHaveTextContent("Delete Router? It's removed from the dashboard. Containers aren't affected.");
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(deleteLink).not.toHaveBeenCalled();
+    expect(deleteEntry).not.toHaveBeenCalled();
   });
 
   it('keeps keyboard focus through the question', async () => {
@@ -217,12 +217,12 @@ describe('LinkSettings deleting', () => {
     openConfirm();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
-    expect(deleteLink).toHaveBeenCalledWith(link.id);
+    expect(deleteEntry).toHaveBeenCalledWith(link.id);
     expect(onClose).not.toHaveBeenCalled();
   });
 
   it('shows an alert and stays open when deleting fails', async () => {
-    deleteLink.mockRejectedValue(new Error('down'));
+    deleteEntry.mockRejectedValue(new Error('down'));
     const { onDeleted } = setup();
     openConfirm();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -240,7 +240,7 @@ describe('LinkSettings icon', () => {
     fireEvent.click(iconButton());
     expect(screen.getByRole('searchbox', { name: 'Search icons' })).toHaveValue('Router');
     fireEvent.click(await screen.findByRole('button', { name: 'router' }));
-    await waitFor(() => expect(selectLinkIcon).toHaveBeenCalledWith(link.id, 'router'));
+    await waitFor(() => expect(selectEntryIcon).toHaveBeenCalledWith({ entryId: link.id, name: 'router' }));
     expect(await screen.findByText('Icon updated')).toBeInTheDocument();
     await waitFor(() => expect(iconButton()).toHaveFocus());
   });
