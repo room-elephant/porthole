@@ -34,8 +34,7 @@ class GhcrRegistryTest {
         var properties = new RegistryProperties(
                 new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 new RegistryProperties.Cache(Duration.ofMinutes(5), 100),
-                new RegistryProperties.DockerHub(
-                        "https://hub-registry/v2/", "https://hub-auth/", "https://hub-catalog/"),
+                new RegistryProperties.DockerHub("https://hub-registry/v2/", "https://hub-auth/"),
                 ghcr());
         service = RegistryTestClients.operations(builder.build(), properties);
     }
@@ -58,9 +57,11 @@ class GhcrRegistryTest {
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer ghcr-token"))
                 .andRespond(withSuccess(
                         "{\"name\":\"acme/app\",\"tags\":[\"2.0\",\"1.0-alpine\"]}", MediaType.APPLICATION_JSON));
-        server.expect(requestTo("https://hub-catalog/acme/app/tags?page_size=100"))
-                .andExpect(headerDoesNotExist(HttpHeaders.AUTHORIZATION))
-                .andRespond(withSuccess("{\"results\":[{\"name\":\"9.0\"}]}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://hub-auth/acme/app:pull"))
+                .andRespond(withSuccess("{\"token\":\"hub-token\"}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://hub-registry/v2/acme/app/tags/list?n=1000"))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer hub-token"))
+                .andRespond(withSuccess("{\"tags\":[\"9.0\"]}", MediaType.APPLICATION_JSON));
         assertEquals("2.0", latest(IMAGE));
         assertEquals("9.0", latest("acme/app:1.0"));
         assertEquals("2.0", latest("GHCR.IO/acme/app:latest"));

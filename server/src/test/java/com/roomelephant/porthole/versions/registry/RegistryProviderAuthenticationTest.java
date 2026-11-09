@@ -24,7 +24,7 @@ class RegistryProviderAuthenticationTest {
     private final RegistryProperties properties = new RegistryProperties(
             new RegistryProperties.Timeout(Duration.ofSeconds(1), Duration.ofSeconds(10)),
             new RegistryProperties.Cache(Duration.ofMinutes(1), 100),
-            new RegistryProperties.DockerHub("https://hub/", "https://hub-auth/", "https://hub-catalog/"),
+            new RegistryProperties.DockerHub("https://hub/", "https://hub-auth/"),
             new RegistryProperties.Ghcr("https://ghcr/", "https://ghcr-auth/"));
 
     private RegistryClient client(String provider) {
@@ -62,6 +62,7 @@ class RegistryProviderAuthenticationTest {
         var ghcr = client("ghcr");
         assertTrue(hub.supports(image("hub")));
         assertFalse(hub.supports(image("ghcr")));
+        assertFalse(hub.supports(ImageReference.tryParse("nginx@" + DIGEST).orElseThrow()));
         assertTrue(ghcr.supports(image("ghcr")));
         assertFalse(ghcr.supports(image("hub")));
         assertFalse(ghcr.supports(ImageReference.tryParse("ghcr.io/app").orElseThrow()));

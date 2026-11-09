@@ -36,7 +36,6 @@ class RegistryPropertiesTest {
             assertThat(hub.registryUrl()).isEqualTo("https://registry-1.docker.io/v2/");
             assertThat(hub.authUrl())
                     .isEqualTo("https://auth.docker.io/token?service=registry.docker.io&scope=repository:");
-            assertThat(hub.repositoriesUrl()).isEqualTo("https://hub.docker.com/v2/repositories/");
         });
     }
 
@@ -44,14 +43,12 @@ class RegistryPropertiesTest {
     void bindsDockerHubPropertyNames() {
         runner.withPropertyValues(
                         "porthole.registry.dockerhub.registry-url=https://new-registry/",
-                        "porthole.registry.dockerhub.auth-url=https://new-auth/",
-                        "porthole.registry.dockerhub.repositories-url=https://new-catalogue/")
+                        "porthole.registry.dockerhub.auth-url=https://new-auth/")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     var hub = context.getBean(RegistryProperties.class).dockerhub();
                     assertThat(hub.registryUrl()).isEqualTo("https://new-registry/");
                     assertThat(hub.authUrl()).isEqualTo("https://new-auth/");
-                    assertThat(hub.repositoriesUrl()).isEqualTo("https://new-catalogue/");
                 });
     }
 
@@ -61,15 +58,12 @@ class RegistryPropertiesTest {
                         "PORTHOLE_REGISTRY_DOCKERHUB_REGISTRYURL",
                         "https://new-registry/",
                         "PORTHOLE_REGISTRY_DOCKERHUB_AUTHURL",
-                        "https://new-auth/",
-                        "PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL",
-                        "https://new-catalogue/"))
+                        "https://new-auth/"))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     var hub = context.getBean(RegistryProperties.class).dockerhub();
                     assertThat(hub.registryUrl()).isEqualTo("https://new-registry/");
                     assertThat(hub.authUrl()).isEqualTo("https://new-auth/");
-                    assertThat(hub.repositoriesUrl()).isEqualTo("https://new-catalogue/");
                 });
     }
 
@@ -122,7 +116,6 @@ class RegistryPropertiesTest {
             strings = {
                 "porthole.registry.dockerhub.registry-url= ",
                 "porthole.registry.dockerhub.auth-url= ",
-                "porthole.registry.dockerhub.repositories-url= ",
                 "porthole.registry.ghcr.registry-url= ",
                 "porthole.registry.ghcr.auth-url= ",
                 "porthole.registry.timeout.connect=0s",

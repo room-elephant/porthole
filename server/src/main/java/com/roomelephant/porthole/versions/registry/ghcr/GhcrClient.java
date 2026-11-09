@@ -32,6 +32,7 @@ public final class GhcrClient implements RegistryClient {
     public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
         URI first = URI.create(properties.registryUrl() + image.repository() + "/tags/list?n=100");
         return RegistryRequests.read(
+                "tags of ghcr.io/" + image.repository(),
                 () -> TagPagination.read(first, readTimeout, page -> distribution.readTagPage(image, page)));
     }
 

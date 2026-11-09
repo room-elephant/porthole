@@ -34,8 +34,7 @@ class MultipleDockerSourcesIT {
         docker(walker, "walker", "1.0", A);
         docker(mike, "mike", "2.0", B);
         registry.stubFor(get(urlPathEqualTo("/auth")).willReturn(okJson("{\"token\":\"test\"}")));
-        registry.stubFor(get(urlPathEqualTo("/v2/repositories/library/nginx/tags"))
-                .willReturn(okJson("{\"results\":[{\"name\":\"2.0\"}],\"next\":null}")));
+        registry.stubFor(get(urlPathEqualTo("/v2/library/nginx/tags/list")).willReturn(okJson("{\"tags\":[\"2.0\"]}")));
         for (String ref : List.of("latest", A, B))
             registry.stubFor(head(urlEqualTo("/v2/library/nginx/manifests/" + ref))
                     .willReturn(aResponse()
@@ -113,7 +112,7 @@ class MultipleDockerSourcesIT {
         });
         walker.verify(getRequestedFor(urlPathMatching("/(?:v[0-9.]+/)?images/image-walker/json")));
         mike.verify(getRequestedFor(urlPathMatching("/(?:v[0-9.]+/)?images/image-mike/json")));
-        registry.verify(1, getRequestedFor(urlPathEqualTo("/v2/repositories/library/nginx/tags")));
+        registry.verify(1, getRequestedFor(urlPathEqualTo("/v2/library/nginx/tags/list")));
     }
 
     @Test
