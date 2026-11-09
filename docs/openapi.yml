@@ -113,20 +113,16 @@ paths:
         content:
           application/merge-patch+json:
             schema:
-              type: object
+              $ref: "#/components/schemas/EntryPatch"
         required: true
       responses:
         "200":
           content:
-            '*/*':
+            application/json:
               schema:
                 $ref: "#/components/schemas/EntryResponse"
           description: Saved; returns the entry as the dashboard now shows it
         "204":
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/EntryResponse"
           description: Saved for a container no source currently lists
         "400":
           content:
@@ -327,12 +323,8 @@ components:
       description: A new link
       properties:
         icon:
-          description: "Icon choice: {\"library\": name} or {\"upload\": id from POST\
-            \ /api/icons}"
-          example:
-            library: router
           oneOf:
-          - $ref: "#/components/schemas/JsonNode"
+          - $ref: "#/components/schemas/IconChoice"
           - type: "null"
         name:
           type:
@@ -360,6 +352,15 @@ components:
           type: string
       required:
       - id
+    CustomEndpoint:
+      type: object
+      description: An address of your own
+      properties:
+        url:
+          type: string
+          description: Absolute HTTP(S) URL without credentials
+      required:
+      - url
     DashboardResponse:
       type: object
       description: "Every source's state and every entry, unfiltered"
@@ -379,6 +380,15 @@ components:
             $ref: "#/components/schemas/SourceState"
         versionChecks:
           $ref: "#/components/schemas/VersionChecksResponse"
+    DiscoveredEndpoint:
+      type: object
+      description: One of the container's discovered endpoints
+      properties:
+        id:
+          type: string
+          description: Candidate ID from the entry's endpoints
+      required:
+      - id
     EndpointResponse:
       type: object
       properties:
@@ -390,6 +400,36 @@ components:
           type: string
         url:
           type: string
+    EntryPatch:
+      type: object
+      description: JSON Merge Patch of an entry. A missing field is kept; null removes
+        the saved value.
+      properties:
+        endpoint:
+          description: Endpoint choice. A link needs a URL; a discovered candidate
+            or none is for containers.
+          oneOf:
+          - $ref: "#/components/schemas/DiscoveredEndpoint"
+          - $ref: "#/components/schemas/CustomEndpoint"
+          - type: string
+            description: The container has no web UI
+            enum:
+            - none
+          - type: "null"
+        icon:
+          oneOf:
+          - $ref: "#/components/schemas/IconChoice"
+          - type: "null"
+        name:
+          type:
+          - string
+          - "null"
+          description: "Name shown on the tile, 1–255 characters. Required for links."
+        stack:
+          type:
+          - string
+          - "null"
+          description: Stack the link belongs to; blank or null for none. Links only.
     EntryResponse:
       type: object
       description: "A container or link on the dashboard, with saved overrides applied"
@@ -430,19 +470,10 @@ components:
           - "null"
           description: "Compose project for a container, saved stack for a link"
     IconChoice:
-      type: object
-      description: Exactly one of library or upload
-      properties:
-        library:
-          type:
-          - string
-          - "null"
-          description: Dashboard Icons library name
-        upload:
-          type:
-          - string
-          - "null"
-          description: Uploaded icon ID
+      description: Icon choice
+      oneOf:
+      - $ref: "#/components/schemas/LibraryIcon"
+      - $ref: "#/components/schemas/UploadedIcon"
     IconResponse:
       type: object
       description: "The icon shown, and the saved choice when the user picked one"
@@ -457,68 +488,17 @@ components:
           - string
           - "null"
           description: Image URL; null for a link without an icon
-    JsonNode:
+    LibraryIcon:
       type: object
+      description: An icon from the icon library
+      example:
+        library: router
       properties:
-        array:
-          type: boolean
-        bigDecimal:
-          type: boolean
-        bigInteger:
-          type: boolean
-        binary:
-          type: boolean
-        boolean:
-          type: boolean
-        container:
-          type: boolean
-        double:
-          type: boolean
-        embeddedValue:
-          type: boolean
-        empty:
-          type: boolean
-        float:
-          type: boolean
-        floatingPointNumber:
-          type: boolean
-        int:
-          type: boolean
-        integralNumber:
-          type: boolean
-        long:
-          type: boolean
-        missingNode:
-          type: boolean
-        nodeType:
+        library:
           type: string
-          enum:
-          - ARRAY
-          - BINARY
-          - BOOLEAN
-          - MISSING
-          - "NULL"
-          - NUMBER
-          - OBJECT
-          - POJO
-          - STRING
-        "null":
-          type: boolean
-        number:
-          type: boolean
-        object:
-          type: boolean
-        pojo:
-          type: boolean
-        short:
-          type: boolean
-        string:
-          type: boolean
-        textual:
-          type: boolean
-          deprecated: true
-        valueNode:
-          type: boolean
+          description: Library icon name
+      required:
+      - library
     ProblemDetail:
       type: object
       properties:
@@ -605,6 +585,15 @@ components:
           - UP
           - DOWN
           - ERROR
+    UploadedIcon:
+      type: object
+      description: An uploaded icon
+      properties:
+        upload:
+          type: string
+          description: ID returned by POST /api/icons
+      required:
+      - upload
     VersionChecksResponse:
       type: object
       description: Manual version checks started with POST /api/version-checks
