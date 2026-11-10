@@ -274,7 +274,7 @@
                 </dependency>
             </dependencies>
             <properties>
-                <springdoc-maven-plugin.version>1.5</springdoc-maven-plugin.version>
+                <springdoc-maven-plugin.version>1.6</springdoc-maven-plugin.version>
                 <openapi.port>19753</openapi.port>
                 <openapi.jmx-port>19754</openapi.jmx-port>
                 <jacoco.skip>true</jacoco.skip>
