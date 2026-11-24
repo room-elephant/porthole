@@ -23,7 +23,7 @@
         <jacoco.version>0.8.16</jacoco.version>
         <spotless.version>3.10.4</spotless.version>
         <springdoc.version>3.2.0</springdoc.version>
-        <swagger-annotations.version>2.2.55</swagger-annotations.version>
+        <swagger-annotations.version>2.2.56</swagger-annotations.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <testcontainers-junit.version>1.21.4</testcontainers-junit.version>
         <wiremock.version>3.13.2</wiremock.version>
