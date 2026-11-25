@@ -111,4 +111,6 @@ See [CI/CD Pipelines](docs/ARCHITECTURE.md#cicd-pipelines). Three path-filtered 
 
 Key point: a feature can pass all JVM tests and still fail native — GraalVM AOT issues only surface when the ITs run against the native binary.
 
+**A PR that changes Java under `server/` carries a fresh Code City picture.** Run `docs/architecture/codecity.sh` before opening it and commit `docs/architecture/generated/codecity.jpg`; `docs/ARCHITECTURE.md` shows it. The script needs macOS, Chrome and Python 3.10+, so CI does not run it.
+
 When creating PRs, apply labels from `.github/release.yml` so the release changelog is generated correctly: `feature`/`enhancement`, `fix`/`bug`, `chore`/`test`/`refactor`, `documentation`/`docs`, `dependencies`, or `ignore-for-release`.
