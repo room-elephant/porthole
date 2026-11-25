@@ -67,7 +67,7 @@ The server is split into feature slices: `fleet/`, `endpoints/`, `versions/`, `e
 - A slice's root package never imports its own adapters, Docker SDK types, servlet types or HTTP clients.
 - A `web` package never imports another slice's adapters.
 
-`C3ArchTest` checks `docs/architecture/c4model.c3.dsl` against the same code: every package belongs to a component and the drawn arrows are exactly the code's dependencies between slices. A new dependency between slices, or a new top-level package, means editing that file. The test rewrites `docs/architecture/generated/c4views/` and fails when it wrote anything; commit what it wrote and run it again. See [docs/architecture/README.md](docs/architecture/README.md).
+`C3ArchTest` checks `docs/architecture/c4model.c3.dsl` against the same code: every package belongs to a component and the drawn arrows are exactly the code's dependencies between slices. A new dependency between slices, or a new top-level package, means editing that file; a new package inside a slice, or a new dependency between a slice's packages, means editing that slice's `docs/architecture/<slice>-packages.puml`, which `PackagesArchTest` checks. `C3ArchTest` rewrites `docs/architecture/generated/c4views/` and fails when it wrote anything; commit what it wrote and run it again. See [docs/architecture/README.md](docs/architecture/README.md).
 
 ### Sources and the dashboard
 

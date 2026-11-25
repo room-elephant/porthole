@@ -12,6 +12,18 @@ Structurizr DSL, split by how often it changes:
   and the dependencies between them. Each component carries a `pkg:<pattern>` tag naming the packages it holds. This
   is the file that changes when slices or their dependencies do.
 
+Package diagrams, one per slice that has adapters, each checked against the code by `PackagesArchTest`:
+- [`fleet-packages.puml`](fleet-packages.puml), [`versions-packages.puml`](versions-packages.puml),
+  [`entries-packages.puml`](entries-packages.puml) and [`dashboard-packages.puml`](dashboard-packages.puml): the
+  slice's root package and its direct subpackages, and the dependencies between them.
+- [`versions-registry-packages.puml`](versions-registry-packages.puml): the same, one level down, for
+  `versions.registry`.
+
+Each box's hidden stereotype is the package pattern ArchUnit reads (`<<..porthole.fleet.docker..>>`, a package and
+its subpackages; `<<..porthole.fleet>>`, the root alone). A cycle is drawn as one red line with a head at each end,
+`[a] <-[#C62828]-> [b]`, which ArchUnit cannot read, backed by `[a] -[hidden]-> [b]` and `[b] -[hidden]-> [a]`,
+which it reads as the two dependencies. `versions-registry-packages.puml` has three.
+
 Open `c4model.c1+c2.dsl` in [structurizr.com/dsl](https://structurizr.com/dsl) or the Structurizr CLI for an
 interactive view.
 
@@ -31,6 +43,16 @@ PR that changes Java, since it needs macOS, Chrome and Python 3.10+; see "Code C
 - the DSL does not parse (the message is Structurizr's own, with the line);
 - a generated view had to be written again.
 
+`PackagesArchTest`, in the same folder, checks each package diagram against the code. It fails when:
+- a class in the slice depends on one in another box and the diagram has no arrow for it (ArchUnit's
+  `adhereToPlantUmlDiagram`);
+- the diagram's boxes are not exactly the slice's direct subpackages, plus its root package when that holds classes;
+- the diagram draws an arrow that no class dependency backs;
+- its SVG in `generated/` had to be rendered again.
+
+Both tests read compiled classes, so a package left in `server/target/classes` by another branch shows up as one
+that belongs to no component; `mvn clean` removes it.
+
 `ArchitectureTest` is separate: it says which dependencies are allowed at all, and how a slice's root relates to its
 adapters. The DSL draws the dependencies that exist.
 
@@ -39,6 +61,8 @@ adapters. The DSL draws the dependencies that exist.
 - [`generated/c4views/`](generated/c4views/): one `.puml` and one `.svg` per view: `C1-Context`, `C2-Containers` and
   `C3-Server-Components`. Written by `C3ArchTest`, which exports the parsed workspace with Structurizr's
   `C4PlantUMLExporter`. A view that no longer exists has its files removed, and the run fails.
+- `generated/<slice>-packages.svg`: the package diagrams, rendered by `PackagesArchTest` from the hand-written
+  sources above.
 - [`generated/codecity.jpg`](generated/codecity.jpg): the Code City, a screenshot taken by `codecity.sh`. No test
   writes or checks it; the script's other files stay in the gitignored `.codecity/`.
 
@@ -52,3 +76,6 @@ SVGs; to re-render them all, delete `generated/c4views/*.svg` and run `C3ArchTes
 1. Edit the DSL: `c4model.c3.dsl` for a slice or a dependency between slices, `c4model.c1+c2.dsl` for anything else.
 2. `make -C server test-one TEST=C3ArchTest`
 3. Commit what it rewrote, and run it again: the second run passes and writes nothing.
+
+A new package inside a slice, or a new dependency between two of a slice's packages, is the same loop with
+`PackagesArchTest`: edit the slice's `.puml` by hand, and it renders the SVG.

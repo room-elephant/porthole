@@ -26,6 +26,18 @@ The browser application and the server are separate containers because their cod
 
 One component per feature slice; see [Server Package Layout](#server-package-layout) for what each holds. Arrows into `shared` are not drawn, since every slice may use it. `C3ArchTest` checks this view against the code: every package must belong to a component, and the arrows between components must be exactly the code's dependencies, no more and no fewer. Which dependencies are *allowed* is [ArchitectureTest's](#dependency-boundaries) job; this view draws the ones that exist.
 
+### Packages inside the slices
+
+One diagram per slice that has adapters, and one for `versions.registry`, which has packages of its own. A box is a package and its subpackages; `..fleet` alone is the slice's root package. `PackagesArchTest` fails when the code has a dependency between two boxes that the diagram does not draw, when a drawn arrow has no dependency behind it, or when the boxes are not the slice's packages. Dependencies on other slices are in the view above.
+
+| Fleet | Versions | Entries | Dashboard |
+|---|---|---|---|
+| ![Fleet packages](architecture/generated/fleet-packages.svg) | ![Versions packages](architecture/generated/versions-packages.svg) | ![Entries packages](architecture/generated/entries-packages.svg) | ![Dashboard packages](architecture/generated/dashboard-packages.svg) |
+
+![Registry packages](architecture/generated/versions-registry-packages.svg)
+
+Adapters point at their slice's root, and no root depends on its own adapters. `versions.registry` is the exception: its root package and each of `distribution`, `dockerhub` and `ghcr` depend on each other, drawn as red two-headed lines. The providers implement the root's `RegistryClient` and use its `TagPagination` and `RegistryRequests`, while the root's `RegistryConfiguration` constructs them. `DistributionClient` uses `TagPagination`, `TagPage` and `RegistryRequests`, which throw and catch `distribution.RegistryProtocolException`. `ArchitectureTest` forbids cycles only between slices.
+
 ## Tech Stack
 
 ### Backend
