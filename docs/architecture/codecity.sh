@@ -48,6 +48,9 @@ chrome=${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}
 [ -x "$chrome" ] || fail "Chrome was not found at $chrome; install Google Chrome or set CHROME to its executable."
 
 # The pinned tool: cloned once, reused, and moved back to the pin if it was left elsewhere.
+if [ -e "$tool" ] && [ ! -d "$tool/.git" ]; then
+	fail "${tool#"$root"/} exists but is not a clone of the tool; remove it (rm -rf .codecity/tool) and run again."
+fi
 if [ ! -d "$tool/.git" ]; then
 	echo "codecity: cloning the Code City tool at $pin into .codecity/tool."
 	git clone --quiet "$tool_url" "$tool"
