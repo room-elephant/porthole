@@ -29,6 +29,7 @@ configuration and environment variables, the image and its entrypoint. Say what 
 <!-- What was run, with its counts, and what proves the change rather than a green run: a test seen failing before the
 fix, a run in `make lab`. Say what was not run, and why. -->
 - Server, `mvn verify` (coverage gates): 
+- Architecture and diagrams, `make -C server arch`: 
 - Integration tests, `make server-it`: 
 - Client, `make -C client lint test`: 
 - Native: 

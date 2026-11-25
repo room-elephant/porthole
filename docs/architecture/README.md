@@ -36,7 +36,12 @@ PR that changes Java, since it needs macOS, Chrome and Python 3.10+; see "Code C
 
 ## What checks them
 
-`C3ArchTest` (`server/src/test/java/com/roomelephant/porthole/`) runs with the unit tests. It fails when:
+`C3ArchTest`, `PackagesArchTest` and `ArchitectureTest` (`server/src/test/java/com/roomelephant/porthole/`) run on
+their own, not with the unit tests: `make -C server arch` locally, and the "Check architecture and diagrams" step in
+CI, which runs before the unit tests. `make test` leaves them out (Surefire excludes them in `server/pom.xml`; naming
+them with `-Dtest` overrides that).
+
+`C3ArchTest` fails when:
 - a production package matches no component's `pkg:` tag, or a component has no `pkg:` tag;
 - a `pkg:` pattern matches no production package;
 - the code has a dependency between two components that the DSL does not draw, or the DSL draws an arrow the code
@@ -78,7 +83,7 @@ SVGs; to re-render them all, delete `generated/c4views/*.svg` and run `C3ArchTes
 ## Maintaining
 
 1. Edit the DSL: `c4model.c3.dsl` for a slice or a dependency between slices, `c4model.c1+c2.dsl` for anything else.
-2. `make -C server test-one TEST=C3ArchTest`
+2. `make -C server arch`
 3. Commit what it rewrote, and run it again: the second run passes and writes nothing.
 
 A new package, or a new dependency between two packages, is the same loop with `PackagesArchTest`: edit

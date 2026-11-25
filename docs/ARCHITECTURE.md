@@ -6,7 +6,7 @@ Porthole is designed as a monolithic, single-artifact application for simplicity
 
 ## Views
 
-The views follow the [C4 model](https://c4model.com/diagrams): system context, containers and the server's components. They are [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) pictures exported from a [Structurizr DSL](https://docs.structurizr.com/dsl) model: [`c4model.c1+c2.dsl`](architecture/c4model.c1+c2.dsl) holds the people, systems, containers and every view, and includes [`c4model.c3.dsl`](architecture/c4model.c3.dsl) for the server's components. Each picture is a committed SVG; see [architecture/README.md](architecture/README.md) for how they are generated and checked.
+The views follow the [C4 model](https://c4model.com/diagrams): system context, containers and the server's components. They are [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) pictures exported from a [Structurizr DSL](https://docs.structurizr.com/dsl) model: [`c4model.c1+c2.dsl`](architecture/c4model.c1+c2.dsl) holds the people, systems, containers and every view, and includes [`c4model.c3.dsl`](architecture/c4model.c3.dsl) for the server's components. Each picture is a committed SVG; see [architecture/README.md](architecture/README.md) for how they are generated and checked. The tests that check them run on their own, with `make -C server arch` and in CI's "Check architecture and diagrams" step, not with `make test`.
 
 ### System context
 

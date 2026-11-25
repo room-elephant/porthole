@@ -37,6 +37,10 @@ jobs:
         working-directory: server
         run: make build
 
+      - name: Check architecture and diagrams
+        working-directory: server
+        run: make arch
+
       - name: Run unit tests
         working-directory: server
         run: make test

@@ -168,6 +168,20 @@
                 <version>${maven-compiler-plugin.version}</version>
             </plugin>
             <plugin>
+                <!-- The architecture tests check the code against docs/architecture and run on their own, in
+                     `make -C server arch` and CI's "Check architecture and diagrams" step. Naming them with -Dtest
+                     overrides these excludes, so `make arch` and `make test-one` still run them. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/ArchitectureTest.java</exclude>
+                        <exclude>**/C3ArchTest.java</exclude>
+                        <exclude>**/PackagesArchTest.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
