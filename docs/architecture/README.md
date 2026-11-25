@@ -37,8 +37,9 @@ PR that changes Java, since it needs macOS, Chrome and Python 3.10+; see "Code C
 ## What checks them
 
 `C3ArchTest`, `PackagesArchTest` and `ArchitectureTest` (`server/src/test/java/com/roomelephant/porthole/`) run on
-their own, not with the unit tests: `make -C server arch` locally, and the "Check architecture and diagrams" step in
-CI, which runs before the unit tests. `make test` leaves them out (Surefire excludes them in `server/pom.xml`; naming
+their own, not with the unit tests: `make -C server arch` locally, and the "Check architecture and diagrams" step at
+the end of server CI, which runs even when an earlier test step failed and publishes an "Architecture Test Results"
+check. `make test` leaves them out (Surefire excludes them in `server/pom.xml`; naming
 them with `-Dtest` overrides that).
 
 `C3ArchTest` fails when:

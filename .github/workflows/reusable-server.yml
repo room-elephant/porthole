@@ -37,10 +37,6 @@ jobs:
         working-directory: server
         run: make build
 
-      - name: Check architecture and diagrams
-        working-directory: server
-        run: make arch
-
       - name: Run unit tests
         working-directory: server
         run: make test
@@ -90,4 +86,17 @@ jobs:
         with:
           files: server/target/failsafe-reports/TEST-*.xml
           check_name: Integration Test Results
+          comment_mode: off
+
+      - name: Check architecture and diagrams
+        if: ${{ !cancelled() }}
+        working-directory: server
+        run: make arch
+
+      - name: Generate architecture test results
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action@7622c5bf3d112a72ab4fa3951c2aa5723d8ab92d # v2
+        with:
+          files: server/target/surefire-reports/TEST-com.roomelephant.porthole.*Arch*Test.xml
+          check_name: Architecture Test Results
           comment_mode: off
