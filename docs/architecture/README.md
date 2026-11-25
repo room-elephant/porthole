@@ -12,7 +12,10 @@ Structurizr DSL, split by how often it changes:
   and the dependencies between them. Each component carries a `pkg:<pattern>` tag naming the packages it holds. This
   is the file that changes when slices or their dependencies do.
 
-Package diagrams, one per slice that has adapters, each checked against the code by `PackagesArchTest`:
+Package diagrams, each checked against the code by `PackagesArchTest`:
+- [`packages.puml`](packages.puml): every production package, one box each (`<<..porthole.fleet.docker>>`, with no
+  trailing `..`, so no class is in two boxes), grouped in a frame per slice, with every dependency between packages
+  except those on `shared`.
 - [`fleet-packages.puml`](fleet-packages.puml), [`versions-packages.puml`](versions-packages.puml),
   [`entries-packages.puml`](entries-packages.puml) and [`dashboard-packages.puml`](dashboard-packages.puml): the
   slice's root package and its direct subpackages, and the dependencies between them.
@@ -46,7 +49,8 @@ PR that changes Java, since it needs macOS, Chrome and Python 3.10+; see "Code C
 `PackagesArchTest`, in the same folder, checks each package diagram against the code. It fails when:
 - a class in the slice depends on one in another box and the diagram has no arrow for it (ArchUnit's
   `adhereToPlantUmlDiagram`);
-- the diagram's boxes are not exactly the slice's direct subpackages, plus its root package when that holds classes;
+- the diagram's boxes are not exactly the slice's direct subpackages, plus its root package when that holds classes,
+  or, for `packages.puml`, not exactly every production package;
 - the diagram draws an arrow that no class dependency backs;
 - its SVG in `generated/` had to be rendered again.
 
@@ -61,7 +65,7 @@ adapters. The DSL draws the dependencies that exist.
 - [`generated/c4views/`](generated/c4views/): one `.puml` and one `.svg` per view: `C1-Context`, `C2-Containers` and
   `C3-Server-Components`. Written by `C3ArchTest`, which exports the parsed workspace with Structurizr's
   `C4PlantUMLExporter`. A view that no longer exists has its files removed, and the run fails.
-- `generated/<slice>-packages.svg`: the package diagrams, rendered by `PackagesArchTest` from the hand-written
+- `generated/packages.svg` and `generated/<slice>-packages.svg`: the package diagrams, rendered by `PackagesArchTest` from the hand-written
   sources above.
 - [`generated/codecity.jpg`](generated/codecity.jpg): the Code City, a screenshot taken by `codecity.sh`. No test
   writes or checks it; the script's other files stay in the gitignored `.codecity/`.
@@ -77,5 +81,6 @@ SVGs; to re-render them all, delete `generated/c4views/*.svg` and run `C3ArchTes
 2. `make -C server test-one TEST=C3ArchTest`
 3. Commit what it rewrote, and run it again: the second run passes and writes nothing.
 
-A new package inside a slice, or a new dependency between two of a slice's packages, is the same loop with
-`PackagesArchTest`: edit the slice's `.puml` by hand, and it renders the SVG.
+A new package, or a new dependency between two packages, is the same loop with `PackagesArchTest`: edit
+`packages.puml`, and the slice's `<slice>-packages.puml` when the change is inside one slice, by hand; it renders the
+SVGs.

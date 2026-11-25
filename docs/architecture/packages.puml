@@ -1,0 +1,110 @@
+@startuml
+
+title Porthole packages
+caption All packages and their dependencies are [[https://www.archunit.org/{What is ArchUnit?} ArchUnit]]-tested against the code
+footer docs/architecture/packages.puml
+
+skinparam shadowing false
+skinparam hyperlinkColor #1A4FA0
+skinparam componentStyle rectangle
+skinparam nodesep 25
+skinparam ranksep 40
+' the box label is the package name, and ArchUnit reads the package from the stereotype;
+' the stereotype is hidden so the package is not printed twice
+hide stereotype
+<style>
+component {
+  BackGroundColor #ECEFF1
+  LineColor #546E7A
+}
+package {
+  LineColor #90A4AE
+  FontColor #546E7A
+}
+arrow {
+  LineColor #78909C
+}
+</style>
+
+' Every production package, one box each, grouped by slice; a box is that package alone (<<..porthole.fleet.docker>>,
+' no trailing ..), so no class sits in two boxes. An arrow is a dependency the code has: PackagesArchTest fails on one
+' the code has and this file does not draw, and on one drawn here that the code lacks. Dependencies on shared are not
+' drawn, since every slice may use it; an arrow out of shared would be. A cycle is one red line with a head at each
+' end, which ArchUnit cannot read, backed by two hidden arrows, which it reads as the two dependencies.
+
+[porthole] <<..porthole>>
+
+package "dashboard" as dashboard_slice {
+  [dashboard] <<..porthole.dashboard>>
+  [dashboard.web] <<..porthole.dashboard.web>>
+}
+
+package "endpoints" as endpoints_slice {
+  [endpoints] <<..porthole.endpoints>>
+}
+
+package "versions" as versions_slice {
+  [versions] <<..porthole.versions>>
+  [versions.web] <<..porthole.versions.web>>
+  [versions.registry] <<..porthole.versions.registry>>
+  [versions.registry.distribution] <<..porthole.versions.registry.distribution>>
+  [versions.registry.dockerhub] <<..porthole.versions.registry.dockerhub>>
+  [versions.registry.ghcr] <<..porthole.versions.registry.ghcr>>
+}
+
+package "entries" as entries_slice {
+  [entries] <<..porthole.entries>>
+  [entries.icons] <<..porthole.entries.icons>>
+  [entries.store] <<..porthole.entries.store>>
+  [entries.web] <<..porthole.entries.web>>
+}
+
+package "fleet" as fleet_slice {
+  [fleet] <<..porthole.fleet>>
+  [fleet.docker] <<..porthole.fleet.docker>>
+  [fleet.web] <<..porthole.fleet.web>>
+}
+
+package "shared" as shared_slice {
+  [shared] <<..porthole.shared>>
+  [shared.web] <<..porthole.shared.web>>
+}
+
+package "nativehints" as nativehints_slice {
+  [nativehints] <<..porthole.nativehints>>
+}
+
+[dashboard] --> [endpoints]
+[dashboard] --> [entries]
+[dashboard] --> [fleet]
+[dashboard] --> [versions]
+[dashboard.web] --> [dashboard]
+[dashboard.web] --> [entries]
+[dashboard.web] --> [fleet]
+[dashboard.web] --> [versions]
+[entries] --> [fleet]
+[entries.icons] --> [entries]
+[entries.store] --> [entries]
+[entries.web] --> [entries]
+[fleet.docker] --> [fleet]
+[fleet.web] --> [fleet]
+[versions] --> [fleet]
+[versions.registry] --> [versions]
+[versions.registry.distribution] --> [versions]
+[versions.registry.dockerhub] --> [versions]
+[versions.registry.dockerhub] --> [versions.registry.distribution]
+[versions.registry.ghcr] --> [versions]
+[versions.registry.ghcr] --> [versions.registry.distribution]
+[versions.web] --> [versions]
+
+[versions.registry] <-[#C62828]-> [versions.registry.distribution]
+[versions.registry] -[hidden]-> [versions.registry.distribution]
+[versions.registry.distribution] -[hidden]-> [versions.registry]
+[versions.registry] <-[#C62828]-> [versions.registry.dockerhub]
+[versions.registry] -[hidden]-> [versions.registry.dockerhub]
+[versions.registry.dockerhub] -[hidden]-> [versions.registry]
+[versions.registry] <-[#C62828]-> [versions.registry.ghcr]
+[versions.registry] -[hidden]-> [versions.registry.ghcr]
+[versions.registry.ghcr] -[hidden]-> [versions.registry]
+
+@enduml

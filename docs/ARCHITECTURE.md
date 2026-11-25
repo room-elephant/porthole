@@ -26,6 +26,12 @@ The browser application and the server are separate containers because their cod
 
 One component per feature slice; see [Server Package Layout](#server-package-layout) for what each holds. Arrows into `shared` are not drawn, since every slice may use it. `C3ArchTest` checks this view against the code: every package must belong to a component, and the arrows between components must be exactly the code's dependencies, no more and no fewer. Which dependencies are *allowed* is [ArchitectureTest's](#dependency-boundaries) job; this view draws the ones that exist.
 
+### All packages
+
+![Every Porthole package and the dependencies between them](architecture/generated/packages.svg)
+
+Every production package, grouped by slice, with every dependency between packages except those on `shared`, which every slice may use. `PackagesArchTest` checks it like the diagrams below: an undrawn dependency, a drawn arrow without one, or a package missing from the picture fails the build.
+
 ### Packages inside the slices
 
 One diagram per slice that has adapters, and one for `versions.registry`, which has packages of its own. A box is a package and its subpackages; `..fleet` alone is the slice's root package. `PackagesArchTest` fails when the code has a dependency between two boxes that the diagram does not draw, when a drawn arrow has no dependency behind it, or when the boxes are not the slice's packages. Dependencies on other slices are in the view above.

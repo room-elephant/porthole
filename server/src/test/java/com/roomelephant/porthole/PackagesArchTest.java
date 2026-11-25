@@ -1,5 +1,6 @@
 package com.roomelephant.porthole;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.library.plantuml.rules.PlantUmlArchCondition.Configuration.consideringOnlyDependenciesInAnyPackage;
 import static com.tngtech.archunit.library.plantuml.rules.PlantUmlArchCondition.adhereToPlantUmlDiagram;
@@ -23,8 +24,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
- * The packages inside each slice that has adapters, one diagram per slice (and one for {@code versions.registry}),
- * match the code: ArchUnit fails a dependency the diagram does not draw, the boxes must be the slice's packages, and
+ * The package diagrams match the code: {@code packages.puml} draws every production package, grouped by slice, and one
+ * diagram per slice that has adapters (and one for {@code versions.registry}) draws the packages inside it. For each, ArchUnit fails a dependency the diagram does not draw, the boxes must be the slice's packages, and
  * every arrow drawn must be a dependency the code has. Each diagram is rendered to {@code docs/architecture/generated/}.
  * Dependencies between slices are {@link C3ArchTest}'s.
  */
@@ -48,6 +49,7 @@ class PackagesArchTest {
             Pattern.compile("^\\s*\\[([^\\[\\]]+)]\\s+<-*" + CENTER + "-+\\s+\\[([^\\[\\]]+)]");
 
     enum Diagram {
+        ALL("packages", ""),
         FLEET("fleet-packages", "fleet"),
         VERSIONS("versions-packages", "versions"),
         REGISTRY("versions-registry-packages", "versions.registry"),
@@ -66,12 +68,17 @@ class PackagesArchTest {
             return SOURCES + name + ".puml";
         }
 
+        /** The whole code, one box per package, rather than one slice's direct subpackages. */
+        boolean whole() {
+            return layer.isEmpty();
+        }
+
         String layerPackage() {
-            return BASE + "." + layer;
+            return whole() ? BASE : BASE + "." + layer;
         }
 
         String layerPattern() {
-            return "..porthole." + layer + "..";
+            return whole() ? "..porthole.." : "..porthole." + layer + "..";
         }
     }
 
@@ -86,7 +93,8 @@ class PackagesArchTest {
 
     /**
      * ArchUnit's rule, over the layer's classes only: a class outside every box (another slice calling this one) would
-     * otherwise be reported as contained in no component.
+     * otherwise be reported as contained in no component. Dependencies on {@code shared} are not drawn, since every
+     * slice may use it.
      */
     @ParameterizedTest
     @EnumSource(Diagram.class)
@@ -95,8 +103,9 @@ class PackagesArchTest {
                 .that()
                 .resideInAPackage(diagram.layerPattern())
                 .should(adhereToPlantUmlDiagram(
-                        GeneratedDiagrams.projectRoot().resolve(diagram.source()),
-                        consideringOnlyDependenciesInAnyPackage(diagram.layerPattern())))
+                                GeneratedDiagrams.projectRoot().resolve(diagram.source()),
+                                consideringOnlyDependenciesInAnyPackage(diagram.layerPattern()))
+                        .ignoreDependenciesWithTarget(resideInAPackage("..porthole.shared..")))
                 .check(classes);
     }
 
@@ -115,7 +124,9 @@ class PackagesArchTest {
         var expected = new TreeSet<String>();
         for (JavaClass type : classes) {
             var pkg = type.getPackageName();
-            if (pkg.equals(layer)) {
+            if (diagram.whole()) {
+                expected.add(pkg.equals(BASE) ? "..porthole" : "..porthole" + pkg.substring(BASE.length()));
+            } else if (pkg.equals(layer)) {
                 expected.add("..porthole." + diagram.layer);
             } else if (pkg.startsWith(layer + ".")) {
                 var child = pkg.substring(layer.length() + 1).split("\\.")[0];
@@ -123,6 +134,14 @@ class PackagesArchTest {
             }
         }
 
+        if (diagram.whole()) {
+            assertThat(drawn)
+                    .as(
+                            "The stereotypes in %s must be every production package, one <<..porthole.<package>>> each",
+                            diagram.source())
+                    .isEqualTo(expected);
+            return;
+        }
         assertThat(drawn)
                 .as(
                         "The stereotypes in %s must be the packages of %s: one <<..porthole.%s.<name>..>> per direct "
