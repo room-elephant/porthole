@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ public class IconSweeper implements AutoCloseable {
     private final IconService icons;
     private final EntriesProperties properties;
     private final Clock clock;
+    private final Supplier<ScheduledExecutorService> schedulers;
     private @Nullable ScheduledExecutorService scheduler;
     private boolean closed;
 
@@ -33,17 +35,31 @@ public class IconSweeper implements AutoCloseable {
     }
 
     IconSweeper(EntryService entries, IconService icons, EntriesProperties properties, Clock clock) {
+        this(entries, icons, properties, clock, IconSweeper::newScheduler);
+    }
+
+    IconSweeper(
+            EntryService entries,
+            IconService icons,
+            EntriesProperties properties,
+            Clock clock,
+            Supplier<ScheduledExecutorService> schedulers) {
         this.entries = entries;
         this.icons = icons;
         this.properties = properties;
         this.clock = clock;
+        this.schedulers = schedulers;
+    }
+
+    static ScheduledExecutorService newScheduler() {
+        return Executors.newSingleThreadScheduledExecutor(
+                Thread.ofPlatform().daemon().name("icon-sweep").factory());
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public synchronized void start() {
         if (scheduler != null || closed) return;
-        ScheduledExecutorService started = Executors.newSingleThreadScheduledExecutor(
-                Thread.ofPlatform().daemon().name("icon-sweep").factory());
+        ScheduledExecutorService started = schedulers.get();
         long interval = properties.iconSweepInterval().toNanos();
         started.scheduleWithFixedDelay(this::sweep, 0, interval, TimeUnit.NANOSECONDS);
         scheduler = started;

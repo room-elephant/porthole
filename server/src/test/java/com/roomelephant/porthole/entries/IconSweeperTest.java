@@ -3,7 +3,10 @@ package com.roomelephant.porthole.entries;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
@@ -14,8 +17,12 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 
 class IconSweeperTest {
     private static final EntriesProperties PROPERTIES =
@@ -59,20 +66,47 @@ class IconSweeperTest {
     }
 
     @Test
-    void startSchedulesAndCloseStops() throws Exception {
+    void startSchedulesAnImmediateSweepOnTheIntervalAndCloseStops() {
         IconService icons = mock(IconService.class);
         EntryService entries = mock(EntryService.class);
         when(entries.state()).thenReturn(EntryState.EMPTY);
-        when(icons.sweep(Set.of(), clock.instant(), Duration.ofHours(1))).thenReturn(0);
-        IconSweeper sweeper = new IconSweeper(entries, icons, PROPERTIES, clock);
+        ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+        AtomicInteger created = new AtomicInteger();
+        IconSweeper sweeper = new IconSweeper(entries, icons, PROPERTIES, clock, () -> {
+            created.incrementAndGet();
+            return scheduler;
+        });
 
         sweeper.start();
         sweeper.start();
-        org.mockito.Mockito.verify(icons, org.mockito.Mockito.timeout(2000).times(1))
-                .sweep(Set.of(), clock.instant(), Duration.ofHours(1));
+
+        assertThat(created).hasValue(1);
+        ArgumentCaptor<Runnable> task = ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler)
+                .scheduleWithFixedDelay(
+                        task.capture(), eq(0L), eq(Duration.ofMinutes(15).toNanos()), eq(TimeUnit.NANOSECONDS));
+        task.getValue().run();
+        verify(icons).sweep(Set.of(), clock.instant(), Duration.ofHours(1));
+
         sweeper.close();
         sweeper.close();
         sweeper.start();
+
+        verify(scheduler, times(2)).shutdownNow();
+        assertThat(created).hasValue(1);
+    }
+
+    @Test
+    void newSchedulerRunsOnADaemonThread() throws Exception {
+        ScheduledExecutorService scheduler = IconSweeper.newScheduler();
+        try {
+            Thread thread = scheduler.submit(Thread::currentThread).get(10, TimeUnit.SECONDS);
+
+            assertThat(thread.isDaemon()).isTrue();
+            assertThat(thread.getName()).isEqualTo("icon-sweep");
+        } finally {
+            scheduler.shutdownNow();
+        }
     }
 
     @Test
