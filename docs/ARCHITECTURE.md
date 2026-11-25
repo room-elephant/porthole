@@ -4,6 +4,28 @@
 
 Porthole is designed as a monolithic, single-artifact application for simplicity of deployment.
 
+## Views
+
+The views follow the [C4 model](https://c4model.com/diagrams): system context, containers and the server's components. They are [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) pictures exported from a [Structurizr DSL](https://docs.structurizr.com/dsl) model: [`c4model.c1+c2.dsl`](architecture/c4model.c1+c2.dsl) holds the people, systems, containers and every view, and includes [`c4model.c3.dsl`](architecture/c4model.c3.dsl) for the server's components. Each picture is a committed SVG; see [architecture/README.md](architecture/README.md) for how they are generated and checked.
+
+### System context
+
+![C4 system context diagram for Porthole](architecture/generated/c4views/C1-Context.svg)
+
+The owner opens Porthole to find their containers and opens each container's page directly, on a published port or through a reverse proxy; Porthole never proxies that traffic. Porthole reads every configured Docker host, asks Docker Hub and GHCR for newer tags, and points the browser at default icons on jsDelivr.
+
+### Containers
+
+![C4 container diagram for Porthole](architecture/generated/c4views/C2-Containers.svg)
+
+The browser application and the server are separate containers because their code runs in different places, but they ship as one artifact: the server serves the built client as static resources. The data directory is the only thing the server writes.
+
+### Server components
+
+![C4 component diagram for the Porthole application server](architecture/generated/c4views/C3-Server-Components.svg)
+
+One component per feature slice; see [Server Package Layout](#server-package-layout) for what each holds. Arrows into `shared` are not drawn, since every slice may use it. `C3ArchTest` checks this view against the code: every package must belong to a component, and the arrows between components must be exactly the code's dependencies, no more and no fewer. Which dependencies are *allowed* is [ArchitectureTest's](#dependency-boundaries) job; this view draws the ones that exist.
+
 ## Tech Stack
 
 ### Backend
@@ -313,7 +335,7 @@ The browser keeps one `['dashboard']` query. After a successful PATCH, a dashboa
 ├── client/             # React frontend (Vite + React 19)
 ├── server/             # Spring Boot backend (Java 25)
 ├── docker/             # Docker configuration (see docker/README.md)
-└── docs/               # Documentation
+└── docs/               # Documentation; architecture/ holds the C4 model and generated views
 ```
 
 ## Server Package Layout
@@ -347,7 +369,7 @@ fleet     ──→ (no slice)
 every slice may use shared; shared and nativehints use no slice
 ```
 
-`ArchitectureTest` checks these rules against production bytecode with ArchUnit:
+These are the dependencies allowed, not all used: `endpoints` currently uses no slice. The [server components view](#server-components) draws the ones the code has. `ArchitectureTest` checks these rules against production bytecode with ArchUnit:
 
 - Slices have no cycles, and nothing depends on `dashboard`.
 - `dashboard` reaches other slices only through their root packages.

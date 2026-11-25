@@ -1,0 +1,65 @@
+@startuml
+title <size:24>Component View: Porthole - Application server</size>\n<size:24>The feature slices and what each one reaches outside the server</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+AddElementTag("Component", $bgColor="#85bbf0", $borderColor="#5d82a8", $fontColor="#000000", $sprite="", $shadowing="", $borderStyle="solid")
+AddElementTag("Container,Database", $bgColor="#438dd5", $borderColor="#2e6295", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+AddElementTag("Container", $bgColor="#438dd5", $borderColor="#2e6295", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+AddElementTag("Software System,External", $bgColor="#999999", $borderColor="#6b6b6b", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+AddBoundaryTag("Container", $bgColor="#ffffff", $borderColor="#2e6295", $fontColor="#2e6295", $shadowing="", $borderStyle="solid")
+
+System(DockerEngines, "Docker Engines", $descr="One or more Docker daemons, each a configured source, reached by socket or TCP", $tags="Software System,External", $link="")
+System(DockerHub, "Docker Hub", $descr="Image tags and manifests", $tags="Software System,External", $link="")
+System(GitHubContainerRegistry, "GitHub Container Registry", $descr="Image tags and manifests of public packages", $tags="Software System,External", $link="")
+
+System_Boundary("Porthole_boundary", "Porthole", $tags="Software System") {
+  Container_Boundary("Porthole.Applicationserver_boundary", "Application server", $tags="Container") {
+    Component(Porthole.Applicationserver.Fleet, "Fleet", $techn="Java; docker-java adapter", $descr="Configured sources, one SourceMonitor each polling and following events, snapshots kept in memory; GET /api/sources", $tags="Component", $link="")
+    Component(Porthole.Applicationserver.Endpoints, "Endpoints", $techn="Java", $descr="Traefik and published-port providers, candidates and automatic selection", $tags="Component", $link="")
+    Component(Porthole.Applicationserver.Versions, "Versions", $techn="Java; registry v2 HTTP clients", $descr="Background version checks from snapshots, their cache, and the Docker Hub and GHCR clients; POST /api/version-checks", $tags="Component", $link="")
+    Component(Porthole.Applicationserver.Entries, "Entries", $techn="Java; JSON file store", $descr="Saved names, icons, endpoint choices and links, state.json and uploaded icons; /api/icons", $tags="Component", $link="")
+    Component(Porthole.Applicationserver.Dashboard, "Dashboard", $techn="Java; Spring MVC, SSE", $descr="Projects snapshots, entries and versions into the dashboard, counts revisions; /api/dashboard, /api/events, /api/entries", $tags="Component", $link="")
+    Component(Porthole.Applicationserver.Sharedrules, "Shared rules", $techn="Java", $descr="Hosts, HTTP URLs, atomic files, image references and the exception handler", $tags="Component", $link="")
+    Component(Porthole.Applicationserver.Nativehints, "Native hints", $techn="Spring AOT", $descr="Reflection hints for library types the native-image agent cannot observe", $tags="Component", $link="")
+    Component(Porthole.Applicationserver.Application, "Application", $techn="Spring Boot", $descr="The Spring Boot entry point", $tags="Component", $link="")
+  }
+
+  ContainerDb(Porthole.Datadirectory, "Data directory", $techn="Local filesystem, PORTHOLE_DATA_DIR", $descr="state.json with every saved entry, and the uploaded icon files", $tags="Container,Database", $link="")
+  Container(Porthole.Browserapplication, "Browser application", $techn="React 19 / Vite", $descr="Tiles, filters, settings dialogs and live refresh", $tags="Container", $link="")
+}
+
+Rel(Porthole.Applicationserver.Versions, Porthole.Applicationserver.Fleet, "Listens to snapshots, inspects containers and images through the fleet", $techn="Java calls", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Entries, Porthole.Applicationserver.Fleet, "Checks that a container's source is configured", $techn="Java calls", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Dashboard, Porthole.Applicationserver.Fleet, "Reads snapshots, listens to their changes", $techn="Java calls", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Dashboard, Porthole.Applicationserver.Endpoints, "Discovers and selects endpoints", $techn="Java calls", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Dashboard, Porthole.Applicationserver.Versions, "Reads cached versions, listens to results", $techn="Java calls", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Dashboard, Porthole.Applicationserver.Entries, "Reads and writes entries, listens to writes", $techn="Java calls", $tags="Relationship", $link="")
+Rel(Porthole.Browserapplication, Porthole.Applicationserver.Dashboard, "Reads the dashboard, writes entries, follows /api/events", $techn="HTTP / JSON and SSE", $tags="Relationship", $link="")
+Rel(Porthole.Browserapplication, Porthole.Applicationserver.Fleet, "Reads source status", $techn="HTTP / JSON", $tags="Relationship", $link="")
+Rel(Porthole.Browserapplication, Porthole.Applicationserver.Entries, "Uploads and reads icons", $techn="HTTP", $tags="Relationship", $link="")
+Rel(Porthole.Browserapplication, Porthole.Applicationserver.Versions, "Starts a version check", $techn="HTTP", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Fleet, DockerEngines, "Lists containers, follows events, inspects for version checks", $techn="Docker Engine API", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Versions, DockerHub, "Reads tags and manifests", $techn="HTTPS", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Versions, GitHubContainerRegistry, "Reads tags and manifests", $techn="HTTPS", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver.Entries, Porthole.Datadirectory, "Reads and writes state.json and icon files", $techn="Filesystem", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

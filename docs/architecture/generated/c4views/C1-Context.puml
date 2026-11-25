@@ -1,0 +1,49 @@
+@startuml
+title <size:24>System Context View: Porthole</size>\n<size:24>Who uses Porthole, and which systems it talks to</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+AddElementTag("Software System", $bgColor="#1168bd", $borderColor="#0b4884", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+AddElementTag("Person", $bgColor="#08427b", $borderColor="#052e56", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+AddElementTag("Software System,External", $bgColor="#999999", $borderColor="#6b6b6b", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+AddBoundaryTag("Docker hosts", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+Boundary(group_1, "Docker hosts", $tags="Docker hosts") {
+  System(DockerEngines, "Docker Engines", $descr="One or more Docker daemons, each a configured source, reached by socket or TCP", $tags="Software System,External", $link="")
+  System(Containerisedservices, "Containerised services", $descr="The web pages the containers serve, on published ports or behind a reverse proxy such as Traefik", $tags="Software System,External", $link="")
+}
+
+AddBoundaryTag("Registries and icons", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+Boundary(group_2, "Registries and icons", $tags="Registries and icons") {
+  System(DockerHub, "Docker Hub", $descr="Image tags and manifests", $tags="Software System,External", $link="")
+  System(GitHubContainerRegistry, "GitHub Container Registry", $descr="Image tags and manifests of public packages", $tags="Software System,External", $link="")
+  System(DashboardIconsonjsDelivr, "Dashboard Icons on jsDelivr", $descr="The default service icons", $tags="Software System,External", $link="")
+}
+
+Person(Homelabowner, "Homelab owner", $descr="Opens the services their containers run; names, groups and links them", $tags="Person", $link="")
+System(Porthole, "Porthole", $descr="Shows every container of every configured Docker host, with its page, icon and version", $tags="Software System", $link="")
+
+Rel(Homelabowner, Porthole, "Browses containers, opens their pages, edits names, icons and links", $techn="", $tags="Relationship", $link="")
+Rel(Homelabowner, Containerisedservices, "Opens a container's page", $techn="", $tags="Relationship", $link="")
+Rel(Porthole, DockerEngines, "Lists containers, follows events, inspects images", $techn="", $tags="Relationship", $link="")
+Rel(Porthole, DockerHub, "Reads tags and manifests", $techn="", $tags="Relationship", $link="")
+Rel(Porthole, GitHubContainerRegistry, "Reads tags and manifests", $techn="", $tags="Relationship", $link="")
+Rel(Porthole, DashboardIconsonjsDelivr, "Points the browser at default icons", $techn="", $tags="Relationship", $link="")
+Rel(DockerEngines, Containerisedservices, "Runs", $techn="", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

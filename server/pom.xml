@@ -17,6 +17,8 @@
     <properties>
         <java.version>25</java.version>
         <archunit.version>1.5.1</archunit.version>
+        <structurizr.version>6.2.4</structurizr.version>
+        <plantuml.version>1.2026.9</plantuml.version>
         <docker-java.version>3.7.1</docker-java.version>
         <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
         <jspecify.version>1.0.1</jspecify.version>
@@ -82,6 +84,30 @@
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit6</artifactId>
             <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.structurizr</groupId>
+            <artifactId>structurizr-dsl</artifactId>
+            <version>${structurizr.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.structurizr</groupId>
+            <artifactId>structurizr-export</artifactId>
+            <version>${structurizr.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.structurizr</groupId>
+            <artifactId>structurizr-core</artifactId>
+            <version>${structurizr.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.sourceforge.plantuml</groupId>
+            <artifactId>plantuml</artifactId>
+            <version>${plantuml.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>

@@ -67,6 +67,8 @@ The server is split into feature slices: `fleet/`, `endpoints/`, `versions/`, `e
 - A slice's root package never imports its own adapters, Docker SDK types, servlet types or HTTP clients.
 - A `web` package never imports another slice's adapters.
 
+`C3ArchTest` checks `docs/architecture/c4model.c3.dsl` against the same code: every package belongs to a component and the drawn arrows are exactly the code's dependencies between slices. A new dependency between slices, or a new top-level package, means editing that file. The test rewrites `docs/architecture/generated/c4views/` and fails when it wrote anything; commit what it wrote and run it again. See [docs/architecture/README.md](docs/architecture/README.md).
+
 ### Sources and the dashboard
 
 Docker state lives in memory: `fleet` keeps one `SourceMonitor` per configured connection, polling every 30 seconds and listing again soon after Docker events. A failed source keeps its last good containers for 24 hours and reports `DOWN` or `ERROR`. No HTTP request waits on Docker. Containers and cached version results use `(sourceId, containerId)`. Saved settings use the entry ID `container:<sourceId>:<containerName>`, so they survive container recreation. Include the source ID whenever identifying a container.
