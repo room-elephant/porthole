@@ -317,7 +317,7 @@ Add your own links to the dashboard for pages Porthole doesn't run, like a route
 
 Porthole doesn't check that a link works, so its chain badge never changes. You can have up to 500 links.
 
-Links are stored in `links.json` beside the preference file, which is `/app/data/links.json` in the Docker images, so the [same volume advice](#preference-file-and-persistence) applies. Uploaded link icons share the `icons` folder and the 500-upload limit with container icons. The file is read once at startup, so manual edits need a restart, and an invalid file fails startup rather than discarding links.
+Links are saved in the [data directory](#data-directory) with every other setting, so the same volume advice applies. Link and container icons share the uploaded icon folder and its 500-file limit.
 
 ## Per-Container Settings
 
@@ -327,21 +327,21 @@ Each container has a settings panel accessible via the gear icon. Endpoint choic
 
 Click the icon at the top of a container's settings to choose another one, from the [Dashboard Icons](https://dashboardicons.com) library or by uploading a PNG, WebP or JPEG image of up to 1 MB. Porthole stores at most 500 uploads. The choice saves straight away, is shared by every browser, and belongs to one container, keyed by `(sourceId, containerName)` like URL choices. It takes priority over [icon mappings](#icon-mappings), so later `icons.yml` changes don't affect that container.
 
-To go back to the automatic icon, find it in the library. Uploads are stored in an `icons` folder beside the preference file, which is `/app/data/icons` in the Docker images. Keep that volume, as described below, or uploads are lost when the application container is replaced. Choosing a library icon needs the browser to reach `cdn.jsdelivr.net`; uploading doesn't.
+To go back to the automatic icon, find it in the library. Uploads are stored in the `icons` folder of the [data directory](#data-directory); keep that volume, or uploads are lost when the application container is replaced. Choosing a library icon needs the browser to reach `cdn.jsdelivr.net`; uploading doesn't.
 
 ### URL Selection
 
 The **Tile opens** section lets you choose a discovered URL, **Custom URL**, or **No web UI**. Choose a discovered URL or enter and save an absolute HTTP or HTTPS custom URL without credentials. Typing a URL alone does not save it. A custom URL works even without published ports or Traefik labels and keeps the container visible under the normal endpoint filter. Porthole stores the URL without fetching it. **No web UI** disables launching; settings and update checking remain available.
 
-The server returns effective candidates with a boolean `selected` on each, and the browser opens the selected URL. Zero or one candidate is selected. Stored preferences are internal to the server and are not included on inventory containers. The required `hasWebUi` boolean controls tile/chip presentation: it is false for an explicit no-web-UI choice or no candidates, and true for candidates that are selected or still ambiguous. `hasEndpoints` continues to report candidate presence. A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traefik URL or the unique root `/` route among several Traefik URLs. If Traefik is absent, it selects a sole candidate from any provider. Multiple root routes, multiple non-root Traefik routes, or multiple candidates without Traefik open settings for a choice.
+The server returns effective candidates with a boolean `selected` on each, and the browser opens the selected URL. Zero or one candidate is selected. Saved choices are internal to the server and are not included on inventory containers. The required `hasWebUi` boolean controls tile/chip presentation: it is false for an explicit no-web-UI choice or no candidates, and true for candidates that are selected or still ambiguous. `hasEndpoints` continues to report candidate presence. A saved endpoint ID takes precedence. Otherwise, Porthole selects the sole Traefik URL or the unique root `/` route among several Traefik URLs. If Traefik is absent, it selects a sole candidate from any provider. Multiple root routes, multiple non-root Traefik routes, or multiple candidates without Traefik open settings for a choice.
 
 Automatic selection applies when no choice is saved; the update API restores it with an explicit null selection. If a saved discovered endpoint disappears, selection follows the same automatic policy while preserving its identity for when it returns. An explicit **No web UI** choice remains in effect when discovered URLs change. Restoring automatic selection, choosing a discovered endpoint, or choosing **No web UI** replaces a custom selection and permanently removes its URL; choosing custom again requires entering it again. A successful save triggers an inventory refresh to confirm the effective candidates and selected flags. Save errors leave the last confirmed selection in effect. If storage succeeds but the inventory refresh fails, settings report that the choice was saved but could not be refreshed; retry refreshes inventory without repeating the write. Explicit **No web UI** retains available candidates with every flag false, while an ambiguous automatic choice remains an unlinked tile that opens settings.
 
-Endpoint choices are keyed by `(sourceId, containerName)`, so containers with the same name on different sources stay independent. Recreating a container with the same name retains its choice; renaming it starts a new preference identity. Choices for temporarily absent containers remain saved. Existing browser endpoint choices are not automatically migrated because devices may disagree; select your endpoint once after upgrading. Other browsers receive saved choices on their next inventory request or page reload, without additional preference polling.
+Endpoint choices are keyed by `(sourceId, containerName)`, so containers with the same name on different sources stay independent. Recreating a container with the same name retains its choice; renaming it starts a new identity. Choices for temporarily absent containers remain saved. Existing browser endpoint choices are not automatically migrated because devices may disagree; select your endpoint once after upgrading. Other browsers receive saved choices on their next inventory request or page reload, without additional preference polling.
 
-### Preference File and Persistence
+### Data Directory
 
-`porthole.preferences.path` (environment variable **`PORTHOLE_PREFERENCES_PATH`**) selects the shared JSON file. Local development defaults to `data/preferences.json`, relative to the server's working directory. Both Docker images default to `/app/data/preferences.json` and declare `/app/data` as a volume. Without a mount of your own, Docker creates an anonymous volume: it survives restarts and `docker compose up --force-recreate`, but `docker compose down` or `docker rm` followed by a new container starts empty, leaving the old data in an orphaned volume. Mount a named volume or host directory to retain choices whenever the application container is replaced:
+`porthole.data.dir` (environment variable **`PORTHOLE_DATA_DIR`**) is where Porthole keeps what users save: container settings, links and uploaded icons. Local development defaults to `data`, relative to the server's working directory. Both Docker images use `/app/data` and declare it as a volume. Without a mount of your own, Docker creates an anonymous volume: it survives restarts and `docker compose up --force-recreate`, but `docker compose down` or `docker rm` followed by a new container starts empty, leaving the old data in an orphaned volume. Mount a named volume or host directory to keep settings whenever the application container is replaced:
 
 ```yaml
 services:
@@ -357,9 +357,20 @@ volumes:
   porthole-data:
 ```
 
-The image creates `/app/data` owned by its application user (UID/GID `65532`), including when Docker initializes an empty named volume. For a host bind mount, provision a directory writable by that user and any existing file readable by it; atomic saves also require directory write permission. Mounting the file itself works too, but saves then overwrite it in place instead of renaming atomically. An empty file is treated as having no saved choices. The entrypoint does not change ownership of arbitrary host files. Keep the volume across container restarts and replacements; deleting it deletes the saved choices.
+The image creates `/app/data` owned by its application user (UID/GID `65532`), including when Docker initializes an empty named volume. For a host bind mount, provision a directory writable by that user; atomic saves need directory write permission. The entrypoint does not change ownership of arbitrary host files. Deleting the volume deletes every saved setting.
 
-One running Porthole instance owns each file; do not share a writable preference file between instances. Saves atomically replace the entire file, with memory updated only after a successful write. A missing file starts with no choices. An unreadable or malformed existing file fails startup rather than discarding saved data. The server loads the file once at startup: manual external edits require a server restart. The file contains container records with `sourceId`, `containerName`, `preferences.selectedEndpoint`, and `preferences.icon`, without a schema version field; it is separate from application YAML configuration. Only the explicit selection (`id`, `source`, and a custom `url` when needed) is stored, never candidate lists or effective `selected` flags. Inventory fallback does not rewrite an unavailable saved choice.
+The directory holds:
+
+- **`state.json`**: every saved entry, with a `schemaVersion`. A container entry is keyed by `container:<sourceId>:<containerName>` and holds only what the user overrode; a link entry is keyed by `link:<32 hex digits>` and holds its name, URL and stack. Only explicit choices are stored, never candidate lists or `selected` flags, and inventory fallback does not rewrite an unavailable saved choice.
+- **`icons/`**: uploaded icons, each named by the SHA-256 of its content, so the same image is stored once. Porthole keeps at most 500. An upload that no entry uses is removed after an hour, checked at startup and every 15 minutes.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORTHOLE_DATA_DIR` | `data` (`/app/data` in the images) | Where `state.json` and `icons/` live |
+| `PORTHOLE_DATA_ICONSWEEPINTERVAL` | `15m` | How often unused uploads are removed |
+| `PORTHOLE_DATA_UNREFERENCEDICONAGE` | `1h` | How long an unused upload is kept, so a client can save it after uploading |
+
+One running Porthole instance owns each data directory; do not share it between instances. Saves atomically replace `state.json`, with memory updated only after a successful write. A missing file starts with no settings. An unreadable or malformed file, or one written by a newer Porthole (`schemaVersion` above what this version reads), fails startup rather than discarding saved data. The server reads the file once at startup, so manual edits need a restart.
 
 ### Version Update Notifications
 

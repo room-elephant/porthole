@@ -24,9 +24,7 @@ class HealthProbesTest {
 
     @DynamicPropertySource
     static void dataDirectory(DynamicPropertyRegistry registry) {
-        registry.add(
-                "porthole.preferences.path",
-                () -> data.resolve("preferences.json").toString());
+        registry.add("porthole.data.dir", data::toString);
     }
 
     @Autowired

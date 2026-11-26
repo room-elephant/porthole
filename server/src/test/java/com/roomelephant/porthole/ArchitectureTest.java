@@ -38,7 +38,10 @@ class ArchitectureTest {
                             ROOT + "inbound..",
                             ROOT + "core.model..",
                             ROOT + "core.port.inbound..",
-                            ROOT + "config.properties..")));
+                            ROOT + "config.properties..",
+                            ROOT + "shared..",
+                            // The legacy container DTO names each container's entry ID until the dashboard replaces it.
+                            ROOT + "entries")));
 
     @ArchTest
     static final ArchRule outboundAdaptersUseCoreModelsAndOutboundPorts = classes()
@@ -50,7 +53,8 @@ class ArchitectureTest {
                             ROOT + "outbound..",
                             ROOT + "core.model..",
                             ROOT + "core.port.outbound..",
-                            ROOT + "config.properties..")));
+                            ROOT + "config.properties..",
+                            ROOT + "shared..")));
 
     @ArchTest
     static final ArchRule fleetDependsOnNoOtherProductionPackage = classes()
@@ -103,4 +107,44 @@ class ArchitectureTest {
             .should()
             .onlyDependOnClassesThat()
             .resideInAnyPackage(ROOT + "core.port..", ROOT + "core.model..", "java..", "org.jspecify.annotations..");
+
+    @ArchTest
+    static final ArchRule entriesDependsOnlyOnFleetAndShared = classes()
+            .that()
+            .resideInAPackage(ROOT + "entries..")
+            .should()
+            .onlyDependOnClassesThat(resideOutsideOfPackage("com.roomelephant.porthole..")
+                    .or(resideInAnyPackage(ROOT + "entries..", ROOT + "fleet", ROOT + "shared..")));
+
+    @ArchTest
+    static final ArchRule entriesRootDoesNotDependOnItsAdapters = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "entries")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(ROOT + "entries.store..", ROOT + "entries.icons..", ROOT + "entries.web..");
+
+    @ArchTest
+    static final ArchRule entriesStoreDoesNotDependOnOtherEntriesAdapters = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "entries.store..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(ROOT + "entries.icons..", ROOT + "entries.web..");
+
+    @ArchTest
+    static final ArchRule entriesIconsDoesNotDependOnOtherEntriesAdapters = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "entries.icons..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(ROOT + "entries.store..", ROOT + "entries.web..");
+
+    @ArchTest
+    static final ArchRule entriesWebDoesNotDependOnOtherEntriesAdapters = noClasses()
+            .that()
+            .resideInAPackage(ROOT + "entries.web..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(ROOT + "entries.store..", ROOT + "entries.icons..");
 }

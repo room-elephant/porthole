@@ -9,13 +9,14 @@ import com.roomelephant.porthole.core.enrichment.icon.*;
 import com.roomelephant.porthole.core.enrichment.preferences.CustomIconResolver;
 import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.model.ContainerPreferences;
-import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.Endpoint;
-import com.roomelephant.porthole.core.model.SelectedEndpoint;
-import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.model.VersionInfo;
-import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
+import com.roomelephant.porthole.entries.EndpointChoice;
+import com.roomelephant.porthole.entries.EntryRecord;
+import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
+import com.roomelephant.porthole.entries.EntryService;
+import com.roomelephant.porthole.entries.EntryState;
+import com.roomelephant.porthole.entries.Icon;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,15 +68,14 @@ class PipelineWiringTest {
     }
 
     private AnnotationConfigApplicationContext context(VersionRefreshService versions) {
-        return context(versions, Map.of());
+        return context(versions, List.of());
     }
 
     @Test
     void savedIconOverridesTheResolvedDefaultOnlyForItsContainer() {
-        var custom = new ContainerPreferences(null, SelectedIcon.library("coredns"));
-        try (var context = context(
-                mock(VersionRefreshService.class),
-                Map.of(new ContainerPreferencesKey("local", "project-web-1"), custom))) {
+        var custom = new EntryRecord(
+                new ContainerRef("local", "project-web-1"), null, new Icon.Library("coredns"), null, null);
+        try (var context = context(mock(VersionRefreshService.class), List.of(custom))) {
             var chosen = container("project-web-1", "running", Set.of(8080));
             var other = container("project-api-1", "running", Set.of(8081));
 
@@ -89,14 +89,11 @@ class PipelineWiringTest {
 
     @Test
     void shouldResolvePreferencesBeforeAvailabilityWithoutBypassingState() {
-        var custom = new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://worker.example.com"));
-        var none = new ContainerPreferences(new SelectedEndpoint("none", "none", null));
+        var customUrl = new EndpointChoice.Custom("https://worker.example.com");
+        var custom = custom("project-worker-1", customUrl);
+        var none = custom("project-web-1", EndpointChoice.NONE);
         try (var context = context(
-                mock(VersionRefreshService.class),
-                Map.of(
-                        new ContainerPreferencesKey("local", "project-worker-1"), custom,
-                        new ContainerPreferencesKey("local", "project-stopped-1"), custom,
-                        new ContainerPreferencesKey("local", "project-web-1"), none))) {
+                mock(VersionRefreshService.class), List.of(custom, custom("project-stopped-1", customUrl), none))) {
             var worker = container("project-worker-1", "running", Set.of());
             var stopped = container("project-stopped-1", "exited", Set.of());
             var web = container("project-web-1", "running", Set.of(8080));
@@ -105,25 +102,24 @@ class PipelineWiringTest {
                     .enrich(List.of(worker, stopped, web), new EnrichmentContext("local", "localhost", false, false));
 
             assertThat(result).containsExactly(worker, web);
-            assertThat(worker.preferences()).isEqualTo(custom);
+            assertThat(worker.entry()).isEqualTo(custom);
             assertThat(worker.urlCandidates())
                     .containsExactly(new Endpoint("custom", "custom", "https://worker.example.com", true));
             assertThat(worker.iconUrl()).isEqualTo("https://icons.example.com/nginx.svg");
-            assertThat(web.preferences()).isEqualTo(none);
+            assertThat(web.entry()).isEqualTo(none);
             assertThat(web.urlCandidates())
                     .containsExactly(
                             new Endpoint("published-port:8080", "published-port", "http://localhost:8080/", false));
-            assertThat(stopped.preferences().selectedEndpoint()).isNull();
+            assertThat(stopped.entry()).isNull();
         }
     }
 
-    private AnnotationConfigApplicationContext context(
-            VersionRefreshService versions, Map<ContainerPreferencesKey, ContainerPreferences> preferences) {
+    private AnnotationConfigApplicationContext context(VersionRefreshService versions, List<EntryRecord> records) {
         var context = new AnnotationConfigApplicationContext();
         context.registerBean(VersionRefreshService.class, () -> versions);
-        var store = mock(ContainerPreferencesStore.class);
-        when(store.snapshot()).thenReturn(preferences);
-        context.registerBean(ContainerPreferencesStore.class, () -> store);
+        var entries = mock(EntryService.class);
+        when(entries.state()).thenReturn(new EntryState(records));
+        context.registerBean(EntryService.class, () -> entries);
         context.registerBean(
                 EndpointDiscovery.class,
                 () -> new EndpointDiscovery(List.of(new PublishedPortEndpointProvider(new PublishedHostResolver()))));
@@ -139,6 +135,10 @@ class PipelineWiringTest {
         context.register(EnrichmentConfiguration.class);
         context.refresh();
         return context;
+    }
+
+    private static EntryRecord custom(String name, EndpointChoice choice) {
+        return new EntryRecord(new ContainerRef("local", name), null, null, choice, null);
     }
 
     private Container container(String name, String state, Set<Integer> ports) {

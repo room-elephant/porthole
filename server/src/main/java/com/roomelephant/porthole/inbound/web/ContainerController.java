@@ -1,11 +1,8 @@
 package com.roomelephant.porthole.inbound.web;
 
-import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.ContainerQuery;
 import com.roomelephant.porthole.core.port.inbound.GetContainers;
-import com.roomelephant.porthole.core.port.inbound.SelectContainerEndpoint;
 import com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO;
-import com.roomelephant.porthole.inbound.web.dto.SelectContainerEndpointRequest;
 import com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,14 +11,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.jspecify.annotations.NullMarked;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @NullMarked
@@ -31,15 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContainerController {
 
     private final GetContainers containerService;
-    private final SelectContainerEndpoint selectContainerEndpoint;
     private final ContainerDTOMapper containerDTOMapper;
 
-    public ContainerController(
-            GetContainers containerService,
-            ContainerDTOMapper containerDTOMapper,
-            SelectContainerEndpoint selectContainerEndpoint) {
+    public ContainerController(GetContainers containerService, ContainerDTOMapper containerDTOMapper) {
         this.containerService = containerService;
-        this.selectContainerEndpoint = selectContainerEndpoint;
         this.containerDTOMapper = containerDTOMapper;
     }
 
@@ -70,33 +57,5 @@ public class ContainerController {
                     boolean includeStopped) {
         return containerDTOMapper.toDTO(
                 containerService.getContainers(new ContainerQuery(includeWithoutEndpoints, includeStopped)));
-    }
-
-    @PutMapping("/containers/selected-url")
-    @Operation(
-            summary = "Replace a container's saved endpoint selection",
-            description =
-                    "Saves a discovered endpoint identity, a custom HTTP(S) URL, or the explicit none choice. "
-                            + "Explicit null restores automatic selection. Does not require the container or endpoint to be currently available.")
-    @ApiResponse(responseCode = "204", description = "Selection saved")
-    @ApiResponse(
-            responseCode = "400",
-            description = "Missing or unconfigured identity, missing selectedEndpoint, or an invalid selection",
-            content =
-                    @Content(
-                            mediaType = "application/problem+json",
-                            schema = @Schema(implementation = ProblemDetail.class)))
-    @ApiResponse(
-            responseCode = "500",
-            description = "Failed to persist preferences; the prior selection remains confirmed",
-            content =
-                    @Content(
-                            mediaType = "application/problem+json",
-                            schema = @Schema(implementation = ProblemDetail.class)))
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void selectEndpoint(@RequestBody SelectContainerEndpointRequest request) {
-        selectContainerEndpoint.select(
-                new ContainerPreferencesKey(request.sourceId(), request.containerName()),
-                containerDTOMapper.toModel(request.selectedEndpoint()));
     }
 }

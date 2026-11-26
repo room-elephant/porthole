@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createLink, deleteLink, fetchLinks, selectLinkIcon, updateLink, uploadLinkIcon } from '../api';
+import { createLink, deleteEntry, fetchLinks, selectEntryIcon, updateLink, uploadEntryIcon } from '../api';
 
 const LINKS_KEY = ['links'];
 
@@ -36,9 +36,11 @@ export const useUpdateLink = id => useMutation({
   ...useRefreshOptions(),
 });
 
-export const useDeleteLink = () => useMutation({ mutationFn: id => deleteLink(id), ...useRefreshOptions() });
+export const useDeleteLink = () => useMutation({ mutationFn: id => deleteEntry(id), ...useRefreshOptions() });
 
-const saveLinkIcon = ({ id, name, file }) => (file ? uploadLinkIcon(id, file) : selectLinkIcon(id, name));
+const saveLinkIcon = ({ id, name, file }) => (file
+  ? uploadEntryIcon({ entryId: id, file })
+  : selectEntryIcon({ entryId: id, name }));
 
 /** Saves an icon for a link given when saving, for a link that may not have existed at render. */
 export const useSetLinkIcon = () => useMutation({ mutationFn: request => saveLinkIcon(request), ...useRefreshOptions() });

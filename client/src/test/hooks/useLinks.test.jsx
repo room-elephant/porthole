@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useCreateLink, useDeleteLink, useLinkIcon, useLinks, useUpdateLink } from '../../hooks/useLinks';
-import { createLink, deleteLink, fetchLinks, selectLinkIcon, updateLink, uploadLinkIcon } from '../../api';
+import { createLink, deleteEntry, fetchLinks, selectEntryIcon, updateLink, uploadEntryIcon } from '../../api';
 
 vi.mock('../../api', () => ({
   createLink: vi.fn(),
-  deleteLink: vi.fn(),
+  deleteEntry: vi.fn(),
   fetchLinks: vi.fn(),
-  selectLinkIcon: vi.fn(),
+  selectEntryIcon: vi.fn(),
   updateLink: vi.fn(),
-  uploadLinkIcon: vi.fn(),
+  uploadEntryIcon: vi.fn(),
 }));
 
 const link = { id: 'a'.repeat(32), name: 'Router', url: 'http://r/', stack: null, iconUrl: null };
@@ -131,14 +131,14 @@ describe('useCreateLink', () => {
 
 describe('useDeleteLink', () => {
   it('deletes and refetches', async () => {
-    deleteLink.mockResolvedValue();
+    deleteEntry.mockResolvedValue();
     const { wrapper } = setup();
     const { result } = renderHook(withLinks(() => useDeleteLink()), { wrapper });
     await waitFor(() => expect(fetchLinks).toHaveBeenCalledTimes(1));
 
     await act(async () => { await result.current.hook.mutateAsync(link.id); });
 
-    expect(deleteLink).toHaveBeenCalledWith(link.id);
+    expect(deleteEntry).toHaveBeenCalledWith(link.id);
     expect(fetchLinks).toHaveBeenCalledTimes(2);
   });
 });
@@ -147,7 +147,7 @@ describe('useLinkIcon', () => {
   const file = new File(['x'], 'logo.png', { type: 'image/png' });
 
   it('saves a library pick and reports back', async () => {
-    selectLinkIcon.mockResolvedValue();
+    selectEntryIcon.mockResolvedValue();
     const onSaved = vi.fn();
     const { wrapper } = setup();
     const { result } = renderHook(() => useLinkIcon(link), { wrapper });
@@ -155,11 +155,11 @@ describe('useLinkIcon', () => {
     act(() => { result.current.selectIcon('router', { onSaved }); });
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(selectLinkIcon).toHaveBeenCalledWith(link.id, 'router');
+    expect(selectEntryIcon).toHaveBeenCalledWith({ entryId: link.id, name: 'router' });
   });
 
   it('uploads a file', async () => {
-    uploadLinkIcon.mockResolvedValue();
+    uploadEntryIcon.mockResolvedValue();
     const onSaved = vi.fn();
     const { wrapper } = setup();
     const { result } = renderHook(() => useLinkIcon(link), { wrapper });
@@ -167,11 +167,11 @@ describe('useLinkIcon', () => {
     act(() => { result.current.uploadIcon(file, { onSaved }); });
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(uploadLinkIcon).toHaveBeenCalledWith(link.id, file);
+    expect(uploadEntryIcon).toHaveBeenCalledWith({ entryId: link.id, file: file });
   });
 
   it('retry repeats the last save, which clearError forgets the failure of', async () => {
-    selectLinkIcon.mockRejectedValueOnce(new Error('down')).mockResolvedValueOnce();
+    selectEntryIcon.mockRejectedValueOnce(new Error('down')).mockResolvedValueOnce();
     const onSaved = vi.fn();
     const { wrapper } = setup();
     const { result } = renderHook(() => useLinkIcon(link), { wrapper });
@@ -182,13 +182,13 @@ describe('useLinkIcon', () => {
 
     act(() => { result.current.retry(); });
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(selectLinkIcon).toHaveBeenCalledTimes(2);
+    expect(selectEntryIcon).toHaveBeenCalledTimes(2);
     expect(result.current.saveError).toBeNull();
   });
 
   it('ignores a second save while one is running', async () => {
     const first = deferred();
-    selectLinkIcon.mockReturnValueOnce(first.promise);
+    selectEntryIcon.mockReturnValueOnce(first.promise);
     const { wrapper } = setup();
     const { result } = renderHook(() => useLinkIcon(link), { wrapper });
 
@@ -197,11 +197,11 @@ describe('useLinkIcon', () => {
     act(() => { result.current.selectIcon('other'); });
     await act(async () => { first.resolve(); });
 
-    expect(selectLinkIcon).toHaveBeenCalledTimes(1);
+    expect(selectEntryIcon).toHaveBeenCalledTimes(1);
   });
 
   it('clearError resets the failure', async () => {
-    selectLinkIcon.mockRejectedValueOnce(new Error('down'));
+    selectEntryIcon.mockRejectedValueOnce(new Error('down'));
     const { wrapper } = setup();
     const { result } = renderHook(() => useLinkIcon(link), { wrapper });
 

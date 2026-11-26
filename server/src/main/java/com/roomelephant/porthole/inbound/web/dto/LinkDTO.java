@@ -10,7 +10,7 @@ import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 @RegisterReflectionForBinding(LinkDTO.class)
 @Schema(description = "A page the user added to the dashboard")
 public record LinkDTO(
-        @Schema(description = "Generated link ID", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "Entry ID, for /api/entries/{id}", requiredMode = Schema.RequiredMode.REQUIRED)
         String id,
 
         @Schema(description = "Name shown on the tile", requiredMode = Schema.RequiredMode.REQUIRED)

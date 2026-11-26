@@ -1,12 +1,20 @@
 package com.roomelephant.porthole.core.enrichment.preferences;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.enrichment.icon.IconSettings;
-import com.roomelephant.porthole.core.model.*;
-import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
-import java.util.HashMap;
+import com.roomelephant.porthole.core.model.Container;
+import com.roomelephant.porthole.core.model.Endpoint;
+import com.roomelephant.porthole.entries.EndpointChoice;
+import com.roomelephant.porthole.entries.EntryRecord;
+import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
+import com.roomelephant.porthole.entries.EntryService;
+import com.roomelephant.porthole.entries.EntryState;
+import com.roomelephant.porthole.entries.Icon;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,31 +23,38 @@ import org.junit.jupiter.api.Test;
 class ContainerPreferencesEnricherTest {
     private static final CustomIconResolver ICONS =
             new CustomIconResolver(new IconSettings("https://cdn.example.com/icons", ".svg"));
+    private static final ContainerRef APP = new ContainerRef("local", "app");
 
     private final EnrichmentContext context = new EnrichmentContext("local", "localhost", false, false);
 
+    private static EntryRecord endpoint(ContainerRef ref, EndpointChoice choice) {
+        return new EntryRecord(ref, null, null, choice, null);
+    }
+
+    private static EntryService entries(EntryRecord... records) {
+        EntryService service = mock(EntryService.class);
+        when(service.state()).thenReturn(new EntryState(List.of(records)));
+        return service;
+    }
+
     @Test
-    void shouldDefaultToAutomaticBeforeEnrichmentAndWhenNoPreferenceIsStored() {
+    void missingEntryLeavesDefaults() {
         var container = container("id", "local", "app", List.of());
-        assertThat(container.preferences().selectedEndpoint()).isNull();
-        container.setPreferences(new ContainerPreferences(new SelectedEndpoint("none", "none", null)));
+        assertThat(container.entry()).isNull();
+        container.setEntry(endpoint(APP, EndpointChoice.NONE));
 
         var batch = List.of(container);
-        assertThat(new ContainerPreferencesEnricher(store(Map.of()), ICONS).enrich(batch, context))
+        assertThat(new ContainerPreferencesEnricher(entries(), ICONS).enrich(batch, context))
                 .isSameAs(batch);
 
-        assertThat(container.preferences().selectedEndpoint()).isNull();
+        assertThat(container.entry()).isNull();
     }
 
     @Test
     void shouldMatchRawSourceAndNameAcrossRecreationWithoutUsingDisplayNames() {
-        var custom = new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://app.example.com"));
-        var none = new ContainerPreferences(new SelectedEndpoint("none", "none", null));
-        var enricher = new ContainerPreferencesEnricher(
-                store(Map.of(
-                        new ContainerPreferencesKey("local", "app"), custom,
-                        new ContainerPreferencesKey("remote", "app"), none)),
-                ICONS);
+        var custom = endpoint(APP, new EndpointChoice.Custom("https://app.example.com"));
+        var none = endpoint(new ContainerRef("remote", "app"), EndpointChoice.NONE);
+        var enricher = new ContainerPreferencesEnricher(entries(custom, none), ICONS);
         var original = container("old-id", "local", "app", List.of());
         original.setDisplayName("Pretty name");
         var recreated = container("new-id", "local", "app", List.of());
@@ -50,78 +65,79 @@ class ContainerPreferencesEnricherTest {
         enricher.enrich(List.of(original, remote, renamed), context);
         enricher.enrich(List.of(recreated), context);
 
-        assertThat(original.preferences()).isEqualTo(custom);
-        assertThat(recreated.preferences()).isEqualTo(custom);
-        assertThat(remote.preferences()).isEqualTo(none);
-        assertThat(renamed.preferences().selectedEndpoint()).isNull();
+        assertThat(original.entry()).isEqualTo(custom);
+        assertThat(recreated.entry()).isEqualTo(custom);
+        assertThat(remote.entry()).isEqualTo(none);
+        assertThat(renamed.entry()).isNull();
+    }
+
+    @Test
+    void appliesEntryIconAndEndpoint() {
+        var saved = new EntryRecord(
+                APP, null, new Icon.Library("coredns"), new EndpointChoice.Discovered("published-port:80"), null);
+        var container = container(
+                "id",
+                "local",
+                "app",
+                List.of(
+                        new Endpoint("traefik:app", "traefik", "https://app.example.com", false),
+                        new Endpoint("published-port:80", "published-port", "http://localhost/", false)));
+
+        new ContainerPreferencesEnricher(entries(saved), ICONS).enrich(List.of(container), context);
+
+        assertThat(container.iconUrl()).isEqualTo("https://cdn.example.com/icons/coredns.svg");
+        assertThat(container.urlCandidates())
+                .containsExactly(
+                        new Endpoint("traefik:app", "traefik", "https://app.example.com", false),
+                        new Endpoint("published-port:80", "published-port", "http://localhost/", true));
     }
 
     @Test
     void shouldRetainUnavailableDiscoveredMetadataWhileSelectingFallback() {
-        var saved = new ContainerPreferences(new SelectedEndpoint("published-port:9000", "published-port", null));
+        var saved = endpoint(APP, new EndpointChoice.Discovered("published-port:9000"));
         var container = container(
                 "id",
                 "local",
                 "app",
                 List.of(new Endpoint("traefik:app", "traefik", "https://app.example.com", false)));
 
-        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)), ICONS)
-                .enrich(List.of(container), context);
+        new ContainerPreferencesEnricher(entries(saved), ICONS).enrich(List.of(container), context);
 
-        assertThat(container.preferences()).isEqualTo(saved);
+        assertThat(container.entry()).isEqualTo(saved);
         assertThat(container.urlCandidates())
                 .containsExactly(new Endpoint("traefik:app", "traefik", "https://app.example.com", true));
     }
 
     @Test
-    void shouldUseOneSnapshotPerBatchAndReadCurrentPreferencesOnTheNextBatch() {
-        var saved = new ContainerPreferences(new SelectedEndpoint("none", "none", null));
-        var store = new ContainerPreferencesStore() {
-            private boolean first = true;
-
-            @Override
-            public Map<ContainerPreferencesKey, ContainerPreferences> snapshot() {
-                if (!first) return Map.of();
-                first = false;
-                return Map.of(new ContainerPreferencesKey("local", "app"), saved);
-            }
-
-            @Override
-            public ContainerPreferences replaceSelection(ContainerPreferencesKey key, SelectedEndpoint selection) {
-                throw new AssertionError("Inventory must not persist preferences");
-            }
-
-            @Override
-            public ContainerPreferences replaceIcon(
-                    ContainerPreferencesKey key, com.roomelephant.porthole.core.model.SelectedIcon icon) {
-                throw new AssertionError("Inventory must not persist preferences");
-            }
-        };
-        var enricher = new ContainerPreferencesEnricher(store, ICONS);
+    void shouldUseOneSnapshotPerBatchAndReadCurrentEntriesOnTheNextBatch() {
+        var saved = endpoint(APP, EndpointChoice.NONE);
+        EntryService service = mock(EntryService.class);
+        when(service.state()).thenReturn(new EntryState(List.of(saved)), EntryState.EMPTY);
+        var enricher = new ContainerPreferencesEnricher(service, ICONS);
         var first = container("first", "local", "app", List.of());
         var second = container("second", "local", "app", List.of());
 
         enricher.enrich(List.of(first, second), context);
 
-        assertThat(first.preferences()).isEqualTo(saved);
-        assertThat(second.preferences()).isEqualTo(saved);
+        assertThat(first.entry()).isEqualTo(saved);
+        assertThat(second.entry()).isEqualTo(saved);
         enricher.enrich(List.of(first), context);
-        assertThat(first.preferences().selectedEndpoint()).isNull();
+        assertThat(first.entry()).isNull();
+        verify(service, org.mockito.Mockito.times(2)).state();
     }
 
     @Test
     void shouldAppendSelectedCustomCandidateAndUnselectDiscoveredCandidates() {
-        var saved = new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://custom.example"));
         var container = container(
                 "id",
                 "local",
                 "app",
                 List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", true)));
 
-        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)), ICONS)
+        new ContainerPreferencesEnricher(
+                        entries(endpoint(APP, new EndpointChoice.Custom("https://custom.example"))), ICONS)
                 .enrich(List.of(container), context);
 
-        assertThat(container.preferences()).isEqualTo(saved);
         assertThat(container.urlCandidates())
                 .containsExactly(
                         new Endpoint("published-port:80", "published-port", "http://localhost/", false),
@@ -130,100 +146,53 @@ class ContainerPreferencesEnricherTest {
 
     @Test
     void shouldRetainCandidatesButClearSelectionForExplicitNone() {
-        var saved = new ContainerPreferences(new SelectedEndpoint("none", "none", null));
         var container = container(
                 "id",
                 "local",
                 "app",
                 List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", true)));
 
-        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), saved)), ICONS)
+        new ContainerPreferencesEnricher(entries(endpoint(APP, EndpointChoice.NONE)), ICONS)
                 .enrich(List.of(container), context);
 
         assertThat(container.urlCandidates())
                 .containsExactly(new Endpoint("published-port:80", "published-port", "http://localhost/", false));
+        assertThat(container.hasWebUi()).isFalse();
     }
 
     @Test
-    void shouldSelectTheAutomaticCandidateWithoutSavingMetadata() {
+    void shouldSelectTheAutomaticCandidateWhenNothingIsSaved() {
         var container = container(
                 "id",
                 "local",
                 "app",
                 List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", false)));
 
-        new ContainerPreferencesEnricher(store(Map.of()), ICONS).enrich(List.of(container), context);
+        new ContainerPreferencesEnricher(entries(), ICONS).enrich(List.of(container), context);
 
-        assertThat(container.preferences().selectedEndpoint()).isNull();
         assertThat(container.urlCandidates())
                 .containsExactly(new Endpoint("published-port:80", "published-port", "http://localhost/", true));
     }
 
-    @Test
-    void shouldRemoveCustomCandidateOnTheNextDiscoveryAfterSelectionChanges() {
-        var snapshot = new HashMap<ContainerPreferencesKey, ContainerPreferences>();
-        var key = new ContainerPreferencesKey("local", "app");
-        snapshot.put(key, new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://custom.example")));
-        var enricher = new ContainerPreferencesEnricher(store(snapshot), ICONS);
-        var discovery = List.of(new Endpoint("published-port:80", "published-port", "http://localhost/", false));
-        var container = container("id", "local", "app", discovery);
-        enricher.enrich(List.of(container), context);
-        assertThat(container.urlCandidates()).extracting(Endpoint::source).containsExactly("published-port", "custom");
-
-        snapshot.put(key, new ContainerPreferences(new SelectedEndpoint("published-port:80", "published-port", null)));
-        container.setUrlCandidates(discovery);
-        enricher.enrich(List.of(container), context);
-
-        assertThat(container.urlCandidates())
-                .containsExactly(new Endpoint("published-port:80", "published-port", "http://localhost/", true));
-        assertThat(container.preferences().selectedEndpoint().url()).isNull();
-    }
-
-    private String iconUrlAfterEnriching(ContainerPreferences preferences) {
+    private String iconUrlAfterEnriching(EntryRecord record) {
         var container = container("id", "local", "app", List.of());
         container.setIconUrl("https://cdn.example.com/icons/default.svg");
-        new ContainerPreferencesEnricher(store(Map.of(new ContainerPreferencesKey("local", "app"), preferences)), ICONS)
+        new ContainerPreferencesEnricher(entries(record), ICONS)
                 .enrich(List.of(container), new EnrichmentContext("local", null, true, false));
         return container.iconUrl();
     }
 
     @Test
-    void savedLibraryIconOverridesTheDefaultIcon() {
-        assertThat(iconUrlAfterEnriching(new ContainerPreferences(null, SelectedIcon.library("coredns"))))
-                .isEqualTo("https://cdn.example.com/icons/coredns.svg");
-    }
-
-    @Test
     void savedUploadOverridesTheDefaultIconEvenIfItsFileHasVanished() {
-        String name = "ffffffffffffffffffffffffffffffff.png";
-        assertThat(iconUrlAfterEnriching(new ContainerPreferences(null, SelectedIcon.upload(name))))
-                .isEqualTo("/api/icons/" + name);
+        String id = "f".repeat(64) + ".png";
+        assertThat(iconUrlAfterEnriching(new EntryRecord(APP, null, new Icon.Upload(id), null, null)))
+                .isEqualTo("/api/icons/" + id);
     }
 
     @Test
     void noSavedIconKeepsTheDefaultIcon() {
-        assertThat(iconUrlAfterEnriching(new ContainerPreferences(new SelectedEndpoint("none", "none", null))))
+        assertThat(iconUrlAfterEnriching(endpoint(APP, EndpointChoice.NONE)))
                 .isEqualTo("https://cdn.example.com/icons/default.svg");
-    }
-
-    private ContainerPreferencesStore store(Map<ContainerPreferencesKey, ContainerPreferences> snapshot) {
-        return new ContainerPreferencesStore() {
-            @Override
-            public Map<ContainerPreferencesKey, ContainerPreferences> snapshot() {
-                return snapshot;
-            }
-
-            @Override
-            public ContainerPreferences replaceSelection(ContainerPreferencesKey key, SelectedEndpoint selection) {
-                throw new AssertionError("Inventory must not persist preferences");
-            }
-
-            @Override
-            public ContainerPreferences replaceIcon(
-                    ContainerPreferencesKey key, com.roomelephant.porthole.core.model.SelectedIcon icon) {
-                throw new AssertionError("Inventory must not persist preferences");
-            }
-        };
     }
 
     private Container container(String id, String sourceId, String name, List<Endpoint> endpoints) {

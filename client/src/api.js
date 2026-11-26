@@ -28,20 +28,39 @@ export const refreshVersions = async () => {
   await api.post(API.VERSION_REFRESH);
 };
 
-export const selectContainerEndpoint = async ({ sourceId, containerName, selectedEndpoint }) => {
-  await api.put(API.SELECTED_URL, { sourceId, containerName, selectedEndpoint });
+const MERGE_PATCH = 'application/merge-patch+json';
+const entryUrl = id => `${API.ENTRIES}/${encodeURIComponent(id)}`;
+
+/** Changes an entry with a JSON Merge Patch: a missing field is kept and null removes the override. */
+export const patchEntry = async (id, patch) => {
+  await api.patch(entryUrl(id), patch, { headers: { 'Content-Type': MERGE_PATCH } });
 };
 
-export const selectContainerIcon = async ({ sourceId, containerName, name }) => {
-  await api.put(API.ICON, { sourceId, containerName, name });
+/** The PATCH value for an endpoint choice the settings dialog made; null restores automatic selection. */
+export const toEndpointPatch = (selection) => {
+  if (selection == null) return null;
+  if (selection.id === 'none') return 'none';
+  if (selection.source === 'custom') return { url: selection.url };
+  return { id: selection.id };
 };
 
-export const uploadContainerIcon = async ({ sourceId, containerName, file }) => {
-  const body = new FormData();
-  body.append('sourceId', sourceId);
-  body.append('containerName', containerName);
-  body.append('file', file);
-  await api.post(API.ICON_UPLOAD, body, { timeout: 30000 });
+export const selectContainerEndpoint = ({ entryId, selectedEndpoint }) =>
+  patchEntry(entryId, { endpoint: toEndpointPatch(selectedEndpoint) });
+
+/** Uploads the image as the raw body and returns its ID. */
+export const uploadIcon = async (file) => {
+  const { data } = await api.post(API.ICONS, file, {
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    timeout: 30000,
+  });
+  return data.id;
+};
+
+export const selectEntryIcon = ({ entryId, name }) => patchEntry(entryId, { icon: { library: name } });
+
+export const uploadEntryIcon = async ({ entryId, file }) => {
+  const upload = await uploadIcon(file);
+  await patchEntry(entryId, { icon: { upload } });
 };
 
 export const fetchLinks = async ({ signal }) => {
@@ -49,27 +68,16 @@ export const fetchLinks = async ({ signal }) => {
   return data;
 };
 
+/** Adds a link and returns `{ id }`. */
 export const createLink = async (details) => {
-  const { data } = await api.post(API.LINKS, details);
+  const { data } = await api.post(API.ENTRIES, details);
   return data;
 };
 
-export const updateLink = async (id, details) => {
-  await api.put(`${API.LINKS}/${id}`, details);
-};
+export const updateLink = (id, { name, url, stack }) => patchEntry(id, { name, endpoint: { url }, stack });
 
-export const deleteLink = async (id) => {
-  await api.delete(`${API.LINKS}/${id}`);
-};
-
-export const selectLinkIcon = async (id, name) => {
-  await api.put(`${API.LINKS}/${id}/icon`, { name });
-};
-
-export const uploadLinkIcon = async (id, file) => {
-  const body = new FormData();
-  body.append('file', file);
-  await api.post(`${API.LINKS}/${id}/icon/upload`, body, { timeout: 30000 });
+export const deleteEntry = async (id) => {
+  await api.delete(entryUrl(id));
 };
 
 export const fetchIconLibrary = async ({ signal }) => {

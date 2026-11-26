@@ -135,7 +135,7 @@ fi
 
 log "Starting the back and front ends..."
 export SPRING_CONFIG_ADDITIONALLOCATION="file:$LAB/application.yml"
-export PORTHOLE_PREFERENCES_PATH="$LAB/preferences.json"
+export PORTHOLE_DATA_DIR="$LAB/data"
 start_job server make -C "$ROOT/server" dev
 server_pid=$job_pid
 start_job client npm --prefix "$ROOT/client" run dev -- --strictPort
@@ -144,7 +144,7 @@ client_pid=$job_pid
 wait_for_url "http://localhost:9753/api/containers" "$server_pid" "back end"
 wait_for_url "$URL" "$client_pid" "front end"
 
-printf '\n[lab] Ready: %s\n[lab] Press Ctrl-C to stop. Preferences save to lab/preferences.json, links to lab/links.json.\n\n' "$URL"
+printf '\n[lab] Ready: %s\n[lab] Press Ctrl-C to stop. Settings and links save to lab/data/.\n\n' "$URL"
 
 while is_running "$server_pid" && is_running "$client_pid"; do
   sleep 1

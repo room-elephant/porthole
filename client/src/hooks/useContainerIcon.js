@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { selectContainerIcon, uploadContainerIcon } from '../api';
+import { selectEntryIcon, uploadEntryIcon } from '../api';
 import { useInventorySave } from './useInventorySave';
 
 /** Changes a container's icon. `retry` repeats the last save that started. */
@@ -8,9 +8,9 @@ export const useContainerIcon = (container) => {
   const { save, isSaving, saveError, refreshError, clearError } = useInventorySave({
     container,
     mutationKey: ['container-icon', container.sourceId, container.name],
-    mutationFn: ({ file, ...request }) => (file ? uploadContainerIcon({ ...request, file }) : selectContainerIcon(request)),
+    mutationFn: ({ file, ...request }) => (file ? uploadEntryIcon({ ...request, file }) : selectEntryIcon(request)),
   });
-  const identity = { sourceId: container.sourceId, containerName: container.name };
+  const identity = { entryId: container.entryId };
   const start = (variables, options) => {
     if (save(variables, options)) lastSave.current = { variables, options };
   };

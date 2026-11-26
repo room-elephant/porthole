@@ -3,14 +3,14 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { useContainerIcon } from '../../hooks/useContainerIcon';
 import { useIconLibrary } from '../../hooks/useIconLibrary';
-import { fetchIconLibrary, selectContainerIcon, uploadContainerIcon } from '../../api';
+import { fetchIconLibrary, selectEntryIcon, uploadEntryIcon } from '../../api';
 import { createMockContainer } from '../testUtils';
 
 vi.mock('../../api', () => ({
   fetchIconLibrary: vi.fn(),
   selectContainerEndpoint: vi.fn(),
-  selectContainerIcon: vi.fn(),
-  uploadContainerIcon: vi.fn(),
+  selectEntryIcon: vi.fn(),
+  uploadEntryIcon: vi.fn(),
 }));
 
 const key = ['containers', { showAll: true, showStopped: false }];
@@ -34,29 +34,29 @@ beforeEach(() => { vi.clearAllMocks(); });
 
 describe('useContainerIcon', () => {
   it('saves a library icon, refetches inventory, then reports saved', async () => {
-    selectContainerIcon.mockResolvedValue(undefined);
+    selectEntryIcon.mockResolvedValue(undefined);
     const { wrapper, useIcon, fetch } = setup();
     const onSaved = vi.fn(() => expect(fetch).toHaveBeenCalledTimes(1));
     const { result } = renderHook(useIcon, { wrapper });
     act(() => result.current.selectIcon('coredns', { onSaved }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
-    expect(selectContainerIcon).toHaveBeenCalledWith({ sourceId: 'walker', containerName: 'app', name: 'coredns' });
+    expect(selectEntryIcon).toHaveBeenCalledWith({ entryId: 'container:walker:app', name: 'coredns' });
     expect(result.current.saveError).toBeNull();
     expect(result.current.refreshError).toBeNull();
   });
 
   it('uploads a file', async () => {
-    uploadContainerIcon.mockResolvedValue(undefined);
+    uploadEntryIcon.mockResolvedValue(undefined);
     const { wrapper, useIcon } = setup();
     const onSaved = vi.fn();
     const { result } = renderHook(useIcon, { wrapper });
     act(() => result.current.uploadIcon(image, { onSaved }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
-    expect(uploadContainerIcon).toHaveBeenCalledWith({ sourceId: 'walker', containerName: 'app', file: image });
+    expect(uploadEntryIcon).toHaveBeenCalledWith({ entryId: 'container:walker:app', file: image });
   });
 
   it('reports a failed write without calling saved, and retry repeats the same call', async () => {
-    selectContainerIcon.mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined);
+    selectEntryIcon.mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined);
     const { wrapper, useIcon } = setup();
     const onSaved = vi.fn();
     const { result } = renderHook(useIcon, { wrapper });
@@ -66,24 +66,24 @@ describe('useContainerIcon', () => {
 
     act(() => result.current.retry());
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
-    expect(selectContainerIcon).toHaveBeenCalledTimes(2);
-    expect(selectContainerIcon).toHaveBeenLastCalledWith({ sourceId: 'walker', containerName: 'app', name: 'coredns' });
+    expect(selectEntryIcon).toHaveBeenCalledTimes(2);
+    expect(selectEntryIcon).toHaveBeenLastCalledWith({ entryId: 'container:walker:app', name: 'coredns' });
     expect(result.current.saveError).toBeNull();
   });
 
   it('retries an upload with the same file', async () => {
-    uploadContainerIcon.mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined);
+    uploadEntryIcon.mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined);
     const { wrapper, useIcon } = setup();
     const { result } = renderHook(useIcon, { wrapper });
     act(() => result.current.uploadIcon(image));
     await waitFor(() => expect(result.current.saveError).not.toBeNull());
     act(() => result.current.retry());
-    await waitFor(() => expect(uploadContainerIcon).toHaveBeenCalledTimes(2));
-    expect(uploadContainerIcon).toHaveBeenLastCalledWith({ sourceId: 'walker', containerName: 'app', file: image });
+    await waitFor(() => expect(uploadEntryIcon).toHaveBeenCalledTimes(2));
+    expect(uploadEntryIcon).toHaveBeenLastCalledWith({ entryId: 'container:walker:app', file: image });
   });
 
   it('never repeats a successful write when only the refetch fails', async () => {
-    selectContainerIcon.mockResolvedValue(undefined);
+    selectEntryIcon.mockResolvedValue(undefined);
     const { wrapper, useIcon } = setup(vi.fn().mockRejectedValue(new Error('offline')));
     const onSaved = vi.fn();
     const { result } = renderHook(useIcon, { wrapper });
@@ -91,12 +91,12 @@ describe('useContainerIcon', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(result.current.refreshError?.message).toBe('offline'));
     expect(result.current.saveError).toBeNull();
-    expect(selectContainerIcon).toHaveBeenCalledTimes(1);
+    expect(selectEntryIcon).toHaveBeenCalledTimes(1);
   });
 
   it('ignores a second save while one is running', async () => {
     const write = deferred();
-    selectContainerIcon.mockReturnValue(write.promise);
+    selectEntryIcon.mockReturnValue(write.promise);
     const { wrapper, useIcon } = setup();
     const { result } = renderHook(useIcon, { wrapper });
     act(() => {
@@ -104,13 +104,13 @@ describe('useContainerIcon', () => {
       result.current.selectIcon('grafana');
     });
     await waitFor(() => expect(result.current.isSaving).toBe(true));
-    expect(selectContainerIcon).toHaveBeenCalledTimes(1);
+    expect(selectEntryIcon).toHaveBeenCalledTimes(1);
     write.resolve();
     await waitFor(() => expect(result.current.isSaving).toBe(false));
   });
 
   it('clears a shown error', async () => {
-    selectContainerIcon.mockRejectedValue(new Error('disk full'));
+    selectEntryIcon.mockRejectedValue(new Error('disk full'));
     const { wrapper, useIcon } = setup();
     const { result } = renderHook(useIcon, { wrapper });
     act(() => result.current.selectIcon('coredns'));
@@ -123,8 +123,8 @@ describe('useContainerIcon', () => {
     const { wrapper, useIcon } = setup();
     const { result } = renderHook(useIcon, { wrapper });
     act(() => result.current.retry());
-    expect(selectContainerIcon).not.toHaveBeenCalled();
-    expect(uploadContainerIcon).not.toHaveBeenCalled();
+    expect(selectEntryIcon).not.toHaveBeenCalled();
+    expect(uploadEntryIcon).not.toHaveBeenCalled();
   });
 });
 

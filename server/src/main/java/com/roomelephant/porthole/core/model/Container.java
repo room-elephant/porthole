@@ -1,5 +1,7 @@
 package com.roomelephant.porthole.core.model;
 
+import com.roomelephant.porthole.entries.EndpointChoice;
+import com.roomelephant.porthole.entries.EntryRecord;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,7 +18,7 @@ public final class Container {
     private final Details details;
     private String iconUrl = "";
     private List<Endpoint> urlCandidates;
-    private ContainerPreferences preferences = new ContainerPreferences(null);
+    private @Nullable EntryRecord entry;
     private @Nullable VersionInfo version;
     private boolean self;
 
@@ -86,16 +88,16 @@ public final class Container {
     }
 
     public boolean hasWebUi() {
-        SelectedEndpoint selection = preferences.selectedEndpoint();
-        return !urlCandidates.isEmpty() && (selection == null || !selection.selectsNone());
+        return !urlCandidates.isEmpty() && (entry == null || !(entry.endpoint() instanceof EndpointChoice.None));
     }
 
-    public ContainerPreferences preferences() {
-        return preferences;
+    /** What the user saved for this container, or null when nothing is saved. */
+    public @Nullable EntryRecord entry() {
+        return entry;
     }
 
-    public void setPreferences(ContainerPreferences preferences) {
-        this.preferences = preferences;
+    public void setEntry(@Nullable EntryRecord entry) {
+        this.entry = entry;
     }
 
     public @Nullable VersionInfo version() {

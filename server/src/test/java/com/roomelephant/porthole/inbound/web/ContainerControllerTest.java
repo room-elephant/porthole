@@ -6,31 +6,34 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.roomelephant.porthole.DockerTestSources;
 import com.roomelephant.porthole.core.enrichment.EnrichmentContext;
 import com.roomelephant.porthole.core.enrichment.icon.IconSettings;
 import com.roomelephant.porthole.core.enrichment.preferences.ContainerPreferencesEnricher;
 import com.roomelephant.porthole.core.enrichment.preferences.CustomIconResolver;
 import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.model.ContainerPreferences;
-import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
 import com.roomelephant.porthole.core.model.Endpoint;
-import com.roomelephant.porthole.core.model.SelectedEndpoint;
 import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.core.port.inbound.GetContainers;
-import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
-import com.roomelephant.porthole.core.service.ContainerPreferencesService;
-import com.roomelephant.porthole.fleet.SourceCatalog;
+import com.roomelephant.porthole.entries.EndpointChoice;
+import com.roomelephant.porthole.entries.EntryRecord;
+import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
+import com.roomelephant.porthole.entries.EntryService;
+import com.roomelephant.porthole.entries.EntryState;
+import com.roomelephant.porthole.entries.IconService;
+import com.roomelephant.porthole.entries.StateStore;
+import com.roomelephant.porthole.entries.icons.FilesystemIconFileStore;
 import com.roomelephant.porthole.inbound.web.mapper.ContainerDTOMapper;
+import java.nio.file.Path;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.BeforeEach;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -38,7 +41,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest({ContainerController.class, VersionController.class})
-@Import({ContainerDTOMapper.class, ContainerPreferencesService.class})
+@Import(ContainerDTOMapper.class)
 @DisplayName("ContainerController")
 class ContainerControllerTest {
 
@@ -47,20 +50,6 @@ class ContainerControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @MockitoBean
-    private ContainerPreferencesStore preferencesStore;
-
-    @MockitoBean
-    private SourceCatalog sourceCatalog;
-
-    @BeforeEach
-    void saveConfirmedPreferences() {
-        when(sourceCatalog.contains(any()))
-                .thenAnswer(call -> java.util.Set.of("local", "remote").contains(call.<String>getArgument(0)));
-        when(preferencesStore.replaceSelection(any(), nullable(SelectedEndpoint.class)))
-                .thenAnswer(invocation -> new ContainerPreferences(invocation.getArgument(1)));
-    }
 
     @MockitoBean
     private GetContainers containerService;
@@ -265,83 +254,9 @@ class ContainerControllerTest {
     }
 
     @Test
-    void shouldAcceptCustomSelection() throws Exception {
-        mockMvc.perform(put("/api/containers/selected-url")
-                        .contentType("application/json")
-                        .content("""
-                                {"sourceId":"local","containerName":"app",
-                                  "selectedEndpoint":{"id":"custom","source":"custom","url":"https://app.example"}}
-                                """))
-                .andExpect(status().isNoContent())
-                .andExpect(content().string(""));
-        verify(preferencesStore)
-                .replaceSelection(
-                        new ContainerPreferencesKey("local", "app"),
-                        new SelectedEndpoint("custom", "custom", "https://app.example"));
-        verifyNoInteractions(containerService, versions);
-    }
-
-    @ParameterizedTest
-    @ValueSource(
-            strings = {
-                "{\"id\":\"published-port:3000\",\"source\":\"published-port\"}",
-                "{\"id\":\"none\",\"source\":\"none\"}",
-                "null"
-            })
-    void shouldSaveDiscoveredNoneAndAutomaticSelections(String selection) throws Exception {
-        mockMvc.perform(put("/api/containers/selected-url")
-                        .contentType("application/json")
-                        .content("{\"sourceId\":\"remote\",\"containerName\":\"app\",\"selectedEndpoint\":" + selection
-                                + "}"))
-                .andExpect(status().isNoContent());
-        verify(preferencesStore)
-                .replaceSelection(eq(new ContainerPreferencesKey("remote", "app")), nullable(SelectedEndpoint.class));
-        verifyNoInteractions(containerService, versions);
-    }
-
-    @ParameterizedTest
-    @ValueSource(
-            strings = {
-                "{}",
-                "null",
-                "{",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\"}",
-                "{\"sourceId\":\" \",\"containerName\":\"app\",\"selectedEndpoint\":null}",
-                "{\"sourceId\":\"local\",\"containerName\":\" \",\"selectedEndpoint\":null}",
-                "{\"sourceId\":\"unconfigured\",\"containerName\":\"app\",\"selectedEndpoint\":null}",
-                "{\"containerName\":\"app\",\"selectedEndpoint\":null}",
-                "{\"sourceId\":\"local\",\"selectedEndpoint\":null}",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"selectedEndpoint\":{}}",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"selectedEndpoint\":{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"javascript:alert(1)\"}}",
-                "{\"sourceId\":\"local\",\"containerName\":\"app\",\"selectedEndpoint\":{\"id\":\"custom\",\"source\":\"custom\",\"url\":\"https://user:pass@app.example\"}}"
-            })
-    void shouldRejectMalformedUpdatesWithoutSaving(String body) throws Exception {
-        mockMvc.perform(put("/api/containers/selected-url")
-                        .contentType("application/json")
-                        .content(body))
-                .andExpect(status().isBadRequest());
-        verifyNoInteractions(preferencesStore, containerService, versions);
-    }
-
-    @Test
-    void shouldReturnSafeErrorForFailedSave() throws Exception {
-        when(preferencesStore.replaceSelection(any(), isNull()))
-                .thenThrow(new IllegalStateException("Failed to save /private/secrets/preferences.json"));
-        mockMvc.perform(put("/api/containers/selected-url")
-                        .contentType("application/json")
-                        .content("""
-                                {"sourceId":"local","containerName":"app","selectedEndpoint":null}
-                                """))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.detail").isNotEmpty())
-                .andExpect(
-                        content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/private"))));
-    }
-
-    @Test
     void shouldReturnResolvedCustomCandidateWithoutPreferences() throws Exception {
         var container = createContainer("app");
-        resolveSelection(container, new SelectedEndpoint("custom", "custom", "https://app.example"));
+        resolveSelection(container, new EndpointChoice.Custom("https://app.example"));
         when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(container)));
         mockMvc.perform(get("/api/containers"))
@@ -359,7 +274,7 @@ class ContainerControllerTest {
     @Test
     void shouldKeepEndpointAvailabilitySeparateFromNoWebUiChoice() throws Exception {
         var container = createContainer("app");
-        resolveSelection(container, new SelectedEndpoint("none", "none", null));
+        resolveSelection(container, EndpointChoice.NONE);
         when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
                 .thenReturn(inventory(List.of(container)));
         mockMvc.perform(get("/api/containers"))
@@ -410,27 +325,43 @@ class ContainerControllerTest {
         return container;
     }
 
-    private void resolveSelection(Container container, SelectedEndpoint selection) {
-        var store = new ContainerPreferencesStore() {
+    private void resolveSelection(Container container, @Nullable EndpointChoice selection) {
+        EntryState state = selection == null
+                ? EntryState.EMPTY
+                : EntryState.EMPTY.with(new EntryRecord(
+                        new ContainerRef(container.sourceId(), container.name()), null, null, selection, null));
+        StateStore store = new StateStore() {
             @Override
-            public Map<ContainerPreferencesKey, ContainerPreferences> snapshot() {
-                return Map.of(
-                        new ContainerPreferencesKey(container.sourceId(), container.name()),
-                        new ContainerPreferences(selection));
+            public EntryState load() {
+                return state;
             }
 
             @Override
-            public ContainerPreferences replaceSelection(ContainerPreferencesKey key, SelectedEndpoint selected) {
-                throw new AssertionError("Inventory must not write preferences");
-            }
-
-            @Override
-            public ContainerPreferences replaceIcon(
-                    ContainerPreferencesKey key, com.roomelephant.porthole.core.model.SelectedIcon icon) {
-                throw new AssertionError("Inventory must not write preferences");
+            public void save(EntryState updated) {
+                throw new AssertionError("Inventory must not write entries");
             }
         };
-        new ContainerPreferencesEnricher(store, ICONS)
+        EntryService entries = new EntryService(
+                store,
+                new IconService(new FilesystemIconFileStore(Path.of("unused"), Clock.systemUTC())),
+                DockerTestSources.catalog("local"));
+        new ContainerPreferencesEnricher(entries, ICONS)
                 .enrich(List.of(container), new EnrichmentContext("local", "localhost", false, false));
+    }
+
+    @Test
+    void containerDtoCarriesEntryId() throws Exception {
+        when(containerService.getContainers(new com.roomelephant.porthole.core.model.ContainerQuery(false, false)))
+                .thenReturn(inventory(List.of(createContainer("app"))));
+        mockMvc.perform(get("/api/containers"))
+                .andExpect(jsonPath("$.containers[0].entryId").value("container:local:app"));
+    }
+
+    @Test
+    void selectedUrlEndpointIsGone() throws Exception {
+        mockMvc.perform(put("/api/containers/selected-url")
+                        .contentType("application/json")
+                        .content("{\"sourceId\":\"local\",\"containerName\":\"app\",\"selectedEndpoint\":null}"))
+                .andExpect(status().is4xxClientError());
     }
 }

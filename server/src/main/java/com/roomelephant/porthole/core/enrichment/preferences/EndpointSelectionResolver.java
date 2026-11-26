@@ -1,26 +1,26 @@
 package com.roomelephant.porthole.core.enrichment.preferences;
 
 import com.roomelephant.porthole.core.model.Endpoint;
-import com.roomelephant.porthole.core.model.SelectedEndpoint;
+import com.roomelephant.porthole.entries.EndpointChoice;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.IntStream;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 @NullMarked
 public final class EndpointSelectionResolver {
-    public List<Endpoint> resolve(List<Endpoint> discovered, @Nullable SelectedEndpoint selection) {
+    static final String CUSTOM = "custom";
+
+    public List<Endpoint> resolve(List<Endpoint> discovered, @Nullable EndpointChoice selection) {
         List<Endpoint> resolved = new ArrayList<>();
         for (Endpoint endpoint : discovered) {
             resolved.add(new Endpoint(endpoint.id(), endpoint.source(), endpoint.url(), false));
         }
-        if (selection != null && selection.selectsNone()) return List.copyOf(resolved);
-        if (selection != null && selection.selectsCustom()) {
-            resolved.add(
-                    new Endpoint(selection.id(), selection.source(), Objects.requireNonNull(selection.url()), true));
+        if (selection instanceof EndpointChoice.None) return List.copyOf(resolved);
+        if (selection instanceof EndpointChoice.Custom custom) {
+            resolved.add(new Endpoint(CUSTOM, CUSTOM, custom.url(), true));
             return List.copyOf(resolved);
         }
         int selectedIndex = discoveredSelection(discovered, selection);
@@ -31,12 +31,10 @@ public final class EndpointSelectionResolver {
         return List.copyOf(resolved);
     }
 
-    private int discoveredSelection(List<Endpoint> discovered, @Nullable SelectedEndpoint selection) {
-        if (selection != null) {
+    private int discoveredSelection(List<Endpoint> discovered, @Nullable EndpointChoice selection) {
+        if (selection instanceof EndpointChoice.Discovered chosen) {
             for (int index = 0; index < discovered.size(); index++) {
-                Endpoint candidate = discovered.get(index);
-                if (candidate.id().equals(selection.id()) && candidate.source().equals(selection.source()))
-                    return index;
+                if (discovered.get(index).id().equals(chosen.id())) return index;
             }
         }
         List<Integer> traefik = IntStream.range(0, discovered.size())

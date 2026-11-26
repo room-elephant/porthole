@@ -2,6 +2,7 @@ package com.roomelephant.porthole.inbound.web.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.roomelephant.porthole.core.model.VersionInfo;
+import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
@@ -30,6 +31,12 @@ public record ContainerDTO(
         boolean hasWebUi) {
     public ContainerDTO {
         endpoints = List.copyOf(endpoints);
+    }
+
+    @JsonProperty("entryId")
+    @Schema(description = "Entry ID, for PATCH /api/entries/{id}", requiredMode = Schema.RequiredMode.REQUIRED)
+    public String entryId() {
+        return new ContainerRef(sourceId, name).id();
     }
 
     @JsonProperty("hasEndpoints")

@@ -46,7 +46,7 @@ export const renderWithQuery = (ui, options = {}) => {
 /**
  * Creates a mock container object for testing.
  */
-export const createMockContainer = (overrides = {}) => ({
+export const createMockContainer = (overrides = {}) => withEntryId({
   id: 'container-1',
   sourceId: 'local',
   name: 'test-container',
@@ -62,6 +62,9 @@ export const createMockContainer = (overrides = {}) => ({
   self: false,
   ...overrides,
 });
+
+/** Adds the entry ID the server reports for a container, unless the fixture set one. */
+export const withEntryId = container => ({ entryId: `container:${container.sourceId}:${container.name}`, ...container });
 
 export const publishedEndpoint = (port, selected = false) => ({ id: `published-port:${port}`, source: 'published-port', url: `http://localhost:${port}/`, selected });
 
@@ -80,10 +83,10 @@ export const renderInventory = (children, inventory, queryFn = () => inventory) 
 };
 
 /** Resolved GET fixture after an explicit choice; automatic resolution belongs to server tests. */
-export const inventoryWithSelection = (inventory, { sourceId, containerName, selectedEndpoint }) => ({
+export const inventoryWithSelection = (inventory, { entryId, selectedEndpoint }) => ({
   ...inventory,
   containers: inventory.containers.map(container => {
-    if (container.sourceId !== sourceId || container.name !== containerName) return container;
+    if (withEntryId(container).entryId !== entryId) return container;
     const endpoints = container.endpoints.filter(endpoint => endpoint.source !== 'custom')
       .map(endpoint => ({ ...endpoint, selected: endpoint.id === selectedEndpoint.id && endpoint.source === selectedEndpoint.source }));
     if (selectedEndpoint.source === 'custom') endpoints.push({ ...selectedEndpoint, selected: true });

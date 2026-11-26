@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.roomelephant.porthole.core.enrichment.endpoint.EndpointUrls;
 import com.roomelephant.porthole.core.model.Endpoint;
-import com.roomelephant.porthole.core.model.SelectedEndpoint;
+import com.roomelephant.porthole.entries.EndpointChoice;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -25,16 +25,16 @@ class EndpointSelectionResolverTest {
             new Endpoint("traefik:path", "traefik", "https://app.example.com/download/", false);
     private static final Endpoint OTHER_PATH =
             new Endpoint("traefik:other", "traefik", "https://app.example.com/admin/", false);
-    private static final SelectedEndpoint MISSING = new SelectedEndpoint("traefik:missing", "traefik", null);
+    private static final EndpointChoice MISSING = new EndpointChoice.Discovered("traefik:missing");
 
     private final EndpointSelectionResolver resolver = new EndpointSelectionResolver();
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("selectionCases")
     void shouldResolveWithoutChangingCandidatesOrSavedChoice(
-            String description, List<Endpoint> candidates, SelectedEndpoint saved, List<Endpoint> expected) {
+            String description, List<Endpoint> candidates, EndpointChoice saved, List<Endpoint> expected) {
         var input = new ArrayList<>(candidates);
-        var originalSelection = saved == null ? null : new SelectedEndpoint(saved.id(), saved.source(), saved.url());
+        var originalSelection = saved;
 
         var resolved = resolver.resolve(input, saved);
 
@@ -51,7 +51,7 @@ class EndpointSelectionResolverTest {
     @ParameterizedTest(name = "{0}, saved={3}")
     @MethodSource("browserRootCases")
     void shouldClassifyDiscoveredPathsLikeTheBrowserWithoutChangingUrls(
-            String path, String expectedUrl, boolean root, SelectedEndpoint saved) {
+            String path, String expectedUrl, boolean root, EndpointChoice saved) {
         String discoveredUrl = EndpointUrls.routeUrl("https", "app.example.com", path);
         var candidate = new Endpoint("traefik:route", "traefik", discoveredUrl, false);
 
@@ -98,34 +98,36 @@ class EndpointSelectionResolverTest {
                 Arguments.of(
                         "saved provider and ID override Traefik fallback",
                         List.of(ROOT, PORT),
-                        new SelectedEndpoint("published-port:8080", "published-port", "http://stale:8080/"),
+                        new EndpointChoice.Discovered("published-port:8080"),
                         List.of(
                                 ROOT,
                                 new Endpoint("published-port:8080", "published-port", "http://docker:8080/", true))),
                 Arguments.of(
-                        "same ID with different provider does not match",
+                        "a discovered choice matches on candidate ID alone",
                         List.of(PORT, OTHER_PORT),
-                        new SelectedEndpoint("published-port:8080", "traefik", null),
-                        List.of(PORT, OTHER_PORT)),
+                        new EndpointChoice.Discovered("published-port:8080"),
+                        List.of(
+                                new Endpoint("published-port:8080", "published-port", "http://docker:8080/", true),
+                                OTHER_PORT)),
                 Arguments.of(
                         "same provider with different ID does not match",
                         List.of(PORT, OTHER_PORT),
-                        new SelectedEndpoint("published-port:8000", "published-port", null),
+                        new EndpointChoice.Discovered("published-port:8000"),
                         List.of(PORT, OTHER_PORT)),
                 Arguments.of(
                         "explicit none leaves available candidates unselected",
                         List.of(ROOT, PORT),
-                        new SelectedEndpoint("none", "none", null),
+                        EndpointChoice.NONE,
                         List.of(ROOT, PORT)),
                 Arguments.of(
                         "custom appends and selects only the configured URL",
                         List.of(ROOT, PORT),
-                        new SelectedEndpoint("custom", "custom", "https://custom.example.com/app"),
+                        new EndpointChoice.Custom("https://custom.example.com/app"),
                         List.of(ROOT, PORT, new Endpoint("custom", "custom", "https://custom.example.com/app", true))),
                 Arguments.of(
                         "custom works without discovery",
                         List.of(),
-                        new SelectedEndpoint("custom", "custom", "http://custom.example.com:9000"),
+                        new EndpointChoice.Custom("http://custom.example.com:9000"),
                         List.of(new Endpoint("custom", "custom", "http://custom.example.com:9000", true))),
                 Arguments.of("no candidates remain unresolved", List.of(), null, List.of()),
                 Arguments.of(
@@ -175,7 +177,7 @@ class EndpointSelectionResolverTest {
                 Arguments.of(
                         "saved nonroot Traefik choice wins over root",
                         List.of(ROOT, PATH),
-                        new SelectedEndpoint("traefik:path", "traefik", null),
+                        new EndpointChoice.Discovered("traefik:path"),
                         List.of(
                                 ROOT,
                                 new Endpoint("traefik:path", "traefik", "https://app.example.com/download/", true))),

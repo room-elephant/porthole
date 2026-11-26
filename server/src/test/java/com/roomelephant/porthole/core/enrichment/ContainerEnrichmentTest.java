@@ -6,9 +6,10 @@ import com.roomelephant.porthole.core.enrichment.endpoint.*;
 import com.roomelephant.porthole.core.enrichment.endpointavailability.*;
 import com.roomelephant.porthole.core.enrichment.state.*;
 import com.roomelephant.porthole.core.model.Container;
-import com.roomelephant.porthole.core.model.ContainerPreferences;
 import com.roomelephant.porthole.core.model.Endpoint;
-import com.roomelephant.porthole.core.model.SelectedEndpoint;
+import com.roomelephant.porthole.entries.EndpointChoice;
+import com.roomelephant.porthole.entries.EntryRecord;
+import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -122,8 +123,12 @@ class ContainerEnrichmentTest {
     @Test
     void shouldRejectEmptyResolvedCandidatesEvenWithSavedCustomMetadata() {
         var raw = container("running", Set.of(), Map.of());
-        raw.setPreferences(
-                new ContainerPreferences(new SelectedEndpoint("custom", "custom", "https://app.example.com")));
+        raw.setEntry(new EntryRecord(
+                new ContainerRef("local", raw.name()),
+                null,
+                null,
+                new EndpointChoice.Custom("https://app.example.com"),
+                null));
 
         assertThat(new EndpointAvailabilityFilter()
                         .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
@@ -133,14 +138,14 @@ class ContainerEnrichmentTest {
     @Test
     void shouldKeepDiscoveredContainersWithExplicitNoWebUiSelection() {
         var raw = container("running", Set.of(), Map.of());
-        raw.setPreferences(new ContainerPreferences(new SelectedEndpoint("none", "none", null)));
+        raw.setEntry(new EntryRecord(new ContainerRef("local", raw.name()), null, null, EndpointChoice.NONE, null));
         raw.setUrlCandidates(
                 List.of(new Endpoint("published-port:8080", "published-port", "http://localhost:8080/", false)));
 
         assertThat(new EndpointAvailabilityFilter()
                         .enrich(List.of(raw), new EnrichmentContext("local", "localhost", false, false)))
                 .containsExactly(raw);
-        assertThat(raw.preferences().selectedEndpoint()).isEqualTo(new SelectedEndpoint("none", "none", null));
+        assertThat(raw.entry().endpoint()).isEqualTo(EndpointChoice.NONE);
         assertThat(raw.urlCandidates()).hasSize(1);
     }
 

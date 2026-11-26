@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.*;
 
+import com.roomelephant.porthole.testsupport.MutableClock;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

@@ -73,7 +73,7 @@ Core owns the ports (`core/port/inbound/`, `core/port/outbound/`) and all bounda
 
 ### Multi-source discovery
 
-Every inventory request fans out across all configured Docker connections concurrently. A per-source failure degrades that source (`UP`/`DOWN`/`ERROR` in the `sources` array) and never fails the whole response — a completed inventory returns 200 even when all sources failed. Containers, cached version results, and refresh state use `(sourceId, containerId)`. Client-side container preferences use `(sourceId, containerName)` so they survive container recreation. Include the source ID whenever identifying a container.
+Every inventory request fans out across all configured Docker connections concurrently. A per-source failure degrades that source (`UP`/`DOWN`/`ERROR` in the `sources` array) and never fails the whole response — a completed inventory returns 200 even when all sources failed. Containers, cached version results, and refresh state use `(sourceId, containerId)`. Saved container settings use `(sourceId, containerName)` so they survive container recreation. Include the source ID whenever identifying a container.
 
 ### Enrichment chain
 
@@ -83,11 +83,11 @@ Every inventory request fans out across all configured Docker connections concur
 
 Version enrichment only reads cached results and queues background work — registry HTTP and Docker inspection never run on the inventory request path.
 
-### Container preferences
+### Entries
 
-Default stages decide what a container gets automatically: `IconResolver` picks the default icon (for example `mongo` → `mongodb`), and endpoint discovery finds URLs. `ContainerPreferencesEnricher` is the one stage that applies what a user saved on top, so it runs after the defaults it overrides.
+What users save lives in the `entries` slice: an `EntryRecord` per container (`container:<sourceId>:<containerName>`) or link (`link:<32 hex>`), written through `POST`/`PATCH`/`DELETE /api/entries` and kept in `state.json` under `PORTHOLE_DATA_DIR`. Default stages decide what a container gets automatically: `IconResolver` picks the default icon (for example `mongo` → `mongodb`), and endpoint discovery finds URLs. `ContainerPreferencesEnricher` is the one stage that applies a container's saved entry on top, so it runs after the defaults it overrides.
 
-To add a preference: add a field to `ContainerPreferences`, keep its logic in a resolver under `core/enrichment/preferences/`, and apply it in its own function in the enricher. Don't add a new enricher or change a default stage to read preferences.
+To add an editable field: add it to `EntryRecord`, `EntryPatch` and `JsonStateStore` (which maps fields by hand), and apply it in its own function in the enricher. Don't add a new enricher or change a default stage to read entries.
 
 ### Native image hints
 

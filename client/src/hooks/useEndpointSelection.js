@@ -13,7 +13,7 @@ export const useEndpointSelection = (container) => {
   const selectedEndpointId = selectedEndpoint?.id
     ?? (!container.hasWebUi ? NO_ENDPOINT_ID : null);
   const selectEndpoint = (selectedEndpoint) => {
-    save({ sourceId: container.sourceId, containerName: container.name, selectedEndpoint });
+    save({ entryId: container.entryId, selectedEndpoint });
   };
   return { selectedEndpoint, selectedEndpointId, selectEndpoint, isSaving, saveError, refreshError };
 };
