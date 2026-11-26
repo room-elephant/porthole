@@ -45,15 +45,40 @@ per-source TLS certificate or credential settings.
 
 Each entry defaults to a `5s` connection timeout and `60s` response timeout, even
 when omitted from an external list. Timeouts must be positive. Their sum bounds
-Docker container retrieval for that source; presentation and enrichment run outside
-that deadline. Each entry can set `published-host` to the hostname/IP clients should
+one container listing for that source; a listing that takes longer marks the source
+`DOWN` with "Docker request timed out". Each entry can set `published-host` to the hostname/IP clients should
 use for direct port links. It must omit scheme, port, and path. When omitted,
 it defaults to `127.0.0.1` for that connection. Traefik-discovered URLs retain their own hosts.
 
 Restart Porthole after changing connections. An unavailable source does not stop
-the application from starting: its host section reports the failure and retries
-on the next 30-second dashboard poll. Empty lists and invalid entries fail
+the application from starting: its host section reports the failure and Porthole
+keeps retrying in the background. Empty lists and invalid entries fail
 startup, rather than silently falling back to the local daemon.
+
+### Source Monitoring
+
+Porthole watches every source in the background and answers dashboard requests
+from memory, so a slow or unreachable host never delays the page. Each source is
+listed every `poll-interval`, and again within about half a second when Docker
+reports a container starting, stopping or changing. Hosts that block Docker's
+event stream (some socket proxies do) are still listed every `poll-interval`.
+
+When a listing fails, the source is reported as `DOWN` or `ERROR` with the time of
+its last successful listing, and its last known containers stay on the dashboard
+until `snapshot-retention` has passed since then. Right after startup, before its
+first listing finishes, a source is `DOWN` with "Waiting for first check".
+
+| Property | Environment variable | Default |
+| --- | --- | --- |
+| `porthole.docker.poll-interval` | `PORTHOLE_DOCKER_POLLINTERVAL` | `30s` |
+| `porthole.docker.snapshot-retention` | `PORTHOLE_DOCKER_SNAPSHOTRETENTION` | `24h` |
+
+`GET /api/sources` returns each source's `id`, `name`, `status`, `error` and
+`lastSuccessAt`, always with status 200. Use it to watch Docker hosts from an
+uptime tool. Porthole's own health endpoints (`/actuator/health`, and
+`/actuator/health/liveness` used by the image's `HEALTHCHECK`) report only whether
+Porthole is running, so an unreachable Docker host never marks the Porthole
+container unhealthy.
 
 ### Environment Variables
 

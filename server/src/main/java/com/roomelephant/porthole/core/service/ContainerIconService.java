@@ -6,7 +6,7 @@ import com.roomelephant.porthole.core.model.ContainerPreferencesValidation;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.inbound.SelectContainerIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
+import com.roomelephant.porthole.fleet.SourceCatalog;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -15,11 +15,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class ContainerIconService implements SelectContainerIcon {
     private final ContainerPreferencesStore preferences;
-    private final DockerOperations sources;
+    private final SourceCatalog sources;
     private final UploadedIcons uploads;
 
-    public ContainerIconService(
-            ContainerPreferencesStore preferences, DockerOperations sources, UploadedIcons uploads) {
+    public ContainerIconService(ContainerPreferencesStore preferences, SourceCatalog sources, UploadedIcons uploads) {
         this.preferences = preferences;
         this.sources = sources;
         this.uploads = uploads;
@@ -41,7 +40,7 @@ public class ContainerIconService implements SelectContainerIcon {
     }
 
     private void requireConfiguredSource(ContainerPreferencesKey key) {
-        if (sources.sources().stream().noneMatch(source -> source.id().equals(key.sourceId()))) {
+        if (!sources.contains(key.sourceId())) {
             throw new IllegalArgumentException("Unknown sourceId: " + key.sourceId());
         }
     }

@@ -13,17 +13,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.roomelephant.porthole.core.model.ContainerPreferencesKey;
-import com.roomelephant.porthole.core.model.DockerSource;
 import com.roomelephant.porthole.core.model.IconImageType;
 import com.roomelephant.porthole.core.model.SelectedIcon;
 import com.roomelephant.porthole.core.port.outbound.ContainerPreferencesStore;
-import com.roomelephant.porthole.core.port.outbound.DockerOperations;
 import com.roomelephant.porthole.core.port.outbound.ExternalLinkStore;
 import com.roomelephant.porthole.core.port.outbound.IconFileStore;
 import com.roomelephant.porthole.core.service.ContainerIconService;
 import com.roomelephant.porthole.core.service.UploadedIcons;
-import java.time.Duration;
-import java.util.List;
+import com.roomelephant.porthole.fleet.SourceCatalog;
 import java.util.Map;
 import java.util.Optional;
 import org.hamcrest.Matchers;
@@ -54,7 +51,7 @@ class IconControllerTest {
     private ContainerPreferencesStore preferences;
 
     @MockitoBean
-    private DockerOperations docker;
+    private SourceCatalog docker;
 
     @MockitoBean
     private IconFileStore files;
@@ -64,9 +61,7 @@ class IconControllerTest {
 
     @BeforeEach
     void setUp() {
-        when(docker.sources())
-                .thenReturn(List.of(new DockerSource(
-                        "walker", "Walker", null, Duration.ofSeconds(1), Duration.ofSeconds(1), false)));
+        when(docker.contains(any())).thenAnswer(call -> "walker".equals(call.<String>getArgument(0)));
         when(preferences.snapshot()).thenReturn(Map.of());
     }
 

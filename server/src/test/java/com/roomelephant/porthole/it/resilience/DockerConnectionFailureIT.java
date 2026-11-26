@@ -10,7 +10,6 @@ import java.net.UnixDomainSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -71,15 +70,8 @@ class DockerConnectionFailureIT {
         }
 
         @Test
-        void shouldReturnDownWhenSocketMissingOnHealth() {
-            ResponseEntity<HealthResponse> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/actuator/health/docker", HealthResponse.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-            HealthResponse health = response.getBody();
-            assertThat(health).isNotNull();
-            assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
+        void shouldStayHealthyAndReportSourceDownWhenSocketMissing() {
+            assertPortholeHealthyWithSourceDown();
         }
 
         @Test
@@ -120,15 +112,8 @@ class DockerConnectionFailureIT {
         }
 
         @Test
-        void shouldReturnDownWhenPermissionDeniedOnHealth() {
-            ResponseEntity<HealthResponse> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/actuator/health/docker", HealthResponse.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-            HealthResponse health = response.getBody();
-            assertThat(health).isNotNull();
-            assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
+        void shouldStayHealthyAndReportSourceDownWhenPermissionDenied() {
+            assertPortholeHealthyWithSourceDown();
         }
 
         @Test
@@ -177,15 +162,8 @@ class DockerConnectionFailureIT {
         }
 
         @Test
-        void shouldReturnDownWhenConnectionRefusedOnHealth() {
-            ResponseEntity<HealthResponse> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/actuator/health/docker", HealthResponse.class);
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-            HealthResponse health = response.getBody();
-            assertThat(health).isNotNull();
-            assertThat(health.status()).isEqualTo("DOWN");
-            assertThat(health.details().toString()).contains("sources", "local", "DOWN");
+        void shouldStayHealthyAndReportSourceDownWhenConnectionRefused() {
+            assertPortholeHealthyWithSourceDown();
         }
 
         @Test
@@ -198,5 +176,16 @@ class DockerConnectionFailureIT {
         }
     }
 
-    record HealthResponse(String status, Map<String, Object> details) {}
+    private void assertPortholeHealthyWithSourceDown() {
+        ResponseEntity<String> health = restTemplate.getForEntity(portholeBaseUrl + "/actuator/health", String.class);
+        assertThat(health.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(new tools.jackson.databind.json.JsonMapper()
+                        .readTree(health.getBody())
+                        .path("status")
+                        .asText())
+                .isEqualTo("UP");
+        ResponseEntity<String> sources = restTemplate.getForEntity(portholeBaseUrl + "/api/sources", String.class);
+        assertThat(sources.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(sources.getBody()).contains("\"id\":\"local\"", "\"status\":\"DOWN\"");
+    }
 }

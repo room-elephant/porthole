@@ -41,7 +41,7 @@ class PipelineWiringTest {
     void productionStagesNameTheWholeInventoryAndEnrichOnlyRetainedContainers() {
         var versions = mock(VersionRefreshService.class);
         var version = new VersionInfo("1.0", "2.0", true);
-        when(versions.getCachedVersionAndRefresh(any())).thenReturn(version);
+        when(versions.cachedVersion(any())).thenReturn(version);
         try (var context = context(versions)) {
             var stopped = container("project-web-2", "exited", Set.of(8082));
             var web = container("project-web-1", "running", Set.of(8080));

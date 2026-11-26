@@ -10,9 +10,9 @@ import com.github.dockerjava.api.command.InspectImageCmd;
 import com.github.dockerjava.api.command.InspectImageResponse;
 import com.github.dockerjava.api.model.ContainerConfig;
 import com.roomelephant.porthole.core.model.*;
-import com.roomelephant.porthole.core.model.exception.NotFoundException;
-import com.roomelephant.porthole.core.model.exception.UnexpectedException;
 import com.roomelephant.porthole.core.port.outbound.RegistryOperations;
+import com.roomelephant.porthole.fleet.ContainerNotFoundException;
+import com.roomelephant.porthole.fleet.DockerOperationException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -90,7 +90,7 @@ class VersionResolverTest {
         void pinnedOrInvalidImagesDoNotQueryRegistry(String image) {
             setupContainerWithImage(image);
             assertFalse(versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo()
                     .updateAvailable());
             verifyNoInteractions(registryService);
@@ -107,7 +107,7 @@ class VersionResolverTest {
             when(registryService.readManifests(ref(image), List.of(LOCAL_DIGEST)))
                     .thenReturn(evidence(false));
             assertTrue(versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo()
                     .updateAvailable());
         }
@@ -130,7 +130,7 @@ class VersionResolverTest {
             assertEquals(
                     expected,
                     versionResolver
-                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                             .toVersionInfo()
                             .updateAvailable());
         }
@@ -145,7 +145,7 @@ class VersionResolverTest {
             assertEquals(
                     "1.0",
                     versionResolver
-                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                             .toVersionInfo()
                             .currentVersion());
         }
@@ -169,7 +169,7 @@ class VersionResolverTest {
             assertEquals(
                     eligible,
                     versionResolver
-                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                             .toVersionInfo()
                             .updateAvailable());
             if (!eligible) verifyNoInteractions(registryService);
@@ -191,7 +191,7 @@ class VersionResolverTest {
             assertEquals(
                     expected,
                     versionResolver
-                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                             .toVersionInfo()
                             .currentVersion());
         }
@@ -202,7 +202,7 @@ class VersionResolverTest {
             assertEquals(
                     "1.25",
                     versionResolver
-                            .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                            .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                             .toVersionInfo()
                             .currentVersion());
             verifyNoInteractions(registryService);
@@ -214,34 +214,34 @@ class VersionResolverTest {
             setupRemoteImage();
             when(inspectImageResponse.getRepoDigests()).thenReturn(List.of("ghcr.io/acme/nginx@" + LOCAL_DIGEST));
             assertFalse(versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo()
                     .updateAvailable());
             verifyNoInteractions(registryService);
         }
 
         @Test
-        @DisplayName("should throw NotFoundException when container not found")
+        @DisplayName("should throw ContainerNotFoundException when container not found")
         void shouldThrowNotFoundExceptionWhenContainerNotFound() {
             when(dockerClient.inspectContainerCmd("unknown")).thenReturn(inspectContainerCmd);
             when(inspectContainerCmd.exec())
                     .thenThrow(new com.github.dockerjava.api.exception.NotFoundException("Not found"));
 
-            var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "unknown");
-            NotFoundException exception =
-                    assertThrows(NotFoundException.class, () -> versionResolver.resolve(key, null));
+            var key = new com.roomelephant.porthole.fleet.ContainerKey("local", "unknown");
+            ContainerNotFoundException exception =
+                    assertThrows(ContainerNotFoundException.class, () -> versionResolver.resolve(key, null));
 
-            assertEquals("unknown", exception.getContainerId());
+            assertEquals("Container not found: unknown", exception.getMessage());
         }
 
         @Test
-        @DisplayName("should throw UnexpectedException when docker fails")
+        @DisplayName("should throw DockerOperationException when docker fails")
         void shouldThrowUnexpectedExceptionWhenDockerFails() {
             when(dockerClient.inspectContainerCmd("container1")).thenReturn(inspectContainerCmd);
             when(inspectContainerCmd.exec()).thenThrow(new RuntimeException("Docker error"));
 
-            var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
-            assertThrows(UnexpectedException.class, () -> versionResolver.resolve(key, null));
+            var key = new com.roomelephant.porthole.fleet.ContainerKey("local", "container1");
+            assertThrows(DockerOperationException.class, () -> versionResolver.resolve(key, null));
         }
 
         @Test
@@ -252,7 +252,7 @@ class VersionResolverTest {
             when(inspectContainerResponse.getConfig()).thenReturn(null);
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertNull(result.currentVersion());
@@ -269,7 +269,7 @@ class VersionResolverTest {
             when(containerConfig.getImage()).thenReturn(null);
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertNull(result.currentVersion());
@@ -289,7 +289,7 @@ class VersionResolverTest {
             when(containerConfig.getLabels()).thenReturn(null);
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertEquals("1.25", result.currentVersion());
@@ -309,7 +309,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(true));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertEquals("1.25.0", result.currentVersion());
@@ -328,7 +328,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(true));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertEquals("2.0.0", result.currentVersion());
@@ -345,7 +345,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(true));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertEquals("1.25.0", result.currentVersion());
@@ -362,7 +362,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(true));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertEquals("3.0.0", result.currentVersion());
@@ -380,7 +380,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(true));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertTrue(result.updateAvailable());
@@ -398,7 +398,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(false));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertFalse(result.updateAvailable());
@@ -416,7 +416,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(false));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertTrue(result.updateAvailable());
@@ -433,7 +433,7 @@ class VersionResolverTest {
             when(registryService.readManifests(eq(ref("nginx:1.25")), anyList()))
                     .thenThrow(new RuntimeException("Network error"));
 
-            var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
+            var key = new com.roomelephant.porthole.fleet.ContainerKey("local", "container1");
             assertThrows(RuntimeException.class, () -> versionResolver.resolve(key, null));
         }
 
@@ -449,7 +449,7 @@ class VersionResolverTest {
             when(containerConfig.getLabels()).thenReturn(null);
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertFalse(result.updateAvailable());
@@ -465,7 +465,7 @@ class VersionResolverTest {
             when(containerConfig.getEnv()).thenReturn(null);
             when(containerConfig.getLabels()).thenReturn(null);
 
-            var key = new com.roomelephant.porthole.core.model.ContainerKey("local", "container1");
+            var key = new com.roomelephant.porthole.fleet.ContainerKey("local", "container1");
             assertThrows(RuntimeException.class, () -> versionResolver.resolve(key, null));
         }
 
@@ -481,7 +481,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(true));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertEquals("latest", result.currentVersion());
@@ -499,7 +499,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(false));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertFalse(result.updateAvailable());
@@ -518,7 +518,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(false));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertFalse(result.updateAvailable());
@@ -536,7 +536,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(false));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertFalse(result.updateAvailable());
@@ -554,7 +554,7 @@ class VersionResolverTest {
                     .thenReturn(evidence(false));
 
             VersionInfo result = versionResolver
-                    .resolve(new com.roomelephant.porthole.core.model.ContainerKey("local", "container1"), null)
+                    .resolve(new com.roomelephant.porthole.fleet.ContainerKey("local", "container1"), null)
                     .toVersionInfo();
 
             assertEquals("latest", result.currentVersion());

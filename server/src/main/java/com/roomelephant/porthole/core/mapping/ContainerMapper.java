@@ -1,6 +1,7 @@
 package com.roomelephant.porthole.core.mapping;
 
 import com.roomelephant.porthole.core.model.*;
+import com.roomelephant.porthole.fleet.*;
 import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.NullMarked;

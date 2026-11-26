@@ -22,4 +22,9 @@ class EndpointUrlsTest {
         assertThat(EndpointUrls.publishedPortUrl("docker.example.com", 443))
                 .isEqualTo("http://docker.example.com:443/");
     }
+
+    @Test
+    void publishedPortEightyHasNoPort() {
+        assertThat(EndpointUrls.publishedPortUrl("docker.example.com", 80)).isEqualTo("http://docker.example.com/");
+    }
 }

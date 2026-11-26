@@ -24,7 +24,7 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchDockerHealth, fetchIconLibrary, refreshVersions, selectContainerEndpoint, selectContainerIcon, uploadContainerIcon, fetchLinks, createLink, updateLink, deleteLink, selectLinkIcon, uploadLinkIcon } = await import('../api');
+const { fetchContainers, fetchIconLibrary, refreshVersions, selectContainerEndpoint, selectContainerIcon, uploadContainerIcon, fetchLinks, createLink, updateLink, deleteLink, selectLinkIcon, uploadLinkIcon } = await import('../api');
 
 describe('api', () => {
   beforeEach(() => {
@@ -121,41 +121,6 @@ describe('api', () => {
       mockGet.mockRejectedValue(error);
 
       await expect(fetchContainers({ showAll: false, showStopped: false })).rejects.toThrow('Network error');
-    });
-  });
-
-  describe('fetchDockerHealth', () => {
-    it('fetches docker health status', async () => {
-      const mockData = { status: 'UP' };
-      mockGet.mockResolvedValue({ data: mockData });
-
-      const result = await fetchDockerHealth();
-
-      expect(mockGet).toHaveBeenCalledWith('/actuator/health/docker', {
-        signal: undefined,
-      });
-      expect(result).toEqual(mockData);
-    });
-
-    it('passes abort signal when provided', async () => {
-      const mockData = { status: 'UP' };
-      const controller = new AbortController();
-      mockGet.mockResolvedValue({ data: mockData });
-
-      await fetchDockerHealth({ signal: controller.signal });
-
-      expect(mockGet).toHaveBeenCalledWith('/actuator/health/docker', {
-        signal: controller.signal,
-      });
-    });
-
-    it('handles DOWN status', async () => {
-      const mockData = { status: 'DOWN' };
-      mockGet.mockResolvedValue({ data: mockData });
-
-      const result = await fetchDockerHealth();
-
-      expect(result).toEqual({ status: 'DOWN' });
     });
   });
 });

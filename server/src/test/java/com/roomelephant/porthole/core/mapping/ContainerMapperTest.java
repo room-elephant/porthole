@@ -29,10 +29,10 @@ class ContainerMapperTest {
 
     @Test
     void snapshotsWithoutIdentityDoNotEnterThePublicModel() {
-        var missing = new com.roomelephant.porthole.core.model.ContainerSnapshot(
-                null, "app", "nginx:latest", Set.of(), Map.of(), null, null);
-        var healthy = new com.roomelephant.porthole.core.model.ContainerSnapshot(
-                "valid", "app", "nginx:latest", Set.of(), Map.of(), null, null);
+        var missing = new com.roomelephant.porthole.fleet.ContainerSnapshot(
+                null, "app", "nginx:latest", null, Set.of(), Map.of(), null, null);
+        var healthy = new com.roomelephant.porthole.fleet.ContainerSnapshot(
+                "valid", "app", "nginx:latest", null, Set.of(), Map.of(), null, null);
         var models = containerMapper.toModels(java.util.List.of(missing, healthy), "local");
         assertEquals(1, models.size());
         assertEquals("valid", models.getFirst().id());
@@ -41,8 +41,8 @@ class ContainerMapperTest {
 
     @Test
     void missingImageUsesTheExistingUnknownFallback() {
-        var snapshot = new com.roomelephant.porthole.core.model.ContainerSnapshot(
-                "valid", "app", null, Set.of(), Map.of(), null, null);
+        var snapshot = new com.roomelephant.porthole.fleet.ContainerSnapshot(
+                "valid", "app", null, null, Set.of(), Map.of(), null, null);
         assertEquals("Unknown", containerMapper.toModel(snapshot, "local").image());
     }
 
@@ -63,8 +63,7 @@ class ContainerMapperTest {
                     "Up 2 hours");
 
             com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                    new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container),
-                    "local");
+                    new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
 
             assertEquals("abc123", dto.id());
             assertEquals("my-container", dto.name());
@@ -84,8 +83,7 @@ class ContainerMapperTest {
                     "abc123", "/my-container", "redis:7", new Integer[] {}, null, "running", "Up 1 hour");
 
             com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                    new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container),
-                    "local");
+                    new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
 
             assertTrue(dto.publishedPorts().isEmpty());
             assertTrue(dto.urlCandidates().isEmpty());
@@ -109,8 +107,7 @@ class ContainerMapperTest {
             when(container.getPorts()).thenReturn(new ContainerPort[] {port1, port2});
 
             com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                    new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container),
-                    "local");
+                    new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
 
             assertEquals(1, dto.publishedPorts().size());
             assertTrue(dto.publishedPorts().contains(80));
@@ -129,8 +126,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
 
             com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                    new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container),
-                    "local");
+                    new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
 
             assertEquals(2, dto.publishedPorts().size());
         }
@@ -148,8 +144,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
 
             com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                    new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container),
-                    "local");
+                    new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
 
             assertEquals("my-project-web", dto.name());
             assertEquals("my-project-web", dto.displayName());
@@ -168,8 +163,7 @@ class ContainerMapperTest {
                     "Up 1 hour");
 
             com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                    new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container),
-                    "local");
+                    new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
 
             assertEquals("other-web", dto.name());
             assertEquals("other-web", dto.displayName());
@@ -182,8 +176,7 @@ class ContainerMapperTest {
                     "abc123", "/standalone-app", "myapp:latest", new Integer[] {8080}, null, "running", "Up 1 hour");
 
             com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                    new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container),
-                    "local");
+                    new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
 
             assertEquals("standalone-app", dto.name());
             assertEquals("standalone-app", dto.displayName());
@@ -202,8 +195,7 @@ class ContainerMapperTest {
             when(container.getPorts()).thenReturn(new ContainerPort[] {});
 
             com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                    new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container),
-                    "local");
+                    new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
 
             assertEquals("Unknown", dto.name());
         }
@@ -220,7 +212,7 @@ class ContainerMapperTest {
                 "id", "/smh-jellyfin", "jellyfin:latest", new Integer[] {8096}, labels, "running", "Up");
 
         com.roomelephant.porthole.core.model.Container model = containerMapper.toModel(
-                new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container), "local");
+                new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
         labels.clear();
 
         assertEquals("smh-jellyfin", model.displayName());
@@ -245,7 +237,7 @@ class ContainerMapperTest {
         when(container.getId()).thenReturn("id");
         when(container.getImage()).thenReturn("app:latest");
         com.roomelephant.porthole.core.model.Container dto = containerMapper.toModel(
-                new com.roomelephant.porthole.outbound.docker.DockerContainerMapper().toSnapshot(container), "local");
+                new com.roomelephant.porthole.fleet.docker.DockerContainerMapper().toSnapshot(container), "local");
         assertEquals("Unknown", dto.name());
         assertTrue(dto.publishedPorts().isEmpty());
     }

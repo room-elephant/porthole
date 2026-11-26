@@ -12,6 +12,8 @@ tags:
   name: Links
 - description: Custom container icons from the Dashboard Icons library or user uploads.
   name: Icons
+- description: Status of the configured Docker sources.
+  name: Sources
 - description: Container inventory and service endpoint discovery across Docker sources.
   name: Containers
 - description: Background image version refreshes.
@@ -428,6 +430,25 @@ paths:
       summary: Upload an icon for a link
       tags:
       - Links
+  /api/sources:
+    get:
+      description: "Returns every configured source in configuration order with its\
+        \ latest status, read from memory without contacting Docker. Always returns\
+        \ 200, even when every source is down. Docker status is not part of the health\
+        \ endpoints."
+      operationId: listSources
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SourceResponse"
+          description: OK
+      summary: List Docker sources
+      tags:
+      - Sources
   /api/versions/refresh:
     post:
       description: Queues an immediate background scan across all configured Docker
@@ -674,10 +695,46 @@ components:
           - "null"
         id:
           type: string
+        lastSuccessAt:
+          type:
+          - string
+          - "null"
+          format: date-time
         name:
           type: string
         status:
           type: string
+          enum:
+          - UP
+          - DOWN
+          - ERROR
+    SourceResponse:
+      type: object
+      description: A configured Docker source and what Porthole last knew about it
+      properties:
+        error:
+          type:
+          - string
+          - "null"
+          description: Why the source is not UP
+        id:
+          type: string
+          description: Configured source ID
+          example: walker
+        lastSuccessAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: "When the source last answered, or null if it never has"
+        name:
+          type: string
+          description: Configured display name
+          example: Walker
+        status:
+          type: string
+          description: "UP when the latest check succeeded, DOWN when Docker could\
+            \ not be reached in time, ERROR for other failures"
           enum:
           - UP
           - DOWN

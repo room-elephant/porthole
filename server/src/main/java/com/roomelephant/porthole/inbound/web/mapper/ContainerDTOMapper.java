@@ -17,7 +17,7 @@ public class ContainerDTOMapper {
         return new com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO(
                 inventory.sources().stream()
                         .map(s -> new com.roomelephant.porthole.inbound.web.dto.SourceDTO(
-                                s.id(), s.name(), s.status(), s.error()))
+                                s.id(), s.name(), s.status(), s.error(), s.lastSuccessAt()))
                         .toList(),
                 inventory.containers().stream().map(this::toDTO).toList());
     }
