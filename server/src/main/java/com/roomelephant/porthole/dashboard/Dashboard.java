@@ -1,12 +1,14 @@
 package com.roomelephant.porthole.dashboard;
 
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
 
-/** Everything the dashboard shows: each source's state and every entry, unfiltered. */
+/** Everything the dashboard shows: its revision, each source's state, every entry unfiltered, and version checks. */
 @NullMarked
-public record Dashboard(List<SourceSnapshot> sources, List<DashboardEntry> entries) {
+public record Dashboard(
+        long revision, List<SourceSnapshot> sources, List<DashboardEntry> entries, VersionChecks versionChecks) {
     public Dashboard {
         sources = List.copyOf(sources);
         entries = List.copyOf(entries);

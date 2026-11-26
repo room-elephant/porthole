@@ -33,10 +33,14 @@ export const toLinkView = (entry) => ({
   iconChoice: entry.icon.choice,
 });
 
-/** Sources as served, then container and link views in the server's order. */
+const NO_CHECKS = { running: false, lastCompletedAt: null };
+
+/** Sources and version-check state as served, then container and link views in the server's order. */
 export const splitDashboard = (dashboard) => {
   const entries = dashboard?.entries ?? [];
   return {
+    revision: dashboard?.revision ?? null,
+    versionChecks: dashboard?.versionChecks ?? NO_CHECKS,
     sources: dashboard?.sources ?? [],
     containers: entries.filter(entry => entry.kind === 'container').map(toContainerView),
     links: entries.filter(entry => entry.kind === 'link').map(toLinkView),

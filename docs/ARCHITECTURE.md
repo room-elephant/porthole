@@ -173,13 +173,15 @@ This is required because the Docker Registry API expects the full path:
 
 | Endpoint                                | Method | Description                                                                                 |
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
-| `/api/dashboard`                        | GET    | Every source's state and every entry, unfiltered; always 200                                |
+| `/api/dashboard`                        | GET    | Every source's state and every entry, unfiltered, with the revision and version-check state; always 200 |
+| `/api/events`                           | GET    | Server-sent `changed` events carrying `{"revision":N}`; 503 beyond 100 open streams          |
 | `/api/entries`                          | POST   | Adds a link from `{name, url, stack?, icon?}`; 201 with the resolved entry, 507 at 500 links |
 | `/api/entries/{id}`                     | PATCH  | JSON Merge Patch of `name`, `icon`, `endpoint` and `stack`; 200 with the resolved entry, 204 for a container no source lists |
 | `/api/entries/{id}`                     | DELETE | Deletes a link; 405 for a container                                                         |
 | `/api/icons`                            | POST   | Stores a raw PNG, WebP, JPEG or SVG body of at most 1 MB; 201 `{id}`                        |
 | `/api/icons/{id}`                       | GET    | Serves an uploaded icon with an immutable cache lifetime and `nosniff`                      |
 | `/api/sources`                          | GET    | Status and `lastSuccessAt` of every configured Docker source; always 200                    |
+| `/api/version-checks`                   | POST   | Starts a version check of every container in the background; 202                           |
 | `/actuator/health`                      | GET    | Health of Porthole itself; Docker status is not included                                    |
 
 ### Entries
@@ -214,6 +216,8 @@ The External source exists only in the client: it isn't in the `sources` array, 
 
 ```json
 {
+  "revision": 1762596000042,
+  "versionChecks": { "running": false, "lastCompletedAt": "2026-11-08T09:00:00Z" },
   "sources": [{ "id": "walker", "name": "Walker", "status": "UP", "error": null, "lastSuccessAt": "2026-11-08T10:00:00Z" }],
   "entries": [{
     "id": "container:walker:smh-sonarr-1", "kind": "container", "name": "sonarr", "stack": "smh",
@@ -237,6 +241,24 @@ It includes every container a source lists or still retains after a failure, sto
 5. attaches the cached version for `(sourceId, containerId)`.
 
 Icon URLs are built only in `dashboard/web/IconUrls`.
+
+### Live Updates
+
+`DashboardChanges` keeps the dashboard's `revision`. It listens to fleet snapshots, entry writes (`EntryListener`), and version results and version-check runs (`VersionListener`), and bumps the revision on each change. Revisions start at the server's start time in epoch milliseconds, so a restarted server never repeats one a browser has cached. `DashboardService` reads the revision before the other inputs, so a dashboard always reflects at least the changes its revision counts.
+
+`GET /api/events` is a server-sent event stream that signals changes without carrying them:
+
+```text
+event:changed
+data:{"revision":1762596000042}
+retry:5000
+```
+
+Each stream opens with the current revision. Changes are coalesced over 250 ms, a `:keepalive` comment follows every 15 seconds, and `retry: 5000` asks browsers to reconnect after 5 seconds. `EventStreams` allows at most 100 open streams and answers 503 beyond that. It closes every stream when the application stops, before the web server's graceful shutdown waits on in-flight requests.
+
+The browser refetches the dashboard when an event's revision differs from the one it holds, which also covers reconnecting after a restart. A failed stream is reopened after 30 seconds, and the dashboard is also polled every 5 minutes, so a lost stream only delays changes.
+
+At DEBUG, `DashboardChanges` logs each revision with its cause, for example `Dashboard revision 1762596000042: lab-a: restarting state running → restarting` or `entry container:walker:app saved: …`. `make lab` turns it on; elsewhere set `LOGGING_LEVEL_COM_ROOMELEPHANT_PORTHOLE_DASHBOARD_DASHBOARDCHANGES=DEBUG`.
 
 For names matching `<project>-<name>`, the default name drops the project prefix and a trailing numeric replica suffix (for example, `smh-sonarr-1` becomes `sonarr`). If that makes two names in one project collide, both keep their replica suffixes. A saved name replaces the default name without taking part in collisions; `container.defaultName` always reports the computed one, and `container.name` the Docker name.
 
@@ -274,7 +296,7 @@ The `fleet` slice keeps every source's state in memory. `Fleet` owns one `Source
 
 Registry catalogue caches are keyed by normalized registry and repository. Installed version and digest comparisons stay specific to each container.
 
-`POST /api/versions/refresh` returns `202 Accepted` and queues immediate checks across every source. It bypasses the refresh interval and invalidates the registry catalogue cache in the background. Existing results stay visible while checks run, and the dashboard's regular polling picks up completed checks.
+`POST /api/version-checks` returns `202 Accepted` and starts a check across every source. It bypasses the refresh interval and invalidates the registry catalogue cache in the background. A request while a check runs does nothing. Existing results stay visible while checks run. The dashboard's `versionChecks` reports `running` until every source's checks finish, then `lastCompletedAt`; each changed result and the run's start and end bump the revision.
 
 Health endpoints report only Porthole itself. The image's `HEALTHCHECK` calls `/actuator/health/liveness`, so an unreachable Docker host never marks the Porthole container unhealthy.
 
@@ -298,12 +320,12 @@ The browser keeps one `['dashboard']` query. After a successful PATCH, a dashboa
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `core/port/inbound/` — `RefreshVersions`, called by `VersionController` and implemented by `VersionRefreshService`.
 - `core/port/outbound/` — `RegistryOperations`, implemented by the registry integration.
-- `core/enrichment/version/refresh/` — `VersionRefreshService` owns background scheduling, refresh coordination, retries, and cache state; `VersionRefreshSettings` supplies its interval.
+- `core/enrichment/version/refresh/` — `VersionRefreshService` owns background scheduling, manual checks and their `VersionChecks` state, retries, and cache state, and tells `VersionListener`s about changes; `VersionRefreshSettings` supplies its interval.
 - `core/enrichment/version/resolution/` — `VersionResolver` gathers version evidence; installed-version detection, retained observations, release selection, update policy, and numeric comparison live alongside it.
 - `core/model/` — version values, registry evidence and `SelfContainer`. Ports never expose SDK objects or client handles.
-- `inbound/web/` — `VersionController` and the global exception handler.
+- `inbound/web/` — the global exception handler.
+- `versions/web/` — `POST /api/version-checks`.
 - `fleet/` — configured sources (`SourceCatalog`), the `DockerOperations` port, `Fleet` and its per-source `SourceMonitor`s, `SourceSnapshot` and `SnapshotListener`. It depends on no other production package except `shared/`.
 - `fleet/docker/` — docker-java calls, container events, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
 - `fleet/web/` — `GET /api/sources`.
@@ -312,8 +334,8 @@ The browser keeps one `['dashboard']` query. After a successful PATCH, a dashboa
 - `entries/icons/` — uploaded icon files on disk, named by content hash.
 - `entries/web/` — `/api/icons`.
 - `endpoints/` — endpoint providers, Traefik rule parsing, URL rules, `Candidate` and `EndpointSelection`. It depends only on `fleet/` and `shared/`.
-- `dashboard/` — `DashboardProjector`, `DisplayNames`, `DefaultIcons`, `DashboardService`, and the dashboard's properties and icon mappings. Nothing outside it depends on it.
-- `dashboard/web/` — `GET /api/dashboard`, the `/api/entries` write endpoints, and `IconUrls`.
+- `dashboard/` — `DashboardProjector`, `DisplayNames`, `DefaultIcons`, `DashboardService`, `DashboardChanges`, and the dashboard's properties and icon mappings. Nothing outside it depends on it.
+- `dashboard/web/` — `GET /api/dashboard`, `GET /api/events` with `EventStreams`, the `/api/entries` write endpoints, and `IconUrls`.
 - `shared/` — small rules several slices use: `Hosts`, `HttpUrls`, `AtomicFiles` and `ImageReference`.
 - `outbound/registry/` — `RegistryOperationsAdapter` implements the core port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares authenticated tag/manifest protocol, token lifecycle, and Link parsing. Numeric selection and update decisions belong to `core.enrichment.version.resolution`.
 - `config/` — Spring wiring, HTTP transport setup, and translation from bound properties to core settings.

@@ -12,7 +12,8 @@ export const API = {
   DASHBOARD: '/api/dashboard',
   ENTRIES: '/api/entries',
   ICONS: '/api/icons',
-  VERSION_REFRESH: '/api/versions/refresh',
+  EVENTS: '/api/events',
+  VERSION_CHECKS: '/api/version-checks',
 };
 
 export const EXTERNAL = { ID: '_external', NAME: 'External' };

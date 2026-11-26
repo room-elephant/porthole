@@ -7,7 +7,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 @DisplayName("GlobalExceptionHandler")
 class GlobalExceptionHandlerTest {
@@ -96,5 +107,27 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(405, response.getStatusCode().value());
         assertEquals("GET", response.getHeaders().getFirst("Allow"));
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void disconnectedEventStreamClientIsNeitherAnErrorNorAnswered(CapturedOutput output) throws Exception {
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new DisconnectingStream())
+                .setControllerAdvice(exceptionHandler)
+                .build();
+
+        mvc.perform(MockMvcRequestBuilders.get("/stream").accept(MediaType.TEXT_EVENT_STREAM))
+                .andExpect(MockMvcResultMatchers.content().string(""));
+
+        assertFalse(output.getOut().contains("Unexpected error"), output.getOut());
+        assertFalse(output.getOut().contains("No converter"), output.getOut());
+    }
+
+    @RestController
+    static class DisconnectingStream {
+        @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+        String stream() throws AsyncRequestNotUsableException {
+            throw new AsyncRequestNotUsableException("Servlet container error notification for disconnected client");
+        }
     }
 }

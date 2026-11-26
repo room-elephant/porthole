@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
 import com.roomelephant.porthole.dashboard.Dashboard;
 import com.roomelephant.porthole.dashboard.DashboardEntry;
 import com.roomelephant.porthole.dashboard.DashboardService;
@@ -39,7 +40,10 @@ class DashboardControllerTest {
     private void serve(DashboardEntry... entries) {
         when(dashboard.current())
                 .thenReturn(new Dashboard(
-                        List.of(SourceSnapshot.initial(WALKER).succeeded(List.of(), T)), List.of(entries)));
+                        42,
+                        List.of(SourceSnapshot.initial(WALKER).succeeded(List.of(), T)),
+                        List.of(entries),
+                        new VersionChecks(false, T)));
     }
 
     @Test
@@ -122,11 +126,24 @@ class DashboardControllerTest {
 
     @Test
     void emptyDashboardIs200() throws Exception {
-        when(dashboard.current()).thenReturn(new Dashboard(List.of(), List.of()));
+        when(dashboard.current()).thenReturn(new Dashboard(1, List.of(), List.of(), new VersionChecks(true, null)));
 
         mockMvc.perform(get("/api/dashboard"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sources").isEmpty())
-                .andExpect(jsonPath("$.entries").isEmpty());
+                .andExpect(jsonPath("$.entries").isEmpty())
+                .andExpect(jsonPath("$.versionChecks.running").value(true))
+                .andExpect(jsonPath("$.versionChecks.lastCompletedAt").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void servesRevisionAndVersionChecks() throws Exception {
+        serve();
+
+        mockMvc.perform(get("/api/dashboard"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revision").value(42))
+                .andExpect(jsonPath("$.versionChecks.running").value(false))
+                .andExpect(jsonPath("$.versionChecks.lastCompletedAt").value("2026-11-08T10:00:00Z"));
     }
 }

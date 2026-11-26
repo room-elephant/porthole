@@ -10,16 +10,39 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 
 @NullMarked
-@RegisterReflectionForBinding({DashboardResponse.class, DashboardResponse.SourceState.class})
+@RegisterReflectionForBinding({
+    DashboardResponse.class,
+    DashboardResponse.SourceState.class,
+    DashboardResponse.VersionChecksResponse.class
+})
 @Schema(description = "Every source's state and every entry, unfiltered")
-public record DashboardResponse(List<SourceState> sources, List<EntryResponse> entries) {
+public record DashboardResponse(
+        @Schema(description = "Changes whenever anything shown here changes; GET /api/events signals new ones")
+        long revision,
+
+        List<SourceState> sources,
+        VersionChecksResponse versionChecks,
+        List<EntryResponse> entries) {
     static DashboardResponse from(Dashboard dashboard, IconUrls icons) {
         return new DashboardResponse(
+                dashboard.revision(),
                 dashboard.sources().stream().map(SourceState::from).toList(),
+                new VersionChecksResponse(
+                        dashboard.versionChecks().running(),
+                        dashboard.versionChecks().lastCompletedAt()),
                 dashboard.entries().stream()
                         .map(entry -> EntryResponse.from(entry, icons))
                         .toList());
     }
+
+    @Schema(description = "Manual version checks started with POST /api/version-checks")
+    public record VersionChecksResponse(
+            @Schema(description = "Whether a check is running")
+            boolean running,
+
+            @Schema(description = "When the last check finished, or null if none has since startup", nullable = true)
+            @Nullable
+            Instant lastCompletedAt) {}
 
     @Schema(description = "A configured Docker source and what Porthole last knew about it")
     public record SourceState(

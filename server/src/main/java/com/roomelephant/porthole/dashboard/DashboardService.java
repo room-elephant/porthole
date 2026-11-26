@@ -15,18 +15,27 @@ public class DashboardService {
     private final Fleet fleet;
     private final EntryService entries;
     private final VersionRefreshService versions;
+    private final DashboardChanges changes;
     private final DashboardProjector projector;
 
     public DashboardService(
-            Fleet fleet, EntryService entries, VersionRefreshService versions, DashboardProjector projector) {
+            Fleet fleet,
+            EntryService entries,
+            VersionRefreshService versions,
+            DashboardChanges changes,
+            DashboardProjector projector) {
         this.fleet = fleet;
         this.entries = entries;
         this.versions = versions;
+        this.changes = changes;
         this.projector = projector;
     }
 
+    /** Reads the revision first, so the dashboard reflects at least every change that revision counts. */
     public Dashboard current() {
-        return projector.project(fleet.snapshots(), entries.state(), versions::cachedVersion);
+        long revision = changes.revision();
+        return projector.project(
+                revision, versions.checks(), fleet.snapshots(), entries.state(), versions::cachedVersion);
     }
 
     /** The resolved entry, or empty for a link that doesn't exist or a container no source lists. */

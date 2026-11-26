@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import AppSettings from '../../components/AppSettings';
-import { refreshVersions } from '../../api';
+import { startVersionCheck } from '../../api';
 import { renderWithQuery } from '../testUtils';
 
-vi.mock('../../api', () => ({ refreshVersions: vi.fn(), createLink: vi.fn() }));
+vi.mock('../../api', () => ({ startVersionCheck: vi.fn(), createLink: vi.fn() }));
 
 describe('AppSettings', () => {
   const defaultProps = {
@@ -22,24 +22,52 @@ describe('AppSettings', () => {
 
   it('starts a version check and prevents duplicate clicks while sending', async () => {
     let resolve;
-    refreshVersions.mockReturnValue(new Promise(done => { resolve = done; }));
+    startVersionCheck.mockReturnValue(new Promise(done => { resolve = done; }));
     render(<AppSettings {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: 'Check versions now' }));
     expect(screen.getByRole('button', { name: 'Starting check…' })).toBeDisabled();
-    expect(refreshVersions).toHaveBeenCalledTimes(1);
+    expect(startVersionCheck).toHaveBeenCalledTimes(1);
     await act(async () => resolve());
     expect(screen.getByRole('status')).toHaveTextContent('Version check started');
     expect(screen.getByRole('button', { name: 'Check versions now' })).toBeEnabled();
   });
 
   it('shows a retryable error when starting the check fails', async () => {
-    refreshVersions.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
+    startVersionCheck.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
     render(<AppSettings {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: 'Check versions now' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not start version check');
     fireEvent.click(screen.getByRole('button', { name: 'Check versions now' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Version check started');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows a running check and blocks starting another', () => {
+    render(<AppSettings {...defaultProps} versionChecks={{ running: true, lastCompletedAt: null }} />);
+    const button = screen.getByRole('button', { name: 'Checking versions…' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(startVersionCheck).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Last checked/)).not.toBeInTheDocument();
+  });
+
+  it('shows when the last check finished', () => {
+    const lastCompletedAt = '2026-11-08T09:00:00Z';
+    render(<AppSettings {...defaultProps} versionChecks={{ running: false, lastCompletedAt }} />);
+    expect(screen.getByText(`Last checked ${new Date(lastCompletedAt).toLocaleString()}`)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check versions now' })).toBeEnabled();
+  });
+
+  it('drops the started notice once the check it started completes', async () => {
+    startVersionCheck.mockResolvedValue(undefined);
+    const { rerender } = render(<AppSettings {...defaultProps} versionChecks={{ running: false, lastCompletedAt: null }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Check versions now' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Version check started');
+    rerender(<AppSettings {...defaultProps} versionChecks={{ running: true, lastCompletedAt: null }} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Version check started');
+    rerender(<AppSettings {...defaultProps} versionChecks={{ running: false, lastCompletedAt: '2026-11-08T09:00:00Z' }} />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByText(/Last checked/)).toBeInTheDocument();
   });
 
   it('renders Show Porthole itself checked and calls its handler', () => {
