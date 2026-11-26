@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Upload } from 'lucide-react';
-import { isUploadedIcon, validateIconFile } from '../utils/icons';
+import { validateIconFile } from '../utils/icons';
 
-function IconUploadTab({ iconUrl, onUpload, uploadingFile, isSaving }) {
+function IconUploadTab({ iconUrl, iconChoice, onUpload, uploadingFile, isSaving }) {
     const [rejection, setRejection] = useState(null);
-    const uploaded = isUploadedIcon(iconUrl);
+    const uploaded = Boolean(iconChoice?.upload);
     const uploading = isSaving && uploadingFile;
 
     const choose = (event) => {

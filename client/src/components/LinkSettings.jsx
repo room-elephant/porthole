@@ -165,6 +165,7 @@ export default function LinkSettings({ link, stacks, initialAlert = null, onClos
       >
         <IconPicker
           iconUrl={link.iconUrl}
+          iconChoice={link.iconChoice}
           startingSearch={link.name}
           icon={icon}
           onSaved={() => { setIconUpdated(true); closePicker(); }}

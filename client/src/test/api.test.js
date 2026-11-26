@@ -26,7 +26,7 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking
-const { fetchContainers, fetchIconLibrary, refreshVersions, patchEntry, toEndpointPatch, selectContainerEndpoint, uploadIcon, selectEntryIcon, uploadEntryIcon, fetchLinks, createLink, updateLink, deleteEntry } = await import('../api');
+const { fetchDashboard, fetchIconLibrary, refreshVersions, patchEntry, toEndpointPatch, selectContainerEndpoint, uploadIcon, selectEntryIcon, uploadEntryIcon, createLink, updateLink, deleteEntry } = await import('../api');
 
 const MERGE_PATCH = { headers: { 'Content-Type': 'application/merge-patch+json' } };
 
@@ -105,54 +105,20 @@ describe('api', () => {
     expect(mockGet).toHaveBeenCalledWith('https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/metadata.json', { signal });
   });
 
-  describe('fetchContainers', () => {
-    it('fetches containers with default params', async () => {
-      const mockData = [{ id: '1', name: 'container-1' }];
-      mockGet.mockResolvedValue({ data: mockData });
-
-      const result = await fetchContainers({ showAll: false, showStopped: false });
-
-      expect(mockGet).toHaveBeenCalledWith('/api/containers', {
-        params: { includeWithoutEndpoints: false, includeStopped: false },
-        timeout: 0,
-        signal: undefined,
-      });
-      expect(result).toEqual(mockData);
-    });
-
-    it('fetches containers with showAll and showStopped enabled', async () => {
-      const mockData = [{ id: '1', name: 'container-1' }];
-      mockGet.mockResolvedValue({ data: mockData });
-
-      const result = await fetchContainers({ showAll: true, showStopped: true });
-
-      expect(mockGet).toHaveBeenCalledWith('/api/containers', {
-        params: { includeWithoutEndpoints: true, includeStopped: true },
-        timeout: 0,
-        signal: undefined,
-      });
-      expect(result).toEqual(mockData);
-    });
-
-    it('passes abort signal when provided', async () => {
-      const mockData = [];
+  describe('fetchDashboard', () => {
+    it('reads the whole dashboard without a timeout', async () => {
+      const dashboard = { sources: [], entries: [] };
       const controller = new AbortController();
-      mockGet.mockResolvedValue({ data: mockData });
+      mockGet.mockResolvedValue({ data: dashboard });
 
-      await fetchContainers({ showAll: false, showStopped: false, signal: controller.signal });
-
-      expect(mockGet).toHaveBeenCalledWith('/api/containers', {
-        params: { includeWithoutEndpoints: false, includeStopped: false },
-        timeout: 0,
-        signal: controller.signal,
-      });
+      expect(await fetchDashboard({ signal: controller.signal })).toEqual(dashboard);
+      expect(mockGet).toHaveBeenCalledWith('/api/dashboard', { timeout: 0, signal: controller.signal });
     });
 
     it('throws error when API call fails', async () => {
-      const error = new Error('Network error');
-      mockGet.mockRejectedValue(error);
+      mockGet.mockRejectedValue(new Error('Network error'));
 
-      await expect(fetchContainers({ showAll: false, showStopped: false })).rejects.toThrow('Network error');
+      await expect(fetchDashboard({})).rejects.toThrow('Network error');
     });
   });
 });
@@ -163,14 +129,7 @@ describe('links api', () => {
 
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it('fetches links', async () => {
-    const signal = new AbortController().signal;
-    mockGet.mockResolvedValue({ data: [] });
-    await expect(fetchLinks({ signal })).resolves.toEqual([]);
-    expect(mockGet).toHaveBeenCalledWith('/api/links', { signal });
-  });
-
-  it('creates a link entry and returns its id', async () => {
+  it('creates a link entry and returns it', async () => {
     mockPost.mockResolvedValue({ data: { id } });
     await expect(createLink(details)).resolves.toEqual({ id });
     expect(mockPost).toHaveBeenCalledWith('/api/entries', details);

@@ -15,12 +15,9 @@ api.interceptors.response.use(
   }
 );
 
-export const fetchContainers = async ({ showAll, showStopped, signal }) => {
-  const { data } = await api.get(API.CONTAINERS, {
-    params: { includeWithoutEndpoints: showAll, includeStopped: showStopped },
-    timeout: 0,
-    signal,
-  });
+/** Every source and every entry, unfiltered; the browser decides what to show. */
+export const fetchDashboard = async ({ signal }) => {
+  const { data } = await api.get(API.DASHBOARD, { timeout: 0, signal });
   return data;
 };
 
@@ -63,12 +60,7 @@ export const uploadEntryIcon = async ({ entryId, file }) => {
   await patchEntry(entryId, { icon: { upload } });
 };
 
-export const fetchLinks = async ({ signal }) => {
-  const { data } = await api.get(API.LINKS, { signal });
-  return data;
-};
-
-/** Adds a link and returns `{ id }`. */
+/** Adds a link and returns it as the dashboard shows it. */
 export const createLink = async (details) => {
   const { data } = await api.post(API.ENTRIES, details);
   return data;

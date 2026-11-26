@@ -1,7 +1,7 @@
 package com.roomelephant.porthole.outbound.registry.distribution;
 
 import com.github.benmanes.caffeine.cache.*;
-import com.roomelephant.porthole.core.model.ImageReference;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.time.*;
 import java.util.function.Function;
 import org.jspecify.annotations.NullMarked;

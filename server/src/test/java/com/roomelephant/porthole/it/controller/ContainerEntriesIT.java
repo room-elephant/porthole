@@ -8,7 +8,8 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-import com.roomelephant.porthole.inbound.web.dto.*;
+import com.roomelephant.porthole.it.infra.DashboardView;
+import com.roomelephant.porthole.it.infra.DashboardView.EndpointView;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,8 +26,6 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 class ContainerEntriesIT {
     private static final String CONTAINER_LIST = "/(?:v[0-9.]+/)?containers/json";
@@ -116,27 +115,17 @@ class ContainerEntriesIT {
                 HttpMethod.PATCH,
                 new HttpEntity<>("{\"endpoint\":" + endpoint + "}", headers),
                 String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertThat(response.getBody()).isNull();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("\"id\":\"container:" + source + ":shared-app\"");
     }
 
     private String appUrl() {
         return "http://localhost:" + app.getMappedPort(PortholeContainer.PORTHOLE_PORT);
     }
 
-    private ContainerInventoryDTO inventory(boolean includeWithoutEndpoints) {
-        String response = http.getForObject(
-                appUrl() + "/api/containers?includeWithoutEndpoints=" + includeWithoutEndpoints, String.class);
-        var mapper = JsonMapper.builder()
-                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                .build();
-        var inventory = mapper.readTree(response);
-        for (var container : inventory.path("containers")) {
-            assertThat(container.has("preferences")).isFalse();
-            assertThat(container.has("hasWebUi")).isTrue();
-            assertThat(container.path("hasWebUi").isBoolean()).isTrue();
-        }
-        return mapper.treeToValue(inventory, ContainerInventoryDTO.class);
+    private DashboardView.Filtered inventory(boolean includeWithoutEndpoints) {
+        String response = http.getForObject(appUrl() + DashboardView.PATH, String.class);
+        return new DashboardView.Filtered(DashboardView.parse(response).containers(includeWithoutEndpoints, false));
     }
 
     private static final String CUSTOM = "{\"url\":\"https://shared.example.com/app\"}";
@@ -153,7 +142,7 @@ class ContainerEntriesIT {
         assertThat(inventory(false).containers()).singleElement().satisfies(container -> {
             assertThat(container.sourceId()).isEqualTo("walker");
             assertThat(container.endpoints())
-                    .containsExactly(new EndpointDTO("custom", "custom", "https://shared.example.com/app", true));
+                    .containsExactly(new EndpointView("custom", "custom", "https://shared.example.com/app", true));
             assertThat(container.hasEndpoints()).isTrue();
             assertThat(container.hasWebUi()).isTrue();
         });
@@ -165,7 +154,7 @@ class ContainerEntriesIT {
         assertThat(inventory(false).containers())
                 .singleElement()
                 .satisfies(c -> assertThat(c.endpoints())
-                        .containsExactly(new EndpointDTO("custom", "custom", "https://shared.example.com/app", true)));
+                        .containsExactly(new EndpointView("custom", "custom", "https://shared.example.com/app", true)));
     }
 
     @ParameterizedTest
@@ -196,9 +185,8 @@ class ContainerEntriesIT {
         startReplacement();
         assertThat(app.getContainerId()).isNotEqualTo(previousContainer);
         assertThat(inventory(false).containers()).singleElement().satisfies(container -> {
-            assertThat(container.id()).isEqualTo("recreated-id");
             assertThat(container.endpoints())
-                    .containsExactly(new EndpointDTO("custom", "custom", "https://shared.example.com/app", true));
+                    .containsExactly(new EndpointView("custom", "custom", "https://shared.example.com/app", true));
             assertThat(container.hasEndpoints()).isTrue();
             assertThat(container.sourceId()).isEqualTo("walker");
             assertThat(container.hasWebUi()).isTrue();
@@ -213,7 +201,7 @@ class ContainerEntriesIT {
         assertThat(inventory(false).containers()).hasSize(2).allSatisfy(container -> {
             assertThat(container.endpoints())
                     .containsExactly(
-                            new EndpointDTO("published-port:8080", "published-port", "http://127.0.0.1:8080/", true));
+                            new EndpointView("published-port:8080", "published-port", "http://127.0.0.1:8080/", true));
             assertThat(container.hasWebUi()).isTrue();
         });
         select("walker", CUSTOM);
@@ -222,16 +210,16 @@ class ContainerEntriesIT {
                 .singleElement()
                 .satisfies(container -> assertThat(container.endpoints())
                         .containsExactly(
-                                new EndpointDTO(
+                                new EndpointView(
                                         "published-port:8080", "published-port", "http://127.0.0.1:8080/", false),
-                                new EndpointDTO("custom", "custom", "https://shared.example.com/app", true)));
+                                new EndpointView("custom", "custom", "https://shared.example.com/app", true)));
         select("walker", "\"none\"");
         assertThat(inventory(false).containers())
                 .filteredOn(c -> c.sourceId().equals("walker"))
                 .singleElement()
                 .satisfies(container -> {
                     assertThat(container.endpoints())
-                            .containsExactly(new EndpointDTO(
+                            .containsExactly(new EndpointView(
                                     "published-port:8080", "published-port", "http://127.0.0.1:8080/", false));
                     assertThat(container.hasEndpoints()).isTrue();
                     assertThat(container.hasWebUi()).isFalse();
@@ -240,7 +228,7 @@ class ContainerEntriesIT {
         assertThat(inventory(false).containers()).hasSize(2).allSatisfy(container -> {
             assertThat(container.endpoints())
                     .containsExactly(
-                            new EndpointDTO("published-port:8080", "published-port", "http://127.0.0.1:8080/", true));
+                            new EndpointView("published-port:8080", "published-port", "http://127.0.0.1:8080/", true));
             assertThat(container.hasWebUi()).isTrue();
         });
     }
@@ -254,7 +242,7 @@ class ContainerEntriesIT {
                 .filteredOn(c -> c.sourceId().equals("walker"))
                 .singleElement()
                 .satisfies(container -> assertThat(container.endpoints())
-                        .containsExactly(new EndpointDTO(
+                        .containsExactly(new EndpointView(
                                 "published-port:8080", "published-port", "http://127.0.0.1:8080/", true)));
         String before = stateFile();
         if (fallback.equals("published")) {
@@ -277,7 +265,7 @@ class ContainerEntriesIT {
                             .noneMatch(endpoint -> endpoint.id().equals("published-port:8080"));
                     if (fallback.equals("published")) {
                         assertThat(container.endpoints())
-                                .containsExactly(new EndpointDTO(
+                                .containsExactly(new EndpointView(
                                         "published-port:9090", "published-port", "http://127.0.0.1:9090/", true));
                     } else {
                         assertThat(container.endpoints()).hasSize(2).allMatch(endpoint -> !endpoint.selected());

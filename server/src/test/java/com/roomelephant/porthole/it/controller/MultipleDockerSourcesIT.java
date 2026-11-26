@@ -7,8 +7,9 @@ import static org.awaitility.Awaitility.await;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.http.Fault;
-import com.roomelephant.porthole.core.model.SourceStatus;
-import com.roomelephant.porthole.inbound.web.dto.*;
+import com.roomelephant.porthole.it.infra.DashboardView;
+import com.roomelephant.porthole.it.infra.DashboardView.ContainerView;
+import com.roomelephant.porthole.it.infra.DashboardView.SourceView;
 import com.roomelephant.porthole.it.infra.PortholeContainer;
 import java.time.Duration;
 import java.util.*;
@@ -74,8 +75,8 @@ class MultipleDockerSourcesIT {
                 .willReturn(okJson("{\"Id\":\"image-" + source + "\",\"RepoDigests\":[\"nginx@" + digest + "\"]}")));
     }
 
-    private ContainerInventoryDTO inventory() {
-        return http.getForObject(app.baseUrl() + "/api/containers", ContainerInventoryDTO.class);
+    private DashboardView inventory() {
+        return DashboardView.parse(http.getForObject(app.baseUrl() + DashboardView.PATH, String.class));
     }
 
     @AfterEach
@@ -97,9 +98,9 @@ class MultipleDockerSourcesIT {
     @Test
     void oneRequestCombinesMatchingIdsAndKeepsInstalledVersionsSeparate() {
         var result = inventory();
-        assertThat(result.sources()).extracting(SourceDTO::id).containsExactly("walker", "mike");
-        assertThat(result.containers()).extracting(ContainerDTO::sourceId).containsExactly("walker", "mike");
-        assertThat(result.containers()).extracting(ContainerDTO::id).containsExactly("same-id", "same-id");
+        assertThat(result.sources()).extracting(SourceView::id).containsExactly("walker", "mike");
+        assertThat(result.containers()).extracting(ContainerView::sourceId).containsExactly("walker", "mike");
+        assertThat(result.containers()).extracting(ContainerView::name).containsExactly("shared-app-1", "shared-app-1");
         assertThat(result.containers().get(0).endpoints().getFirst().url()).isEqualTo("http://192.168.50.6:8080/");
         assertThat(result.containers().get(1).endpoints().getFirst().url()).isEqualTo("http://192.168.50.5:8080/");
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
@@ -121,14 +122,14 @@ class MultipleDockerSourcesIT {
                 .atPriority(1)
                 .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
         await().atMost(Duration.ofSeconds(10))
-                .until(() -> inventory().sources().get(1).status() == SourceStatus.DOWN);
+                .until(() -> inventory().sources().get(1).status().equals("DOWN"));
         var result = inventory();
-        assertThat(result.sources()).extracting(SourceDTO::status).containsExactly(SourceStatus.UP, SourceStatus.DOWN);
+        assertThat(result.sources()).extracting(SourceView::status).containsExactly("UP", "DOWN");
         assertThat(result.sources().get(1).lastSuccessAt()).isNotNull();
-        assertThat(result.containers()).extracting(ContainerDTO::sourceId).containsExactly("walker", "mike");
+        assertThat(result.containers()).extracting(ContainerView::sourceId).containsExactly("walker", "mike");
         mike.removeStub(failure);
         await().atMost(Duration.ofSeconds(10))
-                .until(() -> inventory().sources().get(1).status() == SourceStatus.UP);
+                .until(() -> inventory().sources().get(1).status().equals("UP"));
     }
 
     @Test
@@ -137,14 +138,15 @@ class MultipleDockerSourcesIT {
         await().atMost(Duration.ofSeconds(10))
                 .until(() -> inventory().containers().stream()
                         .noneMatch(c -> c.sourceId().equals("mike")));
-        assertThat(inventory().sources().get(1).status()).isEqualTo(SourceStatus.UP);
+        assertThat(inventory().sources().get(1).status()).isEqualTo("UP");
         mike.removeStub(empty);
         for (var docker : List.of(walker, mike))
             docker.stubFor(get(urlPathMatching(LIST))
                     .atPriority(1)
                     .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
         await().atMost(Duration.ofSeconds(10))
-                .until(() -> inventory().sources().stream().allMatch(source -> source.status() == SourceStatus.DOWN));
-        assertThat(inventory().containers()).extracting(ContainerDTO::sourceId).containsExactly("walker");
+                .until(() -> inventory().sources().stream()
+                        .allMatch(source -> source.status().equals("DOWN")));
+        assertThat(inventory().containers()).extracting(ContainerView::sourceId).containsExactly("walker");
     }
 }

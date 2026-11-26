@@ -1,19 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useCreateLink, useDeleteLink, useLinkIcon, useLinks, useUpdateLink } from '../../hooks/useLinks';
-import { createLink, deleteEntry, fetchLinks, selectEntryIcon, updateLink, uploadEntryIcon } from '../../api';
+import { useCreateLink, useDeleteLink, useLinkIcon, useUpdateLink } from '../../hooks/useLinks';
+import { useDashboard } from '../../hooks/useDashboard';
+import { createLink, deleteEntry, fetchDashboard, selectEntryIcon, updateLink, uploadEntryIcon } from '../../api';
+import { DASHBOARD_KEY } from '../../utils/dashboard';
+import { toDashboard } from '../testUtils';
 
 vi.mock('../../api', () => ({
   createLink: vi.fn(),
   deleteEntry: vi.fn(),
-  fetchLinks: vi.fn(),
+  fetchDashboard: vi.fn(),
   selectEntryIcon: vi.fn(),
   updateLink: vi.fn(),
   uploadEntryIcon: vi.fn(),
 }));
 
-const link = { id: 'a'.repeat(32), name: 'Router', url: 'http://r/', stack: null, iconUrl: null };
+const link = { id: `link:${'a'.repeat(32)}`, name: 'Router', url: 'http://r/', stack: null, iconUrl: null, iconChoice: null };
+const dashboardWith = (...links) => toDashboard({ links });
 const details = { name: 'Gateway', url: 'http://r/', stack: null };
 const deferred = () => {
   let resolve; let reject;
@@ -27,28 +31,15 @@ const setup = () => {
   return { client, wrapper };
 };
 
-/** Watches links as the dashboard does, so a refetch has an active query to refresh. */
-const withLinks = useHook => () => ({ links: useLinks(), hook: useHook() });
+/** Watches the dashboard as the app does, so a refetch has an active query to refresh. */
+const withLinks = useHook => () => {
+  const { data } = useDashboard();
+  return { links: { data: data?.links }, hook: useHook() };
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
-  fetchLinks.mockResolvedValue([link]);
-});
-
-describe('useLinks', () => {
-  it('fetches links', async () => {
-    const { wrapper } = setup();
-    const { result } = renderHook(() => useLinks(), { wrapper });
-    await waitFor(() => expect(result.current.data).toEqual([link]));
-  });
-
-  it('does not retry a failed fetch', async () => {
-    fetchLinks.mockRejectedValue(new Error('down'));
-    const { wrapper } = setup();
-    const { result } = renderHook(() => useLinks(), { wrapper });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(fetchLinks).toHaveBeenCalledTimes(1);
-  });
+  fetchDashboard.mockResolvedValue(dashboardWith(link));
 });
 
 describe('useUpdateLink', () => {
@@ -70,17 +61,15 @@ describe('useUpdateLink', () => {
     expect(updateLink).toHaveBeenLastCalledWith(link.id, { ...details, name: 'Two' });
   });
 
-  it('refetches links and leaves containers alone', async () => {
+  it('refetches the dashboard after saving', async () => {
     updateLink.mockResolvedValue(link);
-    const { client, wrapper } = setup();
-    client.setQueryData(['containers', {}], { sources: [], containers: [] });
+    const { wrapper } = setup();
     const { result } = renderHook(withLinks(() => useUpdateLink(link.id)), { wrapper });
-    await waitFor(() => expect(fetchLinks).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchDashboard).toHaveBeenCalledTimes(1));
 
     await act(async () => { await result.current.hook.mutateAsync(details); });
 
-    await waitFor(() => expect(fetchLinks).toHaveBeenCalledTimes(2));
-    expect(client.getQueryState(['containers', {}]).isInvalidated).toBe(false);
+    await waitFor(() => expect(fetchDashboard).toHaveBeenCalledTimes(2));
   });
 
   it('does not let a poll begun before the save overwrite it', async () => {
@@ -89,16 +78,16 @@ describe('useUpdateLink', () => {
     const { result } = renderHook(withLinks(() => useUpdateLink(link.id)), { wrapper });
     await waitFor(() => expect(result.current.links.data).toEqual([link]));
 
-    fetchLinks.mockReturnValueOnce(stalePoll.promise);
-    act(() => { client.refetchQueries({ queryKey: ['links'] }); });
+    fetchDashboard.mockReturnValueOnce(stalePoll.promise);
+    act(() => { client.refetchQueries({ queryKey: DASHBOARD_KEY }); });
     const saved = { ...link, name: 'Gateway' };
     updateLink.mockResolvedValue(saved);
-    fetchLinks.mockResolvedValue([saved]);
+    fetchDashboard.mockResolvedValue(dashboardWith(saved));
 
     await act(async () => { await result.current.hook.mutateAsync(details); });
     await waitFor(() => expect(result.current.links.data).toEqual([saved]));
 
-    await act(async () => { stalePoll.resolve([link]); });
+    await act(async () => { stalePoll.resolve(dashboardWith(link)); });
     expect(result.current.links.data).toEqual([saved]);
   });
 
@@ -119,7 +108,7 @@ describe('useCreateLink', () => {
     createLink.mockResolvedValue(link);
     const { wrapper } = setup();
     const { result } = renderHook(withLinks(() => useCreateLink()), { wrapper });
-    await waitFor(() => expect(fetchLinks).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchDashboard).toHaveBeenCalledTimes(1));
 
     let created;
     await act(async () => { created = await result.current.hook.mutateAsync(details); });
@@ -134,12 +123,12 @@ describe('useDeleteLink', () => {
     deleteEntry.mockResolvedValue();
     const { wrapper } = setup();
     const { result } = renderHook(withLinks(() => useDeleteLink()), { wrapper });
-    await waitFor(() => expect(fetchLinks).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchDashboard).toHaveBeenCalledTimes(1));
 
     await act(async () => { await result.current.hook.mutateAsync(link.id); });
 
     expect(deleteEntry).toHaveBeenCalledWith(link.id);
-    expect(fetchLinks).toHaveBeenCalledTimes(2);
+    expect(fetchDashboard).toHaveBeenCalledTimes(2);
   });
 });
 

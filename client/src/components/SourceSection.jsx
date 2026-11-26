@@ -5,6 +5,7 @@ import ContainerChip from './ContainerChip';
 import LinkTile from './LinkTile';
 import { isHeadless } from '../utils/endpoints';
 import { plural } from '../utils/containers';
+import { cachedContainer } from '../utils/dashboard';
 import { ASSETS, EXTERNAL } from '../constants';
 
 
@@ -88,7 +89,7 @@ function StackMeta({ section }) {
   return <span className="section-meta">{`${count} · ${section.hostNames.join(', ')}`}</span>;
 }
 
-const keyOf = container => JSON.stringify([container.sourceId, container.id]);
+const keyOf = container => container.entryId;
 
 function Group({ group, section, sourcesById, onOpenLinkSettings }) {
   const groupRef = useRef(null);
@@ -141,9 +142,7 @@ function Group({ group, section, sourcesById, onOpenLinkSettings }) {
     const target = focusKeyRef.current;
     if (target === null || !groupRef.current) return;
     // Inactive filtered variants remain stale after saving and cannot confirm a move.
-    const confirmed = queryClient.getQueriesData({ queryKey: ['containers'], type: 'active' })
-      .flatMap(([, inventory]) => inventory?.containers ?? [])
-      .find(candidate => candidate.sourceId === target.container.sourceId && candidate.name === target.container.name);
+    const confirmed = cachedContainer(queryClient, target.container.entryId);
     const headless = isHeadless(confirmed ?? target.container);
     if (headless === target.originalHeadless) {
       if (!queryClient.isMutating({ mutationKey: target.mutationKey, exact: true })) focusKeyRef.current = null;

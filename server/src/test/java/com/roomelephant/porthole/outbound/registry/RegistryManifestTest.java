@@ -111,7 +111,7 @@ class RegistryManifestTest {
         assertInstanceOf(
                 com.roomelephant.porthole.core.model.RegistryLookup.Unavailable.class,
                 service.readManifests(
-                                com.roomelephant.porthole.core.model.ImageReference.tryParse("nginx:latest")
+                                com.roomelephant.porthole.shared.ImageReference.tryParse("nginx:latest")
                                         .orElseThrow(),
                                 digests)
                         .tagged());
@@ -127,7 +127,7 @@ class RegistryManifestTest {
         assertInstanceOf(
                 com.roomelephant.porthole.core.model.RegistryLookup.Unavailable.class,
                 service.readManifests(
-                                com.roomelephant.porthole.core.model.ImageReference.tryParse("nginx:latest")
+                                com.roomelephant.porthole.shared.ImageReference.tryParse("nginx:latest")
                                         .orElseThrow(),
                                 digests)
                         .tagged());
@@ -139,7 +139,7 @@ class RegistryManifestTest {
                         .manifest(
                                 digests,
                                 service.readManifests(
-                                        com.roomelephant.porthole.core.model.ImageReference.tryParse(image)
+                                        com.roomelephant.porthole.shared.ImageReference.tryParse(image)
                                                 .orElseThrow(),
                                         digests))
                 == com.roomelephant.porthole.core.enrichment.version.resolution.UpdatePolicy.Evidence.POSITIVE;

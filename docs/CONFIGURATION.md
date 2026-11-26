@@ -121,7 +121,7 @@ and container name.
 
 ### Porthole's Own Container
 
-`GET /api/containers` marks the container Porthole runs in with `"self": true`.
+`GET /api/dashboard` marks the container Porthole runs in with `"self": true`, and shows it with Porthole's logo unless you chose another icon.
 At startup Porthole resolves its own container ID, first hit wins: the
 `porthole.self-container-id` property, a full ID from `/proc/self/mountinfo`, a
 full ID from `/proc/self/cgroup`, then `HOSTNAME` when it is 12 to 64 lowercase
@@ -166,7 +166,7 @@ docker run -d -p 9753:9753 \
 
 ### Background Version Checks
 
-Version checks start asynchronously when Porthole is ready and run for all containers, including stopped containers and those without endpoints. Results are held in memory and included in `GET /api/containers` as a nullable `version` object. Requests read cached results immediately; they do not wait for version inspection or registry HTTP calls. A newly discovered container queues a background check if it has no cached result.
+Version checks start asynchronously when Porthole is ready and run for all containers, including stopped containers and those without endpoints. Results are held in memory and included in `GET /api/dashboard` as each container's nullable `version` object. Requests read cached results immediately; they do not wait for version inspection or registry HTTP calls. A newly discovered container queues a background check if it has no cached result.
 
 ```yaml
 porthole:

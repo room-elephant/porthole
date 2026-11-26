@@ -6,6 +6,7 @@ import static com.roomelephant.porthole.core.enrichment.version.resolution.Updat
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.roomelephant.porthole.core.model.*;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 

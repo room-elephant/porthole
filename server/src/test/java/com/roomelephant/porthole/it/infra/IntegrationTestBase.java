@@ -9,17 +9,18 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
 import com.roomelephant.porthole.core.model.VersionInfo;
-import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+import org.testcontainers.DockerClientFactory;
 
 /** Each test owns its app and registry so background checks cannot cross stub lifetimes. */
 public abstract class IntegrationTestBase {
@@ -102,29 +103,30 @@ public abstract class IntegrationTestBase {
 
     protected <T> @NotNull ResponseEntity<T> fetch(String url, Class<T> responseType) {
         startPorthole();
-        if (responseType == ContainerDTO[].class) {
-            var response = restTemplate.getForEntity(
-                    porthole.baseUrl() + url, com.roomelephant.porthole.inbound.web.dto.ContainerInventoryDTO.class);
-            @SuppressWarnings("unchecked")
-            T containers = (T) java.util.Objects.requireNonNull(response.getBody())
-                    .containers()
-                    .toArray(ContainerDTO[]::new);
-            return new ResponseEntity<>(containers, response.getHeaders(), response.getStatusCode());
-        }
         return restTemplate.getForEntity(porthole.baseUrl() + url, responseType);
     }
 
+    /** The whole dashboard, unfiltered. */
+    protected DashboardView dashboard() {
+        ResponseEntity<String> response = fetch(DashboardView.PATH);
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        return DashboardView.parse(Objects.requireNonNull(response.getBody()));
+    }
+
+    /** Looks a container up by its Docker ID, which the dashboard doesn't expose, through its name. */
     protected VersionInfo fetchCachedVersion(String containerId) {
         // Container startup has its own readiness timeout; this budget is for resolution only.
         startPorthole();
+        String name = DockerClientFactory.instance()
+                .client()
+                .inspectContainerCmd(containerId)
+                .exec()
+                .getName()
+                .substring(1);
         var result = new AtomicReference<VersionInfo>();
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
-            ContainerDTO[] containers = fetch(
-                            "/api/containers?includeWithoutEndpoints=true&includeStopped=true", ContainerDTO[].class)
-                    .getBody();
-            assertThat(containers).isNotNull();
-            VersionInfo version = Arrays.stream(containers)
-                    .filter(c -> c.id().equals(containerId))
+            VersionInfo version = dashboard().containers().stream()
+                    .filter(c -> c.name().equals(name))
                     .findFirst()
                     .orElseThrow()
                     .version();

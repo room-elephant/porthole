@@ -16,7 +16,7 @@ Every component has its own Makefile (`client/`, `server/`, `docker/`); the root
 
 ```bash
 make -C server test                        # unit tests
-make -C server test-one TEST=ContainerServiceTest
+make -C server test-one TEST=DashboardProjectorTest
 make -C server it                          # ITs against the existing porthole-jvm:latest image
 make -C server format                      # Spotless apply — run before committing
 make -C server dev                         # run the backend on the JVM, no client needed
@@ -59,35 +59,29 @@ make -C docker test        # entrypoint scenarios; may prompt for sudo to create
 
 Full detail lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the points below are what's hard to recover by reading one file.
 
-### Hexagonal boundaries
+### Slices and the legacy hexagon
 
-`server/src/main/java/com/roomelephant/porthole/` is split into `core/`, `inbound/`, `outbound/`, and `config/`.
+The server is moving from a hexagon (`core/`, `inbound/`, `outbound/`, `config/`) to feature slices: `fleet/`, `endpoints/`, `entries/`, `dashboard/` and `shared/`. What remains in the hexagon is version checking and the registry integration. `ArchitectureTest` enforces the rules with ArchUnit against production bytecode, so a layering mistake fails the unit test run:
+- `fleet` depends on nothing but `shared`, and `endpoints` and `entries` only on `fleet` and `shared`.
+- Nothing depends on `dashboard`.
+- A slice's root package never imports its own adapter subpackages (`docker`, `store`, `icons`, `web`).
+- Core never imports adapters, Docker SDK types, servlet types or HTTP clients.
 
-```text
-inbound ──→ core ←── outbound
-              ↑
-            config wires implementations
-```
+### Sources and the dashboard
 
-Core owns the ports (`core/port/inbound/`, `core/port/outbound/`) and all boundary values in `core/model/`. Core must not import adapters, Docker SDK types, servlet types, HTTP clients, or configuration wiring classes — Spring component/lifecycle annotations are allowed in core. Adapters may depend on `config/properties/` but not on configuration wiring. `ArchitectureTest` enforces this with ArchUnit against production bytecode, so a layering mistake fails the unit test run.
+Docker state lives in memory: `fleet` keeps one `SourceMonitor` per configured connection, polling every 30 seconds and listing again soon after Docker events. A failed source keeps its last good containers for 24 hours and reports `DOWN` or `ERROR`. No HTTP request waits on Docker. Containers and cached version results use `(sourceId, containerId)`. Saved settings use the entry ID `container:<sourceId>:<containerName>`, so they survive container recreation. Include the source ID whenever identifying a container.
 
-### Multi-source discovery
+`GET /api/dashboard` is the client's only read. `DashboardProjector` builds it as a pure function of the fleet's snapshots, the saved entries and the version cache. It computes default names over each source's whole listing, discovers endpoints, then applies each entry's saved name, icon and endpoint choice over the defaults. The browser does all filtering. Icon URLs are built only in `dashboard/web/IconUrls`.
 
-Every inventory request fans out across all configured Docker connections concurrently. A per-source failure degrades that source (`UP`/`DOWN`/`ERROR` in the `sources` array) and never fails the whole response — a completed inventory returns 200 even when all sources failed. Containers, cached version results, and refresh state use `(sourceId, containerId)`. Saved container settings use `(sourceId, containerName)` so they survive container recreation. Include the source ID whenever identifying a container.
+`EndpointProvider` (in `endpoints/`) is a sealed interface; a new provider must be a final `@Component` added to the `permits` clause, and it is then picked up automatically by constructor injection. Providers mark candidates `ROUTED` (proxy routes) or `DIRECT` (published ports), and `EndpointSelection` prefers routed ones when nothing is saved.
 
-### Enrichment chain
-
-`ContainerService` runs an ordered chain of `ContainerEnricher` beans once per source batch, listed explicitly in `EnrichmentConfiguration` (display name → state filter → URL candidates → icon → preferences → endpoint availability filter → version). Order matters: display-name collision detection runs on the full inventory *before* filters, and endpoint discovery runs before the availability filter so label-only services stay discoverable. Preferences run after the defaults they override, and `ContainerPreferencesEnricher` is the one stage that applies saved preferences. To add a stage, add a `@Component` in its own concern package under `core/enrichment/` and insert it into that explicit list — `PipelineWiringTest` checks every handler bean appears in the chain exactly once.
-
-`EndpointProvider` is a sealed interface; a new provider must be a final `@Component` added to the `permits` clause, and it is then picked up automatically by constructor injection.
-
-Version enrichment only reads cached results and queues background work — registry HTTP and Docker inspection never run on the inventory request path.
+Version checks run in the background from snapshots; the dashboard only reads their cache, so registry HTTP and Docker inspection never run on a request.
 
 ### Entries
 
-What users save lives in the `entries` slice: an `EntryRecord` per container (`container:<sourceId>:<containerName>`) or link (`link:<32 hex>`), written through `POST`/`PATCH`/`DELETE /api/entries` and kept in `state.json` under `PORTHOLE_DATA_DIR`. Default stages decide what a container gets automatically: `IconResolver` picks the default icon (for example `mongo` → `mongodb`), and endpoint discovery finds URLs. `ContainerPreferencesEnricher` is the one stage that applies a container's saved entry on top, so it runs after the defaults it overrides.
+What users save lives in the `entries` slice: an `EntryRecord` per container (`container:<sourceId>:<containerName>`) or link (`link:<32 hex>`), written through `POST`/`PATCH`/`DELETE /api/entries` and kept in `state.json` under `PORTHOLE_DATA_DIR`. Defaults decide what a container gets automatically: `DefaultIcons` picks the default icon (for example `mongo` → `mongodb`), and endpoint discovery finds URLs. `DashboardProjector` applies a container's saved entry on top.
 
-To add an editable field: add it to `EntryRecord`, `EntryPatch` and `JsonStateStore` (which maps fields by hand), and apply it in its own function in the enricher. Don't add a new enricher or change a default stage to read entries.
+To add an editable field: add it to `EntryRecord`, `EntryPatch`, `EntryPatchReader` and `JsonStateStore` (which maps fields by hand), and apply it in `DashboardProjector`.
 
 ### Native image hints
 

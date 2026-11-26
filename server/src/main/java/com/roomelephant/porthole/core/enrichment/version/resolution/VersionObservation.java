@@ -1,6 +1,7 @@
 package com.roomelephant.porthole.core.enrichment.version.resolution;
 
 import com.roomelephant.porthole.core.model.*;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.util.*;
 import org.jspecify.annotations.*;
 

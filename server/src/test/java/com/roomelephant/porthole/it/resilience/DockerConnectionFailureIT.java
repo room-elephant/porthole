@@ -77,10 +77,10 @@ class DockerConnectionFailureIT {
         @Test
         void shouldReturnSourceDownWhenSocketMissingOnContainers() {
             ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/dashboard", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"containers\":[]");
+            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"entries\":[]");
         }
     }
 
@@ -119,10 +119,10 @@ class DockerConnectionFailureIT {
         @Test
         void shouldReturnSourceDownWhenPermissionDeniedOnContainers() {
             ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/dashboard", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"containers\":[]");
+            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"entries\":[]");
         }
     }
 
@@ -169,10 +169,10 @@ class DockerConnectionFailureIT {
         @Test
         void shouldReturnSourceDownWhenConnectionRefusedOnContainers() {
             ResponseEntity<String> response =
-                    restTemplate.getForEntity(portholeBaseUrl + "/api/containers", String.class);
+                    restTemplate.getForEntity(portholeBaseUrl + "/api/dashboard", String.class);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"containers\":[]");
+            assertThat(response.getBody()).contains("\"status\":\"DOWN\"", "\"entries\":[]");
         }
     }
 

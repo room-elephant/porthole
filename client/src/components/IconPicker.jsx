@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import IconLibraryTab from './IconLibraryTab';
 import IconUploadTab from './IconUploadTab';
-import { isUploadedIcon } from '../utils/icons';
 
 const TABS = [{ id: 'library', label: 'Library' }, { id: 'upload', label: 'Upload' }];
 
@@ -13,8 +12,8 @@ const PERMANENT_REJECTIONS = {
 };
 
 /** Chooses an icon, whatever it's for. Each choice goes straight to `icon`, which decides how to save it. */
-function IconPicker({ iconUrl, startingSearch, icon, onSaved }) {
-    const [tab, setTab] = useState(() => (isUploadedIcon(iconUrl) ? 'upload' : 'library'));
+function IconPicker({ iconUrl, iconChoice = null, startingSearch, icon, onSaved }) {
+    const [tab, setTab] = useState(() => (iconChoice?.upload ? 'upload' : 'library'));
     const [query, setQuery] = useState(startingSearch);
     const [pickedName, setPickedName] = useState(null);
     const [uploadingFile, setUploadingFile] = useState(null);
@@ -77,11 +76,11 @@ function IconPicker({ iconUrl, startingSearch, icon, onSaved }) {
             )}
 
             {tab === 'library' ? (
-                <IconLibraryTab iconUrl={iconUrl} query={query} startingSearch={startingSearch} searchRef={searchRef}
+                <IconLibraryTab iconChoice={iconChoice} query={query} startingSearch={startingSearch} searchRef={searchRef}
                     onQueryChange={setQuery} onPick={pick} pickedName={pickedName} isSaving={icon.isSaving}
                     onUploadInstead={() => setTab('upload')} />
             ) : (
-                <IconUploadTab iconUrl={iconUrl} onUpload={upload} uploadingFile={uploadingFile} isSaving={icon.isSaving} />
+                <IconUploadTab iconUrl={iconUrl} iconChoice={iconChoice} onUpload={upload} uploadingFile={uploadingFile} isSaving={icon.isSaving} />
             )}
         </div>
     );

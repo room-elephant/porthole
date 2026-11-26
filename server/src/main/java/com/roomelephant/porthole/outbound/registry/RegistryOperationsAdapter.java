@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.*;
 import com.roomelephant.porthole.config.properties.RegistryProperties;
 import com.roomelephant.porthole.core.model.*;
 import com.roomelephant.porthole.core.port.outbound.RegistryOperations;
+import com.roomelephant.porthole.shared.ImageReference;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.*;

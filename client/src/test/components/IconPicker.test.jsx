@@ -31,7 +31,7 @@ const container = (overrides = {}) => createMockContainer({
   iconUrl: `${CDN}/transmission.webp`,
   ...overrides,
 });
-const source = ({ iconUrl, image }) => ({ iconUrl, startingSearch: imageSearchTerm(image) });
+const source = ({ iconUrl, iconChoice, image }) => ({ iconUrl, iconChoice, startingSearch: imageSearchTerm(image) });
 const renderPicker = (props = {}) => {
   const icon = props.icon ?? iconActions();
   const onSaved = vi.fn();
@@ -56,7 +56,7 @@ describe('IconPicker starting tab', () => {
   });
 
   it('opens on Upload for an uploaded icon, with a preview', () => {
-    renderPicker({ container: container({ iconUrl: '/api/icons/abc.webp' }) });
+    renderPicker({ container: container({ iconUrl: '/api/icons/abc.webp', iconChoice: { upload: 'abc.webp' } }) });
     expect(screen.getByRole('tab', { name: 'Upload' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('heading', { name: 'Your uploaded icon' })).toBeInTheDocument();
     expect(document.querySelector('.icon-upload-preview img')).toHaveAttribute('src', '/api/icons/abc.webp');
@@ -106,13 +106,19 @@ describe('IconPicker library tab', () => {
   });
 
   it('marks only the current tile', async () => {
-    renderPicker();
+    renderPicker({ container: container({ iconChoice: { library: 'transmission' } }) });
     const current = await screen.findByRole('button', { name: 'transmission, current icon' });
     expect(current).toHaveAttribute('aria-current', 'true');
     expect(within(current).getByText('Current')).toBeInTheDocument();
     const other = await tile('transmission-alt');
     expect(other).not.toHaveAttribute('aria-current');
     expect(within(other).queryByText('Current')).not.toBeInTheDocument();
+  });
+
+  it('marks nothing for an automatic icon, even one from the library', async () => {
+    renderPicker();
+    await tile('transmission');
+    expect(document.querySelector('[aria-current]')).toBeNull();
   });
 
   it('marks nothing when the icon in use is not in the library', async () => {
@@ -301,7 +307,7 @@ describe('IconPicker upload tab', () => {
   });
 
   it('asks to replace when the current icon is an upload', () => {
-    renderPicker({ container: container({ iconUrl: '/api/icons/abc.webp' }) });
+    renderPicker({ container: container({ iconUrl: '/api/icons/abc.webp', iconChoice: { upload: 'abc.webp' } }) });
     expect(screen.getByText('Replace: drop a new image, or browse')).toBeInTheDocument();
   });
 
@@ -343,7 +349,7 @@ describe('IconPicker upload tab', () => {
 
 describe('IconPicker without a container', () => {
   it('starts from the given search and marks the given icon', async () => {
-    renderWithQuery(<IconPicker iconUrl={`${CDN}/grafana.webp`} startingSearch="graf" icon={iconActions()} onSaved={vi.fn()} />);
+    renderWithQuery(<IconPicker iconUrl={`${CDN}/grafana.webp`} iconChoice={{ library: 'grafana' }} startingSearch="graf" icon={iconActions()} onSaved={vi.fn()} />);
     expect(search()).toHaveValue('graf');
     expect(await tile('grafana')).toHaveAttribute('aria-current', 'true');
   });

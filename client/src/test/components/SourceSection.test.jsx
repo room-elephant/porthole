@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within, fireEvent, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import SourceSection, { OfflineBanner } from '../../components/SourceSection';
-import { renderWithQuery, createMockContainer, renderInventory, publishedEndpoint, inventoryWithSelection } from '../testUtils';
+import { renderWithQuery, createMockContainer, renderInventory, publishedEndpoint, inventoryWithSelection, dashboardQuery, toDashboard } from '../testUtils';
+import { DASHBOARD_KEY } from '../../utils/dashboard';
 import { selectContainerEndpoint } from '../../api';
 vi.mock('../../api', () => ({ selectContainerEndpoint: vi.fn() }));
 import { buildSections } from '../../utils/containers';
@@ -92,23 +93,21 @@ describe('source sections', () => {
   const { queryClient } = renderSection([mk()]);
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
   act(() => {
-   queryClient.setQueriesData({ queryKey: ['containers'] }, inventory => ({ ...inventory, containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] }));
+   queryClient.setQueryData(DASHBOARD_KEY, toDashboard({ sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] }));
    fireEvent.keyDown(document, { key: 'Escape' });
   });
   await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
   expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveFocus();
  });
 
- it('uses the active confirmation instead of stale inactive variants for a closed-dialog focus handoff', async () => {
+ it('hands focus over once the dashboard refresh confirms a closed dialog\'s change', async () => {
   const initial = { sources: [source], containers: [mk()] };
   const confirmed = { sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  queryClient.setQueryData(['containers', { showAll: false, showStopped: false }], initial);
-  const activeKey = ['containers', { showAll: true, showStopped: true }];
   let completeRefresh;
   const read = vi.fn(() => new Promise(resolve => { completeRefresh = resolve; }));
   function View() {
-   const { data } = useQuery({ queryKey: activeKey, queryFn: read, initialData: initial });
+   const { data } = useQuery({ ...dashboardQuery(read), initialData: toDashboard(initial) });
    return <SourceSection section={buildSections({ ...data, groupBy: GROUP_BY.HOST_STACK })[0]} sourcesById={{ walker: source }} showAll showStopped />;
   }
   render(<QueryClientProvider client={queryClient}><View /></QueryClientProvider>);
@@ -200,7 +199,7 @@ describe('source sections', () => {
   const other = screen.getByRole('button', { name: 'Other settings' });
   other.focus();
   read.mockResolvedValue(savedSelections.reduce(inventoryWithSelection, { sources: [source], containers }));
-  await act(async () => queryClient.refetchQueries({ queryKey: ['containers'] }));
+  await act(async () => queryClient.refetchQueries({ queryKey: DASHBOARD_KEY }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Test Container settings' })).toHaveClass('chip'));
   expect(other).toHaveFocus();
   expect(selectContainerEndpoint).toHaveBeenCalledTimes(1);
@@ -215,7 +214,7 @@ describe('source sections', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Test Container settings' }));
   fireEvent.click(screen.getByRole('radio', { name: 'No web UI' }));
   await waitFor(() => expect(selectContainerEndpoint).toHaveBeenCalledTimes(1));
-  await act(async () => queryClient.setQueriesData({ queryKey: ['containers'] }, inventory => ({ ...inventory, containers: [] })));
+  await act(async () => queryClient.setQueryData(DASHBOARD_KEY, dashboard => ({ ...dashboard, entries: [] })));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   await act(async () => confirm());
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -364,7 +363,7 @@ describe('source sections', () => {
   expect(screen.getByRole('group', { name: 'Tile opens' })).not.toBeDisabled();
   expect(document.querySelector('.tile-main')).toHaveAttribute('href', 'http://localhost:8080/');
   read.mockResolvedValue({ sources: [source], containers: [mk({ endpoints: [publishedEndpoint(8080, false)], hasWebUi: false })] });
-  await act(async () => queryClient.refetchQueries({ queryKey: ['containers'] }));
+  await act(async () => queryClient.refetchQueries({ queryKey: DASHBOARD_KEY }));
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   expect(screen.getByRole('radio', { name: 'No web UI' })).toBeChecked();
   expect(selectContainerEndpoint).toHaveBeenCalledTimes(1);

@@ -289,7 +289,7 @@ function ContainerSettings({ container, sourceName, status, showUpdate, selected
                 onClose={onClose}
                 className="settings-modal"
             >
-                <IconPicker iconUrl={container.iconUrl} startingSearch={imageSearchTerm(container.image)} icon={icon} onSaved={iconSaved} />
+                <IconPicker iconUrl={container.iconUrl} iconChoice={container.iconChoice} startingSearch={imageSearchTerm(container.image)} icon={icon} onSaved={iconSaved} />
             </Modal>
         );
     }

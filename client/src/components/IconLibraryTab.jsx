@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useIconLibrary } from '../hooks/useIconLibrary';
-import { currentIconName, libraryIconUrl, searchIcons } from '../utils/icons';
+import { libraryIconUrl, searchIcons } from '../utils/icons';
 
 const ICON_PAGE = 100;
 const LOAD_MORE_DISTANCE_PX = 200;
@@ -27,12 +27,12 @@ function IconTile({ name, current, busy, disabled, onPick }) {
     );
 }
 
-function IconLibraryTab({ iconUrl, query, startingSearch, searchRef, onQueryChange, onPick, pickedName, isSaving, onUploadInstead }) {
+function IconLibraryTab({ iconChoice, query, startingSearch, searchRef, onQueryChange, onPick, pickedName, isSaving, onUploadInstead }) {
     const searchId = useId();
     const library = useIconLibrary(true);
     const [visibleCount, setVisibleCount] = useState(ICON_PAGE);
     const results = useMemo(() => (library.data ? searchIcons(library.data, query) : []), [library.data, query]);
-    const current = currentIconName(iconUrl);
+    const current = iconChoice?.library ?? null;
     const hasQuery = query.length > 0;
 
     const changeQuery = (value) => {

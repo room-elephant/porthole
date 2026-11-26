@@ -8,10 +8,9 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.ServeEventListener;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
-import com.roomelephant.porthole.inbound.web.dto.ContainerDTO;
+import com.roomelephant.porthole.it.infra.DashboardView.ContainerView;
 import com.roomelephant.porthole.it.infra.IntegrationTestBase;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.*;
@@ -88,7 +87,7 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
             var response = new org.springframework.web.client.RestTemplate()
                     .postForEntity(porthole.baseUrl() + "/api/versions/refresh", null, String.class);
             assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.ACCEPTED);
-            ContainerDTO container = listedFixture();
+            ContainerView container = listedFixture();
             assertThat(container.version()).isNull();
             assertThat(completed.getCount()).isEqualTo(1);
         } finally {
@@ -135,10 +134,10 @@ class AsyncVersionRefreshIT extends IntegrationTestBase {
         assertThat(listedFixture().version().updateAvailable()).isTrue();
     }
 
-    private ContainerDTO listedFixture() {
-        return Arrays.stream(fetch("/api/containers?includeWithoutEndpoints=true", ContainerDTO[].class)
-                        .getBody())
-                .filter(c -> c.id().equals(fixture.getContainerId()))
+    private ContainerView listedFixture() {
+        String name = fixture.getContainerInfo().getName().substring(1);
+        return dashboard().containers().stream()
+                .filter(c -> c.name().equals(name))
                 .findFirst()
                 .orElseThrow();
     }

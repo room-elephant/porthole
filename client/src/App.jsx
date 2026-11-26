@@ -5,16 +5,14 @@ import SkeletonTile from './components/SkeletonTile';
 import SourceSection, { EmptyState, OfflineBanner } from './components/SourceSection';
 import AppSettings from './components/AppSettings';
 import LinkSettings from './components/LinkSettings';
-import { useContainers } from './hooks/useContainers';
-import { useLinks } from './hooks/useLinks';
-import { useLastKnownContainers } from './hooks/useLastKnownContainers';
+import { useDashboard } from './hooks/useDashboard';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { EXTERNAL, STORAGE_KEYS, GROUP_BY } from './constants';
 import { buildSections } from './utils/containers';
 import { stackOptions } from './utils/links';
+import { isShown } from './utils/dashboard';
 
-const EMPTY = { sources: [], containers: [] };
-const NO_LINKS = [];
+const EMPTY = { sources: [], containers: [], links: [] };
 const LINK_ICON_FAILED = "Link added, but its icon couldn't be saved.";
 
 const isOffline = source => source.status === 'DOWN' || source.status === 'ERROR';
@@ -69,13 +67,13 @@ function App() {
   const [showSelf, setShowSelf] = useLocalStorage(STORAGE_KEYS.SHOW_SELF, true);
   const [storedGroupBy, setGroupBy] = useLocalStorage(STORAGE_KEYS.GROUP_BY, GROUP_BY.HOST_STACK);
   const groupBy = Object.values(GROUP_BY).includes(storedGroupBy) ? storedGroupBy : GROUP_BY.HOST_STACK;
-  const { data: fetchedInventory, isLoading, error } = useContainers({ showAll, showStopped });
-  const { data: fetchedLinks, isError: linksFailed } = useLinks();
-  const links = fetchedLinks ?? NO_LINKS;
-  const data = fetchedInventory ?? EMPTY;
-  const initialError = error && !fetchedInventory;
-  const lastKnown = useLastKnownContainers(data);
-  const containers = useMemo(() => (showSelf ? lastKnown : lastKnown.filter(container => !container.self)), [lastKnown, showSelf]);
+  const { data: fetched, isLoading, error } = useDashboard();
+  const data = fetched ?? EMPTY;
+  const { links } = data;
+  const initialError = error && !fetched;
+  const containers = useMemo(
+    () => data.containers.filter(container => isShown(container, { showAll, showStopped, showSelf })),
+    [data.containers, showAll, showStopped, showSelf]);
   const filterExists = data.sources.some(source => source.id === selectedHost) || (selectedHost === EXTERNAL.ID && links.length > 0);
   const hostFilter = filterExists ? selectedHost : 'all';
   const counts = useMemo(() => {
@@ -86,13 +84,13 @@ function App() {
   const sections = useMemo(
     () => buildSections({ sources: data.sources, containers, links, groupBy, hostFilter, query }),
     [data.sources, containers, links, groupBy, hostFilter, query]);
-  const stacks = useMemo(() => stackOptions(lastKnown, links), [lastKnown, links]);
+  const stacks = useMemo(() => stackOptions(data.containers, links), [data.containers, links]);
   const sourcesById = useMemo(() => Object.fromEntries(data.sources.map(source => [source.id, source])), [data.sources]);
 
   const linkBeingEdited = links.find(link => link.id === editingLink?.id);
   const openLinkSettings = useCallback(id => setEditingLink({ id, alert: null }), []);
   // Deleted elsewhere. Links aren't known yet while the first request is running.
-  if (editingLink && fetchedLinks && !linkBeingEdited) setEditingLink(null);
+  if (editingLink && fetched && !linkBeingEdited) setEditingLink(null);
 
   const sectionList = sections.map(section => (
     <SourceSection
@@ -147,7 +145,7 @@ function App() {
           onClose={() => setShowSettings(false)}
           sources={initialError ? [] : data.sources}
           linkCount={links.length}
-          linksUnavailable={linksFailed && !fetchedLinks}
+          linksUnavailable={Boolean(initialError)}
           stacks={stacks}
           onLinkIconFailed={(id) => { setShowSettings(false); setEditingLink({ id, alert: LINK_ICON_FAILED }); }}
         />

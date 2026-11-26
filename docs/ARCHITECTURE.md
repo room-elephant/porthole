@@ -173,10 +173,9 @@ This is required because the Docker Registry API expects the full path:
 
 | Endpoint                                | Method | Description                                                                                 |
 |-----------------------------------------|--------|---------------------------------------------------------------------------------------------|
-| `/api/containers`                       | GET    | Returns source outcomes and containers from every configured connection. Supports `includeWithoutEndpoints` and `includeStopped` query params    |
-| `/api/links`                            | GET    | Lists link entries with their icon URLs                                                     |
-| `/api/entries`                          | POST   | Adds a link from `{name, url, stack?, icon?}`; 201 `{id}`, 507 at 500 links                 |
-| `/api/entries/{id}`                     | PATCH  | JSON Merge Patch of `name`, `icon`, `endpoint` and `stack` on a container or link; 204      |
+| `/api/dashboard`                        | GET    | Every source's state and every entry, unfiltered; always 200                                |
+| `/api/entries`                          | POST   | Adds a link from `{name, url, stack?, icon?}`; 201 with the resolved entry, 507 at 500 links |
+| `/api/entries/{id}`                     | PATCH  | JSON Merge Patch of `name`, `icon`, `endpoint` and `stack`; 200 with the resolved entry, 204 for a container no source lists |
 | `/api/entries/{id}`                     | DELETE | Deletes a link; 405 for a container                                                         |
 | `/api/icons`                            | POST   | Stores a raw PNG, WebP, JPEG or SVG body of at most 1 MB; 201 `{id}`                        |
 | `/api/icons/{id}`                       | GET    | Serves an uploaded icon with an immutable cache lifetime and `nosniff`                      |
@@ -191,7 +190,7 @@ A container record holds only overrides of what discovery supplies: `name`, `ico
 
 `EntryService` runs writes one at a time. Each builds the next `EntryState`, saves it through the `StateStore` port, and publishes it only after the save succeeded, so a failed write leaves memory and file as they were. `JsonStateStore` maps every field by hand to and from `state.json` with a `schemaVersion`, using `AtomicFiles` to replace the whole file. It loads once at startup; a newer `schemaVersion` or an invalid file fails startup. A record for a source that is no longer configured is kept.
 
-Until the dashboard read replaces them, `GET /api/containers` and `GET /api/links` read the entry state: `ContainerPreferencesEnricher` attaches each container's record, and `LinkListService` presents link records. Each container carries its `entryId`.
+The write endpoints live in `dashboard/web` rather than `entries/web` because they answer with the entry as the dashboard now shows it, and nothing outside the `dashboard` slice may depend on it.
 
 ### Uploaded Icons
 
@@ -199,161 +198,91 @@ Icons upload separately from the entry that uses them: `POST /api/icons` takes t
 
 Uploaded SVGs are treated as hostile. `SvgSanitizer` rebuilds each one from an allowlist of elements and attributes before it is stored, dropping scripts, event handlers, embedded HTML, animation and references outside the document, with DTD processing off. A file with nothing left to draw is rejected, and the ID is the hash of the sanitized bytes. `GET /api/icons/{id}` also sends a sandboxing `Content-Security-Policy`, so an icon opened directly as a page cannot run anything.
 
-Because one file can back several entries, a file is never deleted when an entry stops using it. `IconSweeper` removes files that no entry references and that haven't been used for an hour, at startup and every 15 minutes. Saving an upload on an entry, and re-uploading the same image, refresh the file's age, so a sweep can't remove an icon between its upload and its save. The inventory exposes only the resolved `iconUrl`; the client reads the icon in use from it, where an `/api/icons/` path is an upload. Porthole's own container without a custom icon gets its logo in `ContainerService`, where `self` is set after the chain.
+Because one file can back several entries, a file is never deleted when an entry stops using it. `IconSweeper` removes files that no entry references and that haven't been used for an hour, at startup and every 15 minutes. Saving an upload on an entry, and re-uploading the same image, refresh the file's age, so a sweep can't remove an icon between its upload and its save. The dashboard sends each entry's icon as `{url, choice}`: `choice` is the saved `{"library": name}` or `{"upload": id}`, or null for the default, so the client never reads meaning out of a URL.
 
 ### External Links
 
-Links are pages Porthole doesn't run, such as a router. They are entries, saved and edited through `/api/entries` like containers, but they never pass through the enrichment chain and `GET /api/containers` doesn't include them. A Docker failure therefore can't hide a link. Until the first container response arrives the page shows its loading state, so a slow Docker host can delay links on first load. Link URLs follow the same http(s) rule as custom URLs (`HttpUrls`), and at most 500 links are stored, because these endpoints have no login.
+Links are pages Porthole doesn't run, such as a router. They are entries, saved and edited through `/api/entries` like containers, and the dashboard lists them after every container. Because the dashboard is read from memory, a slow or failed Docker host can't delay or hide a link. Link URLs follow the same http(s) rule as custom URLs (`HttpUrls`), and at most 500 links are stored, because these endpoints have no login.
 
 The External source exists only in the client: it isn't in the `sources` array, and it appears when there is at least one link. Its filter value `_external` can't clash with a Docker source ID, which can't start with `_`. In Stack view a link joins the section whose name exactly matches its stack, after the containers.
 
 `App` owns the Link settings dialog rather than the tile, because saving a stack or name can move the tile to another group, which would unmount a dialog the tile owned. The Add form holds a chosen icon until the link exists, then saves it as a second request. If that fails the link stays, and Link settings opens with an alert.
 
-### Container Endpoint Contract
+### Dashboard
 
-`GET /api/containers` queries all configured Docker connections concurrently and
-returns a `sources` array and a flat `containers` array:
-
-```json
-{
-  "sources": [
-    { "id": "walker", "name": "Walker", "status": "UP", "error": null },
-    { "id": "mike", "name": "Mike", "status": "DOWN", "error": "Docker is not reachable" }
-  ],
-  "containers": [
-    { "id": "docker-id", "sourceId": "walker", "name": "app", "displayName": "app", "image": "nginx:latest", "endpoints": [], "hasEndpoints": false, "iconUrl": "docker.webp", "project": null, "state": "running", "status": "Up", "version": null }
-  ]
-}
-```
-
-The existing `includeWithoutEndpoints` and `includeStopped` flags apply to all
-sources. There is no per-source container endpoint or source-selection parameter.
-Source order follows configuration. Each container has a required `sourceId` in
-both its domain model and API DTO; Docker IDs remain unchanged. Host sections and
-Compose groups use source identity before project identity.
-
-A source whose latest listing succeeded is `UP`, including an empty list. Transport
-failures and deadlines are `DOWN`; other per-source processing errors are `ERROR`.
-Each source also reports `lastSuccessAt`. Completed inventories return 200 even
-when all sources failed; global request/orchestration errors remain 5xx. Diagnostic
-causes stay in server logs rather than public source errors.
-
-The `fleet` slice keeps every source's state in memory, so no HTTP request calls
-Docker. `Fleet` owns one `SourceMonitor` per configured source. A monitor lists
-containers on start, every `porthole.docker.poll-interval` (default `30s`), and
-about 500 ms after any container event from Docker's event stream; a burst of events
-causes one listing. Polls for one source never overlap. Each listing is bounded by
-the source's connection timeout plus response timeout. Events are only a signal to
-list again and are never applied as changes; when the stream fails or is blocked,
-the monitor reconnects with backoff from 1 to 30 seconds and polling continues.
-A failed listing keeps the source's last good containers until
-`porthole.docker.snapshot-retention` (default `24h`) has passed since its last
-success. Before its first listing a source is `DOWN` with "Waiting for first check".
-`SnapshotListener` beans are told about each snapshot whose content changed.
-`GET /api/sources` exposes the same state and always returns 200.
-
-The frontend polls one aggregate request every 30 seconds and replaces failed-source
-containers with an error state.
-
-`DockerSourceRegistry` owns each client's lifecycle. Mapping and enrichment receive
-a source-specific `EnrichmentContext` containing the configured published
-host, source ID, and the existing flags. Display-name collision detection operates
-on each source's complete inventory before filtering. The frontend namespaces
-React keys and stored endpoint/update preferences by source.
-
-Each container retains `endpoints`, `hasEndpoints`, and nullable `version` with
-`currentVersion`, `latestVersion`, and `updateAvailable`. `VersionRefreshService`
-is a `SnapshotListener`: it checks new containers and containers whose image ID
-changed as soon as a snapshot shows them, and re-checks the rest from the latest
-snapshot every `porthole.versions.refresh-interval` (default `1h`). It never lists
-containers itself. Four shared workers inspect containers/images through their
-owning Docker client. Results, retry state and in-flight work use
-`(sourceId, containerId)`. Only an `UP` snapshot prunes that source's missing
-containers; one source failure cannot erase another's results. Successful results remain cached while
-refreshing; eligible misses queue deduplicated background work. HTTP enrichment
-never waits for registry HTTP or version inspection. Shared complete registry catalogue
-caches remain keyed by normalized registry/repository; installed version/digest
-comparisons and final update decisions remain specific to the container/source.
-
-`POST /api/versions/refresh` returns `202 Accepted` and queues immediate version
-checks across all configured Docker sources. It bypasses the refresh interval and
-invalidates the shared registry version catalogue cache in the background; pending
-manual scans and active container checks are reused. Existing results remain visible
-while checks run, and updated results are available through `GET /api/containers`. The **Version updates** section in
-Porthole settings provides a **Check versions now** button with request progress,
-confirmation, and retryable error feedback. The dashboard's regular polling picks
-up completed checks.
-
-Health endpoints report only Porthole itself. There is no Docker health
-indicator; the image's `HEALTHCHECK` calls `/actuator/health/liveness`, so an
-unreachable Docker host never marks the Porthole container unhealthy.
-
-Each endpoint has exactly these fields:
+`GET /api/dashboard` is the one read the client makes. It returns every configured source and every entry:
 
 ```json
 {
-  "id": "traefik:https://app.example.com/",
-  "source": "traefik",
-  "url": "https://app.example.com/",
-  "selected": true
+  "sources": [{ "id": "walker", "name": "Walker", "status": "UP", "error": null, "lastSuccessAt": "2026-11-08T10:00:00Z" }],
+  "entries": [{
+    "id": "container:walker:smh-sonarr-1", "kind": "container", "name": "sonarr", "stack": "smh",
+    "icon": { "url": "https://cdn.jsdelivr.net/.../sonarr.webp", "choice": null },
+    "endpoints": [{ "id": "traefik:https://sonarr.example/", "source": "traefik", "url": "https://sonarr.example/", "selected": true }],
+    "hasWebUi": true,
+    "container": { "sourceId": "walker", "name": "smh-sonarr-1", "defaultName": "sonarr", "image": "linuxserver/sonarr:4",
+      "state": "running", "status": "Up 2 hours", "self": false, "version": null }
+  }]
 }
 ```
 
-Raw labels, `exposedPorts`, `hasPublicPorts`, and endpoint `port` are not API fields. `includeWithoutEndpoints=false` filters the resolved candidate list after preferences apply, so label-only and custom-only services are included. `hasEndpoints` is true whenever that list is nonempty, including an explicit no-web-UI choice with discovered candidates. Each list contains zero or one selected endpoint; zero selections can mean an ambiguous automatic choice or explicit no-web-UI. Required boolean `hasWebUi` distinguishes these for presentation: ambiguity with candidates is true, while explicit none or no candidates is false. It is independent of running/offline/paused status. Both query flags default to false.
+It includes every container a source lists or still retains after a failure, stopped ones and ones without endpoints too, in configuration and listing order, followed by links in the order they were saved. The browser filters by state, endpoints, host and search text. The request reads only memory, so it never waits on Docker, a registry or the disk.
 
-For names matching `<project>-<name>`, `displayName` removes the project prefix and a trailing numeric replica suffix (for example, `smh-sonarr-1` becomes `sonarr`). If shortening creates a collision within the same project, the affected names keep their replica suffixes. Names outside this project-prefix convention are preserved. Collision detection uses all discovered containers before filtering, so query flags do not change display names. The original `name` is always retained.
+`DashboardProjector` builds the response as a pure function of three inputs: the fleet's snapshots, the saved `EntryState`, and the version cache. For each container it:
 
-### Endpoint Provider Extension
+1. computes the default name with `DisplayNames` over the source's whole listing, so filters never change names;
+2. discovers endpoint candidates with the `endpoints` slice;
+3. applies the saved entry: its name, its icon, and its endpoint choice over the automatic one;
+4. picks the default icon with `DefaultIcons`, or Porthole's own logo for the container Porthole runs in;
+5. attaches the cached version for `(sourceId, containerId)`.
 
-`Fleet` provides each source's latest `SourceSnapshot` through the fleet-owned `DockerOperations` port, whose `fleet/docker` implementation `DockerJavaOperations` maps docker-java responses into `ContainerSnapshot` records. `ContainerService` maps those snapshots with `ContainerMapper`, builds an `EnrichmentContext` containing only source and request settings, then passes each source inventory once to the enrichment chain. `DisplayNameEnricher` resolves and applies names to the complete batch before filtering, preserving collisions involving filtered containers. Mapping and enrichment failures produce a source `ERROR` without discarding other sources. Docker metadata fields such as identity, name, and image are final, and published ports and raw labels are defensively copied into immutable collections. Enrichment fields such as `displayName`, `iconUrl`, and `urlCandidates` can be updated on the same object; the candidates setter defensively copies the supplied list. Each request creates its own containers, and mapping starts with no URL candidates.
+Icon URLs are built only in `dashboard/web/IconUrls`.
 
-The service applies the `ContainerEnrichment` chain once per source. `EnrichmentConfiguration` creates the chain with an explicit ordered list of Spring-managed `ContainerEnricher` beans; each handler receives the current `List<Container>` and the request-specific `EnrichmentContext`, and returns the batch for the next stage. Each stage finishes across the batch before the next starts. Enrichment handlers update the same container objects; filters return retained objects in encounter order without structurally modifying the input list. An empty batch stops the chain, an empty chain retains the input, and handler failures propagate to the existing source-level exception handling. Handlers keep request data local rather than retaining batches in singleton fields.
+For names matching `<project>-<name>`, the default name drops the project prefix and a trailing numeric replica suffix (for example, `smh-sonarr-1` becomes `sonarr`). If that makes two names in one project collide, both keep their replica suffixes. A saved name replaces the default name without taking part in collisions; `container.defaultName` always reports the computed one, and `container.name` the Docker name.
 
-The production handlers run in this order:
+A source whose latest listing succeeded is `UP`, including an empty list. Transport failures and deadlines are `DOWN`; other errors are `ERROR`. Diagnostic causes stay in server logs.
 
-1. `DisplayNameEnricher` resolves and applies display names using the full source inventory.
-2. `ContainerStateFilter` removes stopped containers unless `includeStopped` is enabled.
-3. `UrlCandidateEnricher` discovers URL candidates through the registered endpoint providers.
-4. `IconEnricher` assigns each container's default icon URL from the image name using configured mappings and icon settings.
-5. `ContainerPreferencesEnricher` is the one stage that applies saved preferences. It attaches the in-memory preference snapshot by `(sourceId, containerName)`, materializes the current custom candidate, applies `EndpointSelectionResolver` before availability filtering, and overrides the default icon with `CustomIconResolver` when one is saved. It never touches the disk or network.
-6. `EndpointAvailabilityFilter` removes containers with an empty resolved candidate list unless `includeWithoutEndpoints` is enabled. Label-only and custom-only services remain discoverable.
-7. `VersionEnricher` attaches cached version information to retained containers and queues background checks for eligible cache misses without waiting for resolution.
+### Endpoints
 
-To add filtering or enrichment, implement `ContainerEnricher` as a `@Component` in its own concern package under `core/enrichment/` and add it to the explicit list in `EnrichmentConfiguration` at the desired position. `PipelineWiringTest` discovers handler implementations independently and verifies that the configured chain includes every handler bean exactly once.
+The `endpoints` slice turns a container's labels and published ports into `Candidate(id, source, url, kind)` values. `EndpointProvider` is sealed: `TraefikEndpointProvider` produces `ROUTED` candidates from router rules, and `PublishedPortEndpointProvider` produces `DIRECT` ones from published ports using the source's configured published host (default `127.0.0.1`). Request hostnames and forwarded headers never affect them. A new provider must be a final `@Component` added to the `permits` clause.
 
-The controller passes a core `ContainerQuery` containing the query flags through the `GetContainers` inbound port. The service builds an immutable `EnrichmentContext` per source containing its ID, configured published host, `includeStopped`, and `includeWithoutEndpoints`. `PublishedPortEndpointProvider` uses `PublishedHostResolver` to resolve the configured host, defaulting to `127.0.0.1` when absent. Request hostnames and forwarded headers do not affect endpoint discovery.
+`EndpointSelection.automatic` picks what opens when nothing is saved. It considers `ROUTED` candidates if there are any, otherwise `DIRECT` ones, and selects the only one, else the only one at the root path, else none. The dashboard then applies the saved choice:
+- A discovered choice selects its candidate while that candidate exists, and falls back to automatic selection while it doesn't, without rewriting the file.
+- A custom URL appears as a selected `custom` endpoint.
+- `"none"` deselects everything and makes `hasWebUi` false.
 
-The service returns a domain `ContainerInventory` containing source outcomes and domain containers. `ContainerController` maps these through `inbound/web/mapper/ContainerDTOMapper` into `inbound/web/dto/ContainerDTO` and `EndpointDTO`. The API exposes resolved domain URL candidates as `endpoints`, including a configured custom candidate and effective `selected` flags, keeping raw labels and published ports internal. Providers and enrichment use domain `Endpoint` values, without dependencies on API records or Jackson annotations.
+Each entry's `endpoints` holds zero or one selected endpoint, and `hasWebUi` is true when there are endpoints and the choice isn't `"none"`.
 
-`EndpointProvider` is a sealed interface permitting `PublishedPortEndpointProvider` and `TraefikEndpointProvider`, both final Spring components. To add a provider, implement the interface in a final `@Component` in the same package and add that class to its `permits` clause. `EndpointDiscovery` constructor-injects `List<EndpointProvider>`, so every permitted provider bean participates automatically without changing discovery or adding a runtime registry or provider enum. Providers return all their candidates, use namespaced stable IDs, and never select a default. Discovery deduplicates IDs and sorts by source and URL. The client groups unfamiliar source identifiers dynamically.
+### Fleet
 
-For example, after adding `MyProxyEndpointProvider` to the interface's `permits` clause, this illustrative provider uses an application-specific label (not a standard proxy label):
+The `fleet` slice keeps every source's state in memory. `Fleet` owns one `SourceMonitor` per configured source.
+- **Listing:** a monitor lists containers on start, every `porthole.docker.poll-interval` (default `30s`), and about 500 ms after any container event from Docker's event stream; a burst of events causes one listing.
+- **Polls:** polls for one source never overlap, and each listing is bounded by the source's connection timeout plus response timeout.
+- **Events:** events only signal a fresh listing and are never applied as changes. When the stream fails or is blocked, the monitor reconnects with backoff from 1 to 30 seconds, and polling continues.
+- **Retention:** a failed listing keeps the source's last good containers until `porthole.docker.snapshot-retention` (default `24h`) has passed since its last success.
+- **Startup:** before its first listing a source is `DOWN` with "Waiting for first check".
 
-```java
-@Component
-@NullMarked
-public final class MyProxyEndpointProvider implements EndpointProvider {
-    @Override
-    public List<Endpoint> discover(Container container, EnrichmentContext context) {
-        String host = container.labels().get("myproxy.host");
-        if (host == null || !EndpointUrls.isValidHost(host)) return List.of();
-        String url = EndpointUrls.routeUrl("https", host, "/");
-        return List.of(new Endpoint("my-proxy:" + url, "my-proxy", url, false));
-    }
-}
-```
+`SnapshotListener` beans are told about each snapshot whose content changed. `GET /api/sources` exposes the same state and always returns 200.
 
-Place implementations and URL helpers in `core/enrichment/endpoint/`; shared endpoint values live in `core/model/`. Each enrichment handler owns a concern package: `state`, `endpoint`, `preferences`, `endpointavailability`, or `version`. The published hostname is bound per connection in `config/properties/DockerConnectionProperties` and passed into the source enrichment context; there is no global endpoint-host setting. New reflectively accessed types require Spring AOT binding hints; generated reachability metadata must not be edited by hand.
+### Versions
 
-Published-port IDs use `published-port:<port>` independently of the configured hostname. Traefik IDs use `traefik:<normalized-url>`. The backend resolves saved IDs before Traefik defaults through the pure `EndpointSelectionResolver`. The client opens the selected API URL directly; automatic defaults and selection flags stay out of storage. See [configuration](CONFIGURATION.md#endpoint-discovery) for supported literal rules, selection, and hostname policy.
+`VersionRefreshService` is a `SnapshotListener`.
+- **When it checks:** it checks new containers, and containers whose image ID changed, as soon as a snapshot shows them. It re-checks the rest from the latest snapshot every `porthole.versions.refresh-interval` (default `1h`), and never lists containers itself.
+- **Workers:** four shared workers inspect containers and images through their owning Docker client.
+- **Keys and pruning:** results, retry state and in-flight work use `(sourceId, containerId)`. Only an `UP` snapshot prunes that source's missing containers.
+- **Never blocking:** successful results stay cached while refreshing, and the dashboard only reads the cache.
+
+Registry catalogue caches are keyed by normalized registry and repository. Installed version and digest comparisons stay specific to each container.
+
+`POST /api/versions/refresh` returns `202 Accepted` and queues immediate checks across every source. It bypasses the refresh interval and invalidates the registry catalogue cache in the background. Existing results stay visible while checks run, and the dashboard's regular polling picks up completed checks.
+
+Health endpoints report only Porthole itself. The image's `HEALTHCHECK` calls `/actuator/health/liveness`, so an unreachable Docker host never marks the Porthole container unhealthy.
 
 ### Shared Endpoint Choices
 
-A container's endpoint choice is the `endpoint` field of its entry: `{"id": candidate}` for a discovered endpoint, `{"url": url}` for a custom URL, or `"none"`. A discovered choice stores only the candidate ID, which already names its provider, never a resolved URL. `EndpointSelectionResolver` applies it before availability filtering. A missing or unavailable discovered choice falls back to the automatic policy without rewriting the file, and explicit none keeps discovered candidates with every flag false. A custom candidate exists only while that custom choice is stored; replacing it removes its URL.
+A container's endpoint choice is the `endpoint` field of its entry: `{"id": candidate}` for a discovered endpoint, `{"url": url}` for a custom URL, or `"none"`. A discovered choice stores only the candidate ID, which already names its provider, never a resolved URL. Clients save a choice with `PATCH /api/entries/{id}`, and `"endpoint": null` restores automatic selection.
 
-`GET /api/containers` exposes only resolved presentation state: the `endpoints` array holds discovered candidates plus the saved custom candidate, each with a required boolean `selected`. Saved choices stay internal. Navigation trusts endpoint flags, custom URL editing reads the custom candidate, and tile/chip presentation uses `hasWebUi`. Clients save a choice with `PATCH /api/entries/{entryId}` and refetch the inventory to see its effect; `"endpoint": null` restores automatic selection.
-
-The browser reads resolved endpoints and `hasWebUi` in its existing inventory requests, without a separate preferences fetch or polling timer. After a successful PATCH, an existing inventory GET confirms the resolved state; the PATCH response confirms storage only and never supplies navigation state. Older inventory reads are canceled so stale results cannot undo confirmation, and inactive filtered queries refresh when next used. Save controls serialize changes and stay pending through confirmation. A failed PATCH retains the last confirmed selection; a successful PATCH followed by a failed GET reports that the preference was saved but could not be refreshed, and retry repeats only the GET. Layout and update notifications remain browser-local, and existing local endpoint choices are not migrated. See [the data directory](CONFIGURATION.md#data-directory) for paths, named volumes, and nonroot bind-mount permissions.
+The browser keeps one `['dashboard']` query. After a successful PATCH, a dashboard GET confirms the resolved state; the PATCH response confirms storage, and the browser never navigates from it. Older reads are canceled so stale results can't undo the confirmation. Save controls serialize changes and stay pending through confirmation. If the PATCH succeeds and the GET fails, settings report that the choice was saved but couldn't be refreshed, and retry repeats only the GET. Layout and update notifications stay in browser storage, keyed by entry ID. See [the data directory](CONFIGURATION.md#data-directory) for paths, named volumes, and nonroot bind-mount permissions.
 
 ## Directory Structure
 
@@ -369,28 +298,25 @@ The browser reads resolved endpoints and `hasWebUi` in its existing inventory re
 
 `server/src/main/java/com/roomelephant/porthole/`:
 
-- `core/port/inbound/` — `ListLinks`, `GetContainers` and `RefreshVersions`, called by inbound adapters and implemented by core services.
+- `core/port/inbound/` — `RefreshVersions`, called by `VersionController` and implemented by `VersionRefreshService`.
 - `core/port/outbound/` — `RegistryOperations`, implemented by the registry integration.
-- `core/service/` — `ContainerService` coordinates mapping, enrichment, and response assembly; `LinkListService` presents link entries.
-- `core/enrichment/` — the ordered `ContainerEnrichment` chain, its contract and request context; each handler has its own concern package (`state/`, `name/`, `endpoint/`, `preferences/`, `endpointavailability/`, `icon/`, `version/`). Endpoint discovery, providers, parsing, and URL rules belong to `endpoint/`.
-- `core/enrichment/icon/` — `IconEnricher` assigns default icons using `IconResolver` and `IconSettings`. `ContainerPreferencesEnricher` overrides them with saved choices.
-- `core/enrichment/version/` — `VersionEnricher` attaches cached version results to containers.
 - `core/enrichment/version/refresh/` — `VersionRefreshService` owns background scheduling, refresh coordination, retries, and cache state; `VersionRefreshSettings` supplies its interval.
 - `core/enrichment/version/resolution/` — `VersionResolver` gathers version evidence; installed-version detection, retained observations, release selection, update policy, and numeric comparison live alongside it.
-- `core/model/` — application-owned container/source metadata, outcomes, queries, image references, version values, and exceptions. Ports never expose SDK objects or client handles.
-- `core/mapping/` — `ContainerMapper` converts discovery snapshots to core containers.
-- `core/enrichment/name/` — `DisplayNameResolver` resolves source-wide name collisions; `DisplayNameEnricher` resolves and applies names before filters run.
-- `inbound/web/` — HTTP controllers, exception handling, wire records in `dto/`, and response mapping in `mapper/`. `ContainerController` calls `GetContainers`; `VersionController` calls `RefreshVersions`; `LinkController` calls `ListLinks`.
+- `core/model/` — version values, registry evidence and `SelfContainer`. Ports never expose SDK objects or client handles.
+- `inbound/web/` — `VersionController` and the global exception handler.
 - `fleet/` — configured sources (`SourceCatalog`), the `DockerOperations` port, `Fleet` and its per-source `SourceMonitor`s, `SourceSnapshot` and `SnapshotListener`. It depends on no other production package except `shared/`.
 - `fleet/docker/` — docker-java calls, container events, SDK mapping, failure translation, and managed client ownership in `DockerSourceRegistry`.
 - `fleet/web/` — `GET /api/sources`.
 - `entries/` — the entry model, `EntryService`, `IconService`, `IconSweeper`, `SvgSanitizer`, and the `StateStore` and `IconFileStore` ports. It depends only on `fleet/` and `shared/`.
 - `entries/store/` — `state.json` reading and writing.
 - `entries/icons/` — uploaded icon files on disk, named by content hash.
-- `entries/web/` — `/api/entries` and `/api/icons`.
-- `shared/` — small rules several slices use: `Hosts`, `HttpUrls` and `AtomicFiles`.
+- `entries/web/` — `/api/icons`.
+- `endpoints/` — endpoint providers, Traefik rule parsing, URL rules, `Candidate` and `EndpointSelection`. It depends only on `fleet/` and `shared/`.
+- `dashboard/` — `DashboardProjector`, `DisplayNames`, `DefaultIcons`, `DashboardService`, and the dashboard's properties and icon mappings. Nothing outside it depends on it.
+- `dashboard/web/` — `GET /api/dashboard`, the `/api/entries` write endpoints, and `IconUrls`.
+- `shared/` — small rules several slices use: `Hosts`, `HttpUrls`, `AtomicFiles` and `ImageReference`.
 - `outbound/registry/` — `RegistryOperationsAdapter` implements the core port, selects `RegistryClient` providers, and caches complete raw catalogues. `TagPagination` handles complete bounded traversal. `dockerhub/` and `ghcr/` own provider integration; `distribution/` shares authenticated tag/manifest protocol, token lifecycle, and Link parsing. Numeric selection and update decisions belong to `core.enrichment.version.resolution`.
-- `config/` — Spring wiring, YAML icon loading, HTTP transport setup, and translation from bound properties to core settings.
+- `config/` — Spring wiring, HTTP transport setup, and translation from bound properties to core settings.
 - `config/properties/` — `@ConfigurationProperties` beans and validation. Docker Hub transport uses `porthole.registry.dockerhub.*`.
 - `config/nativehints/` — Spring AOT hints for library types the agent cannot observe.
 
@@ -405,24 +331,16 @@ beans, Docker SDK classes, servlet types, or HTTP clients. Spring component and
 lifecycle annotations remain allowed in core.
 
 ```text
-inbound ──→ core ←── outbound
-              ↑ │
-            config wires implementations
-                │
-                ▼
-              fleet   (sources, monitors, Docker port and adapter)
+dashboard ──→ fleet, endpoints, entries, shared   (and versions, still in core)
+endpoints ──→ fleet, shared
+entries   ──→ fleet, shared
+fleet     ──→ shared
+inbound ──→ core ←── outbound;  config wires the legacy implementations
 ```
 
-`fleet` is the first feature slice of the architecture rework: core may use it,
-it uses nothing outside itself and `shared/`, and its root package never imports
-its `docker/` or `web/` adapters.
+The feature slices replace the hexagon one at a time. Nothing depends on `dashboard`. Each slice's root package never imports its own adapter subpackages, and a slice's `web` package never imports another slice's adapters. The dashboard reads the version cache from `core` until versions get their own slice.
 
-Version enrichment only reads cached results and queues background work. Registry
-HTTP and Docker inspection stay off the inventory request path. Refresh state,
-deduplication, and pruning retain one coordinator's ownership.
-`ArchitectureTest` uses ArchUnit to check core isolation, adapter dependency
-direction, and port contracts against production bytecode, while behavior
-tests cover pipeline composition, source failures, and refresh races.
+The dashboard only reads cached version results; registry HTTP and Docker inspection never run on a request. `ArchitectureTest` checks these rules against production bytecode with ArchUnit.
 
 ## Integration Test Infrastructure
 

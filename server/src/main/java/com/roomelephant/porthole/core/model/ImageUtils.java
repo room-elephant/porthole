@@ -1,5 +1,6 @@
 package com.roomelephant.porthole.core.model;
 
+import com.roomelephant.porthole.shared.ImageReference;
 import org.jspecify.annotations.*;
 
 @NullMarked
