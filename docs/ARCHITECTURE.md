@@ -4,6 +4,46 @@
 
 Porthole is designed as a monolithic, single-artifact application for simplicity of deployment.
 
+## Views
+
+The views follow the [C4 model](https://c4model.com/diagrams): system context, containers and the server's components. They are [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) pictures exported from a [Structurizr DSL](https://docs.structurizr.com/dsl) model: [`c4model.c1+c2.dsl`](architecture/c4model.c1+c2.dsl) holds the people, systems, containers and every view, and includes [`c4model.c3.dsl`](architecture/c4model.c3.dsl) for the server's components. Each picture is a committed SVG; see [architecture/README.md](architecture/README.md) for how they are generated and checked. The tests that check them run on their own, with `make -C server arch` and in CI's "Check architecture and diagrams" step, not with `make test`.
+
+### System context
+
+![C4 system context diagram for Porthole](architecture/generated/c4views/C1-Context.svg)
+
+The owner opens Porthole to find their containers and opens each container's page directly, on a published port or through a reverse proxy; Porthole never proxies that traffic. Porthole reads every configured Docker host, asks Docker Hub and GHCR for newer tags, and points the browser at default icons on jsDelivr.
+
+### Containers
+
+![C4 container diagram for Porthole](architecture/generated/c4views/C2-Containers.svg)
+
+The browser application and the server are separate containers because their code runs in different places, but they ship as one artifact: the server serves the built client as static resources. The data directory is the only thing the server writes.
+
+### Server components
+
+![C4 component diagram for the Porthole application server](architecture/generated/c4views/C3-Server-Components.svg)
+
+One component per feature slice; see [Server Package Layout](#server-package-layout) for what each holds. Arrows into `shared` are not drawn, since every slice may use it. `C3ArchTest` checks this view against the code: every package must belong to a component, and the arrows between components must be exactly the code's dependencies, no more and no fewer. Which dependencies are *allowed* is [ArchitectureTest's](#dependency-boundaries) job; this view draws the ones that exist.
+
+### All packages
+
+![Every Porthole package and the dependencies between them](architecture/generated/packages.svg)
+
+Every production package, grouped by slice, with every dependency between packages except those on `shared`, which every slice may use. `PackagesArchTest` checks it like the diagrams below: an undrawn dependency, a drawn arrow without one, or a package missing from the picture fails the build.
+
+### Packages inside the slices
+
+One diagram per slice that has adapters, and one for `versions.registry`, which has packages of its own. A box is a package and its subpackages; `..fleet` alone is the slice's root package. `PackagesArchTest` fails when the code has a dependency between two boxes that the diagram does not draw, when a drawn arrow has no dependency behind it, or when the boxes are not the slice's packages. Dependencies on other slices are in the view above.
+
+| Fleet | Versions | Entries | Dashboard |
+|---|---|---|---|
+| ![Fleet packages](architecture/generated/fleet-packages.svg) | ![Versions packages](architecture/generated/versions-packages.svg) | ![Entries packages](architecture/generated/entries-packages.svg) | ![Dashboard packages](architecture/generated/dashboard-packages.svg) |
+
+![Registry packages](architecture/generated/versions-registry-packages.svg)
+
+Adapters point at their slice's root, and no root depends on its own adapters. `versions.registry` is the exception: its root package and each of `distribution`, `dockerhub` and `ghcr` depend on each other, drawn as red two-headed lines. The providers implement the root's `RegistryClient` and use its `TagPagination` and `RegistryRequests`, while the root's `RegistryConfiguration` constructs them. `DistributionClient` uses `TagPagination`, `TagPage` and `RegistryRequests`, which throw and catch `distribution.RegistryProtocolException`. `ArchitectureTest` forbids cycles only between slices.
+
 ## Tech Stack
 
 ### Backend
@@ -313,7 +353,7 @@ The browser keeps one `['dashboard']` query. After a successful PATCH, a dashboa
 ├── client/             # React frontend (Vite + React 19)
 ├── server/             # Spring Boot backend (Java 25)
 ├── docker/             # Docker configuration (see docker/README.md)
-└── docs/               # Documentation
+└── docs/               # Documentation; architecture/ holds the C4 model and generated views
 ```
 
 ## Server Package Layout
@@ -347,7 +387,7 @@ fleet     ──→ (no slice)
 every slice may use shared; shared and nativehints use no slice
 ```
 
-`ArchitectureTest` checks these rules against production bytecode with ArchUnit:
+These are the dependencies allowed, not all used: `endpoints` currently uses no slice. The [server components view](#server-components) draws the ones the code has. `ArchitectureTest` checks these rules against production bytecode with ArchUnit:
 
 - Slices have no cycles, and nothing depends on `dashboard`.
 - `dashboard` reaches other slices only through their root packages.

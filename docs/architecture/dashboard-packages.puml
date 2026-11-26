@@ -1,0 +1,36 @@
+@startuml
+
+title Dashboard packages
+caption All packages and their dependencies are [[https://www.archunit.org/{What is ArchUnit?} ArchUnit]]-tested against the code
+footer docs/architecture/dashboard-packages.puml
+
+skinparam shadowing false
+skinparam hyperlinkColor #1A4FA0
+skinparam componentStyle rectangle
+skinparam nodesep 20
+' the box label is the package pattern itself, which ArchUnit reads from the stereotype;
+' the stereotype is hidden so the pattern is not printed twice
+hide stereotype
+skinparam ranksep 30
+<style>
+component {
+  BackGroundColor #ECEFF1
+  LineColor #546E7A
+}
+arrow {
+  LineColor #78909C
+}
+</style>
+
+' A box is a package directly under dashboard and its subpackages (<<..porthole.dashboard.x..>>); [..dashboard] is the
+' slice's root package alone. An arrow is a dependency the code has: PackagesArchTest fails on one the code has and
+' this file does not draw, and on one drawn here that the code lacks. Dependencies on other slices and on shared are
+' not drawn; the C3 view has those. A root never depends on its own adapters (ArchitectureTest), so every arrow
+' between an adapter and the root points at the root.
+
+[..dashboard.web] <<..porthole.dashboard.web..>>
+[..dashboard] <<..porthole.dashboard>>
+
+[..dashboard.web] --> [..dashboard]
+
+@enduml

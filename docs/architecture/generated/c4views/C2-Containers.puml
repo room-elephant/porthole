@@ -1,0 +1,52 @@
+@startuml
+title <size:24>Container View: Porthole</size>\n<size:24>What runs, where data lives, and how the parts communicate</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+
+AddElementTag("Container,Database", $bgColor="#438dd5", $borderColor="#2e6295", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+AddElementTag("Person", $bgColor="#08427b", $borderColor="#052e56", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+AddElementTag("Container", $bgColor="#438dd5", $borderColor="#2e6295", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+AddElementTag("Software System,External", $bgColor="#999999", $borderColor="#6b6b6b", $fontColor="#ffffff", $sprite="", $shadowing="", $borderStyle="solid")
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+AddBoundaryTag("Software System", $bgColor="#ffffff", $borderColor="#0b4884", $fontColor="#0b4884", $shadowing="", $borderStyle="solid")
+
+Person(Homelabowner, "Homelab owner", $descr="Opens the services their containers run; names, groups and links them", $tags="Person", $link="")
+System(DockerEngines, "Docker Engines", $descr="One or more Docker daemons, each a configured source, reached by socket or TCP", $tags="Software System,External", $link="")
+System(DockerHub, "Docker Hub", $descr="Image tags and manifests", $tags="Software System,External", $link="")
+System(GitHubContainerRegistry, "GitHub Container Registry", $descr="Image tags and manifests of public packages", $tags="Software System,External", $link="")
+System(DashboardIconsonjsDelivr, "Dashboard Icons on jsDelivr", $descr="The default service icons", $tags="Software System,External", $link="")
+
+System_Boundary("Porthole_boundary", "Porthole", $tags="Software System") {
+  ContainerDb(Porthole.Datadirectory, "Data directory", $techn="Local filesystem, PORTHOLE_DATA_DIR", $descr="state.json with every saved entry, and the uploaded icon files", $tags="Container,Database", $link="")
+  ContainerDb(Porthole.Configuration, "Configuration", $techn="application.yml, icons.yml", $descr="Docker connections, registry settings and icon mappings", $tags="Container,Database", $link="")
+  Container(Porthole.Browserapplication, "Browser application", $techn="React 19 / Vite", $descr="Tiles, filters, settings dialogs and live refresh", $tags="Container", $link="")
+  Container(Porthole.Applicationserver, "Application server", $techn="Java 25 / Spring Boot 4; GraalVM native", $descr="Watches the Docker sources, checks versions, keeps entries and serves the dashboard and the page; one process", $tags="Container", $link="")
+}
+
+Rel(Homelabowner, Porthole.Browserapplication, "Uses the dashboard", $techn="", $tags="Relationship", $link="")
+Rel(Porthole.Browserapplication, Porthole.Applicationserver, "Reads the dashboard, saves entries, uploads icons", $techn="HTTP / JSON", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver, Porthole.Browserapplication, "Signals a new dashboard revision", $techn="Server-sent events", $tags="Relationship", $link="")
+Rel(Porthole.Browserapplication, DashboardIconsonjsDelivr, "Loads default icons", $techn="HTTPS", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver, DockerEngines, "Lists containers, follows events, inspects images", $techn="Docker Engine API over socket or TCP", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver, DockerHub, "Reads tags and manifests", $techn="HTTPS, registry v2 API", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver, GitHubContainerRegistry, "Reads tags and manifests", $techn="HTTPS, registry v2 API", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver, Porthole.Datadirectory, "Reads and writes entries and icons", $techn="Filesystem", $tags="Relationship", $link="")
+Rel(Porthole.Applicationserver, Porthole.Configuration, "Reads at startup", $techn="Filesystem", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

@@ -17,6 +17,7 @@ Every component has its own Makefile (`client/`, `server/`, `docker/`); the root
 ```bash
 make -C server test                        # unit tests
 make -C server test-one TEST=DashboardProjectorTest
+make -C server arch                        # ArchitectureTest, C3ArchTest, PackagesArchTest; `test` leaves them out
 make -C server it                          # ITs against the existing porthole-jvm:latest image
 make -C server format                      # Spotless apply — run before committing
 make -C server dev                         # run the backend on the JVM, no client needed
@@ -61,11 +62,13 @@ Full detail lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the points be
 
 ### Slices
 
-The server is split into feature slices: `fleet/`, `endpoints/`, `versions/`, `entries/` and `dashboard/`, plus `shared/` for small common rules and `nativehints/`. Each slice keeps its model, services and ports in its root package, its adapters in subpackages (`docker`, `registry`, `store`, `icons`, `web`), and owns its `@ConfigurationProperties` and `@Configuration`. `ArchitectureTest` enforces the rules with ArchUnit against production bytecode, so a layering mistake fails the unit test run:
+The server is split into feature slices: `fleet/`, `endpoints/`, `versions/`, `entries/` and `dashboard/`, plus `shared/` for small common rules and `nativehints/`. Each slice keeps its model, services and ports in its root package, its adapters in subpackages (`docker`, `registry`, `store`, `icons`, `web`), and owns its `@ConfigurationProperties` and `@Configuration`. `ArchitectureTest` enforces the rules with ArchUnit against production bytecode, so a layering mistake fails `make -C server arch` and CI's "Check architecture and diagrams" step:
 - No cycles. `fleet` uses no other slice; `endpoints`, `versions` and `entries` use only `fleet`; `dashboard` uses the others through their root packages; every slice may use `shared`.
 - Nothing depends on `dashboard`.
 - A slice's root package never imports its own adapters, Docker SDK types, servlet types or HTTP clients.
 - A `web` package never imports another slice's adapters.
+
+`C3ArchTest` checks `docs/architecture/c4model.c3.dsl` against the same code: every package belongs to a component and the drawn arrows are exactly the code's dependencies between slices. A new dependency between slices, or a new top-level package, means editing that file; a new package inside a slice, or a new dependency between a slice's packages, means editing `docs/architecture/packages.puml` and that slice's `docs/architecture/<slice>-packages.puml`, which `PackagesArchTest` checks. `C3ArchTest` rewrites `docs/architecture/generated/c4views/` and fails when it wrote anything; commit what it wrote and run it again. See [docs/architecture/README.md](docs/architecture/README.md).
 
 ### Sources and the dashboard
 

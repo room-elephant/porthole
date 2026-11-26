@@ -1,0 +1,55 @@
+@startuml
+
+title Registry packages
+caption All packages and their dependencies are [[https://www.archunit.org/{What is ArchUnit?} ArchUnit]]-tested against the code
+footer docs/architecture/versions-registry-packages.puml
+
+skinparam shadowing false
+skinparam hyperlinkColor #1A4FA0
+skinparam componentStyle rectangle
+skinparam nodesep 20
+' the box label is the package pattern itself, which ArchUnit reads from the stereotype;
+' the stereotype is hidden so the pattern is not printed twice
+hide stereotype
+skinparam ranksep 30
+<style>
+component {
+  BackGroundColor #ECEFF1
+  LineColor #546E7A
+}
+arrow {
+  LineColor #78909C
+}
+</style>
+
+' A box is a package directly under versions.registry and its subpackages (<<..porthole.versions.registry.x..>>); [..registry] is the
+' slice's root package alone. An arrow is a dependency the code has: PackagesArchTest fails on one the code has and
+' this file does not draw, and on one drawn here that the code lacks. Dependencies on other slices and on shared are
+' not drawn; the C3 view has those. These are not a slice's adapters, so ArchitectureTest's root-and-adapters rule
+' does not cover them, and nothing forbids cycles inside a slice.
+
+[..registry.distribution] <<..porthole.versions.registry.distribution..>>
+[..registry.dockerhub] <<..porthole.versions.registry.dockerhub..>>
+[..registry.ghcr] <<..porthole.versions.registry.ghcr..>>
+[..registry] <<..porthole.versions.registry>>
+
+[..registry.dockerhub] --> [..registry.distribution]
+[..registry.ghcr] --> [..registry.distribution]
+
+' Three cycles, each drawn as one red line with a head at each end, which ArchUnit cannot read, backed by two hidden
+' arrows, which it reads as the two dependencies:
+' - root and distribution: DistributionClient uses TagPagination, TagPage and RegistryRequests from the root, which
+'   throw and catch distribution's RegistryProtocolException.
+' - root and each provider: the providers implement the root's RegistryClient and use its pagination and requests,
+'   and the root's RegistryConfiguration constructs them.
+[..registry] <-[#C62828]-> [..registry.distribution]
+[..registry] -[hidden]-> [..registry.distribution]
+[..registry.distribution] -[hidden]-> [..registry]
+[..registry] <-[#C62828]-> [..registry.dockerhub]
+[..registry] -[hidden]-> [..registry.dockerhub]
+[..registry.dockerhub] -[hidden]-> [..registry]
+[..registry] <-[#C62828]-> [..registry.ghcr]
+[..registry] -[hidden]-> [..registry.ghcr]
+[..registry.ghcr] -[hidden]-> [..registry]
+
+@enduml

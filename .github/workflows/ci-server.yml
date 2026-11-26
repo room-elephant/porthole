@@ -6,10 +6,12 @@ on:
     paths:
       - 'server/**'
       - 'docs/openapi.yml'
+      - 'docs/architecture/**'
   pull_request:
     paths:
       - 'server/**'
       - 'docs/openapi.yml'
+      - 'docs/architecture/**'
       - '.github/workflows/ci-server.yml'
       - '.github/workflows/reusable-server.yml'
 
