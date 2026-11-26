@@ -1,6 +1,6 @@
 package com.roomelephant.porthole.versions.web;
 
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
+import com.roomelephant.porthole.versions.VersionTracker;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Tag(name = "Versions", description = "Image version checks.")
 public class VersionCheckController {
-    private final VersionRefreshService versions;
+    private final VersionTracker versions;
 
-    public VersionCheckController(VersionRefreshService versions) {
+    public VersionCheckController(VersionTracker versions) {
         this.versions = versions;
     }
 

@@ -1,7 +1,7 @@
 package com.roomelephant.porthole.dashboard;
 
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionChecks;
 import com.roomelephant.porthole.fleet.SourceSnapshot;
+import com.roomelephant.porthole.versions.VersionChecks;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
 

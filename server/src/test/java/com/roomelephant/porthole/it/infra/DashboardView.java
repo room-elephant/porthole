@@ -1,6 +1,6 @@
 package com.roomelephant.porthole.it.infra;
 
-import com.roomelephant.porthole.core.model.VersionInfo;
+import com.roomelephant.porthole.versions.VersionInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;

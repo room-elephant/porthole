@@ -164,8 +164,6 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <exclude>**/config/*Config*</exclude>
-                                <exclude>**/config/properties/*</exclude>
                                 <exclude>**/*Configuration*</exclude>
                                 <exclude>**/fleet/*Properties*</exclude>
                                 <exclude>**/*Application*</exclude>
@@ -180,8 +178,6 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <exclude>**/config/*Config*</exclude>
-                                <exclude>**/config/properties/*</exclude>
                                 <exclude>**/*Configuration*</exclude>
                                 <exclude>**/fleet/*Properties*</exclude>
                                 <exclude>**/*Application*</exclude>

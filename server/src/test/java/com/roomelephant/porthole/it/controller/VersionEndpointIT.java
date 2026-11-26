@@ -8,8 +8,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.dockerjava.api.command.InspectImageResponse;
-import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.it.infra.ContainerAwareIntegrationTestBase;
+import com.roomelephant.porthole.versions.VersionInfo;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;

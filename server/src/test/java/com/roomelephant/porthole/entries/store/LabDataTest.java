@@ -26,6 +26,10 @@ class LabDataTest {
             assertThat(LAB_DATA.resolve("icons").resolve(upload)).exists();
         }
         assertThat(state.entries()).anySatisfy(entry -> assertThat(entry.icon()).isInstanceOf(Icon.Upload.class));
+        assertThat(state.entries()).as("a renamed container").anySatisfy(entry -> {
+            assertThat(entry.ref()).isInstanceOf(com.roomelephant.porthole.entries.EntryRef.ContainerRef.class);
+            assertThat(entry.name()).isNotNull();
+        });
         assertThat(Files.exists(LAB_DATA.resolve("state.json"))).isTrue();
     }
 }

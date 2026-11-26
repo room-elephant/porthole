@@ -44,4 +44,11 @@ class FleetConfigurationTest {
                     assertThat(settings.stableSubscription()).isEqualTo(Duration.ofSeconds(30));
                 });
     }
+
+    @Test
+    void selfContainerFollowsTheConfiguredId() {
+        runner.withPropertyValues("porthole.self-container-id= ABC123 ")
+                .run(context ->
+                        assertThat(context.getBean(SelfContainer.class)).isEqualTo(new SelfContainer("abc123")));
+    }
 }

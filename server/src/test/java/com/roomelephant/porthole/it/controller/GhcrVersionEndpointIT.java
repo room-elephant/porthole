@@ -3,9 +3,9 @@ package com.roomelephant.porthole.it.controller;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.it.infra.IntegrationTestBase;
 import com.roomelephant.porthole.shared.ImageReference;
+import com.roomelephant.porthole.versions.VersionInfo;
 import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

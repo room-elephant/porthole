@@ -1,9 +1,9 @@
 package com.roomelephant.porthole.dashboard;
 
-import com.roomelephant.porthole.core.enrichment.version.refresh.VersionRefreshService;
 import com.roomelephant.porthole.entries.EntryRef;
 import com.roomelephant.porthole.entries.EntryService;
 import com.roomelephant.porthole.fleet.Fleet;
+import com.roomelephant.porthole.versions.VersionTracker;
 import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Service;
@@ -14,14 +14,14 @@ import org.springframework.stereotype.Service;
 public class DashboardService {
     private final Fleet fleet;
     private final EntryService entries;
-    private final VersionRefreshService versions;
+    private final VersionTracker versions;
     private final DashboardChanges changes;
     private final DashboardProjector projector;
 
     public DashboardService(
             Fleet fleet,
             EntryService entries,
-            VersionRefreshService versions,
+            VersionTracker versions,
             DashboardChanges changes,
             DashboardProjector projector) {
         this.fleet = fleet;

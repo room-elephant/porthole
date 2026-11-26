@@ -59,13 +59,13 @@ make -C docker test        # entrypoint scenarios; may prompt for sudo to create
 
 Full detail lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the points below are what's hard to recover by reading one file.
 
-### Slices and the legacy hexagon
+### Slices
 
-The server is moving from a hexagon (`core/`, `inbound/`, `outbound/`, `config/`) to feature slices: `fleet/`, `endpoints/`, `entries/`, `dashboard/` and `shared/`. What remains in the hexagon is version checking and the registry integration. `ArchitectureTest` enforces the rules with ArchUnit against production bytecode, so a layering mistake fails the unit test run:
-- `fleet` depends on nothing but `shared`, and `endpoints` and `entries` only on `fleet` and `shared`.
+The server is split into feature slices: `fleet/`, `endpoints/`, `versions/`, `entries/` and `dashboard/`, plus `shared/` for small common rules and `nativehints/`. Each slice keeps its model, services and ports in its root package, its adapters in subpackages (`docker`, `registry`, `store`, `icons`, `web`), and owns its `@ConfigurationProperties` and `@Configuration`. `ArchitectureTest` enforces the rules with ArchUnit against production bytecode, so a layering mistake fails the unit test run:
+- No cycles. `fleet` uses no other slice; `endpoints`, `versions` and `entries` use only `fleet`; `dashboard` uses the others through their root packages; every slice may use `shared`.
 - Nothing depends on `dashboard`.
-- A slice's root package never imports its own adapter subpackages (`docker`, `store`, `icons`, `web`).
-- Core never imports adapters, Docker SDK types, servlet types or HTTP clients.
+- A slice's root package never imports its own adapters, Docker SDK types, servlet types or HTTP clients.
+- A `web` package never imports another slice's adapters.
 
 ### Sources and the dashboard
 
@@ -77,7 +77,7 @@ Docker state lives in memory: `fleet` keeps one `SourceMonitor` per configured c
 
 `EndpointProvider` (in `endpoints/`) is a sealed interface; a new provider must be a final `@Component` added to the `permits` clause, and it is then picked up automatically by constructor injection. Providers mark candidates `ROUTED` (proxy routes) or `DIRECT` (published ports), and `EndpointSelection` prefers routed ones when nothing is saved.
 
-Version checks run in the background from snapshots; the dashboard only reads their cache, so registry HTTP and Docker inspection never run on a request.
+`VersionTracker` (in `versions/`) runs version checks in the background from snapshots; the dashboard only reads their cache, so registry HTTP and Docker inspection never run on a request.
 
 ### Entries
 
@@ -93,7 +93,7 @@ GraalVM requires explicit reflection/proxy/JNI configuration. Generated hints li
 server/src/main/resources/META-INF/native-image/com.roomelephant/porthole-agent/reachability-metadata.json
 ```
 
-Regenerate with `make server-native-hints` after adding features that use reflection, and commit the result. Do not hand-edit the generated JSON — for types not reached by the ITs, register them manually in `config/nativehints/DockerNativeConfig` using `RuntimeHints` or `@RegisterReflectionForBinding`.
+Regenerate with `make server-native-hints` after adding features that use reflection, and commit the result. Do not hand-edit the generated JSON — for types not reached by the ITs, register them manually in `nativehints/DockerNativeHints` using `RuntimeHints` or `@RegisterReflectionForBinding`.
 
 ## Key conventions
 

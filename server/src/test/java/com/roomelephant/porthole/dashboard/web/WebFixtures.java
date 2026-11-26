@@ -1,6 +1,5 @@
 package com.roomelephant.porthole.dashboard.web;
 
-import com.roomelephant.porthole.core.model.VersionInfo;
 import com.roomelephant.porthole.dashboard.ContainerFacts;
 import com.roomelephant.porthole.dashboard.DashboardEntry;
 import com.roomelephant.porthole.dashboard.DashboardProperties;
@@ -9,6 +8,7 @@ import com.roomelephant.porthole.dashboard.ResolvedEndpoint;
 import com.roomelephant.porthole.entries.EntryRef.ContainerRef;
 import com.roomelephant.porthole.entries.EntryRef.LinkRef;
 import com.roomelephant.porthole.entries.Icon;
+import com.roomelephant.porthole.versions.VersionInfo;
 import java.util.List;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
