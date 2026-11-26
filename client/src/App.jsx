@@ -71,9 +71,18 @@ function App() {
   const data = fetched ?? EMPTY;
   const { links } = data;
   const initialError = error && !fetched;
+  // A container whose settings dialog is open stays shown, so a save that hides it doesn't close the dialog.
+  const [openSettingsEntryId, setOpenSettingsEntryId] = useState(null);
+  const handleContainerSettingsOpenChange = useCallback((entryId, open) => {
+    setOpenSettingsEntryId(current => {
+      if (open) return entryId;
+      return current === entryId ? null : current;
+    });
+  }, []);
   const containers = useMemo(
-    () => data.containers.filter(container => isShown(container, { showAll, showStopped, showSelf })),
-    [data.containers, showAll, showStopped, showSelf]);
+    () => data.containers.filter(container => container.entryId === openSettingsEntryId
+      || isShown(container, { showAll, showStopped, showSelf })),
+    [data.containers, openSettingsEntryId, showAll, showStopped, showSelf]);
   const filterExists = data.sources.some(source => source.id === selectedHost) || (selectedHost === EXTERNAL.ID && links.length > 0);
   const hostFilter = filterExists ? selectedHost : 'all';
   const counts = useMemo(() => {
@@ -100,6 +109,7 @@ function App() {
       showAll={showAll}
       showStopped={showStopped}
       onOpenLinkSettings={openLinkSettings}
+      onContainerSettingsOpenChange={handleContainerSettingsOpenChange}
     />
   ));
 

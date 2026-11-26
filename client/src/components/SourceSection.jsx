@@ -91,7 +91,7 @@ function StackMeta({ section }) {
 
 const keyOf = container => container.entryId;
 
-function Group({ group, section, sourcesById, onOpenLinkSettings }) {
+function Group({ group, section, sourcesById, onOpenLinkSettings, onContainerSettingsOpenChange }) {
   const groupRef = useRef(null);
   const queryClient = useQueryClient();
   // A failed or same-partition save must also release a closed dialog's focus handoff.
@@ -103,6 +103,7 @@ function Group({ group, section, sourcesById, onOpenLinkSettings }) {
   const focusKeyRef = useRef(null);
 
   const handleSettingsOpenChange = useCallback((container, open) => {
+    onContainerSettingsOpenChange?.(container.entryId, open);
     if (open) {
       focusKeyRef.current = null;
       frozenRef.current = { key: keyOf(container), headless: isHeadless(container) };
@@ -125,7 +126,7 @@ function Group({ group, section, sourcesById, onOpenLinkSettings }) {
         slot: [...groupRef.current.querySelectorAll('[data-container-key]')].find(el => el.dataset.containerKey === held.key),
       };
     }
-  }, [queryClient]);
+  }, [queryClient, onContainerSettingsOpenChange]);
 
   useEffect(() => {
     const relinquishFocus = event => {
@@ -203,7 +204,7 @@ function Group({ group, section, sourcesById, onOpenLinkSettings }) {
   );
 }
 
-export default function SourceSection({ section, sourcesById, showAll, showStopped, onOpenLinkSettings }) {
+export default function SourceSection({ section, sourcesById, showAll, showStopped, onOpenLinkSettings, onContainerSettingsOpenChange }) {
   const headingId = useId();
   const isHost = section.kind === 'host';
   const source = section.source;
@@ -229,6 +230,7 @@ export default function SourceSection({ section, sourcesById, showAll, showStopp
             section={section}
             sourcesById={sourcesById}
             onOpenLinkSettings={onOpenLinkSettings}
+            onContainerSettingsOpenChange={onContainerSettingsOpenChange}
           />
         ))
       )}

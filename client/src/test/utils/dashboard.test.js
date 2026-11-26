@@ -92,11 +92,12 @@ describe('dashboard', () => {
     expect(split.versionChecks).toBe(versionChecks);
   });
 
-  it('filters stopped and endpoint-less containers locally', () => {
+  it('filters stopped containers and those without a web UI locally', () => {
     const running = toContainerView(containerEntry());
     const stopped = { ...running, state: 'exited' };
     const quiet = { ...running, endpoints: [], hasEndpoints: false, hasWebUi: false };
-    const customOnly = { ...quiet, endpoints: [{ id: 'custom', source: 'custom', url: 'https://x/', selected: true }], hasEndpoints: true };
+    const customOnly = { ...quiet, endpoints: [{ id: 'custom', source: 'custom', url: 'https://x/', selected: true }], hasEndpoints: true, hasWebUi: true };
+    const chosenNone = { ...running, hasWebUi: false };
     const settings = { showAll: false, showStopped: false, showSelf: true };
 
     expect(isShown(running, settings)).toBe(true);
@@ -105,6 +106,8 @@ describe('dashboard', () => {
     expect(isShown(quiet, settings)).toBe(false);
     expect(isShown(quiet, { ...settings, showAll: true })).toBe(true);
     expect(isShown(customOnly, settings)).toBe(true);
+    expect(isShown(chosenNone, settings)).toBe(false);
+    expect(isShown(chosenNone, { ...settings, showAll: true })).toBe(true);
     ['created', 'dead', 'removing'].forEach(state => expect(isShown({ ...running, state }, settings)).toBe(false));
     ['paused', 'restarting', null].forEach(state => expect(isShown({ ...running, state }, settings)).toBe(true));
   });

@@ -50,7 +50,7 @@ export const splitDashboard = (dashboard) => {
 /** The server sends every container; the browser decides which ones the current settings show. */
 export const isShown = (container, { showAll, showStopped, showSelf }) => {
   if (!showStopped && STOPPED_STATES.has(container.state)) return false;
-  if (!showAll && !container.hasEndpoints) return false;
+  if (!showAll && !container.hasWebUi) return false;
   return showSelf || !container.self;
 };
 
