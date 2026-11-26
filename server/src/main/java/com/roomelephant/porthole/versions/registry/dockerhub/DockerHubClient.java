@@ -4,31 +4,26 @@ import com.roomelephant.porthole.shared.ImageReference;
 import com.roomelephant.porthole.versions.*;
 import com.roomelephant.porthole.versions.registry.*;
 import com.roomelephant.porthole.versions.registry.RegistryProperties;
-import com.roomelephant.porthole.versions.registry.distribution.*;
+import com.roomelephant.porthole.versions.registry.distribution.DistributionClient;
 import java.net.URI;
 import java.time.Duration;
-import java.util.*;
 import org.jspecify.annotations.NullMarked;
-import org.springframework.web.client.RestClient;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.*;
 
+/**
+ * Reads Docker Hub through its registry API. The hub.docker.com tag API refuses anonymous clients after 1000 tags, so
+ * repositories like nginx would never get a catalogue there.
+ */
 @NullMarked
 public final class DockerHubClient implements RegistryClient {
-    private final RestClient http;
-    private final ObjectMapper json;
+    /** The most tags Docker Hub's registry returns per page. */
+    static final int PAGE_SIZE = 1000;
+
     private final RegistryProperties.DockerHub properties;
     private final Duration readTimeout;
     private final DistributionClient distribution;
 
     public DockerHubClient(
-            RestClient http,
-            ObjectMapper json,
-            RegistryProperties.DockerHub properties,
-            Duration readTimeout,
-            DistributionClient distribution) {
-        this.http = http;
-        this.json = json;
+            RegistryProperties.DockerHub properties, Duration readTimeout, DistributionClient distribution) {
         this.properties = properties;
         this.readTimeout = readTimeout;
         this.distribution = distribution;
@@ -41,30 +36,10 @@ public final class DockerHubClient implements RegistryClient {
 
     @Override
     public RegistryLookup<TagCatalogue> listTags(ImageReference image) {
-        URI first = URI.create(properties.repositoriesUrl() + image.repository() + "/tags?page_size=100");
-        return RegistryRequests.read(() -> TagPagination.read(first, readTimeout, this::readPage));
-    }
-
-    private TagPage readPage(URI page) {
-        String body = http.get().uri(page).retrieve().body(String.class);
-        if (body == null) throw new RegistryProtocolException("Missing tag response");
-        try {
-            JsonNode response = json.readTree(body);
-            if (response == null || !response.path("results").isArray())
-                throw new RegistryProtocolException("Missing tag results");
-            List<String> tags = new ArrayList<>();
-            for (JsonNode result : response.path("results")) {
-                JsonNode name = result.path("name");
-                if (!name.isString()) throw new RegistryProtocolException("Invalid registry tag entry");
-                tags.add(name.asString());
-            }
-            JsonNode next = response.get("next");
-            if (next == null || next.isNull()) return new TagPage(tags, null);
-            if (!next.isString() || next.asString().isBlank()) throw new RegistryProtocolException("Invalid next page");
-            return new TagPage(tags, TagPagination.resolve(page, next.asString()));
-        } catch (JacksonException e) {
-            throw new RegistryProtocolException("Invalid tag response", e);
-        }
+        URI first = URI.create(properties.registryUrl() + image.repository() + "/tags/list?n=" + PAGE_SIZE);
+        return RegistryRequests.read(
+                "tags of docker.io/" + image.repository(),
+                () -> TagPagination.read(first, readTimeout, page -> distribution.readTagPage(image, page)));
     }
 
     @Override

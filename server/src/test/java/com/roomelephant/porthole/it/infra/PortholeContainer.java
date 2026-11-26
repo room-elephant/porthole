@@ -101,7 +101,6 @@ public class PortholeContainer extends GenericContainer<PortholeContainer> {
                 .withEnv(
                         "PORTHOLE_REGISTRY_DOCKERHUB_AUTHURL",
                         base + "/auth?service=registry.docker.io&scope=repository:")
-                .withEnv("PORTHOLE_REGISTRY_DOCKERHUB_REPOSITORIESURL", base + "/v2/repositories/")
                 .withEnv("PORTHOLE_REGISTRY_GHCR_REGISTRYURL", base + "/ghcr/v2/")
                 .withEnv("PORTHOLE_REGISTRY_GHCR_AUTHURL", base + "/ghcr/token?service=ghcr.io&scope=repository:")
                 .withEnv("PORTHOLE_REGISTRY_CACHE_TTL", "1ms")

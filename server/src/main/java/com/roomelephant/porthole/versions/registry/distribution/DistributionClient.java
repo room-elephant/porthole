@@ -53,7 +53,7 @@ public final class DistributionClient {
     }
 
     public RegistryLookup<ManifestMetadata> readManifest(ImageReference image, String reference) {
-        return RegistryRequests.read(() -> {
+        return RegistryRequests.read(image.registry() + "/" + image.repository() + " manifest " + reference, () -> {
             ResponseEntity<Void> response = tokens.execute(
                     image,
                     token -> http.head()

@@ -115,19 +115,19 @@ class VersionObservationTest {
                 new com.roomelephant.porthole.versions.registry.RegistryProperties.Cache(
                         java.time.Duration.ofMinutes(1), 100),
                 new com.roomelephant.porthole.versions.registry.RegistryProperties.DockerHub(
-                        "https://registry/", "https://auth/", "https://catalogue/"),
+                        "https://registry/", "https://auth/"),
                 new com.roomelephant.porthole.versions.registry.RegistryProperties.Ghcr(
                         "https://ghcr/", "https://ghcr-auth/"));
         var adapter = new com.roomelephant.porthole.versions.registry.RegistryOperationsAdapter(
                 List.of(config.dockerHubClient(http, JsonMapper.builder().build(), props)), props.cache());
         server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
-                        "https://catalogue/library/nginx/tags?page_size=100"))
-                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
-                        "{\"results\":[{\"name\":\"2.0\"}]}", org.springframework.http.MediaType.APPLICATION_JSON));
-        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
                         "https://auth/library/nginx:pull"))
                 .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
                         "{\"token\":\"test\"}", org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                        "https://registry/library/nginx/tags/list?n=1000"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        "{\"tags\":[\"2.0\"]}", org.springframework.http.MediaType.APPLICATION_JSON));
         server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
                         "https://registry/library/nginx/manifests/1.0"))
                 .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess()

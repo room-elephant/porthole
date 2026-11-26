@@ -36,10 +36,7 @@ public record RegistryProperties(
             String registryUrl,
 
             @NotBlank(message = "Auth URL must be configured")
-            String authUrl,
-
-            @NotBlank(message = "Repositories URL must be configured")
-            String repositoriesUrl) {}
+            String authUrl) {}
 
     public record Timeout(
             @NotNull(message = "Connect timeout must be configured")

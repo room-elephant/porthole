@@ -41,7 +41,7 @@ public abstract class IntegrationTestBase {
                         .willReturn(okJson("{\"token\":\"inventory-token\"}")))
                 .getId());
         inventoryDefaults.add(wireMockServer
-                .stubFor(get(urlPathMatching("/(v2/repositories/.+/tags|ghcr/v2/.+/tags/list)"))
+                .stubFor(get(urlPathMatching("/(ghcr/)?v2/.+/tags/list"))
                         .atPriority(100)
                         .willReturn(aResponse().withStatus(404)))
                 .getId());

@@ -33,8 +33,7 @@ public class RegistryConfiguration {
                 json,
                 properties.dockerhub().registryUrl(),
                 new BearerTokenClient(client, json, properties.dockerhub().authUrl(), Clock.systemUTC()));
-        return new DockerHubClient(
-                client, json, properties.dockerhub(), properties.timeout().read(), distribution);
+        return new DockerHubClient(properties.dockerhub(), properties.timeout().read(), distribution);
     }
 
     @Bean

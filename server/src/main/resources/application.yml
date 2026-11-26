@@ -60,7 +60,6 @@ porthole:
     dockerhub:
       registry-url: "https://registry-1.docker.io/v2/"
       auth-url: "https://auth.docker.io/token?service=registry.docker.io&scope=repository:"
-      repositories-url: "https://hub.docker.com/v2/repositories/"
     ghcr:
       registry-url: "https://ghcr.io/v2/"
       auth-url: "https://ghcr.io/token?service=ghcr.io&scope=repository:"

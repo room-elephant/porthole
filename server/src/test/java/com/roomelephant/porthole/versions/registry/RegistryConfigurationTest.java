@@ -26,8 +26,10 @@ class RegistryConfigurationTest {
         var http = builder.build();
         boolean hub = beanName.equals("dockerHubClient");
         if (hub) {
-            server.expect(requestTo("https://catalog/library/nginx/tags?page_size=100"))
-                    .andRespond(withSuccess("{'results':[{'name':'1.0'}]}", MediaType.APPLICATION_JSON));
+            server.expect(requestTo("https://auth/library/nginx:pull"))
+                    .andRespond(withSuccess("{'token':'anonymous'}", MediaType.APPLICATION_JSON));
+            server.expect(requestTo("https://registry/library/nginx/tags/list?n=1000"))
+                    .andRespond(withSuccess("{'tags':['1.0']}", MediaType.APPLICATION_JSON));
         } else {
             server.expect(requestTo("https://auth/acme/app:pull"))
                     .andRespond(withSuccess("{'token':'anonymous'}", MediaType.APPLICATION_JSON));
@@ -47,7 +49,6 @@ class RegistryConfigurationTest {
                         "porthole.registry.cache.version-max-size=100",
                         "porthole.registry.dockerhub.registry-url=https://registry/",
                         "porthole.registry.dockerhub.auth-url=https://auth/",
-                        "porthole.registry.dockerhub.repositories-url=https://catalog/",
                         "porthole.registry.ghcr.registry-url=https://registry/",
                         "porthole.registry.ghcr.auth-url=https://auth/")
                 .run(context -> {

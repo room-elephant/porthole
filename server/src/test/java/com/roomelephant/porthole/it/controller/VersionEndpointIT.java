@@ -169,7 +169,7 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
 
     void stubRegistryTags404(String image) {
         wireMockClient()
-                .stubFor(get(urlEqualTo("/v2/repositories/library/" + image + "/tags?page_size=100"))
+                .stubFor(get(urlEqualTo("/v2/library/" + image + "/tags/list?n=1000"))
                         .willReturn(aResponse().withStatus(404)));
     }
 
@@ -191,17 +191,17 @@ class VersionEndpointIT extends ContainerAwareIntegrationTestBase {
      * @param versions Array of version strings (e.g., "1.35.0", "1.36.1")
      */
     void stubRegistryTags(String image, String... versions) {
-        StringBuilder tagsJson = new StringBuilder("{\"results\": [");
+        StringBuilder tagsJson = new StringBuilder("{\"tags\": [");
         for (int i = 0; i < versions.length; i++) {
             if (i > 0) {
                 tagsJson.append(",");
             }
-            tagsJson.append("{\"name\": \"").append(versions[i]).append("\"}");
+            tagsJson.append("\"").append(versions[i]).append("\"");
         }
         tagsJson.append("]}");
 
         wireMockClient()
-                .stubFor(get(urlEqualTo("/v2/repositories/library/" + image + "/tags?page_size=100"))
+                .stubFor(get(urlEqualTo("/v2/library/" + image + "/tags/list?n=1000"))
                         .willReturn(aResponse()
                                 .withHeader("Content-Type", "application/json")
                                 .withBody(tagsJson.toString())));
