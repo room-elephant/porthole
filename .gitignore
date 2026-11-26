@@ -37,3 +37,6 @@ logs/
 # Local container preferences (also used when running from server/)
 /data/
 /server/data/
+
+# Code City generator and its output (docs/architecture/codecity.sh)
+.codecity/

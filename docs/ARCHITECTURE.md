@@ -356,6 +356,14 @@ every slice may use shared; shared and nativehints use no slice
 
 The dashboard only reads cached version results; registry HTTP and Docker inspection never run on a request.
 
+### Code City
+
+![Code City of Porthole's Java code](architecture/generated/codecity.jpg)
+
+The same code as a 3-D city, drawn by the open-source [code-city](https://github.com/victorrentea/code-city) tool. Every class is a building and every package a district. A building's footprint is its lines of code and its height its cognitive complexity; its colour is the metric the picture's COLOR control names (outgoing coupling here, so the dark red buildings depend on the most other classes). The tool reads only the sources and `git log`, and draws Java alone, not the client.
+
+This is a snapshot, taken by `docs/architecture/codecity.sh` before the last PR that changed Java, and no test checks it. The script needs macOS (`sips`), Google Chrome and Python 3.10+. To explore the live, interactive city, run the script and open `.codecity/out/codecity.html`; that page also highlights what the current branch changed, which the stored picture does not.
+
 ## Integration Test Infrastructure
 
 `server/src/test/java/.../it/`:
